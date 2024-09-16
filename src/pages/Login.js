@@ -16,6 +16,7 @@ import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 import Typography from "@mui/material/Typography";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 import { errorHelper } from "../components/handle-input-error";
+import { showUser } from "../api/loginApi"
 
 import { addToken } from "../store/reducers/authentication";
 
@@ -52,8 +53,16 @@ export default function Login() {
   useEffect(() => {
     console.log('----------isAuth-----');
     console.log(isAuth);
+    console.log('----------isAuth2-----');
+    dispatch(showUser())
+      .unwrap()
+      .then((res) => {
+        console.log("----------// TOKEN KEY //-------------");
+        console.log(res.tokenKey);
+      })
+      .catch((err) => err.message);
     if (isAuth) {
-      navigate("/Dashboard");
+      navigate("/delete");
     } else {
       navigate("/");
     }
@@ -74,14 +83,19 @@ export default function Login() {
         })
         .catch((err) => err.message);
     },
+
+
+
   });
+
+
 
   return (
     <ThemeProvider theme={defaultTheme}>
       <CssBaseline />
-      <Box sx={{ width:'100%' }}>
+      <Box sx={{ width: '100%' }}>
         <Grid container component="main" sx={{ height: "100vh", width: '100%' }}>
-          
+
           <Grid
             item
             // xs={false}
@@ -151,6 +165,14 @@ export default function Login() {
                 >
                   เข้าสู่ระบบ
                 </Button>
+                <Button
+
+                  fullWidth
+                  variant="contained"
+                  sx={{ mt: 3, mb: 2 }}
+                >
+                  userShow
+                </Button>
                 <Grid container>
                   <Grid item xs>
                     <Link href="#" variant="body2">
@@ -177,8 +199,8 @@ export default function Login() {
           md={6}
           sx={{
             bgcolor: '#1D2A3A',
-            width:'100%',
-            height:'100%'
+            width: '100%',
+            height: '100%'
           }}
         >
 

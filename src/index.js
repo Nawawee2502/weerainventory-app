@@ -38,11 +38,11 @@ export const Init = () => {
   useEffect(() => {
     console.log('----------isAuth----- Dashboard');
     console.log(token);
-    if(token){
+    if (token) {
       isAuthentication = true;
       console.log('----------isAuthentication-----' + isAuthentication);
     }
-   
+
   }, [token]);
 };
 
@@ -53,11 +53,12 @@ root.render(
       <Init></Init>
       <Suspense fallback={<LoadingPage />}>
         <ThemeProvider theme={theme}>
-          {isAuthentication ? (
+          {/* {isAuthentication ? (
                 <Routes />
           ) : (
            <Layout/>
-          )}
+          )} */}
+          <Routes />
         </ThemeProvider>
       </Suspense>
     </PersistGate>
