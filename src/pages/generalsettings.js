@@ -291,10 +291,10 @@ export default function GeneralSettings() {
                                 </TabList>
                             </Box>
                             <TabPanel value="1">
-                                {/* <SetProductType /> */}
+                                <SetProductType />
                             </TabPanel>
                             <TabPanel value="2">
-                                {/* <SetCountingUnit /> */}
+                                <SetCountingUnit />
                             </TabPanel>
                             <TabPanel value="3">
                                 {/* <ProductRecord /> */}
