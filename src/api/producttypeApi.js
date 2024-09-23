@@ -72,9 +72,10 @@ export const fetchAllTypeproducts = createAsyncThunk(
 
 export const countProduct = createAsyncThunk(
   "",
-  async ({ dispatch }) => {
+  async ({ test }, { dispatch }) => {
     try {
-      const res = await axios.post(BASE_URL + "/api/countproduct");
+      console.log("____TETS____");
+      const res = await axios.post(BASE_URL + "/api/countproduct", { test: test });
       console.log(res.data);
       return res.data;
     } catch (error) {

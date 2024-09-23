@@ -73,7 +73,6 @@ export default function SetProductType() {
     const [typeproducts, setTypeproducts] = useState([]);
     const [page, setPage] = useState(0);
     const [count, setCount] = useState();
-    const limit = 5;
 
     const handleChange = (event, value) => {
         setPage(value);
@@ -87,7 +86,6 @@ export default function SetProductType() {
             .then((res) => {
                 console.log(res.data);
                 setTypeproducts(res.data);
-                // setCount(res.data.length);
             })
             .catch((err) => err.message);
     };
@@ -97,29 +95,27 @@ export default function SetProductType() {
     useEffect(() => {
         let offset = 0;
         let limit = 5;
-        // console.log(typeproducts.length);
+        let test = 10;
         dispatch(fetchAllTypeproducts({ offset, limit }))
             .unwrap()
             .then((res) => {
                 console.log(res.data);
                 setTypeproducts(res.data);
-                setCount(typeproducts.length );
             })
             .catch((err) => err.message);
 
-        dispatch(countProduct())
+        dispatch(countProduct({ test }))
             .unwrap()
             .then((res) => {
-                // console.log(res.data);
-                // let resData = res.data;
-                // let countPaging = resData / 5;
-                // let modPaging = resData % 5;
-                // if (modPaging > 0) {
-                //     countPaging++
-                // }
-                // console.log(countPaging , modPaging);
-                // setCount(Math.ceil(res.data / limit));
-                // setCount(res.data);
+                console.log(res.data);
+                let resData = res.data;
+                let countPaging = Math.floor(resData / 5);
+                let modPaging = resData % 5;
+                if (modPaging > 0) {
+                    countPaging++
+                }
+                console.log(countPaging , modPaging);
+                setCount(countPaging);
             })
             .catch((err) => err.message);
     }, [dispatch]);
