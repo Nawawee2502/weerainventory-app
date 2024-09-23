@@ -1,5 +1,5 @@
 import { Box, Button, InputAdornment, TextField, Typography, Drawer, IconButton } from '@mui/material';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
 import SearchIcon from '@mui/icons-material/Search';
 import { styled } from '@mui/material/styles';
@@ -13,6 +13,15 @@ import Paper from '@mui/material/Paper';
 import Checkbox from '@mui/material/Checkbox';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import { useFormik } from "formik";
+import { useDispatch, useSelector } from "react-redux";
+import { addTypeproduct, countProduct, fetchAllTypeproducts } from '../api/producttypeApi';
+import { errorHelper } from "../components/handle-input-error";
+import { Alert, AlertTitle } from '@mui/material';
+import Pagination from '@mui/material/Pagination';
+import Stack from '@mui/material/Stack';
+
+
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
     [`&.${tableCellClasses.head}`]: {
@@ -33,18 +42,18 @@ const StyledTableRow = styled(TableRow)(({ theme }) => ({
     },
 }));
 
-function createData(no, id, producttype) {
+function createData(no, typeproduct_code, typeproduct_name) {
     return {
         no,
-        id,
-        producttype,
+        typeproduct_code,
+        typeproduct_name,
         edit: (
-            <IconButton color="primary" size="md" onClick={() => console.log('Edit', id)} sx={{ border: '1px solid #AD7A2C', borderRadius: '7px' }}>
+            <IconButton color="primary" size="md" onClick={() => console.log('Edit', typeproduct_code)} sx={{ border: '1px solid #AD7A2C', borderRadius: '7px' }}>
                 <EditIcon sx={{ color: '#AD7A2C' }} />
             </IconButton>
         ),
         delete: (
-            <IconButton color="danger" size="md" onClick={() => console.log('Delete', id)} sx={{ border: '1px solid #F62626', borderRadius: '7px' }}>
+            <IconButton color="danger" size="md" onClick={() => console.log('Delete', typeproduct_code)} sx={{ border: '1px solid #F62626', borderRadius: '7px' }}>
                 <DeleteIcon sx={{ color: '#F62626' }} />
             </IconButton>
         ),
@@ -52,16 +61,68 @@ function createData(no, id, producttype) {
 }
 
 const rows = [
-    createData('1', '001', 'Rice',),
-    createData('2', '002', 'Soup',),
-    createData('3', '003', 'Noodle',),
-    createData('4', '004', 'Coconut',),
-    createData('5', '005', 'Oil',),
+    createData('', 'typeproduct_code', 'typeproduct_name',),
 ];
 
 export default function SetProductType() {
-    const [selected, setSelected] = React.useState([]);
-    const isAllSelected = selected.length === rows.length;
+    const [selected, setSelected] = useState([]);
+    // const isAllSelected = selected.length === typeproducts.length;
+    const dispatch = useDispatch();
+    const [alert, setAlert] = useState({ open: false, message: '', severity: 'success' });
+    // const { typeproducts } = useSelector((state) => state.typeproducts)
+    const [typeproducts, setTypeproducts] = useState([]);
+    const [page, setPage] = useState(0);
+    const [count, setCount] = useState();
+    const limit = 5;
+
+    const handleChange = (event, value) => {
+        setPage(value);
+        console.log(value);
+        let page = value - 1;
+        let offset = page * 5;
+        let limit = value * 5;
+        console.log(limit, offset);
+        dispatch(fetchAllTypeproducts({ offset, limit }))
+            .unwrap()
+            .then((res) => {
+                console.log(res.data);
+                setTypeproducts(res.data);
+                // setCount(res.data.length);
+            })
+            .catch((err) => err.message);
+    };
+
+
+
+    useEffect(() => {
+        let offset = 0;
+        let limit = 5;
+        // console.log(typeproducts.length);
+        dispatch(fetchAllTypeproducts({ offset, limit }))
+            .unwrap()
+            .then((res) => {
+                console.log(res.data);
+                setTypeproducts(res.data);
+                setCount(typeproducts.length );
+            })
+            .catch((err) => err.message);
+
+        dispatch(countProduct())
+            .unwrap()
+            .then((res) => {
+                // console.log(res.data);
+                // let resData = res.data;
+                // let countPaging = resData / 5;
+                // let modPaging = resData % 5;
+                // if (modPaging > 0) {
+                //     countPaging++
+                // }
+                // console.log(countPaging , modPaging);
+                // setCount(Math.ceil(res.data / limit));
+                // setCount(res.data);
+            })
+            .catch((err) => err.message);
+    }, [dispatch]);
 
     const handleCheckboxChange = (event, no) => {
         if (event.target.checked) {
@@ -71,19 +132,40 @@ export default function SetProductType() {
         }
     };
 
-    const handleSelectAllChange = (event) => {
-        if (event.target.checked) {
-            setSelected(rows.map(row => row.no));
-        } else {
-            setSelected([]);
-        }
-    };
+    // const handleSelectAllChange = (event) => {
+    //     if (event.target.checked) {
+    //         setSelected(typeproducts.map(row => row.no));
+    //     } else {
+    //         setSelected([]);
+    //     }
+    // };
 
-    const [openDrawer, setOpenDrawer] = React.useState(false);
+    const [openDrawer, setOpenDrawer] = useState(false);
 
     const toggleDrawer = (openDrawer) => () => {
         setOpenDrawer(openDrawer);
     };
+
+    const formik = useFormik({
+        initialValues: {
+            typeproduct_code: "",
+            typeproduct_name: "",
+        },
+        onSubmit: (values) => {
+            dispatch(addTypeproduct(values))
+                .unwrap()
+                .then((res) => {
+                    // alert('เพิ่มข้อมูลสำเร็จ');
+                    setAlert({ open: true, message: 'เพิ่มข้อมูลสำเร็จ', severity: 'success' });
+                    formik.resetForm();
+                })
+                .catch((err) => {
+                    // alert(`เกิดข้อผิดพลาด: ${err.message}`); 
+                    setAlert({ open: true, message: 'เกิดข้อผิดพลาดในการเพิ่มข้อมูล', severity: 'error' });
+                });
+        },
+    });
+
 
     return (
         <>
@@ -151,14 +233,14 @@ export default function SetProductType() {
                         }}
                     />
                 </Box>
-                <TableContainer component={Paper} sx={{ width: '60%', mt:'36px', }}>
+                <TableContainer component={Paper} sx={{ width: '60%', mt: '36px', }}>
                     <Table sx={{}} aria-label="customized table">
-                    <TableHead  sx={{  }}>
-                            <TableRow sx={{  }}>
+                        <TableHead sx={{}}>
+                            <TableRow sx={{}}>
                                 <StyledTableCell sx={{ width: '1%', textAlign: 'center' }}>
                                     <Checkbox
-                                        checked={isAllSelected}
-                                        onChange={handleSelectAllChange}
+                                        // checked={isAllSelected}
+                                        // onChange={handleSelectAllChange}
                                         sx={{ color: '#FFF' }}
                                     />
                                 </StyledTableCell>
@@ -171,26 +253,30 @@ export default function SetProductType() {
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {rows.map((row) => (
-                                <StyledTableRow key={row.no}>
+                            {typeproducts.map((row) => (
+                                <StyledTableRow key={row.typeproduct_code}>
                                     <StyledTableCell padding="checkbox" align="center">
                                         <Checkbox
-                                            checked={selected.includes(row.no)}
+                                            checked={selected.includes(row.typeproduct_code)}
                                             onChange={(event) => handleCheckboxChange(event, row.no)}
                                         />
                                     </StyledTableCell>
                                     <StyledTableCell component="th" scope="row" >
-                                        {row.no}
+                                        {row.typeproduct_id}
                                     </StyledTableCell>
-                                    <StyledTableCell align="center">{row.id}</StyledTableCell>
-                                    <StyledTableCell align="center">{row.producttype}</StyledTableCell>
+                                    <StyledTableCell align="center">{row.typeproduct_code}</StyledTableCell>
+                                    <StyledTableCell align="center">{row.typeproduct_name}</StyledTableCell>
                                     <StyledTableCell align="center">{row.edit}</StyledTableCell>
                                     <StyledTableCell align="center">{row.delete}</StyledTableCell>
                                 </StyledTableRow>
                             ))}
                         </TableBody>
+
                     </Table>
                 </TableContainer>
+                <Stack spacing={2}>
+                    <Pagination count={count} shape="rounded" onChange={handleChange} page={page} />
+                </Stack>
             </Box>
             <Drawer
                 anchor="right"
@@ -230,10 +316,9 @@ export default function SetProductType() {
                             color: '#FFFFFF',
                             px: '8px',
                             py: '4px',
-                            borderRadius: '5px',
+                            borderRadius: '20px',
                             fontWeight: 'bold',
                             zIndex: 1,
-                            borderRadius: '20px',
                             height: '89px',
                             display: 'flex',
                             justifyContent: 'center',
@@ -260,12 +345,29 @@ export default function SetProductType() {
 
                         <Typography sx={{ display: 'flex', flexDirection: 'row' }}>
                             Product Type ID :
-                            <Typography sx={{ color: '#754C27', ml: '12px' }}>
+                            <Box component="span" sx={{ color: '#754C27', ml: '12px' }}>
                                 #011
-                            </Typography>
+                            </Box>
                         </Typography>
+
                         <Box sx={{ width: '80%', mt: '24px' }}>
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
+                                Product Id
+                            </Typography>
+                            <TextField
+                                size="small"
+                                placeholder="Product Id"
+                                sx={{
+                                    mt: '8px',
+                                    width: '100%',
+                                    '& .MuiOutlinedInput-root': {
+                                        borderRadius: '10px',
+                                    },
+                                }}
+                                {...formik.getFieldProps("typeproduct_code")}
+                                {...errorHelper(formik, "typeproduct_code")}
+                            />
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
                                 Product Type
                             </Typography>
                             <TextField
@@ -275,9 +377,11 @@ export default function SetProductType() {
                                     mt: '8px',
                                     width: '100%',
                                     '& .MuiOutlinedInput-root': {
-                                        borderRadius: '10px', // Set border-radius here
+                                        borderRadius: '10px',
                                     },
                                 }}
+                                {...formik.getFieldProps("typeproduct_name")}
+                                {...errorHelper(formik, "typeproduct_name")}
                             />
                         </Box>
                         <Box sx={{ mt: '24px' }} >
@@ -293,6 +397,7 @@ export default function SetProductType() {
                                 Cancel
                             </Button>
                             <Button variant='contained'
+                                onClick={formik.handleSubmit} // ใช้ onClick แทน
                                 sx={{
                                     width: '100px',
                                     bgcolor: '#754C27',
@@ -304,10 +409,18 @@ export default function SetProductType() {
                             >
                                 Save
                             </Button>
+
                         </Box>
                     </Box>
                 </Box>
             </Drawer>
+            {alert.open && (
+                <Alert severity={alert.severity} onClose={() => setAlert({ ...alert, open: false })}>
+                    <AlertTitle>{alert.severity === 'success' ? 'Success' : 'Error'}</AlertTitle>
+                    {alert.message}
+                </Alert>
+            )}
+
         </>
     );
 }

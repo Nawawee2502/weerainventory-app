@@ -303,10 +303,10 @@ export default function GeneralSettings() {
                                 <Branch />
                             </TabPanel>
                             <TabPanel value="5">
-                                {/* <ComissaryKitchen /> */}
+                                <ComissaryKitchen />
                             </TabPanel>
                             <TabPanel value="6">
-                                {/* <Supplier /> */}
+                                <Supplier />
                             </TabPanel>
                         </TabContext>
                     </Box>

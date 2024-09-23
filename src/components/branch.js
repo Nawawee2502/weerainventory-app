@@ -1,35 +1,52 @@
-import { Box, Button, InputAdornment, TextField, Typography } from '@mui/material';
+import { Box, Button, InputAdornment, TextField, Typography, Drawer, IconButton } from '@mui/material';
 import React, { useState } from 'react';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
 import SearchIcon from '@mui/icons-material/Search';
-import Table from '@mui/joy/Table';
-import Sheet from '@mui/joy/Sheet';
-import Checkbox from '@mui/joy/Checkbox';
-import FormControl from '@mui/joy/FormControl';
-import FormLabel from '@mui/joy/FormLabel';
-import IconButton from '@mui/joy/IconButton';
-import Select from '@mui/joy/Select';
-import Option from '@mui/joy/Option';
+import { styled } from '@mui/material/styles';
+import Table from '@mui/material/Table';
+import TableBody from '@mui/material/TableBody';
+import TableCell, { tableCellClasses } from '@mui/material/TableCell';
+import TableContainer from '@mui/material/TableContainer';
+import TableHead from '@mui/material/TableHead';
+import TableRow from '@mui/material/TableRow';
+import Paper from '@mui/material/Paper';
+import Checkbox from '@mui/material/Checkbox';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
-import KeyboardArrowLeftIcon from '@mui/icons-material/KeyboardArrowLeft';
-import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
-import Drawer from '@mui/material/Drawer';
 
-function createData(no, id, branchname, address, telephone) {
+const StyledTableCell = styled(TableCell)(({ theme }) => ({
+    [`&.${tableCellClasses.head}`]: {
+        backgroundColor: '#754C27',
+        color: theme.palette.common.white,
+    },
+    [`&.${tableCellClasses.body}`]: {
+        fontSize: '16px',
+    },
+}));
+
+const StyledTableRow = styled(TableRow)(({ theme }) => ({
+    '&:nth-of-type(odd)': {
+        backgroundColor: theme.palette.action.hover,
+    },
+    '&:last-child td, &:last-child th': {
+        border: 0,
+    },
+}));
+
+function createData(no, id, branch, address, telephone) {
     return {
         no,
         id,
-        branchname,
+        branch,
         address,
         telephone,
         edit: (
-            <IconButton color="primary" size="md" onClick={() => console.log('Edit', id)} sx={{ border: '1px solid #AD7A2C' }}>
+            <IconButton color="primary" size="md" onClick={() => console.log('Edit', id)} sx={{ border: '1px solid #AD7A2C', borderRadius: '7px' }}>
                 <EditIcon sx={{ color: '#AD7A2C' }} />
             </IconButton>
         ),
-        deleteproduct: (
-            <IconButton color="danger" size="md" onClick={() => console.log('Delete', id)} sx={{ border: '1px solid #F62626' }}>
+        delete: (
+            <IconButton color="danger" size="md" onClick={() => console.log('Delete', id)} sx={{ border: '1px solid #F62626', borderRadius: '7px' }}>
                 <DeleteIcon sx={{ color: '#F62626' }} />
             </IconButton>
         ),
@@ -37,106 +54,12 @@ function createData(no, id, branchname, address, telephone) {
 }
 
 const rows = [
-    createData('1', '001', 'Rice'),
-    createData('2', '002', 'Wheat'),
-    createData('3', '003', 'Corn'),
-    // Add more rows as needed
+    createData('1', '001', 'Rice', '7337 S Rainbow Blvd Suite 101,...', '702-478-9866'),
+    createData('2', '002', 'Soup', '7337 S Rainbow Blvd Suite 101,...', '702-478-9866'),
+    createData('3', '003', 'Noodle', '7337 S Rainbow Blvd Suite 101,...', '702-478-9866'),
+    createData('4', '004', 'Coconut', '7337 S Rainbow Blvd Suite 101,...', '702-478-9866'),
+    createData('5', '005', 'Oil', '7337 S Rainbow Blvd Suite 101,...', '702-478-9866'),
 ];
-
-function labelDisplayedRows({ from, to, count }) {
-    return `${from}–${to} of ${count !== -1 ? count : `more than ${to}`}`;
-}
-
-function descendingComparator(a, b, orderBy) {
-    if (b[orderBy] < a[orderBy]) {
-        return -1;
-    }
-    if (b[orderBy] > a[orderBy]) {
-        return 1;
-    }
-    return 0;
-}
-
-function getComparator(order, orderBy) {
-    return order === 'desc'
-        ? (a, b) => descendingComparator(a, b, orderBy)
-        : (a, b) => -descendingComparator(a, b, orderBy);
-}
-
-const headCells = [
-    {
-        id: 'no',
-        numeric: false,
-        disablePadding: true,
-        label: 'No.',
-    },
-    {
-        id: 'id',
-        numeric: true,
-        disablePadding: false,
-        label: 'ID',
-    },
-    {
-        id: 'branchname',
-        numeric: true,
-        disablePadding: false,
-        label: 'Branch Name',
-    },
-    {
-        id: 'address',
-        numeric: true,
-        disablePadding: false,
-        label: 'Address',
-    },
-    {
-        id: 'telephone',
-        numeric: true,
-        disablePadding: false,
-        label: 'Telephone',
-    },
-    {
-        id: 'edit',
-        numeric: false,
-        disablePadding: false,
-        label: '',
-    },
-    {
-        id: 'deleteproduct',
-        numeric: false,
-        disablePadding: false,
-        label: '',
-    },
-];
-
-function EnhancedTableHead({ onSelectAllClick, numSelected, rowCount }) {
-    return (
-        <thead>
-            <tr>
-                <th style={{ backgroundColor: '#AD7A2C' }}>
-                    <Checkbox
-                        indeterminate={numSelected > 0 && numSelected < rowCount}
-                        checked={rowCount > 0 && numSelected === rowCount}
-                        onChange={onSelectAllClick}
-                        slotProps={{
-                            input: {
-                                'aria-label': 'select all products',
-                            },
-                        }}
-                        sx={{ verticalAlign: 'sub' }}
-                    />
-                </th>
-                {headCells.map((headCell) => (
-                    <th
-                        key={headCell.id}
-                        style={{ backgroundColor: '#AD7A2C', color: '#FFFFFF' }}
-                    >
-                        {headCell.label}
-                    </th>
-                ))}
-            </tr>
-        </thead>
-    );
-}
 
 export default function Branch() {
     const [order, setOrder] = useState('asc');
@@ -145,25 +68,28 @@ export default function Branch() {
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(5);
     const [openDrawer, setOpenDrawer] = React.useState(false);
+    const isAllSelected = selected.length === rows.length;
+
+    const handleCheckboxChange = (event, no) => {
+        if (event.target.checked) {
+            setSelected([...selected, no]);
+        } else {
+            setSelected(selected.filter((item) => item !== no));
+        }
+    };
+
+    const handleSelectAllChange = (event) => {
+        if (event.target.checked) {
+            setSelected(rows.map(row => row.no));
+        } else {
+            setSelected([]);
+        }
+    };
 
     const toggleDrawer = (openDrawer) => () => {
         setOpenDrawer(openDrawer);
     };
 
-    const handleRequestSort = (event, property) => {
-        const isAsc = orderBy === property && order === 'asc';
-        setOrder(isAsc ? 'desc' : 'asc');
-        setOrderBy(property);
-    };
-
-    const handleSelectAllClick = (event) => {
-        if (event.target.checked) {
-            const newSelected = rows.map((n) => n.no);
-            setSelected(newSelected);
-            return;
-        }
-        setSelected([]);
-    };
 
     const handleClick = (event, no) => {
         const selectedIndex = selected.indexOf(no);
@@ -249,7 +175,7 @@ export default function Branch() {
                     }}
                 >
                     <Typography sx={{ fontSize: '16px', fontWeight: '600', mr: '24px' }}>
-                        Product Type Search
+                        Branch Search
                     </Typography>
                     <TextField
                         placeholder="Search"
@@ -272,98 +198,50 @@ export default function Branch() {
                         }}
                     />
                 </Box>
-                <Box sx={{ mt: '18px' }}>
-                    <Box sx={{ p: '24px' }}>
-                        <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#5E5F5F' }}>
-                            Product Type
-                        </Typography>
-                    </Box>
-                    <Sheet
-                        variant="outlined"
-                        sx={{ width: '100%', boxShadow: 'sm', borderRadius: '5px' }}
-                    >
-                        <Table
-                            aria-labelledby="tableTitle"
-                            hoverRow
-                            sx={{
-                                '--TableCell-headBackground': 'transparent',
-                                // '--TableCell-selectedBackground': (theme) =>
-                                //     theme.vars.palette.success.softBg,
-                                '& thead th:nth-child(1)': {
-                                    width: '1px',
-                                },
-                                '& thead th:nth-child(2)': {
-                                    width: '30px',
-                                },
-                                '& thead th:nth-child(3)': {
-                                    width: '10%',
-                                },
-                                '& thead th:nth-child(4)': {
-                                    width: '20%',
-                                    textAlign: 'center'
-                                },
-                                '& thead th:nth-child(5)': {
-                                    width: '20%',
-                                },
-                                '& thead th:nth-child(6)': {
-                                    width: '20%',
-                                },
-                                '& thead th:nth-child(7)': {
-                                    width: '0.1px',
-                                },
-                                '& thead th:nth-child(8)': {
-                                    width: '0.1px',
-                                },
-                                
-                                '& tr > *:nth-child(n+3)': { textAlign: 'center' },
-                            }}
-                        >
-                            <EnhancedTableHead
-                                numSelected={selected.length}
-                                order={order}
-                                orderBy={orderBy}
-                                onSelectAllClick={handleSelectAllClick}
-                                rowCount={rows.length}
-                            />
-                            <tbody>
-                                {rows
-                                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                                    .map((row, index) => {
-                                        const isItemSelected = isSelected(row.no);
-                                        return (
-                                            <tr
-                                                key={row.no}
-                                                onClick={(event) => handleClick(event, row.no)}
-                                                role="checkbox"
-                                                aria-checked={isItemSelected}
-                                                tabIndex={-1}
-                                                selected={isItemSelected}
-                                            >
-                                                <td>
-                                                    <Checkbox
-                                                        checked={isItemSelected}
-                                                        sx={{ verticalAlign: 'sub' }}
-                                                    />
-                                                </td>
-                                                <td>{row.no}</td>
-                                                <td>{row.id}</td>
-                                                <td>{row.branchname}</td>
-                                                <td>{row.address}</td>
-                                                <td>{row.telephone}</td>
-                                                <td>{row.edit}</td>
-                                                <td>{row.deleteproduct}</td>
-                                            </tr>
-                                        );
-                                    })}
-                                {emptyRows > 0 && (
-                                    <tr style={{ height: 53 * emptyRows }}>
-                                        <td colSpan={6} />
-                                    </tr>
-                                )}
-                            </tbody>
-                        </Table>
-                    </Sheet>
-                </Box>
+                <TableContainer component={Paper} sx={{ width: '60%', mt:'36px' }}>
+                    <Table sx={{}} aria-label="customized table">
+                        <TableHead>
+                            <TableRow>
+                                <StyledTableCell sx={{ width: '1%', textAlign: 'center' }}>
+                                    <Checkbox
+                                        checked={isAllSelected}
+                                        onChange={handleSelectAllChange}
+                                        sx={{ color: '#FFF' }}
+                                    />
+                                </StyledTableCell>
+                                <StyledTableCell width='1%' >No.</StyledTableCell>
+                                <StyledTableCell align="center">ID</StyledTableCell>
+                                <StyledTableCell align="center">Branch Name</StyledTableCell>
+                                <StyledTableCell align="center">Address</StyledTableCell>
+                                <StyledTableCell align="center">Telephone</StyledTableCell>
+                                <StyledTableCell width='1%' align="center"></StyledTableCell>
+                                <StyledTableCell width='1%' align="center"></StyledTableCell>
+
+                            </TableRow>
+                        </TableHead>
+                        <TableBody>
+                            {rows.map((row) => (
+                                <StyledTableRow key={row.no}>
+                                    <StyledTableCell padding="checkbox" align="center">
+                                        <Checkbox
+                                            checked={selected.includes(row.no)}
+                                            onChange={(event) => handleCheckboxChange(event, row.no)}
+                                        />
+                                    </StyledTableCell>
+                                    <StyledTableCell component="th" scope="row" >
+                                        {row.no}
+                                    </StyledTableCell>
+                                    <StyledTableCell align="center">{row.id}</StyledTableCell>
+                                    <StyledTableCell align="center">{row.branch}</StyledTableCell>
+                                    <StyledTableCell align="center">{row.address}</StyledTableCell>
+                                    <StyledTableCell align="center">{row.telephone}</StyledTableCell>
+                                    <StyledTableCell align="center">{row.edit}</StyledTableCell>
+                                    <StyledTableCell align="center">{row.delete}</StyledTableCell>
+                                </StyledTableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </TableContainer>
             </Box>
             <Drawer
                 anchor="right"
@@ -432,46 +310,18 @@ export default function Branch() {
                         }}>
 
                         <Typography sx={{ display: 'flex', flexDirection: 'row' }}>
-                            Shop ID :
+                            Branch ID :
                             <Typography sx={{ color: '#754C27', ml: '12px' }}>
                                 #011
                             </Typography>
                         </Typography>
                         <Box sx={{ width: '80%', mt: '24px' }}>
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
-                                Branch Name
+                                Branch
                             </Typography>
                             <TextField
                                 size="small"
-                                placeholder="Name"
-                                sx={{
-                                    mt: '8px',
-                                    width: '100%',
-                                    '& .MuiOutlinedInput-root': {
-                                        borderRadius: '10px', // Set border-radius here
-                                    },
-                                }}
-                            />
-                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt:'24px' }}>
-                                Address
-                            </Typography>
-                            <TextField
-                                size="small"
-                                placeholder="Address"
-                                sx={{
-                                    mt: '8px',
-                                    width: '100%',
-                                    '& .MuiOutlinedInput-root': {
-                                        borderRadius: '10px', // Set border-radius here
-                                    },
-                                }}
-                            />
-                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt:'24px' }}>
-                                Telephone
-                            </Typography>
-                            <TextField
-                                size="small"
-                                placeholder="Telephone"
+                                placeholder="Branch"
                                 sx={{
                                     mt: '8px',
                                     width: '100%',
