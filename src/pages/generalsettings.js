@@ -13,17 +13,11 @@ import { styled, alpha } from '@mui/material/styles';
 import TabContext from '@mui/lab/TabContext';
 import TabList from '@mui/lab/TabList';
 import TabPanel from '@mui/lab/TabPanel';
-import SetProductType from '../components/setproducttype';
-import SetCountingUnit from '../components/setcountingunit';
-import Branch from '../components/branch';
-import ComissaryKitchen from '../components/comissarykitchen';
-import Supplier from '../components/supplier';
-// import SetProductType from './generalsettings/setproducttype';
-// import SetCountingUnit from './generalsettings/setcountingunit';
-// import ProductRecord from './generalsettings/productrecord';
-// import Shop from './generalsettings/shop';
-// import ComissaryKitchen from './generalsettings/comissarykitchen';
-// import Supplier from './generalsettings/supplier';
+import SetProductType from '../components/Setproducttype';
+import SetCountingUnit from '../components/Setcountingunit';
+import Branch from '../components/Branch';
+import ComissaryKitchen from '../components/Comissarykitchen';
+import Supplier from '../components/Supplier';
 
 const Search = styled('div')(({ theme }) => ({
     position: 'relative',

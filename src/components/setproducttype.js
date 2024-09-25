@@ -15,8 +15,8 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { useFormik } from "formik";
 import { useDispatch, useSelector } from "react-redux";
-import { addTypeproduct, countProduct, fetchAllTypeproducts } from '../api/producttypeApi';
-import { errorHelper } from "../components/handle-input-error";
+import { addTypeproduct, countProduct, fetchAllTypeproducts, deleteTypeproduct, updateTypeproduct } from '../api/producttypeApi';
+import { errorHelper } from "./handle-input-error";
 import { Alert, AlertTitle } from '@mui/material';
 import Pagination from '@mui/material/Pagination';
 import Stack from '@mui/material/Stack';
@@ -42,34 +42,11 @@ const StyledTableRow = styled(TableRow)(({ theme }) => ({
     },
 }));
 
-function createData(no, typeproduct_code, typeproduct_name) {
-    return {
-        no,
-        typeproduct_code,
-        typeproduct_name,
-        edit: (
-            <IconButton color="primary" size="md" onClick={() => console.log('Edit', typeproduct_code)} sx={{ border: '1px solid #AD7A2C', borderRadius: '7px' }}>
-                <EditIcon sx={{ color: '#AD7A2C' }} />
-            </IconButton>
-        ),
-        delete: (
-            <IconButton color="danger" size="md" onClick={() => console.log('Delete', typeproduct_code)} sx={{ border: '1px solid #F62626', borderRadius: '7px' }}>
-                <DeleteIcon sx={{ color: '#F62626' }} />
-            </IconButton>
-        ),
-    };
-}
-
-const rows = [
-    createData('', 'typeproduct_code', 'typeproduct_name',),
-];
 
 export default function SetProductType() {
     const [selected, setSelected] = useState([]);
-    // const isAllSelected = selected.length === typeproducts.length;
     const dispatch = useDispatch();
     const [alert, setAlert] = useState({ open: false, message: '', severity: 'success' });
-    // const { typeproducts } = useSelector((state) => state.typeproducts)
     const [typeproducts, setTypeproducts] = useState([]);
     const [page, setPage] = useState(0);
     const [count, setCount] = useState();
@@ -85,7 +62,11 @@ export default function SetProductType() {
             .unwrap()
             .then((res) => {
                 console.log(res.data);
-                setTypeproducts(res.data);
+                let resultData = res.data;
+                for (let indexArray = 0; indexArray < resultData.length; indexArray++) {
+                    resultData[indexArray].id = offset + indexArray + 1;
+                }
+                setTypeproducts(resultData);
             })
             .catch((err) => err.message);
     };
@@ -93,6 +74,7 @@ export default function SetProductType() {
 
 
     useEffect(() => {
+        refetchData();
         let offset = 0;
         let limit = 5;
         let test = 10;
@@ -100,7 +82,13 @@ export default function SetProductType() {
             .unwrap()
             .then((res) => {
                 console.log(res.data);
-                setTypeproducts(res.data);
+                let resultData = res.data;
+                for (let indexArray = 0; indexArray < resultData.length; indexArray++) {
+                    resultData[indexArray].id = indexArray + 1;
+                }
+                setTypeproducts(resultData);
+                console.log(resultData);
+
             })
             .catch((err) => err.message);
 
@@ -114,32 +102,117 @@ export default function SetProductType() {
                 if (modPaging > 0) {
                     countPaging++
                 }
-                console.log(countPaging , modPaging);
+                console.log(countPaging, modPaging);
                 setCount(countPaging);
             })
             .catch((err) => err.message);
     }, [dispatch]);
 
-    const handleCheckboxChange = (event, no) => {
+    const handleCheckboxChange = (event, typeproduct_code) => {
         if (event.target.checked) {
-            setSelected([...selected, no]);
+            setSelected([...selected, typeproduct_code]);
         } else {
-            setSelected(selected.filter((item) => item !== no));
+            setSelected(selected.filter((item) => item !== typeproduct_code));
         }
     };
 
-    // const handleSelectAllChange = (event) => {
-    //     if (event.target.checked) {
-    //         setSelected(typeproducts.map(row => row.no));
-    //     } else {
-    //         setSelected([]);
-    //     }
-    // };
+    const handleSelectAllClick = (event) => {
+        if (event.target.checked) {
+            const newSelected = typeproducts.map((row) => row.typeproduct_code);
+            setSelected(newSelected);
+        } else {
+            setSelected([]);
+        }
+    };
+
+    const handleDelete = (typeproduct_code) => {
+        dispatch(deleteTypeproduct({ typeproduct_code }))
+            .unwrap()
+            .then((res) => {
+                setAlert({ open: true, message: 'Deleted successfully', severity: 'success' });
+                setTimeout(() => {
+                    setAlert((prev) => ({ ...prev, open: false }));
+                }, 3000);
+                refetchData();
+                let offset = 0;
+                let limit = 5;
+                dispatch(fetchAllTypeproducts({ offset, limit }))
+                    .unwrap()
+                    .then((res) => setTypeproducts(res.data));
+            })
+            .catch((err) => {
+                setAlert({ open: true, message: 'Error deleting product', severity: 'error' });
+                setTimeout(() => {
+                    setAlert((prev) => ({ ...prev, open: false }));
+                }, 3000);
+            });
+    };
+
+    const handleDeleteSelected = () => {
+        Promise.all(selected.map(typeproduct_code =>
+            dispatch(deleteTypeproduct({ typeproduct_code })).unwrap()
+        ))
+            .then(() => {
+                setAlert({ open: true, message: 'ลบรายการที่เลือกสำเร็จ', severity: 'success' });
+                setTimeout(() => {
+                    setAlert((prev) => ({ ...prev, open: false }));
+                }, 3000);
+                setSelected([]);
+                refetchData();
+                let offset = 0;
+                let limit = 5;
+                dispatch(fetchAllTypeproducts({ offset, limit }))
+                    .unwrap()
+                    .then((res) => setTypeproducts(res.data));
+            })
+            .catch((err) => {
+                setAlert({ open: true, message: 'เกิดข้อผิดพลาดในการลบ', severity: 'error' });
+                setTimeout(() => {
+                    setAlert((prev) => ({ ...prev, open: false }));
+                }, 3000);
+            });
+    };
+
 
     const [openDrawer, setOpenDrawer] = useState(false);
+    const [openEditDrawer, setOpenEditDrawer] = useState(false);
 
     const toggleDrawer = (openDrawer) => () => {
         setOpenDrawer(openDrawer);
+    };
+
+    const toggleEditDrawer = (openEditDrawer) => () => {
+        setOpenEditDrawer(openEditDrawer);
+    };
+
+    const [editProduct, setEditProduct] = useState(null);
+
+    const handleEdit = (row) => {
+        setEditProduct(row);
+        formik.setValues({
+            typeproduct_code: row.typeproduct_code,
+            typeproduct_name: row.typeproduct_name,
+        });
+        toggleEditDrawer(true)();
+    };
+
+    const handleSave = () => {
+        dispatch(updateTypeproduct(formik.values))
+            .unwrap()
+            .then((res) => {
+                setAlert({ open: true, message: 'อัปเดตข้อมูลสำเร็จ', severity: 'success' });
+                refetchData();
+                toggleEditDrawer(false)();
+                setTimeout(() => {
+                    setAlert((prev) => ({ ...prev, open: false }));
+                }, 3000);
+            })
+            .catch((err) => {
+                setAlert({ open: true, message: 'เกิดข้อผิดพลาดในการอัปเดตข้อมูล', severity: 'error' });
+                setTimeout(() => {
+                    setAlert((prev) => ({ ...prev, open: false }));
+                }, 3000);
+            });
     };
 
     const formik = useFormik({
@@ -151,17 +224,34 @@ export default function SetProductType() {
             dispatch(addTypeproduct(values))
                 .unwrap()
                 .then((res) => {
-                    // alert('เพิ่มข้อมูลสำเร็จ');
                     setAlert({ open: true, message: 'เพิ่มข้อมูลสำเร็จ', severity: 'success' });
                     formik.resetForm();
+                    refetchData();
+
+                    setTimeout(() => {
+                        setAlert((prev) => ({ ...prev, open: false }));
+                    }, 3000);
+
                 })
                 .catch((err) => {
-                    // alert(`เกิดข้อผิดพลาด: ${err.message}`); 
                     setAlert({ open: true, message: 'เกิดข้อผิดพลาดในการเพิ่มข้อมูล', severity: 'error' });
+                    setTimeout(() => {
+                        setAlert((prev) => ({ ...prev, open: false }));
+                    }, 3000);
                 });
         },
     });
 
+    const refetchData = () => {
+        let offset = 0;
+        let limit = 5;
+        dispatch(fetchAllTypeproducts({ offset, limit }))
+            .unwrap()
+            .then((res) => {
+                setTypeproducts(res.data);
+            })
+            .catch((err) => console.log(err.message));
+    };
 
     return (
         <>
@@ -229,15 +319,27 @@ export default function SetProductType() {
                         }}
                     />
                 </Box>
-                <TableContainer component={Paper} sx={{ width: '60%', mt: '36px', }}>
+                <Box sx={{ width:'60%', mt:'24px' }}>
+                    <Button
+                        variant="contained"
+                        color="error"
+                        onClick={handleDeleteSelected}
+                        sx={{ mt: 2 }}
+                        disabled={selected.length === 0} 
+                    >
+                        Delete Selected ({selected.length})
+                    </Button>
+                </Box>
+                <TableContainer component={Paper} sx={{ width: '60%', mt: '24px', }}>
                     <Table sx={{}} aria-label="customized table">
                         <TableHead sx={{}}>
                             <TableRow sx={{}}>
                                 <StyledTableCell sx={{ width: '1%', textAlign: 'center' }}>
                                     <Checkbox
-                                        // checked={isAllSelected}
-                                        // onChange={handleSelectAllChange}
                                         sx={{ color: '#FFF' }}
+                                        indeterminate={selected.length > 0 && selected.length < typeproducts.length}
+                                        checked={typeproducts.length > 0 && selected.length === typeproducts.length}
+                                        onChange={handleSelectAllClick}
                                     />
                                 </StyledTableCell>
                                 <StyledTableCell width='1%' >No.</StyledTableCell>
@@ -254,16 +356,36 @@ export default function SetProductType() {
                                     <StyledTableCell padding="checkbox" align="center">
                                         <Checkbox
                                             checked={selected.includes(row.typeproduct_code)}
-                                            onChange={(event) => handleCheckboxChange(event, row.no)}
+                                            onChange={(event) => handleCheckboxChange(event, row.typeproduct_code)}
                                         />
+
                                     </StyledTableCell>
-                                    <StyledTableCell component="th" scope="row" >
-                                        {row.typeproduct_id}
+                                    <StyledTableCell component="th" scope="row">
+                                        {row.id}
                                     </StyledTableCell>
                                     <StyledTableCell align="center">{row.typeproduct_code}</StyledTableCell>
                                     <StyledTableCell align="center">{row.typeproduct_name}</StyledTableCell>
-                                    <StyledTableCell align="center">{row.edit}</StyledTableCell>
-                                    <StyledTableCell align="center">{row.delete}</StyledTableCell>
+                                    <StyledTableCell align="center">
+                                        <IconButton
+                                            color="primary"
+                                            size="md"
+                                            onClick={() => handleEdit(row)} // เรียกใช้ฟังก์ชัน handleEdit
+                                            sx={{ border: '1px solid #AD7A2C', borderRadius: '7px' }}
+                                        >
+                                            <EditIcon sx={{ color: '#AD7A2C' }} />
+                                        </IconButton>
+                                    </StyledTableCell>
+                                    <StyledTableCell align="center">
+                                        <IconButton
+                                            color="danger"
+                                            size="md"
+                                            onClick={() => handleDelete(row.typeproduct_code)} // Use a function to handle delete
+                                            sx={{ border: '1px solid #F62626', borderRadius: '7px' }}
+                                        >
+                                            <DeleteIcon sx={{ color: '#F62626' }} />
+                                        </IconButton>
+
+                                    </StyledTableCell>
                                 </StyledTableRow>
                             ))}
                         </TableBody>
@@ -399,6 +521,144 @@ export default function SetProductType() {
                                     bgcolor: '#754C27',
                                     '&:hover': {
                                         bgcolor: '#5A3D1E',
+                                    },
+                                    ml: '24px'
+                                }}
+                            >
+                                Save
+                            </Button>
+
+                        </Box>
+                    </Box>
+                </Box>
+            </Drawer>
+            <Drawer
+                anchor="right"
+                open={openEditDrawer}
+                onClose={toggleEditDrawer(false)}
+                ModalProps={{
+                    BackdropProps: {
+                        style: {
+                            backgroundColor: 'transparent',
+                        },
+                    },
+                }}
+                PaperProps={{
+                    sx: {
+                        boxShadow: 'none',
+                        width: '25%',
+                        borderRadius: '20px',
+                        border: '1px solid #E4E4E4',
+                        bgcolor: '#FAFAFA'
+                    },
+                }}
+            >
+                <Box
+                    sx={{
+                        width: '100%',
+                        mt: '80px',
+                        flexDirection: 'column'
+                    }}
+                >
+                    <Box
+                        sx={{
+                            position: 'absolute',
+                            top: '48px',
+                            left: '0',
+                            width: '129px',
+                            bgcolor: '#AD7A2C',
+                            color: '#FFFFFF',
+                            px: '8px',
+                            py: '4px',
+                            borderRadius: '20px',
+                            fontWeight: 'bold',
+                            zIndex: 1,
+                            height: '89px',
+                            display: 'flex',
+                            justifyContent: 'center',
+                        }}
+                    >
+                        <Typography sx={{ fontWeight: '600', fontSize: '14px' }} >
+                            Product Type
+                        </Typography>
+                    </Box>
+                    <Box
+                        sx={{
+                            display: 'flex',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            flexDirection: 'column',
+                            border: '1px solid #E4E4E4',
+                            borderRadius: '10px',
+                            bgcolor: '#FFFFFF',
+                            height: '100%',
+                            p: '16px',
+                            position: 'relative',
+                            zIndex: 2,
+                        }}>
+
+                        <Typography sx={{ display: 'flex', flexDirection: 'row' }}>
+                            Product Type ID :
+                            <Box component="span" sx={{ color: '#754C27', ml: '12px' }}>
+                                #011
+                            </Box>
+                        </Typography>
+
+                        <Box sx={{ width: '80%', mt: '24px' }}>
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
+                                Product Id
+                            </Typography>
+                            <TextField
+                                size="small"
+                                placeholder="Product Id"
+                                sx={{
+                                    mt: '8px',
+                                    width: '100%',
+                                    '& .MuiOutlinedInput-root': {
+                                        borderRadius: '10px',
+                                    },
+                                }}
+                                {...formik.getFieldProps("typeproduct_code")}
+                                {...errorHelper(formik, "typeproduct_code")}
+                            />
+
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
+                                Product Type
+                            </Typography>
+                            <TextField
+                                size="small"
+                                placeholder="Product Name"
+                                sx={{
+                                    mt: '8px',
+                                    width: '100%',
+                                    '& .MuiOutlinedInput-root': {
+                                        borderRadius: '10px',
+                                    },
+                                }}
+                                {...formik.getFieldProps("typeproduct_name")}
+                                {...errorHelper(formik, "typeproduct_name")}
+                            />
+                        </Box>
+                        <Box sx={{ mt: '24px' }} >
+                            <Button variant='contained'
+                                sx={{
+                                    width: '100px',
+                                    bgcolor: '#F62626',
+                                    '&:hover': {
+                                        bgcolor: '#D32F2F',
+                                    },
+                                }}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                onClick={handleSave}
+                                sx={{
+                                    width: '100px',
+                                    backgroundColor: '#AD7A2C',
+                                    color: '#FFFFFF',
+                                    '&:hover': {
+                                        backgroundColor: '#8C5D1E',
                                     },
                                     ml: '24px'
                                 }}

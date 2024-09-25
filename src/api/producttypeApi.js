@@ -57,7 +57,7 @@ export const deleteTypeproduct = createAsyncThunk(
 
 
 export const fetchAllTypeproducts = createAsyncThunk(
-  "",
+  "typeproduct/read",
   async ({ offset, limit }, { dispatch }) => {
     try {
       const res = await axios.post(BASE_URL + "/api/typeproductall", { offset: offset, limit: limit });
@@ -71,11 +71,11 @@ export const fetchAllTypeproducts = createAsyncThunk(
 );
 
 export const countProduct = createAsyncThunk(
-  "",
+  "typeproduct/count",
   async ({ test }, { dispatch }) => {
     try {
       console.log("____TETS____");
-      const res = await axios.post(BASE_URL + "/api/countproduct", { test: test });
+      const res = await axios.post(BASE_URL + "/api/counttypeproduct", { test: test });
       console.log(res.data);
       return res.data;
     } catch (error) {
