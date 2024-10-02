@@ -62,7 +62,7 @@ export default function Login() {
       })
       .catch((err) => err.message);
     if (isAuth) {
-      navigate("/delete");
+      navigate("/dashboard");
     } else {
       navigate("/");
     }
@@ -88,13 +88,15 @@ export default function Login() {
 
   });
 
+  
+
 
 
   return (
     <ThemeProvider theme={defaultTheme}>
       <CssBaseline />
-      <Box sx={{ width: '100%' }}>
-        <Grid container component="main" sx={{ height: "100vh", width: '100%' }}>
+      {/* <Box sx={{ width: '100%' }}> */}
+      {/* <Grid container component="main" sx={{ height: "100vh", width: '100%' }}>
 
           <Grid
             item
@@ -189,9 +191,136 @@ export default function Login() {
               </Box>
             </Box>
           </Grid>
+        </Grid> */}
+      <Grid container sx={{ height: '100vh', width: '100%' }}>
+        <Grid item md={6} sm={12} xs={12}
+          sx={{
+            bgcolor: '#1D2A3A',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            flexDirection: 'column'
+          }}
+        >
+          <Box sx={{ mt: '-100px', width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+            <img
+              src='logologin.png'
+              style={{
+                width: '50%',
+              }}
+            />
+          </Box>
         </Grid>
-      </Box>
-      <Grid container sx={{ bgcolor: '#1D2A3A', height: '100vh', width: 'auto' }}>
+        <Grid item md={6} sm={12} xs={12}
+          sx={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            flexDirection: 'column'
+          }}
+        >
+          <Box
+            component="form"
+            noValidate
+            onSubmit={formik.handleSubmit}
+            sx={{
+              width: '70%',
+              display: 'flex',
+              justifyContent: 'center',
+              // alignItems: 'center',
+              flexDirection: 'column'
+            }}
+          >
+            <Typography sx={{
+              fontSize: '36px',
+              fontWeight: '600',
+              background: 'linear-gradient(135deg, #F49300 0%, #754C27 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+            }}>
+              Sign in
+            </Typography>
+            <Typography sx={{
+              fontSize: '14px',
+              color: '#8392AB'
+            }}>
+              Enter your username and password to sign in.
+            </Typography>
+            <Typography sx={{
+              fontSize: '14px',
+              color: '#1D2A3A',
+              fontWeight: '600',
+              mt: '36px'
+            }}>
+              Username
+            </Typography>
+            <TextField
+              size="small"
+              placeholder="Username"
+              sx={{
+                mt: '8px',
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: '10px', // Set border-radius here
+                },
+              }}
+              autoFocus
+              {...formik.getFieldProps("username")}
+              {...errorHelper(formik, "username")}
+            />
+            <Typography sx={{
+              fontSize: '14px',
+              color: '#1D2A3A',
+              fontWeight: '600',
+              mt: '24px'
+            }}>
+              Password
+            </Typography>
+            <TextField
+              size="small"
+              placeholder="Password"
+              sx={{
+                mt: '8px',
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: '10px', // Set border-radius here
+                },
+              }}
+              {...formik.getFieldProps("password")}
+              {...errorHelper(formik, "password")}
+            />
+            <Button
+              variant="contained"
+              type="submit"
+              sx={{
+                background: 'linear-gradient(135deg, #F49300 0%, #754C27 100%)',
+                color: '#fff',
+                mt: '16px',
+                height: '40px',
+                borderRadius: '10px',
+                textTransform: 'none',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #F49300 0%, #754C27 100%)',
+                },
+              }}>
+              Sign in
+            </Button>
+            <Box sx={{ display: 'flex', fontSize: '14px', color: '#8392AB', mt: '16px' }}>
+              Don’t have an account?
+              <Typography sx={{
+                fontWeight: '600',
+                background: 'linear-gradient(135deg, #F49300 0%, #754C27 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                ml: '8px'
+              }}>
+                Sign up
+              </Typography>
+            </Box>
+
+          </Box>
+        </Grid>
+      </Grid>
+      {/* </Box> */}
+      {/* <Grid container sx={{ bgcolor: '#1D2A3A', height: '100vh', width: 'auto' }}>
         <Grid
           item
           // xs={false}
@@ -205,7 +334,7 @@ export default function Login() {
         >
 
         </Grid>
-      </Grid>
+      </Grid> */}
     </ThemeProvider>
   );
 }

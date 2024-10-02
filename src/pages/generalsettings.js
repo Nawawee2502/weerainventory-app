@@ -18,6 +18,7 @@ import SetCountingUnit from '../components/Setcountingunit';
 import Branch from '../components/Branch';
 import ComissaryKitchen from '../components/Comissarykitchen';
 import Supplier from '../components/Supplier';
+import ProductRecord from '../components/Productrecord';
 
 const Search = styled('div')(({ theme }) => ({
     position: 'relative',
@@ -291,7 +292,7 @@ export default function GeneralSettings() {
                                 <SetCountingUnit />
                             </TabPanel>
                             <TabPanel value="3">
-                                {/* <ProductRecord /> */}
+                                <ProductRecord />
                             </TabPanel>
                             <TabPanel value="4">
                                 <Branch />

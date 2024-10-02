@@ -7,13 +7,12 @@ import { Provider, useDispatch, useSelector } from "react-redux";
 
 import { useEffect, useState } from "react";
 import LoginPage from "./pages/Login";
-import Dashboard from "./pages/dashboard";
+import Dashboard from "./pages/Dashboard";
 // import SignUpPage from "./pages/SignUp";
 // import DashboardPage from "./pages/Dashboard";
-import GeneralSettings from "./pages/generalsettings"
+import GeneralSettings from "./pages/Generalsettings"
 import Register from "./pages/register";
-import Update from "./pages/update";
-import Delete from "./pages/delete";
+import Settings from "./pages/Settings";
 
 
 const Router = () => {
@@ -24,11 +23,10 @@ const Router = () => {
             <Routes>
                 <Route path="/" element={<LoginPage />} />
                 {/* <Route path="/SignUp" element={<SignUpPage />} /> */}
-                <Route path="/Dashboard" element={<Dashboard />} />
-                <Route path="/GeneralSettings" element={<GeneralSettings />} />
+                <Route path="/settings" element={<Settings />} />
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/generalsettings" element={<GeneralSettings />} />
                 <Route path="/register" element={<Register />} />
-                <Route path="/update" element={<Update />} />
-                <Route path="/delete" element={<Delete />} />
             </Routes>
         </BrowserRouter>
     );

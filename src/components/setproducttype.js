@@ -15,13 +15,11 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { useFormik } from "formik";
 import { useDispatch, useSelector } from "react-redux";
-import { addTypeproduct, countProduct, fetchAllTypeproducts, deleteTypeproduct, updateTypeproduct } from '../api/producttypeApi';
+import { addTypeproduct, countProduct, fetchAllTypeproducts, deleteTypeproduct, updateTypeproduct, searchTypeproduct, lastTypeproductCode } from '../api/producttypeApi';
 import { errorHelper } from "./handle-input-error";
 import { Alert, AlertTitle } from '@mui/material';
 import Pagination from '@mui/material/Pagination';
 import Stack from '@mui/material/Stack';
-
-
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
     [`&.${tableCellClasses.head}`]: {
@@ -50,18 +48,35 @@ export default function SetProductType() {
     const [typeproducts, setTypeproducts] = useState([]);
     const [page, setPage] = useState(0);
     const [count, setCount] = useState();
+    const [searchTerm, setSearchTerm] = useState("");
+    const [lastTypeproductCode, setLastTypeproductCode] = useState([]);
+
+    const handleSearchChange = (e) => {
+        setSearchTerm(e.target.value);
+    };
+
+    useEffect(() => {
+        if (searchTerm) {
+            dispatch(searchTypeproduct({ typeproduct_name: searchTerm }))
+                .unwrap()
+                .then((res) => {
+                    setTypeproducts(res.data);
+                })
+                .catch((err) => console.log(err.message));
+        } else {
+            refetchData();
+        }
+    }, [searchTerm, dispatch]);
+
 
     const handleChange = (event, value) => {
         setPage(value);
-        console.log(value);
         let page = value - 1;
         let offset = page * 5;
-        let limit = value * 5;
-        console.log(limit, offset);
+        let limit = 5;
         dispatch(fetchAllTypeproducts({ offset, limit }))
             .unwrap()
             .then((res) => {
-                console.log(res.data);
                 let resultData = res.data;
                 for (let indexArray = 0; indexArray < resultData.length; indexArray++) {
                     resultData[indexArray].id = offset + indexArray + 1;
@@ -70,6 +85,7 @@ export default function SetProductType() {
             })
             .catch((err) => err.message);
     };
+
 
 
 
@@ -89,6 +105,14 @@ export default function SetProductType() {
                 setTypeproducts(resultData);
                 console.log(resultData);
 
+            })
+            .catch((err) => err.message);
+
+        dispatch(lastTypeproductCode({ test }))
+            .unwrap()
+            .then((res) => {
+                setLastTypeproductCode(res.data);
+                console.log(res.data)
             })
             .catch((err) => err.message);
 
@@ -299,6 +323,8 @@ export default function SetProductType() {
                         Product Type Search
                     </Typography>
                     <TextField
+                        value={searchTerm}
+                        onChange={handleSearchChange}
                         placeholder="Search"
                         sx={{
                             '& .MuiInputBase-root': {
@@ -319,13 +345,13 @@ export default function SetProductType() {
                         }}
                     />
                 </Box>
-                <Box sx={{ width:'60%', mt:'24px' }}>
+                <Box sx={{ width: '60%', mt: '24px' }}>
                     <Button
                         variant="contained"
                         color="error"
                         onClick={handleDeleteSelected}
                         sx={{ mt: 2 }}
-                        disabled={selected.length === 0} 
+                        disabled={selected.length === 0}
                     >
                         Delete Selected ({selected.length})
                     </Button>
@@ -598,7 +624,7 @@ export default function SetProductType() {
                         }}>
 
                         <Typography sx={{ display: 'flex', flexDirection: 'row' }}>
-                            Product Type ID :
+                            EDIT Product Type ID :
                             <Box component="span" sx={{ color: '#754C27', ml: '12px' }}>
                                 #011
                             </Box>

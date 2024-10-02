@@ -15,6 +15,8 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import MoreIcon from '@mui/icons-material/MoreVert';
 import { Button } from '@mui/material';
+import { useNavigate } from "react-router-dom";
+
 
 const Search = styled('div')(({ theme }) => ({
     position: 'relative',
@@ -58,6 +60,12 @@ const StyledInputBase = styled(InputBase)(({ theme }) => ({
 export default function Settings() {
     const [anchorEl, setAnchorEl] = useState(null);
     const [mobileMoreAnchorEl, setMobileMoreAnchorEl] = useState(null);
+    let navigate = useNavigate();
+
+    const handleGeneralSettings = () => {
+        navigate('/generalsettings');
+    };
+
 
     const isMenuOpen = Boolean(anchorEl);
     const isMobileMenuOpen = Boolean(mobileMoreAnchorEl);
@@ -242,6 +250,7 @@ export default function Settings() {
                         justifyContent: 'center',
                     }}>
                     <Button
+                        onClick={handleGeneralSettings}
                         sx={{
                             width: '413px',
                             height: '333px',

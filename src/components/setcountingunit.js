@@ -339,7 +339,7 @@ export default function SetCountingUnit() {
                                 </StyledTableCell>
                                 <StyledTableCell width='1%' >No.</StyledTableCell>
                                 <StyledTableCell align="center">ID</StyledTableCell>
-                                <StyledTableCell align="center">Product Type</StyledTableCell>
+                                <StyledTableCell align="center">Counting Unit</StyledTableCell>
                                 <StyledTableCell width='1%' align="center"></StyledTableCell>
                                 <StyledTableCell width='1%' align="center"></StyledTableCell>
 
@@ -573,7 +573,7 @@ export default function SetCountingUnit() {
                         }}
                     >
                         <Typography sx={{ fontWeight: '600', fontSize: '14px' }} >
-                            Product Type
+                            Counting Unit ID
                         </Typography>
                     </Box>
                     <Box
@@ -592,7 +592,7 @@ export default function SetCountingUnit() {
                         }}>
 
                         <Typography sx={{ display: 'flex', flexDirection: 'row' }}>
-                            Product Type ID :
+                            Counting Unit ID :
                             <Box component="span" sx={{ color: '#754C27', ml: '12px' }}>
                                 #011
                             </Box>
@@ -600,7 +600,7 @@ export default function SetCountingUnit() {
 
                         <Box sx={{ width: '80%', mt: '24px' }}>
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
-                                Counting Unit Id
+                                EDIT Counting Unit Id
                             </Typography>
                             <TextField
                                 size="small"

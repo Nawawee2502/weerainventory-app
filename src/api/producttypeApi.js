@@ -70,6 +70,20 @@ export const fetchAllTypeproducts = createAsyncThunk(
   }
 );
 
+export const lastTypeproductCode = createAsyncThunk(
+  "typeproduct/code",
+  async ( { test },{ dispatch }) => {
+    try {
+      const res = await axios.post(BASE_URL + "/api/typeproductcode", { test: test });
+      console.log(res.data);
+      return res.data;
+    } catch (error) {
+      console.error(error.message);
+      throw error;
+    }
+  }
+);
+
 export const countProduct = createAsyncThunk(
   "typeproduct/count",
   async ({ test }, { dispatch }) => {
@@ -85,4 +99,18 @@ export const countProduct = createAsyncThunk(
   }
 );
 
-
+export const searchTypeproduct = createAsyncThunk(
+  "typeproduct/search",
+  async ({ typeproduct_name }, { dispatch }) => {
+    try {
+      const res = await axios.post(BASE_URL + "/api/searchtypeproductname", {
+        typeproduct_name,
+      });
+      console.log(res.data);
+      return res.data;
+    } catch (error) {
+      console.error(error.message);
+      throw error;
+    }
+  }
+);

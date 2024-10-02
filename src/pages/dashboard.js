@@ -11,6 +11,7 @@ import Badge from '@mui/material/Badge';
 import MenuItem from '@mui/material/MenuItem';
 import Menu from '@mui/material/Menu';
 import MenuIcon from '@mui/icons-material/Menu';
+import { useNavigate } from "react-router-dom";
 import SearchIcon from '@mui/icons-material/Search';
 import AccountCircle from '@mui/icons-material/AccountCircle';
 import SettingsIcon from '@mui/icons-material/Settings';
@@ -59,12 +60,19 @@ const StyledInputBase = styled(InputBase)(({ theme }) => ({
     },
 }));
 
+
+
 export default function Dashboard() {
     const [anchorEl, setAnchorEl] = useState(null);
     const [mobileMoreAnchorEl, setMobileMoreAnchorEl] = useState(null);
+    let navigate = useNavigate();
 
     const isMenuOpen = Boolean(anchorEl);
     const isMobileMenuOpen = Boolean(mobileMoreAnchorEl);
+
+    const handleSettings = () => {
+        navigate('/settings');
+    };
 
     const handleProfileMenuOpen = (event) => {
         setAnchorEl(event.currentTarget);
@@ -172,7 +180,7 @@ export default function Dashboard() {
                     <Box sx={{ flexGrow: 1 }} />
                     <Box sx={{ display: { xs: 'none', md: 'flex' } }}>
                         <IconButton size="large" aria-label="show 4 new mails" color="inherit" >
-                            <SettingsIcon sx={{ color: '#979797' }} />
+                            <SettingsIcon onClick={handleSettings} sx={{ color: '#979797' }} />
                         </IconButton>
                         <IconButton
                             size="large"
