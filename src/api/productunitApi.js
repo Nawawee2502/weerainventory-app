@@ -85,4 +85,34 @@ export const countUnit = createAsyncThunk(
   }
 );
 
+export const searchUnit = createAsyncThunk(
+  "productunit/search",
+  async ({ unit_name }, { dispatch }) => {
+    try {
+      const res = await axios.post(BASE_URL + "/api/searchunitname", {
+        unit_name,
+      });
+      console.log(res.data);
+      return res.data;
+    } catch (error) {
+      console.error(error.message);
+      throw error;
+    }
+  }
+);
+
+export const lastUnitCode = createAsyncThunk(
+  "unit/code",
+  async ( { test },{ dispatch }) => {
+    try {
+      const res = await axios.post(BASE_URL + "/api/unitcode", { test: test });
+      console.log(res.data);
+      return res.data;
+    } catch (error) {
+      console.error(error.message);
+      throw error;
+    }
+  }
+);
+
 

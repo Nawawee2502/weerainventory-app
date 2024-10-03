@@ -91,4 +91,32 @@ export const countKitchen = createAsyncThunk(
   }
 );
 
+export const searchKitchen = createAsyncThunk(
+  "productkitchen/search",
+  async ({ kitchen_name }, { dispatch }) => {
+    try {
+      const res = await axios.post(BASE_URL + "/api/searchkitchenname", {
+        kitchen_name,
+      });
+      console.log(res.data);
+      return res.data;
+    } catch (error) {
+      console.error(error.message);
+      throw error;
+    }
+  }
+);
 
+export const lastKitchenCode = createAsyncThunk(
+  "kitchen/code",
+  async ( { test },{ dispatch }) => {
+    try {
+      const res = await axios.post(BASE_URL + "/api/kitchencode", { test: test });
+      console.log(res.data);
+      return res.data;
+    } catch (error) {
+      console.error(error.message);
+      throw error;
+    }
+  }
+);

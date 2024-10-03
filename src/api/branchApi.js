@@ -92,3 +92,32 @@ export const countBranch = createAsyncThunk(
 );
 
 
+export const searchBranch = createAsyncThunk(
+  "productbranch/search",
+  async ({ branch_name }, { dispatch }) => {
+    try {
+      const res = await axios.post(BASE_URL + "/api/searchbranchname", {
+        branch_name,
+      });
+      console.log(res.data);
+      return res.data;
+    } catch (error) {
+      console.error(error.message);
+      throw error;
+    }
+  }
+);
+
+export const lastBranchCode = createAsyncThunk(
+  "branch/code",
+  async ({ test }, { dispatch }) => {
+    try {
+      const res = await axios.post(BASE_URL + "/api/branchcode", { test: test });
+      console.log(res.data);
+      return res.data;
+    } catch (error) {
+      console.error(error.message);
+      throw error;
+    }
+  }
+);

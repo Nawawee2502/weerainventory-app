@@ -91,4 +91,32 @@ export const countSupplier = createAsyncThunk(
   }
 );
 
+export const searchSupplier = createAsyncThunk(
+  "productsupplier/search",
+  async ({ supplier_name }, { dispatch }) => {
+    try {
+      const res = await axios.post(BASE_URL + "/api/searchsuppliername", {
+        supplier_name,
+      });
+      console.log(res.data);
+      return res.data;
+    } catch (error) {
+      console.error(error.message);
+      throw error;
+    }
+  }
+);
 
+export const lastSupplierCode = createAsyncThunk(
+  "supplier/code",
+  async ( { test },{ dispatch }) => {
+    try {
+      const res = await axios.post(BASE_URL + "/api/suppliercode", { test: test });
+      console.log(res.data);
+      return res.data;
+    } catch (error) {
+      console.error(error.message);
+      throw error;
+    }
+  }
+);

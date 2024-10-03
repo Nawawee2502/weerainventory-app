@@ -99,4 +99,33 @@ export const countProduct = createAsyncThunk(
     }
 );
 
+export const searchProduct = createAsyncThunk(
+    "productproduct/search",
+    async ({ product_name }, { dispatch }) => {
+      try {
+        const res = await axios.post(BASE_URL + "/api/searchproductname", {
+          product_name,
+        });
+        console.log(res.data);
+        return res.data;
+      } catch (error) {
+        console.error(error.message);
+        throw error;
+      }
+    }
+  );
+  
+  export const lastProductCode = createAsyncThunk(
+    "product/code",
+    async ( { test },{ dispatch }) => {
+      try {
+        const res = await axios.post(BASE_URL + "/api/productcode", { test: test });
+        console.log(res.data);
+        return res.data;
+      } catch (error) {
+        console.error(error.message);
+        throw error;
+      }
+    }
+  );
 
