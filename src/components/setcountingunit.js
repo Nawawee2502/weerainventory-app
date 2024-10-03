@@ -13,7 +13,7 @@ import Paper from '@mui/material/Paper';
 import Checkbox from '@mui/material/Checkbox';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { addUnit, deleteUnit, updateUnit, unitAll, countUnit } from '../api/productunitApi'
+import { addUnit, deleteUnit, updateUnit, unitAll, countUnit, searchUnit, lastUnitCode } from '../api/productunitApi'
 import { useFormik } from "formik";
 import { useDispatch, useSelector } from "react-redux";
 import { errorHelper } from "./handle-input-error";
@@ -48,6 +48,25 @@ export default function SetCountingUnit() {
     const [unit, setUnit] = useState([]);
     const [page, setPage] = useState(0);
     const [count, setCount] = useState();
+    const [searchTerm, setSearchTerm] = useState("");
+    const [getLastUnitCode, setLastUnitCode] = useState([]);
+
+    const handleSearchChange = (e) => {
+        setSearchTerm(e.target.value);
+    };
+
+    useEffect(() => {
+        if (searchTerm) {
+            dispatch(searchUnit({ unit_name: searchTerm }))
+                .unwrap()
+                .then((res) => {
+                    setUnit(res.data);
+                })
+                .catch((err) => console.log(err.message));
+        } else {
+            refetchData();
+        }
+    }, [searchTerm, dispatch]);
 
     const handleChange = (event, value) => {
         setPage(value);
@@ -96,6 +115,14 @@ export default function SetCountingUnit() {
                 setUnit(resultData);
                 console.log(resultData);
 
+            })
+            .catch((err) => err.message);
+
+        dispatch(lastUnitCode({ test }))
+            .unwrap()
+            .then((res) => {
+                setLastUnitCode(res.data);
+                console.log(res.data)
             })
             .catch((err) => err.message);
 
@@ -185,6 +212,7 @@ export default function SetCountingUnit() {
 
     const toggleDrawer = (openDrawer) => () => {
         setOpenDrawer(openDrawer);
+        handleGetLastCode();
     };
 
     const toggleEditDrawer = (openEditDrawer) => () => {
@@ -221,6 +249,28 @@ export default function SetCountingUnit() {
             });
     };
 
+    const handleGetLastCode = (  ) => {
+        let test = "";
+        dispatch(lastUnitCode({ test }))
+            .unwrap()
+            .then((res) => {
+        
+                console.log(res.data)
+                let getLastUnitCode = ""+(Number(res.data.unit_code) + 1)
+                if (getLastUnitCode.length === 1) {
+                    getLastUnitCode = "00" + getLastUnitCode
+                } 
+                if (getLastUnitCode.length === 2) {
+                    getLastUnitCode = "0" + getLastUnitCode
+                }
+                setLastUnitCode(getLastUnitCode);
+                formik.setValues({
+                    unit_code: getLastUnitCode,
+                });
+            })
+            .catch((err) => err.message);
+    };
+
     const formik = useFormik({
         initialValues: {
             unit_code: "",
@@ -233,6 +283,7 @@ export default function SetCountingUnit() {
                     setAlert({ open: true, message: 'เพิ่มข้อมูลสำเร็จ', severity: 'success' });
                     formik.resetForm();
                     refetchData();
+                    handleGetLastCode();
 
                     setTimeout(() => {
                         setAlert((prev) => ({ ...prev, open: false }));
@@ -294,6 +345,8 @@ export default function SetCountingUnit() {
                         Counting Unit Search
                     </Typography>
                     <TextField
+                        value={searchTerm}
+                        onChange={handleSearchChange}
                         placeholder="Search"
                         sx={{
                             '& .MuiInputBase-root': {
@@ -469,7 +522,9 @@ export default function SetCountingUnit() {
                             </Typography>
                             <TextField
                                 size="small"
-                                placeholder="Counting Unit Id"
+                                // placeholder="Counting Unit Id"
+                                disabled
+
                                 sx={{
                                     mt: '8px',
                                     width: '100%',
@@ -479,6 +534,7 @@ export default function SetCountingUnit() {
                                 }}
                                 {...formik.getFieldProps("unit_code")}
                                 {...errorHelper(formik, "unit_code")}
+                                value={getLastUnitCode}
                             />
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
                                 Counting Unit Name

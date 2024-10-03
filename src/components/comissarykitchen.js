@@ -13,7 +13,7 @@ import Paper from '@mui/material/Paper';
 import Checkbox from '@mui/material/Checkbox';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { addKitchen, deleteKitchen, updateKitchen, kitchenAll, countKitchen } from '../api/kitchenApi';
+import { addKitchen, deleteKitchen, updateKitchen, kitchenAll, countKitchen, searchKitchen, lastKitchenCode } from '../api/kitchenApi';
 import { useFormik } from "formik";
 import { useDispatch, useSelector } from "react-redux";
 import { errorHelper } from "./handle-input-error";
@@ -48,6 +48,25 @@ export default function ComissaryKitchen() {
     const [kitchen, setKitchen] = useState([]);
     const [page, setPage] = useState(0);
     const [count, setCount] = useState();
+    const [searchTerm, setSearchTerm] = useState("");
+    const [getLastKitchenCode, setGetLastKitchenCode] = useState([]);
+
+    const handleSearchChange = (e) => {
+        setSearchTerm(e.target.value);
+    };
+
+    useEffect(() => {
+        if (searchTerm) {
+            dispatch(searchKitchen({ kitchen_name: searchTerm }))
+                .unwrap()
+                .then((res) => {
+                    setKitchen(res.data);
+                })
+                .catch((err) => console.log(err.message));
+        } else {
+            refetchData();
+        }
+    }, [searchTerm, dispatch]);
 
     const handleChange = (event, value) => {
         setPage(value);
@@ -96,6 +115,14 @@ export default function ComissaryKitchen() {
                 setKitchen(resultData);
                 console.log(resultData);
 
+            })
+            .catch((err) => err.message);
+
+        dispatch(lastKitchenCode({ test }))
+            .unwrap()
+            .then((res) => {
+                setGetLastKitchenCode(res.data);
+                console.log(res.data)
             })
             .catch((err) => err.message);
 
@@ -185,6 +212,29 @@ export default function ComissaryKitchen() {
 
     const toggleDrawer = (openDrawer) => () => {
         setOpenDrawer(openDrawer);
+        handleGetLastCode();
+    };
+
+    const handleGetLastCode = () => {
+        let test = "";
+        dispatch(lastKitchenCode({ test }))
+            .unwrap()
+            .then((res) => {
+
+                console.log(res.data)
+                let lastKitchenCode = "" + (Number(res.data.kitchen_code) + 1)
+                if (lastKitchenCode.length === 1) {
+                    lastKitchenCode = "00" + lastKitchenCode
+                }
+                if (lastKitchenCode.length === 2) {
+                    lastKitchenCode = "0" + lastKitchenCode
+                }
+                setGetLastKitchenCode(lastKitchenCode);
+                formik.setValues({
+                    kitchen_code: lastKitchenCode,
+                });
+            })
+            .catch((err) => err.message);
     };
 
     const toggleEditDrawer = (openEditDrawer) => () => {
@@ -239,6 +289,7 @@ export default function ComissaryKitchen() {
                     setAlert({ open: true, message: 'เพิ่มข้อมูลสำเร็จ', severity: 'success' });
                     formik.resetForm();
                     refetchData();
+                    handleGetLastCode();
 
                     setTimeout(() => {
                         setAlert((prev) => ({ ...prev, open: false }));
@@ -300,6 +351,8 @@ export default function ComissaryKitchen() {
                         Comissary Kitchen Search
                     </Typography>
                     <TextField
+                        value={searchTerm}
+                        onChange={handleSearchChange}
                         placeholder="Search"
                         sx={{
                             '& .MuiInputBase-root': {
@@ -395,6 +448,9 @@ export default function ComissaryKitchen() {
                         </TableBody>
                     </Table>
                 </TableContainer>
+                <Stack spacing={2}>
+                    <Pagination count={count} shape="rounded" onChange={handleChange} page={page} />
+                </Stack>
             </Box>
             <Drawer
                 anchor="right"
@@ -474,7 +530,9 @@ export default function ComissaryKitchen() {
                             </Typography>
                             <TextField
                                 size="small"
-                                placeholder="comissary"
+                                // placeholder={getLastTypeproductCode}
+                                disabled
+
                                 sx={{
                                     mt: '8px',
                                     width: '100%',
@@ -484,6 +542,7 @@ export default function ComissaryKitchen() {
                                 }}
                                 {...formik.getFieldProps("kitchen_code")}
                                 {...errorHelper(formik, "kitchen_code")}
+                                value={getLastKitchenCode}
                             />
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
                                 Comissary Name
@@ -500,6 +559,7 @@ export default function ComissaryKitchen() {
                                 }}
                                 {...formik.getFieldProps("kitchen_name")}
                                 {...errorHelper(formik, "kitchen_name")}
+                                
                             />
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
                                 Address

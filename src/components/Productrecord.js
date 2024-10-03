@@ -14,7 +14,7 @@ import Checkbox from '@mui/material/Checkbox';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 // import { addBranch, deleteBranch, updateBranch, productAll, countBranch } from '../api/branchApi';
-import { addProduct, deleteProduct, updateProduct, productAll, countProduct } from '../api/productrecordApi';
+import { addProduct, deleteProduct, updateProduct, productAll, countProduct, searchProduct, lastProductCode } from '../api/productrecordApi';
 import { useFormik } from "formik";
 import { useDispatch, useSelector } from "react-redux";
 import { errorHelper } from "./handle-input-error";
@@ -49,6 +49,25 @@ export default function ProductRecord() {
     const [product, setProduct] = useState([]);
     const [page, setPage] = useState(0);
     const [count, setCount] = useState();
+    const [searchTerm, setSearchTerm] = useState("");
+    const [getLastProductCode, setGetLastProductCode] = useState([]);
+
+    const handleSearchChange = (e) => {
+        setSearchTerm(e.target.value);
+    };
+
+    useEffect(() => {
+        if (searchTerm) {
+            dispatch(searchProduct({ product_name: searchTerm }))
+                .unwrap()
+                .then((res) => {
+                    setProduct(res.data);
+                })
+                .catch((err) => console.log(err.message));
+        } else {
+            refetchData();
+        }
+    }, [searchTerm, dispatch]);
 
     const handleChange = (event, value) => {
         setPage(value);
@@ -97,6 +116,14 @@ export default function ProductRecord() {
                 setProduct(resultData);
                 console.log(resultData);
 
+            })
+            .catch((err) => err.message);
+
+        dispatch(lastProductCode({ test }))
+            .unwrap()
+            .then((res) => {
+                setGetLastProductCode(res.data);
+                console.log(res.data)
             })
             .catch((err) => err.message);
 
@@ -186,6 +213,29 @@ export default function ProductRecord() {
 
     const toggleDrawer = (openDrawer) => () => {
         setOpenDrawer(openDrawer);
+        handleGetLastCode();
+    };
+
+    const handleGetLastCode = () => {
+        let test = "";
+        dispatch(lastProductCode({ test }))
+            .unwrap()
+            .then((res) => {
+
+                console.log(res.data)
+                let lastProductCode = "" + (Number(res.data.product_code) + 1)
+                if (lastProductCode.length === 1) {
+                    lastProductCode = "00" + lastProductCode
+                }
+                if (lastProductCode.length === 2) {
+                    lastProductCode = "0" + lastProductCode
+                }
+                setGetLastProductCode(lastProductCode);
+                formik.setValues({
+                    product_code: lastProductCode,
+                });
+            })
+            .catch((err) => err.message);
     };
 
     const toggleEditDrawer = (openEditDrawer) => () => {
@@ -240,6 +290,7 @@ export default function ProductRecord() {
                     setAlert({ open: true, message: 'เพิ่มข้อมูลสำเร็จ', severity: 'success' });
                     formik.resetForm();
                     refetchData();
+                    handleGetLastCode();
 
                     setTimeout(() => {
                         setAlert((prev) => ({ ...prev, open: false }));
@@ -301,6 +352,8 @@ export default function ProductRecord() {
                         Product Record Search
                     </Typography>
                     <TextField
+                        value={searchTerm}
+                        onChange={handleSearchChange}
                         placeholder="Search"
                         sx={{
                             '& .MuiInputBase-root': {
@@ -481,7 +534,9 @@ export default function ProductRecord() {
                             </Typography>
                             <TextField
                                 size="small"
-                                placeholder="Id"
+                                // placeholder={getLastTypeproductCode}
+                                disabled
+
                                 sx={{
                                     mt: '8px',
                                     width: '100%',
@@ -491,6 +546,7 @@ export default function ProductRecord() {
                                 }}
                                 {...formik.getFieldProps("product_code")}
                                 {...errorHelper(formik, "product_code")}
+                                value={getLastProductCode}
                             />
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
                                 Product Name

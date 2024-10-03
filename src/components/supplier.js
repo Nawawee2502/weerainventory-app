@@ -13,7 +13,7 @@ import Paper from '@mui/material/Paper';
 import Checkbox from '@mui/material/Checkbox';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { addSupplier, deleteSupplier, updateSupplier, supplierAll, countSupplier } from '../api/supplierApi';
+import { addSupplier, deleteSupplier, updateSupplier, supplierAll, countSupplier, searchSupplier, lastSupplierCode } from '../api/supplierApi';
 import { useFormik } from "formik";
 import { useDispatch, useSelector } from "react-redux";
 import { errorHelper } from "./handle-input-error";
@@ -48,6 +48,25 @@ export default function Supplier() {
     const [supplier, setSupplier] = useState([]);
     const [page, setPage] = useState(0);
     const [count, setCount] = useState();
+    const [searchTerm, setSearchTerm] = useState("");
+    const [getLastSupplierCode, setGetLastSupplierCode] = useState([]);
+
+    const handleSearchChange = (e) => {
+        setSearchTerm(e.target.value);
+    };
+
+    useEffect(() => {
+        if (searchTerm) {
+            dispatch(searchSupplier({ supplier_name: searchTerm }))
+                .unwrap()
+                .then((res) => {
+                    setSupplier(res.data);
+                })
+                .catch((err) => console.log(err.message));
+        } else {
+            refetchData();
+        }
+    }, [searchTerm, dispatch]);
 
     const handleChange = (event, value) => {
         setPage(value);
@@ -96,6 +115,14 @@ export default function Supplier() {
                 setSupplier(resultData);
                 console.log(resultData);
 
+            })
+            .catch((err) => err.message);
+
+        dispatch(lastSupplierCode({ test }))
+            .unwrap()
+            .then((res) => {
+                setGetLastSupplierCode(res.data);
+                console.log(res.data)
             })
             .catch((err) => err.message);
 
@@ -185,6 +212,29 @@ export default function Supplier() {
 
     const toggleDrawer = (openDrawer) => () => {
         setOpenDrawer(openDrawer);
+        handleGetLastCode();
+    };
+
+    const handleGetLastCode = () => {
+        let test = "";
+        dispatch(lastSupplierCode({ test }))
+            .unwrap()
+            .then((res) => {
+
+                console.log(res.data)
+                let lastSupplierCode = "" + (Number(res.data.supplier_code) + 1)
+                if (lastSupplierCode.length === 1) {
+                    lastSupplierCode = "00" + lastSupplierCode
+                }
+                if (lastSupplierCode.length === 2) {
+                    lastSupplierCode = "0" + lastSupplierCode
+                }
+                setGetLastSupplierCode(lastSupplierCode);
+                formik.setValues({
+                    supplier_code: lastSupplierCode,
+                });
+            })
+            .catch((err) => err.message);
     };
 
     const toggleEditDrawer = (openEditDrawer) => () => {
@@ -239,6 +289,7 @@ export default function Supplier() {
                     setAlert({ open: true, message: 'เพิ่มข้อมูลสำเร็จ', severity: 'success' });
                     formik.resetForm();
                     refetchData();
+                    handleGetLastCode();
 
                     setTimeout(() => {
                         setAlert((prev) => ({ ...prev, open: false }));
@@ -300,6 +351,8 @@ export default function Supplier() {
                         Supplier Search
                     </Typography>
                     <TextField
+                        value={searchTerm}
+                        onChange={handleSearchChange}
                         placeholder="Search"
                         sx={{
                             '& .MuiInputBase-root': {
@@ -475,7 +528,9 @@ export default function Supplier() {
 
                             <TextField
                                 size="small"
-                                placeholder="Id"
+                                // placeholder={getLastTypeproductCode}
+                                disabled
+                                
                                 sx={{
                                     mt: '8px',
                                     width: '100%',
@@ -485,6 +540,7 @@ export default function Supplier() {
                                 }}
                                 {...formik.getFieldProps("supplier_code")}
                                 {...errorHelper(formik, "supplier_code")}
+                                value={getLastSupplierCode}
                             />
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
                                 Supplier Name

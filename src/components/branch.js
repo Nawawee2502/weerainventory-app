@@ -13,7 +13,7 @@ import Paper from '@mui/material/Paper';
 import Checkbox from '@mui/material/Checkbox';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { addBranch, deleteBranch, updateBranch, branchAll, countBranch } from '../api/branchApi';
+import { addBranch, deleteBranch, updateBranch, branchAll, countBranch, searchBranch, lastBranchCode } from '../api/branchApi';
 import { useFormik } from "formik";
 import { useDispatch, useSelector } from "react-redux";
 import { errorHelper } from "./handle-input-error";
@@ -48,6 +48,25 @@ export default function ProductRecord() {
     const [branch, setBranch] = useState([]);
     const [page, setPage] = useState(0);
     const [count, setCount] = useState();
+    const [searchTerm, setSearchTerm] = useState("");
+    const [getLastBranchCode, setGetLastBranchCode] = useState([]);
+
+    const handleSearchChange = (e) => {
+        setSearchTerm(e.target.value);
+    };
+
+    useEffect(() => {
+        if (searchTerm) {
+            dispatch(searchBranch({ branch_name: searchTerm }))
+                .unwrap()
+                .then((res) => {
+                    setBranch(res.data);
+                })
+                .catch((err) => console.log(err.message));
+        } else {
+            refetchData();
+        }
+    }, [searchTerm, dispatch]);
 
     const handleChange = (event, value) => {
         setPage(value);
@@ -96,6 +115,14 @@ export default function ProductRecord() {
                 setBranch(resultData);
                 console.log(resultData);
 
+            })
+            .catch((err) => err.message);
+
+        dispatch(lastBranchCode({ test }))
+            .unwrap()
+            .then((res) => {
+                setGetLastBranchCode(res.data);
+                console.log(res.data)
             })
             .catch((err) => err.message);
 
@@ -185,6 +212,7 @@ export default function ProductRecord() {
 
     const toggleDrawer = (openDrawer) => () => {
         setOpenDrawer(openDrawer);
+        handleGetLastCode();
     };
 
     const toggleEditDrawer = (openEditDrawer) => () => {
@@ -224,6 +252,28 @@ export default function ProductRecord() {
             });
     };
 
+    const handleGetLastCode = () => {
+        let test = "";
+        dispatch(lastBranchCode({ test }))
+            .unwrap()
+            .then((res) => {
+
+                console.log(res.data)
+                let lastBranchCode = "" + (Number(res.data.branch_code) + 1)
+                if (lastBranchCode.length === 1) {
+                    lastBranchCode = "00" + lastBranchCode
+                }
+                if (lastBranchCode.length === 2) {
+                    lastBranchCode = "0" + lastBranchCode
+                }
+                setGetLastBranchCode(lastBranchCode);
+                formik.setValues({
+                    branch_code: lastBranchCode,
+                });
+            })
+            .catch((err) => err.message);
+    };
+
     const formik = useFormik({
         initialValues: {
             branch_code: "",
@@ -239,6 +289,7 @@ export default function ProductRecord() {
                     setAlert({ open: true, message: 'เพิ่มข้อมูลสำเร็จ', severity: 'success' });
                     formik.resetForm();
                     refetchData();
+                    handleGetLastCode();
 
                     setTimeout(() => {
                         setAlert((prev) => ({ ...prev, open: false }));
@@ -300,6 +351,8 @@ export default function ProductRecord() {
                         Branch Search
                     </Typography>
                     <TextField
+                        value={searchTerm}
+                        onChange={handleSearchChange}
                         placeholder="Search"
                         sx={{
                             '& .MuiInputBase-root': {
@@ -395,6 +448,9 @@ export default function ProductRecord() {
                         </TableBody>
                     </Table>
                 </TableContainer>
+                <Stack spacing={2}>
+                    <Pagination count={count} shape="rounded" onChange={handleChange} page={page} />
+                </Stack>
             </Box>
             <Drawer
                 anchor="right"
@@ -474,7 +530,8 @@ export default function ProductRecord() {
                             </Typography>
                             <TextField
                                 size="small"
-                                placeholder="Id"
+                                disabled
+
                                 sx={{
                                     mt: '8px',
                                     width: '100%',
@@ -484,6 +541,7 @@ export default function ProductRecord() {
                                 }}
                                 {...formik.getFieldProps("branch_code")}
                                 {...errorHelper(formik, "branch_code")}
+                                value={getLastBranchCode}
                             />
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
                                 Branch Name
