@@ -49,7 +49,7 @@ export default function SetProductType() {
     const [page, setPage] = useState(0);
     const [count, setCount] = useState();
     const [searchTerm, setSearchTerm] = useState("");
-    const [lastTypeproductCode, setLastTypeproductCode] = useState([]);
+    const [getLastTypeproductCode, setGetLastTypeproductCode] = useState([]);
 
     const handleSearchChange = (e) => {
         setSearchTerm(e.target.value);
@@ -111,7 +111,7 @@ export default function SetProductType() {
         dispatch(lastTypeproductCode({ test }))
             .unwrap()
             .then((res) => {
-                setLastTypeproductCode(res.data);
+                setGetLastTypeproductCode(res.data);
                 console.log(res.data)
             })
             .catch((err) => err.message);
@@ -203,6 +203,7 @@ export default function SetProductType() {
 
     const toggleDrawer = (openDrawer) => () => {
         setOpenDrawer(openDrawer);
+        handleGetLastCode();
     };
 
     const toggleEditDrawer = (openEditDrawer) => () => {
@@ -239,6 +240,28 @@ export default function SetProductType() {
             });
     };
 
+    const handleGetLastCode = (  ) => {
+        let test = "";
+        dispatch(lastTypeproductCode({ test }))
+            .unwrap()
+            .then((res) => {
+        
+                console.log(res.data)
+                let lastTypeCode = ""+(Number(res.data.typeproduct_code) + 1)
+                if (lastTypeCode.length === 1) {
+                    lastTypeCode = "00" + lastTypeCode
+                } 
+                if (lastTypeCode.length === 2) {
+                    lastTypeCode = "0" + lastTypeCode
+                }
+                setGetLastTypeproductCode(lastTypeCode);
+                formik.setValues({
+                    typeproduct_code: lastTypeCode,
+                });
+            })
+            .catch((err) => err.message);
+    };
+
     const formik = useFormik({
         initialValues: {
             typeproduct_code: "",
@@ -251,6 +274,7 @@ export default function SetProductType() {
                     setAlert({ open: true, message: 'เพิ่มข้อมูลสำเร็จ', severity: 'success' });
                     formik.resetForm();
                     refetchData();
+                    handleGetLastCode();
 
                     setTimeout(() => {
                         setAlert((prev) => ({ ...prev, open: false }));
@@ -290,7 +314,7 @@ export default function SetProductType() {
                 }}
             >
                 <Button
-                    onClick={toggleDrawer(true)}
+                    onClick={toggleDrawer(true) }
                     sx={{
                         width: '209px',
                         height: '70px',
@@ -500,7 +524,9 @@ export default function SetProductType() {
                             </Typography>
                             <TextField
                                 size="small"
-                                placeholder="Product Id"
+                                // placeholder={getLastTypeproductCode}
+                                disabled
+                                
                                 sx={{
                                     mt: '8px',
                                     width: '100%',
@@ -510,6 +536,7 @@ export default function SetProductType() {
                                 }}
                                 {...formik.getFieldProps("typeproduct_code")}
                                 {...errorHelper(formik, "typeproduct_code")}
+                                value={getLastTypeproductCode}
                             />
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
                                 Product Type
