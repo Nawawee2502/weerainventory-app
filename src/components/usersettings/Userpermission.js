@@ -24,6 +24,7 @@ import Stack from '@mui/material/Stack';
 import MenuItem from '@mui/material/MenuItem';
 import FormControl from '@mui/material/FormControl';
 import Select from '@mui/material/Select';
+import CloseIcon from '@mui/icons-material/Close';
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
     [`&.${tableCellClasses.head}`]: {
@@ -217,7 +218,7 @@ export default function UserPermission() {
 
     const toggleDrawer = (openDrawer) => () => {
         setOpenDrawer(openDrawer);
-        handleGetLastCode();
+        // handleGetLastCode();
     };
 
     const handleGetLastCode = () => {
@@ -464,8 +465,8 @@ export default function UserPermission() {
             </Box>
             <Drawer
                 anchor="right"
-                open={openEditDrawer}
-                onClose={toggleEditDrawer(false)}
+                open={openDrawer}
+                onClose={toggleDrawer(false)}
                 ModalProps={{
                     BackdropProps: {
                         style: {
@@ -476,15 +477,21 @@ export default function UserPermission() {
                 PaperProps={{
                     sx: {
                         boxShadow: 'none',
-                        width: '100%',
+                        width: '70%',
                         borderRadius: '20px',
                         border: '1px solid #E4E4E4',
-                        bgcolor: '#FAFAFA'
+                        bgcolor: '#FAFAFA',
+                        p: '48px'
                     },
                 }}
             >
-
-                <Box sx={{ width: '100%', mt: '36px' }}>
+                <IconButton
+                    onClick={toggleDrawer(false)}
+                    sx={{ ml: 'auto', mt: '-24px', mr: '-24px' }}
+                >
+                    <CloseIcon />
+                </IconButton>
+                <Box sx={{ width: '100%' }}>
                     <Typography sx={{ fontSize: '16px', fontWeight: '700', color: '#754C27' }}>
                         User Type Name
                     </Typography>
@@ -533,8 +540,8 @@ export default function UserPermission() {
                         />
                     </Box>
                     <Divider sx={{ mt: '24px' }} />
-                    <Grid2 container sx={{ mt: '24px' }}>
-                        <Grid2 item xs={6} sm={3} md={2} sx={{ display: 'flex', flexDirection: 'column' }}>
+                    <Grid2 container spacing={3} sx={{ mt: '24px' }}>
+                        <Grid2 item xs={6} sm={2} md={2} sx={{ display: 'flex', flexDirection: 'column' }}>
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
                                 User Type Name
                             </Typography>
@@ -563,7 +570,7 @@ export default function UserPermission() {
                                 label={<Typography>Suppliers</Typography>}
                             />
                         </Grid2>
-                        <Grid2 item xs={6} sm={3} md={2} sx={{ display: 'flex', flexDirection: 'column' }}>
+                        <Grid2 item xs={6} sm={2} md={2} sx={{ display: 'flex', flexDirection: 'column' }}>
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
                                 User Settings
                             </Typography>
@@ -580,7 +587,7 @@ export default function UserPermission() {
                                 label={<Typography>Manage Users</Typography>}
                             />
                         </Grid2>
-                        <Grid2 item xs={6} sm={3} md={2} sx={{ display: 'flex', flexDirection: 'column' }}>
+                        <Grid2 item xs={6} sm={2} md={2} sx={{ display: 'flex', flexDirection: 'column' }}>
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
                                 Warehouse
                             </Typography>
@@ -644,7 +651,7 @@ export default function UserPermission() {
                                 label={<Typography>Monthly Stock Balance</Typography>}
                             />
                         </Grid2>
-                        <Grid2 item xs={6} sm={3} md={2} sx={{ display: 'flex', flexDirection: 'column' }}>
+                        <Grid2 item xs={6} sm={2} md={2} sx={{ display: 'flex', flexDirection: 'column' }}>
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
                                 Commissary Kitchen
                             </Typography>
@@ -724,7 +731,7 @@ export default function UserPermission() {
                                 label={<Typography>Monthly Stock Balance</Typography>}
                             />
                         </Grid2>
-                        <Grid2 item xs={6} sm={3} md={2} sx={{ display: 'flex', flexDirection: 'column' }}>
+                        <Grid2 item xs={6} sm={2} md={2} sx={{ display: 'flex', flexDirection: 'column' }}>
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
                                 Branch
                             </Typography>

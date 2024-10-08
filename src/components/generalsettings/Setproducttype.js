@@ -393,7 +393,7 @@ export default function SetProductType() {
                                     />
                                 </StyledTableCell>
                                 <StyledTableCell width='1%' >No.</StyledTableCell>
-                                <StyledTableCell align="center">ID</StyledTableCell>
+                                <StyledTableCell align="center">Product Type Code</StyledTableCell>
                                 <StyledTableCell align="center">Product Type</StyledTableCell>
                                 <StyledTableCell width='1%' align="center"></StyledTableCell>
                                 <StyledTableCell width='1%' align="center"></StyledTableCell>
