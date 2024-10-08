@@ -1,5 +1,5 @@
 import { Box, Button, InputAdornment, TextField, Typography, Drawer, IconButton } from '@mui/material';
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
 import SearchIcon from '@mui/icons-material/Search';
 import { styled } from '@mui/material/styles';
@@ -13,10 +13,10 @@ import Paper from '@mui/material/Paper';
 import Checkbox from '@mui/material/Checkbox';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { addUnit, deleteUnit, updateUnit, unitAll, countUnit, searchUnit, lastUnitCode } from '../api/productunitApi'
+import { addKitchen, deleteKitchen, updateKitchen, kitchenAll, countKitchen, searchKitchen, lastKitchenCode } from '../../api/kitchenApi';
 import { useFormik } from "formik";
 import { useDispatch, useSelector } from "react-redux";
-import { errorHelper } from "./handle-input-error";
+import { errorHelper } from "../handle-input-error";
 import { Alert, AlertTitle } from '@mui/material';
 import Pagination from '@mui/material/Pagination';
 import Stack from '@mui/material/Stack';
@@ -41,15 +41,15 @@ const StyledTableRow = styled(TableRow)(({ theme }) => ({
 }));
 
 
-export default function SetCountingUnit() {
+export default function ComissaryKitchen() {
     const [selected, setSelected] = useState([]);
     const dispatch = useDispatch();
     const [alert, setAlert] = useState({ open: false, message: '', severity: 'success' });
-    const [unit, setUnit] = useState([]);
+    const [kitchen, setKitchen] = useState([]);
     const [page, setPage] = useState(0);
     const [count, setCount] = useState();
     const [searchTerm, setSearchTerm] = useState("");
-    const [getLastUnitCode, setLastUnitCode] = useState([]);
+    const [getLastKitchenCode, setGetLastKitchenCode] = useState([]);
 
     const handleSearchChange = (e) => {
         setSearchTerm(e.target.value);
@@ -57,10 +57,10 @@ export default function SetCountingUnit() {
 
     useEffect(() => {
         if (searchTerm) {
-            dispatch(searchUnit({ unit_name: searchTerm }))
+            dispatch(searchKitchen({ kitchen_name: searchTerm }))
                 .unwrap()
                 .then((res) => {
-                    setUnit(res.data);
+                    setKitchen(res.data);
                 })
                 .catch((err) => console.log(err.message));
         } else {
@@ -75,7 +75,7 @@ export default function SetCountingUnit() {
         let offset = page * 5;
         let limit = value * 5;
         console.log(limit, offset);
-        dispatch(unitAll({ offset, limit }))
+        dispatch(kitchenAll({ offset, limit }))
             .unwrap()
             .then((res) => {
                 console.log(res.data);
@@ -83,7 +83,7 @@ export default function SetCountingUnit() {
                 for (let indexArray = 0; indexArray < resultData.length; indexArray++) {
                     resultData[indexArray].id = offset + indexArray + 1;
                 }
-                setUnit(resultData);
+                setKitchen(resultData);
             })
             .catch((err) => err.message);
     };
@@ -91,10 +91,10 @@ export default function SetCountingUnit() {
     const refetchData = () => {
         let offset = 0;
         let limit = 5;
-        dispatch(unitAll({ offset, limit }))
+        dispatch(kitchenAll({ offset, limit }))
             .unwrap()
             .then((res) => {
-                setUnit(res.data);
+                setKitchen(res.data);
             })
             .catch((err) => console.log(err.message));
     };
@@ -104,7 +104,7 @@ export default function SetCountingUnit() {
         let offset = 0;
         let limit = 5;
         let test = 10;
-        dispatch(unitAll({ offset, limit }))
+        dispatch(kitchenAll({ offset, limit }))
             .unwrap()
             .then((res) => {
                 console.log(res.data);
@@ -112,21 +112,21 @@ export default function SetCountingUnit() {
                 for (let indexArray = 0; indexArray < resultData.length; indexArray++) {
                     resultData[indexArray].id = indexArray + 1;
                 }
-                setUnit(resultData);
+                setKitchen(resultData);
                 console.log(resultData);
 
             })
             .catch((err) => err.message);
 
-        dispatch(lastUnitCode({ test }))
+        dispatch(lastKitchenCode({ test }))
             .unwrap()
             .then((res) => {
-                setLastUnitCode(res.data);
+                setGetLastKitchenCode(res.data);
                 console.log(res.data)
             })
             .catch((err) => err.message);
 
-        dispatch(countUnit({ test }))
+        dispatch(countKitchen({ test }))
             .unwrap()
             .then((res) => {
                 console.log(res.data);
@@ -142,25 +142,25 @@ export default function SetCountingUnit() {
             .catch((err) => err.message);
     }, [dispatch]);
 
-    const handleCheckboxChange = (event, unit_code) => {
+    const handleCheckboxChange = (event, kitchen_code) => {
         if (event.target.checked) {
-            setSelected([...selected, unit_code]);
+            setSelected([...selected, kitchen_code]);
         } else {
-            setSelected(selected.filter((item) => item !== unit_code));
+            setSelected(selected.filter((item) => item !== kitchen_code));
         }
     };
 
     const handleSelectAllClick = (event) => {
         if (event.target.checked) {
-            const newSelected = unit.map((row) => row.unit_code);
+            const newSelected = kitchen.map((row) => row.kitchen_code);
             setSelected(newSelected);
         } else {
             setSelected([]);
         }
     };
 
-    const handleDelete = (unit_code) => {
-        dispatch(deleteUnit({ unit_code }))
+    const handleDelete = (kitchen_code) => {
+        dispatch(deleteKitchen({ kitchen_code }))
             .unwrap()
             .then((res) => {
                 setAlert({ open: true, message: 'Deleted successfully', severity: 'success' });
@@ -170,12 +170,12 @@ export default function SetCountingUnit() {
                 refetchData();
                 let offset = 0;
                 let limit = 5;
-                dispatch(unitAll({ offset, limit }))
+                dispatch(kitchenAll({ offset, limit }))
                     .unwrap()
-                    .then((res) => setUnit(res.data));
+                    .then((res) => setKitchen(res.data));
             })
             .catch((err) => {
-                setAlert({ open: true, message: 'Error deleting unit', severity: 'error' });
+                setAlert({ open: true, message: 'Error deleting Branch', severity: 'error' });
                 setTimeout(() => {
                     setAlert((prev) => ({ ...prev, open: false }));
                 }, 3000);
@@ -183,8 +183,8 @@ export default function SetCountingUnit() {
     };
 
     const handleDeleteSelected = () => {
-        Promise.all(selected.map(unit_code =>
-            dispatch(deleteUnit({ unit_code })).unwrap()
+        Promise.all(selected.map(kitchen_code =>
+            dispatch(deleteKitchen({ kitchen_code })).unwrap()
         ))
             .then(() => {
                 setAlert({ open: true, message: 'Deleted successfully', severity: 'success' });
@@ -195,12 +195,12 @@ export default function SetCountingUnit() {
                 refetchData();
                 let offset = 0;
                 let limit = 5;
-                dispatch(unitAll({ offset, limit }))
+                dispatch(kitchenAll({ offset, limit }))
                     .unwrap()
-                    .then((res) => setUnit(res.data));
+                    .then((res) => setKitchen(res.data));
             })
             .catch((err) => {
-                setAlert({ open: true, message: 'Error deleting unit', severity: 'error' });
+                setAlert({ open: true, message: 'Error deleting kitchen', severity: 'error' });
                 setTimeout(() => {
                     setAlert((prev) => ({ ...prev, open: false }));
                 }, 3000);
@@ -215,23 +215,48 @@ export default function SetCountingUnit() {
         handleGetLastCode();
     };
 
+    const handleGetLastCode = () => {
+        let test = "";
+        dispatch(lastKitchenCode({ test }))
+            .unwrap()
+            .then((res) => {
+
+                console.log(res.data)
+                let lastKitchenCode = "" + (Number(res.data.kitchen_code) + 1)
+                if (lastKitchenCode.length === 1) {
+                    lastKitchenCode = "00" + lastKitchenCode
+                }
+                if (lastKitchenCode.length === 2) {
+                    lastKitchenCode = "0" + lastKitchenCode
+                }
+                setGetLastKitchenCode(lastKitchenCode);
+                formik.setValues({
+                    kitchen_code: lastKitchenCode,
+                });
+            })
+            .catch((err) => err.message);
+    };
+
     const toggleEditDrawer = (openEditDrawer) => () => {
         setOpenEditDrawer(openEditDrawer);
     };
 
-    const [editUnit, setEditUnit] = useState(null);
+    const [editKitchen, setEditKitchen] = useState(null);
 
     const handleEdit = (row) => {
-        setEditUnit(row);
+        setEditKitchen(row);
         formik.setValues({
-            unit_code: row.unit_code,
-            unit_name: row.unit_name,
+            kitchen_code: row.kitchen_code,
+            kitchen_name: row.kitchen_name,
+            addr1: row.addr1,
+            addr2: row.addr2,
+            tel1: row.tel1,
         });
         toggleEditDrawer(true)();
     };
 
     const handleSave = () => {
-        dispatch(updateUnit(formik.values))
+        dispatch(updateKitchen(formik.values))
             .unwrap()
             .then((res) => {
                 setAlert({ open: true, message: 'Updated success', severity: 'success' });
@@ -249,35 +274,16 @@ export default function SetCountingUnit() {
             });
     };
 
-    const handleGetLastCode = (  ) => {
-        let test = "";
-        dispatch(lastUnitCode({ test }))
-            .unwrap()
-            .then((res) => {
-        
-                console.log(res.data)
-                let getLastUnitCode = ""+(Number(res.data.unit_code) + 1)
-                if (getLastUnitCode.length === 1) {
-                    getLastUnitCode = "00" + getLastUnitCode
-                } 
-                if (getLastUnitCode.length === 2) {
-                    getLastUnitCode = "0" + getLastUnitCode
-                }
-                setLastUnitCode(getLastUnitCode);
-                formik.setValues({
-                    unit_code: getLastUnitCode,
-                });
-            })
-            .catch((err) => err.message);
-    };
-
     const formik = useFormik({
         initialValues: {
-            unit_code: "",
-            unit_name: "",
+            kitchen_code: "",
+            kitchen_name: "",
+            addr1: "",
+            addr2: "",
+            tel1: "",
         },
         onSubmit: (values) => {
-            dispatch(addUnit(values))
+            dispatch(addKitchen(values))
                 .unwrap()
                 .then((res) => {
                     setAlert({ open: true, message: 'เพิ่มข้อมูลสำเร็จ', severity: 'success' });
@@ -342,7 +348,7 @@ export default function SetCountingUnit() {
                     }}
                 >
                     <Typography sx={{ fontSize: '16px', fontWeight: '600', mr: '24px' }}>
-                        Counting Unit Search
+                        Comissary Kitchen Search
                     </Typography>
                     <TextField
                         value={searchTerm}
@@ -378,41 +384,44 @@ export default function SetCountingUnit() {
                         Delete Selected ({selected.length})
                     </Button>
                 </Box>
-                <TableContainer component={Paper} sx={{ width: '60%', mt: '24px', }}>
+                <TableContainer component={Paper} sx={{ width: '60%', mt: '24px' }}>
                     <Table sx={{}} aria-label="customized table">
-                        <TableHead sx={{}}>
-                            <TableRow sx={{}}>
+                        <TableHead>
+                            <TableRow>
                                 <StyledTableCell sx={{ width: '1%', textAlign: 'center' }}>
                                     <Checkbox
                                         sx={{ color: '#FFF' }}
-                                        indeterminate={selected.length > 0 && selected.length < unit.length}
-                                        checked={unit.length > 0 && selected.length === unit.length}
+                                        indeterminate={selected.length > 0 && selected.length < kitchen.length}
+                                        checked={kitchen.length > 0 && selected.length === kitchen.length}
                                         onChange={handleSelectAllClick}
                                     />
                                 </StyledTableCell>
                                 <StyledTableCell width='1%' >No.</StyledTableCell>
                                 <StyledTableCell align="center">ID</StyledTableCell>
-                                <StyledTableCell align="center">Counting Unit</StyledTableCell>
+                                <StyledTableCell align="center">Comissary Kitchen Name</StyledTableCell>
+                                <StyledTableCell align="center">Address</StyledTableCell>
+                                <StyledTableCell align="center">Telephone</StyledTableCell>
                                 <StyledTableCell width='1%' align="center"></StyledTableCell>
                                 <StyledTableCell width='1%' align="center"></StyledTableCell>
 
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {unit.map((row) => (
-                                <StyledTableRow key={row.unit_code}>
+                            {kitchen.map((row) => (
+                                <StyledTableRow key={row.kitchen_code}>
                                     <StyledTableCell padding="checkbox" align="center">
                                         <Checkbox
-                                            checked={selected.includes(row.unit_code)}
-                                            onChange={(event) => handleCheckboxChange(event, row.unit_code)}
+                                            checked={selected.includes(row.kitchen_code)}
+                                            onChange={(event) => handleCheckboxChange(event, row.kitchen_code)}
                                         />
-
                                     </StyledTableCell>
-                                    <StyledTableCell component="th" scope="row">
+                                    <StyledTableCell component="th" scope="row" >
                                         {row.id}
                                     </StyledTableCell>
-                                    <StyledTableCell align="center">{row.unit_code}</StyledTableCell>
-                                    <StyledTableCell align="center">{row.unit_name}</StyledTableCell>
+                                    <StyledTableCell align="center">{row.kitchen_code}</StyledTableCell>
+                                    <StyledTableCell align="center">{row.kitchen_name}</StyledTableCell>
+                                    <StyledTableCell align="center">{row.addr1} {row.addr2}</StyledTableCell>
+                                    <StyledTableCell align="center">{row.tel1}</StyledTableCell>
                                     <StyledTableCell align="center">
                                         <IconButton
                                             color="primary"
@@ -427,7 +436,7 @@ export default function SetCountingUnit() {
                                         <IconButton
                                             color="danger"
                                             size="md"
-                                            onClick={() => handleDelete(row.unit_code)} // Use a function to handle delete
+                                            onClick={() => handleDelete(row.kitchen_code)} // Use a function to handle delete
                                             sx={{ border: '1px solid #F62626', borderRadius: '7px' }}
                                         >
                                             <DeleteIcon sx={{ color: '#F62626' }} />
@@ -437,7 +446,6 @@ export default function SetCountingUnit() {
                                 </StyledTableRow>
                             ))}
                         </TableBody>
-
                     </Table>
                 </TableContainer>
                 <Stack spacing={2}>
@@ -492,7 +500,7 @@ export default function SetCountingUnit() {
                         }}
                     >
                         <Typography sx={{ fontWeight: '600', fontSize: '14px' }} >
-                            Counting Unit
+                            Comissary
                         </Typography>
                     </Box>
                     <Box
@@ -511,37 +519,37 @@ export default function SetCountingUnit() {
                         }}>
 
                         <Typography sx={{ display: 'flex', flexDirection: 'row' }}>
-                            Counting Unit ID :
+                            Comissary ID :
                             <Typography sx={{ color: '#754C27', ml: '12px' }}>
                                 #011
                             </Typography>
                         </Typography>
                         <Box sx={{ width: '80%', mt: '24px' }}>
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
-                                Counting Unit Id
+                                Comissary Id
                             </Typography>
                             <TextField
                                 size="small"
-                                // placeholder="Counting Unit Id"
+                                // placeholder={getLastTypeproductCode}
                                 disabled
 
                                 sx={{
                                     mt: '8px',
                                     width: '100%',
                                     '& .MuiOutlinedInput-root': {
-                                        borderRadius: '10px',
+                                        borderRadius: '10px', // Set border-radius here
                                     },
                                 }}
-                                {...formik.getFieldProps("unit_code")}
-                                {...errorHelper(formik, "unit_code")}
-                                value={getLastUnitCode}
+                                {...formik.getFieldProps("kitchen_code")}
+                                {...errorHelper(formik, "kitchen_code")}
+                                value={getLastKitchenCode}
                             />
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
-                                Counting Unit Name
+                                Comissary Name
                             </Typography>
                             <TextField
                                 size="small"
-                                placeholder="Counting Unit Name"
+                                placeholder="Name"
                                 sx={{
                                     mt: '8px',
                                     width: '100%',
@@ -549,8 +557,54 @@ export default function SetCountingUnit() {
                                         borderRadius: '10px',
                                     },
                                 }}
-                                {...formik.getFieldProps("unit_name")}
-                                {...errorHelper(formik, "unit_name")}
+                                {...formik.getFieldProps("kitchen_name")}
+                                {...errorHelper(formik, "kitchen_name")}
+                                
+                            />
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
+                                Address
+                            </Typography>
+                            <TextField
+                                size="small"
+                                placeholder="Address"
+                                sx={{
+                                    mt: '8px',
+                                    width: '100%',
+                                    '& .MuiOutlinedInput-root': {
+                                        borderRadius: '10px',
+                                    },
+                                }}
+                                {...formik.getFieldProps("addr1")}
+                                {...errorHelper(formik, "addr1")}
+                            />
+                            <TextField
+                                size="small"
+                                placeholder="Address"
+                                sx={{
+                                    mt: '8px',
+                                    width: '100%',
+                                    '& .MuiOutlinedInput-root': {
+                                        borderRadius: '10px',
+                                    },
+                                }}
+                                {...formik.getFieldProps("addr2")}
+                                {...errorHelper(formik, "addr2")}
+                            />
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
+                                Telephone
+                            </Typography>
+                            <TextField
+                                size="small"
+                                placeholder="Telephone"
+                                sx={{
+                                    mt: '8px',
+                                    width: '100%',
+                                    '& .MuiOutlinedInput-root': {
+                                        borderRadius: '10px',
+                                    },
+                                }}
+                                {...formik.getFieldProps("tel1")}
+                                {...errorHelper(formik, "tel1")}
                             />
                         </Box>
                         <Box sx={{ mt: '24px' }} >
@@ -620,16 +674,17 @@ export default function SetCountingUnit() {
                             color: '#FFFFFF',
                             px: '8px',
                             py: '4px',
-                            borderRadius: '20px',
+                            borderRadius: '5px',
                             fontWeight: 'bold',
                             zIndex: 1,
+                            borderRadius: '20px',
                             height: '89px',
                             display: 'flex',
                             justifyContent: 'center',
                         }}
                     >
                         <Typography sx={{ fontWeight: '600', fontSize: '14px' }} >
-                            Counting Unit ID
+                            Comissary
                         </Typography>
                     </Box>
                     <Box
@@ -648,35 +703,34 @@ export default function SetCountingUnit() {
                         }}>
 
                         <Typography sx={{ display: 'flex', flexDirection: 'row' }}>
-                            Counting Unit ID :
-                            <Box component="span" sx={{ color: '#754C27', ml: '12px' }}>
+                            Comissary ID :
+                            <Typography sx={{ color: '#754C27', ml: '12px' }}>
                                 #011
-                            </Box>
+                            </Typography>
                         </Typography>
-
                         <Box sx={{ width: '80%', mt: '24px' }}>
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
-                                EDIT Counting Unit Id
+                                EDIT Comissary Id
                             </Typography>
                             <TextField
                                 size="small"
-                                placeholder="Counting Unit Id"
+                                placeholder="Id"
                                 sx={{
                                     mt: '8px',
                                     width: '100%',
                                     '& .MuiOutlinedInput-root': {
-                                        borderRadius: '10px',
+                                        borderRadius: '10px', // Set border-radius here
                                     },
                                 }}
-                                {...formik.getFieldProps("unit_code")}
-                                {...errorHelper(formik, "unit_code")}
+                                {...formik.getFieldProps("kitchen_code")}
+                                {...errorHelper(formik, "kitchen_code")}
                             />
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
-                                Counting Unit Name
+                                Comissary Name
                             </Typography>
                             <TextField
                                 size="small"
-                                placeholder="Counting Unit Name"
+                                placeholder="Name"
                                 sx={{
                                     mt: '8px',
                                     width: '100%',
@@ -684,8 +738,53 @@ export default function SetCountingUnit() {
                                         borderRadius: '10px',
                                     },
                                 }}
-                                {...formik.getFieldProps("unit_name")}
-                                {...errorHelper(formik, "unit_name")}
+                                {...formik.getFieldProps("kitchen_name")}
+                                {...errorHelper(formik, "kitchen_name")}
+                            />
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
+                                Address
+                            </Typography>
+                            <TextField
+                                size="small"
+                                placeholder="Address"
+                                sx={{
+                                    mt: '8px',
+                                    width: '100%',
+                                    '& .MuiOutlinedInput-root': {
+                                        borderRadius: '10px',
+                                    },
+                                }}
+                                {...formik.getFieldProps("addr1")}
+                                {...errorHelper(formik, "addr1")}
+                            />
+                            <TextField
+                                size="small"
+                                placeholder="Address"
+                                sx={{
+                                    mt: '8px',
+                                    width: '100%',
+                                    '& .MuiOutlinedInput-root': {
+                                        borderRadius: '10px',
+                                    },
+                                }}
+                                {...formik.getFieldProps("addr2")}
+                                {...errorHelper(formik, "addr2")}
+                            />
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
+                                Telephone
+                            </Typography>
+                            <TextField
+                                size="small"
+                                placeholder="Telephone"
+                                sx={{
+                                    mt: '8px',
+                                    width: '100%',
+                                    '& .MuiOutlinedInput-root': {
+                                        borderRadius: '10px',
+                                    },
+                                }}
+                                {...formik.getFieldProps("tel1")}
+                                {...errorHelper(formik, "tel1")}
                             />
                         </Box>
                         <Box sx={{ mt: '24px' }} >
@@ -700,21 +799,19 @@ export default function SetCountingUnit() {
                             >
                                 Cancel
                             </Button>
-                            <Button
+                            <Button variant='contained'
                                 onClick={handleSave}
                                 sx={{
                                     width: '100px',
-                                    backgroundColor: '#AD7A2C',
-                                    color: '#FFFFFF',
+                                    bgcolor: '#754C27',
                                     '&:hover': {
-                                        backgroundColor: '#8C5D1E',
+                                        bgcolor: '#5A3D1E',
                                     },
                                     ml: '24px'
                                 }}
                             >
                                 Save
                             </Button>
-
                         </Box>
                     </Box>
                 </Box>

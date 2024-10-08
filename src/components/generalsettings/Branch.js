@@ -13,10 +13,10 @@ import Paper from '@mui/material/Paper';
 import Checkbox from '@mui/material/Checkbox';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { addSupplier, deleteSupplier, updateSupplier, supplierAll, countSupplier, searchSupplier, lastSupplierCode } from '../api/supplierApi';
+import { addBranch, deleteBranch, updateBranch, branchAll, countBranch, searchBranch, lastBranchCode } from '../../api/branchApi';
 import { useFormik } from "formik";
 import { useDispatch, useSelector } from "react-redux";
-import { errorHelper } from "./handle-input-error";
+import { errorHelper } from "../handle-input-error";
 import { Alert, AlertTitle } from '@mui/material';
 import Pagination from '@mui/material/Pagination';
 import Stack from '@mui/material/Stack';
@@ -41,15 +41,15 @@ const StyledTableRow = styled(TableRow)(({ theme }) => ({
 }));
 
 
-export default function Supplier() {
+export default function ProductRecord() {
     const [selected, setSelected] = useState([]);
     const dispatch = useDispatch();
     const [alert, setAlert] = useState({ open: false, message: '', severity: 'success' });
-    const [supplier, setSupplier] = useState([]);
+    const [branch, setBranch] = useState([]);
     const [page, setPage] = useState(0);
     const [count, setCount] = useState();
     const [searchTerm, setSearchTerm] = useState("");
-    const [getLastSupplierCode, setGetLastSupplierCode] = useState([]);
+    const [getLastBranchCode, setGetLastBranchCode] = useState([]);
 
     const handleSearchChange = (e) => {
         setSearchTerm(e.target.value);
@@ -57,10 +57,10 @@ export default function Supplier() {
 
     useEffect(() => {
         if (searchTerm) {
-            dispatch(searchSupplier({ supplier_name: searchTerm }))
+            dispatch(searchBranch({ branch_name: searchTerm }))
                 .unwrap()
                 .then((res) => {
-                    setSupplier(res.data);
+                    setBranch(res.data);
                 })
                 .catch((err) => console.log(err.message));
         } else {
@@ -75,7 +75,7 @@ export default function Supplier() {
         let offset = page * 5;
         let limit = value * 5;
         console.log(limit, offset);
-        dispatch(supplierAll({ offset, limit }))
+        dispatch(branchAll({ offset, limit }))
             .unwrap()
             .then((res) => {
                 console.log(res.data);
@@ -83,7 +83,7 @@ export default function Supplier() {
                 for (let indexArray = 0; indexArray < resultData.length; indexArray++) {
                     resultData[indexArray].id = offset + indexArray + 1;
                 }
-                setSupplier(resultData);
+                setBranch(resultData);
             })
             .catch((err) => err.message);
     };
@@ -91,10 +91,10 @@ export default function Supplier() {
     const refetchData = () => {
         let offset = 0;
         let limit = 5;
-        dispatch(supplierAll({ offset, limit }))
+        dispatch(branchAll({ offset, limit }))
             .unwrap()
             .then((res) => {
-                setSupplier(res.data);
+                setBranch(res.data);
             })
             .catch((err) => console.log(err.message));
     };
@@ -104,7 +104,7 @@ export default function Supplier() {
         let offset = 0;
         let limit = 5;
         let test = 10;
-        dispatch(supplierAll({ offset, limit }))
+        dispatch(branchAll({ offset, limit }))
             .unwrap()
             .then((res) => {
                 console.log(res.data);
@@ -112,21 +112,21 @@ export default function Supplier() {
                 for (let indexArray = 0; indexArray < resultData.length; indexArray++) {
                     resultData[indexArray].id = indexArray + 1;
                 }
-                setSupplier(resultData);
+                setBranch(resultData);
                 console.log(resultData);
 
             })
             .catch((err) => err.message);
 
-        dispatch(lastSupplierCode({ test }))
+        dispatch(lastBranchCode({ test }))
             .unwrap()
             .then((res) => {
-                setGetLastSupplierCode(res.data);
+                setGetLastBranchCode(res.data);
                 console.log(res.data)
             })
             .catch((err) => err.message);
 
-        dispatch(countSupplier({ test }))
+        dispatch(countBranch({ test }))
             .unwrap()
             .then((res) => {
                 console.log(res.data);
@@ -142,25 +142,25 @@ export default function Supplier() {
             .catch((err) => err.message);
     }, [dispatch]);
 
-    const handleCheckboxChange = (event, supplier_code) => {
+    const handleCheckboxChange = (event, branch_code) => {
         if (event.target.checked) {
-            setSelected([...selected, supplier_code]);
+            setSelected([...selected, branch_code]);
         } else {
-            setSelected(selected.filter((item) => item !== supplier_code));
+            setSelected(selected.filter((item) => item !== branch_code));
         }
     };
 
     const handleSelectAllClick = (event) => {
         if (event.target.checked) {
-            const newSelected = supplier.map((row) => row.supplier_code);
+            const newSelected = branch.map((row) => row.branch_code);
             setSelected(newSelected);
         } else {
             setSelected([]);
         }
     };
 
-    const handleDelete = (supplier_code) => {
-        dispatch(deleteSupplier({ supplier_code }))
+    const handleDelete = (branch_code) => {
+        dispatch(deleteBranch({ branch_code }))
             .unwrap()
             .then((res) => {
                 setAlert({ open: true, message: 'Deleted successfully', severity: 'success' });
@@ -170,12 +170,12 @@ export default function Supplier() {
                 refetchData();
                 let offset = 0;
                 let limit = 5;
-                dispatch(supplierAll({ offset, limit }))
+                dispatch(branchAll({ offset, limit }))
                     .unwrap()
-                    .then((res) => setSupplier(res.data));
+                    .then((res) => setBranch(res.data));
             })
             .catch((err) => {
-                setAlert({ open: true, message: 'Error deleting Supplier', severity: 'error' });
+                setAlert({ open: true, message: 'Error deleting Branch', severity: 'error' });
                 setTimeout(() => {
                     setAlert((prev) => ({ ...prev, open: false }));
                 }, 3000);
@@ -183,8 +183,8 @@ export default function Supplier() {
     };
 
     const handleDeleteSelected = () => {
-        Promise.all(selected.map(supplier_code =>
-            dispatch(deleteSupplier({ supplier_code })).unwrap()
+        Promise.all(selected.map(branch_code =>
+            dispatch(deleteBranch({ branch_code })).unwrap()
         ))
             .then(() => {
                 setAlert({ open: true, message: 'Deleted successfully', severity: 'success' });
@@ -195,12 +195,12 @@ export default function Supplier() {
                 refetchData();
                 let offset = 0;
                 let limit = 5;
-                dispatch(supplierAll({ offset, limit }))
+                dispatch(branchAll({ offset, limit }))
                     .unwrap()
-                    .then((res) => setSupplier(res.data));
+                    .then((res) => setBranch(res.data));
             })
             .catch((err) => {
-                setAlert({ open: true, message: 'Error deleting supplier', severity: 'error' });
+                setAlert({ open: true, message: 'Error deleting branch', severity: 'error' });
                 setTimeout(() => {
                     setAlert((prev) => ({ ...prev, open: false }));
                 }, 3000);
@@ -215,39 +215,17 @@ export default function Supplier() {
         handleGetLastCode();
     };
 
-    const handleGetLastCode = () => {
-        let test = "";
-        dispatch(lastSupplierCode({ test }))
-            .unwrap()
-            .then((res) => {
-
-                console.log(res.data)
-                let lastSupplierCode = "" + (Number(res.data.supplier_code) + 1)
-                if (lastSupplierCode.length === 1) {
-                    lastSupplierCode = "00" + lastSupplierCode
-                }
-                if (lastSupplierCode.length === 2) {
-                    lastSupplierCode = "0" + lastSupplierCode
-                }
-                setGetLastSupplierCode(lastSupplierCode);
-                formik.setValues({
-                    supplier_code: lastSupplierCode,
-                });
-            })
-            .catch((err) => err.message);
-    };
-
     const toggleEditDrawer = (openEditDrawer) => () => {
         setOpenEditDrawer(openEditDrawer);
     };
 
-    const [editSupplier, setEditSupplier] = useState(null);
+    const [editBranch, setEditBranch] = useState(null);
 
     const handleEdit = (row) => {
-        setEditSupplier(row);
+        setEditBranch(row);
         formik.setValues({
-            supplier_code: row.supplier_code,
-            supplier_name: row.supplier_name,
+            branch_code: row.branch_code,
+            branch_name: row.branch_name,
             addr1: row.addr1,
             addr2: row.addr2,
             tel1: row.tel1,
@@ -256,7 +234,7 @@ export default function Supplier() {
     };
 
     const handleSave = () => {
-        dispatch(updateSupplier(formik.values))
+        dispatch(updateBranch(formik.values))
             .unwrap()
             .then((res) => {
                 setAlert({ open: true, message: 'Updated success', severity: 'success' });
@@ -274,16 +252,38 @@ export default function Supplier() {
             });
     };
 
+    const handleGetLastCode = () => {
+        let test = "";
+        dispatch(lastBranchCode({ test }))
+            .unwrap()
+            .then((res) => {
+
+                console.log(res.data)
+                let lastBranchCode = "" + (Number(res.data.branch_code) + 1)
+                if (lastBranchCode.length === 1) {
+                    lastBranchCode = "00" + lastBranchCode
+                }
+                if (lastBranchCode.length === 2) {
+                    lastBranchCode = "0" + lastBranchCode
+                }
+                setGetLastBranchCode(lastBranchCode);
+                formik.setValues({
+                    branch_code: lastBranchCode,
+                });
+            })
+            .catch((err) => err.message);
+    };
+
     const formik = useFormik({
         initialValues: {
-            supplier_code: "",
-            supplier_name: "",
+            branch_code: "",
+            branch_name: "",
             addr1: "",
             addr2: "",
             tel1: "",
         },
         onSubmit: (values) => {
-            dispatch(addSupplier(values))
+            dispatch(addBranch(values))
                 .unwrap()
                 .then((res) => {
                     setAlert({ open: true, message: 'เพิ่มข้อมูลสำเร็จ', severity: 'success' });
@@ -348,7 +348,7 @@ export default function Supplier() {
                     }}
                 >
                     <Typography sx={{ fontSize: '16px', fontWeight: '600', mr: '24px' }}>
-                        Supplier Search
+                        Branch Search
                     </Typography>
                     <TextField
                         value={searchTerm}
@@ -391,14 +391,14 @@ export default function Supplier() {
                                 <StyledTableCell sx={{ width: '1%', textAlign: 'center' }}>
                                     <Checkbox
                                         sx={{ color: '#FFF' }}
-                                        indeterminate={selected.length > 0 && selected.length < supplier.length}
-                                        checked={supplier.length > 0 && selected.length === supplier.length}
+                                        indeterminate={selected.length > 0 && selected.length < branch.length}
+                                        checked={branch.length > 0 && selected.length === branch.length}
                                         onChange={handleSelectAllClick}
                                     />
                                 </StyledTableCell>
                                 <StyledTableCell width='1%' >No.</StyledTableCell>
                                 <StyledTableCell align="center">ID</StyledTableCell>
-                                <StyledTableCell align="center">Supplier Name</StyledTableCell>
+                                <StyledTableCell align="center">Branch Name</StyledTableCell>
                                 <StyledTableCell align="center">Address</StyledTableCell>
                                 <StyledTableCell align="center">Telephone</StyledTableCell>
                                 <StyledTableCell width='1%' align="center"></StyledTableCell>
@@ -407,19 +407,19 @@ export default function Supplier() {
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {supplier.map((row) => (
-                                <StyledTableRow key={row.supplier_code}>
+                            {branch.map((row) => (
+                                <StyledTableRow key={row.branch_code}>
                                     <StyledTableCell padding="checkbox" align="center">
                                         <Checkbox
-                                            checked={selected.includes(row.supplier_code)}
-                                            onChange={(event) => handleCheckboxChange(event, row.supplier_code)}
+                                            checked={selected.includes(row.branch_code)}
+                                            onChange={(event) => handleCheckboxChange(event, row.branch_code)}
                                         />
                                     </StyledTableCell>
                                     <StyledTableCell component="th" scope="row" >
                                         {row.id}
                                     </StyledTableCell>
-                                    <StyledTableCell align="center">{row.supplier_code}</StyledTableCell>
-                                    <StyledTableCell align="center">{row.supplier_name}</StyledTableCell>
+                                    <StyledTableCell align="center">{row.branch_code}</StyledTableCell>
+                                    <StyledTableCell align="center">{row.branch_name}</StyledTableCell>
                                     <StyledTableCell align="center">{row.addr1} {row.addr2}</StyledTableCell>
                                     <StyledTableCell align="center">{row.tel1}</StyledTableCell>
                                     <StyledTableCell align="center">
@@ -436,7 +436,7 @@ export default function Supplier() {
                                         <IconButton
                                             color="danger"
                                             size="md"
-                                            onClick={() => handleDelete(row.supplier_code)} // Use a function to handle delete
+                                            onClick={() => handleDelete(row.branch_code)} // Use a function to handle delete
                                             sx={{ border: '1px solid #F62626', borderRadius: '7px' }}
                                         >
                                             <DeleteIcon sx={{ color: '#F62626' }} />
@@ -448,6 +448,9 @@ export default function Supplier() {
                         </TableBody>
                     </Table>
                 </TableContainer>
+                <Stack spacing={2}>
+                    <Pagination count={count} shape="rounded" onChange={handleChange} page={page} />
+                </Stack>
             </Box>
             <Drawer
                 anchor="right"
@@ -497,7 +500,7 @@ export default function Supplier() {
                         }}
                     >
                         <Typography sx={{ fontWeight: '600', fontSize: '14px' }} >
-                            Supplier
+                            Branch
                         </Typography>
                     </Box>
                     <Box
@@ -516,21 +519,19 @@ export default function Supplier() {
                         }}>
 
                         <Typography sx={{ display: 'flex', flexDirection: 'row' }}>
-                            Supplier ID :
+                            Branch ID :
                             <Typography sx={{ color: '#754C27', ml: '12px' }}>
                                 #011
                             </Typography>
                         </Typography>
                         <Box sx={{ width: '80%', mt: '24px' }}>
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
-                                Supplier Id
+                                Branch Id
                             </Typography>
-
                             <TextField
                                 size="small"
-                                // placeholder={getLastTypeproductCode}
                                 disabled
-                                
+
                                 sx={{
                                     mt: '8px',
                                     width: '100%',
@@ -538,12 +539,12 @@ export default function Supplier() {
                                         borderRadius: '10px',
                                     },
                                 }}
-                                {...formik.getFieldProps("supplier_code")}
-                                {...errorHelper(formik, "supplier_code")}
-                                value={getLastSupplierCode}
+                                {...formik.getFieldProps("branch_code")}
+                                {...errorHelper(formik, "branch_code")}
+                                value={getLastBranchCode}
                             />
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
-                                Supplier Name
+                                Branch Name
                             </Typography>
                             <TextField
                                 size="small"
@@ -555,8 +556,8 @@ export default function Supplier() {
                                         borderRadius: '10px',
                                     },
                                 }}
-                                {...formik.getFieldProps("supplier_name")}
-                                {...errorHelper(formik, "supplier_name")}
+                                {...formik.getFieldProps("branch_name")}
+                                {...errorHelper(formik, "branch_name")}
                             />
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
                                 Address
@@ -617,6 +618,7 @@ export default function Supplier() {
                                 Cancel
                             </Button>
                             <Button variant='contained'
+                                onClick={formik.handleSubmit}
                                 sx={{
                                     width: '100px',
                                     bgcolor: '#754C27',
@@ -679,7 +681,7 @@ export default function Supplier() {
                         }}
                     >
                         <Typography sx={{ fontWeight: '600', fontSize: '14px' }} >
-                            Product Type
+                            Branch
                         </Typography>
                     </Box>
                     <Box
@@ -698,17 +700,15 @@ export default function Supplier() {
                         }}>
 
                         <Typography sx={{ display: 'flex', flexDirection: 'row' }}>
-                            Product Type ID :
-                            <Box component="span" sx={{ color: '#754C27', ml: '12px' }}>
+                            Branch ID :
+                            <Typography sx={{ color: '#754C27', ml: '12px' }}>
                                 #011
-                            </Box>
+                            </Typography>
                         </Typography>
-
                         <Box sx={{ width: '80%', mt: '24px' }}>
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
-                                EDIT Supplier Id
+                                EDIT Branch Id
                             </Typography>
-
                             <TextField
                                 size="small"
                                 placeholder="Id"
@@ -719,11 +719,11 @@ export default function Supplier() {
                                         borderRadius: '10px',
                                     },
                                 }}
-                                {...formik.getFieldProps("supplier_code")}
-                                {...errorHelper(formik, "supplier_code")}
+                                {...formik.getFieldProps("branch_code")}
+                                {...errorHelper(formik, "branch_code")}
                             />
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
-                                Supplier Name
+                                Branch Name
                             </Typography>
                             <TextField
                                 size="small"
@@ -735,8 +735,8 @@ export default function Supplier() {
                                         borderRadius: '10px',
                                     },
                                 }}
-                                {...formik.getFieldProps("supplier_name")}
-                                {...errorHelper(formik, "supplier_name")}
+                                {...formik.getFieldProps("branch_name")}
+                                {...errorHelper(formik, "branch_name")}
                             />
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
                                 Address

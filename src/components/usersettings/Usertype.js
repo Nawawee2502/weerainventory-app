@@ -1,5 +1,5 @@
 import { Box, Button, InputAdornment, TextField, Typography, Drawer, IconButton } from '@mui/material';
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
 import SearchIcon from '@mui/icons-material/Search';
 import { styled } from '@mui/material/styles';
@@ -13,17 +13,17 @@ import Paper from '@mui/material/Paper';
 import Checkbox from '@mui/material/Checkbox';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { addBranch, deleteBranch, updateBranch, branchAll, countBranch, searchBranch, lastBranchCode } from '../api/branchApi';
 import { useFormik } from "formik";
 import { useDispatch, useSelector } from "react-redux";
-import { errorHelper } from "./handle-input-error";
+import { addTypeuser, countTypeuser, fetchAlltypeuser, deletetypeuser, updateTypeuser, searchtypeuser, lastTypeuserCode } from "../../api/usertypeApi"
+import { errorHelper } from "../handle-input-error";
 import { Alert, AlertTitle } from '@mui/material';
 import Pagination from '@mui/material/Pagination';
 import Stack from '@mui/material/Stack';
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
     [`&.${tableCellClasses.head}`]: {
-        backgroundColor: '#754C27',
+        background: '#754C27',
         color: theme.palette.common.white,
     },
     [`&.${tableCellClasses.body}`]: {
@@ -41,15 +41,15 @@ const StyledTableRow = styled(TableRow)(({ theme }) => ({
 }));
 
 
-export default function ProductRecord() {
+export default function UserType() {
     const [selected, setSelected] = useState([]);
     const dispatch = useDispatch();
     const [alert, setAlert] = useState({ open: false, message: '', severity: 'success' });
-    const [branch, setBranch] = useState([]);
+    const [typeuser, setTypeuser] = useState([]);
     const [page, setPage] = useState(0);
     const [count, setCount] = useState();
     const [searchTerm, setSearchTerm] = useState("");
-    const [getLastBranchCode, setGetLastBranchCode] = useState([]);
+    const [getLastTypeuserCode, setGetLastTypeuserCode] = useState([]);
 
     const handleSearchChange = (e) => {
         setSearchTerm(e.target.value);
@@ -57,10 +57,10 @@ export default function ProductRecord() {
 
     useEffect(() => {
         if (searchTerm) {
-            dispatch(searchBranch({ branch_name: searchTerm }))
+            dispatch(searchtypeuser({ typeuser_name: searchTerm }))
                 .unwrap()
                 .then((res) => {
-                    setBranch(res.data);
+                    setTypeuser(res.data);
                 })
                 .catch((err) => console.log(err.message));
         } else {
@@ -68,43 +68,33 @@ export default function ProductRecord() {
         }
     }, [searchTerm, dispatch]);
 
+
     const handleChange = (event, value) => {
         setPage(value);
-        console.log(value);
         let page = value - 1;
         let offset = page * 5;
-        let limit = value * 5;
-        console.log(limit, offset);
-        dispatch(branchAll({ offset, limit }))
+        let limit = 5;
+        dispatch(fetchAlltypeuser({ offset, limit }))
             .unwrap()
             .then((res) => {
-                console.log(res.data);
                 let resultData = res.data;
                 for (let indexArray = 0; indexArray < resultData.length; indexArray++) {
                     resultData[indexArray].id = offset + indexArray + 1;
                 }
-                setBranch(resultData);
+                setTypeuser(resultData);
             })
             .catch((err) => err.message);
     };
 
-    const refetchData = () => {
-        let offset = 0;
-        let limit = 5;
-        dispatch(branchAll({ offset, limit }))
-            .unwrap()
-            .then((res) => {
-                setBranch(res.data);
-            })
-            .catch((err) => console.log(err.message));
-    };
+
+
 
     useEffect(() => {
         refetchData();
         let offset = 0;
         let limit = 5;
         let test = 10;
-        dispatch(branchAll({ offset, limit }))
+        dispatch(fetchAlltypeuser({ offset, limit }))
             .unwrap()
             .then((res) => {
                 console.log(res.data);
@@ -112,21 +102,21 @@ export default function ProductRecord() {
                 for (let indexArray = 0; indexArray < resultData.length; indexArray++) {
                     resultData[indexArray].id = indexArray + 1;
                 }
-                setBranch(resultData);
+                setTypeuser(resultData);
                 console.log(resultData);
 
             })
             .catch((err) => err.message);
 
-        dispatch(lastBranchCode({ test }))
+        dispatch(lastTypeuserCode({ test }))
             .unwrap()
             .then((res) => {
-                setGetLastBranchCode(res.data);
+                setGetLastTypeuserCode(res.data);
                 console.log(res.data)
             })
             .catch((err) => err.message);
 
-        dispatch(countBranch({ test }))
+        dispatch(countTypeuser({ test }))
             .unwrap()
             .then((res) => {
                 console.log(res.data);
@@ -142,25 +132,25 @@ export default function ProductRecord() {
             .catch((err) => err.message);
     }, [dispatch]);
 
-    const handleCheckboxChange = (event, branch_code) => {
+    const handleCheckboxChange = (event, typeuser_code) => {
         if (event.target.checked) {
-            setSelected([...selected, branch_code]);
+            setSelected([...selected, typeuser_code]);
         } else {
-            setSelected(selected.filter((item) => item !== branch_code));
+            setSelected(selected.filter((item) => item !== typeuser_code));
         }
     };
 
     const handleSelectAllClick = (event) => {
         if (event.target.checked) {
-            const newSelected = branch.map((row) => row.branch_code);
+            const newSelected = typeuser.map((row) => row.typeuser_code);
             setSelected(newSelected);
         } else {
             setSelected([]);
         }
     };
 
-    const handleDelete = (branch_code) => {
-        dispatch(deleteBranch({ branch_code }))
+    const handleDelete = (typeuser_code) => {
+        dispatch(deletetypeuser({ typeuser_code }))
             .unwrap()
             .then((res) => {
                 setAlert({ open: true, message: 'Deleted successfully', severity: 'success' });
@@ -170,12 +160,12 @@ export default function ProductRecord() {
                 refetchData();
                 let offset = 0;
                 let limit = 5;
-                dispatch(branchAll({ offset, limit }))
+                dispatch(fetchAlltypeuser({ offset, limit }))
                     .unwrap()
-                    .then((res) => setBranch(res.data));
+                    .then((res) => setTypeuser(res.data));
             })
             .catch((err) => {
-                setAlert({ open: true, message: 'Error deleting Branch', severity: 'error' });
+                setAlert({ open: true, message: 'Error deleting User', severity: 'error' });
                 setTimeout(() => {
                     setAlert((prev) => ({ ...prev, open: false }));
                 }, 3000);
@@ -183,11 +173,11 @@ export default function ProductRecord() {
     };
 
     const handleDeleteSelected = () => {
-        Promise.all(selected.map(branch_code =>
-            dispatch(deleteBranch({ branch_code })).unwrap()
+        Promise.all(selected.map(typeuser_code =>
+            dispatch(deletetypeuser({ typeuser_code })).unwrap()
         ))
             .then(() => {
-                setAlert({ open: true, message: 'Deleted successfully', severity: 'success' });
+                setAlert({ open: true, message: 'ลบรายการที่เลือกสำเร็จ', severity: 'success' });
                 setTimeout(() => {
                     setAlert((prev) => ({ ...prev, open: false }));
                 }, 3000);
@@ -195,17 +185,18 @@ export default function ProductRecord() {
                 refetchData();
                 let offset = 0;
                 let limit = 5;
-                dispatch(branchAll({ offset, limit }))
+                dispatch(fetchAlltypeuser({ offset, limit }))
                     .unwrap()
-                    .then((res) => setBranch(res.data));
+                    .then((res) => setTypeuser(res.data));
             })
             .catch((err) => {
-                setAlert({ open: true, message: 'Error deleting branch', severity: 'error' });
+                setAlert({ open: true, message: 'เกิดข้อผิดพลาดในการลบ', severity: 'error' });
                 setTimeout(() => {
                     setAlert((prev) => ({ ...prev, open: false }));
                 }, 3000);
             });
     };
+
 
     const [openDrawer, setOpenDrawer] = useState(false);
     const [openEditDrawer, setOpenEditDrawer] = useState(false);
@@ -219,25 +210,22 @@ export default function ProductRecord() {
         setOpenEditDrawer(openEditDrawer);
     };
 
-    const [editBranch, setEditBranch] = useState(null);
+    const [editUser, setEditUser] = useState(null);
 
     const handleEdit = (row) => {
-        setEditBranch(row);
+        setEditUser(row);
         formik.setValues({
-            branch_code: row.branch_code,
-            branch_name: row.branch_name,
-            addr1: row.addr1,
-            addr2: row.addr2,
-            tel1: row.tel1,
+            typeuser_code: row.typeuser_code,
+            typeuser_name: row.typeuser_name,
         });
         toggleEditDrawer(true)();
     };
 
     const handleSave = () => {
-        dispatch(updateBranch(formik.values))
+        dispatch(updateTypeuser(formik.values))
             .unwrap()
             .then((res) => {
-                setAlert({ open: true, message: 'Updated success', severity: 'success' });
+                setAlert({ open: true, message: 'อัปเดตข้อมูลสำเร็จ', severity: 'success' });
                 refetchData();
                 toggleEditDrawer(false)();
                 setTimeout(() => {
@@ -245,30 +233,30 @@ export default function ProductRecord() {
                 }, 3000);
             })
             .catch((err) => {
-                setAlert({ open: true, message: 'Updated Error', severity: 'error' });
+                setAlert({ open: true, message: 'เกิดข้อผิดพลาดในการอัปเดตข้อมูล', severity: 'error' });
                 setTimeout(() => {
                     setAlert((prev) => ({ ...prev, open: false }));
                 }, 3000);
             });
     };
 
-    const handleGetLastCode = () => {
+    const handleGetLastCode = (  ) => {
         let test = "";
-        dispatch(lastBranchCode({ test }))
+        dispatch(lastTypeuserCode({ test }))
             .unwrap()
             .then((res) => {
-
+        
                 console.log(res.data)
-                let lastBranchCode = "" + (Number(res.data.branch_code) + 1)
-                if (lastBranchCode.length === 1) {
-                    lastBranchCode = "00" + lastBranchCode
+                let lastTypeCode = ""+(Number(res.data.typeuser_code) + 1)
+                if (lastTypeCode.length === 1) {
+                    lastTypeCode = "00" + lastTypeCode
+                } 
+                if (lastTypeCode.length === 2) {
+                    lastTypeCode = "0" + lastTypeCode
                 }
-                if (lastBranchCode.length === 2) {
-                    lastBranchCode = "0" + lastBranchCode
-                }
-                setGetLastBranchCode(lastBranchCode);
+                setGetLastTypeuserCode(lastTypeCode);
                 formik.setValues({
-                    branch_code: lastBranchCode,
+                    typeuser_code: lastTypeCode,
                 });
             })
             .catch((err) => err.message);
@@ -276,14 +264,11 @@ export default function ProductRecord() {
 
     const formik = useFormik({
         initialValues: {
-            branch_code: "",
-            branch_name: "",
-            addr1: "",
-            addr2: "",
-            tel1: "",
+            typeuser_code: "",
+            typeuser_name: "",
         },
         onSubmit: (values) => {
-            dispatch(addBranch(values))
+            dispatch(addTypeuser(values))
                 .unwrap()
                 .then((res) => {
                     setAlert({ open: true, message: 'เพิ่มข้อมูลสำเร็จ', severity: 'success' });
@@ -305,6 +290,17 @@ export default function ProductRecord() {
         },
     });
 
+    const refetchData = () => {
+        let offset = 0;
+        let limit = 5;
+        dispatch(fetchAlltypeuser({ offset, limit }))
+            .unwrap()
+            .then((res) => {
+                setTypeuser(res.data);
+            })
+            .catch((err) => console.log(err.message));
+    };
+
     return (
         <>
             <Box
@@ -318,7 +314,7 @@ export default function ProductRecord() {
                 }}
             >
                 <Button
-                    onClick={toggleDrawer(true)}
+                    onClick={toggleDrawer(true) }
                     sx={{
                         width: '209px',
                         height: '70px',
@@ -348,7 +344,7 @@ export default function ProductRecord() {
                     }}
                 >
                     <Typography sx={{ fontSize: '16px', fontWeight: '600', mr: '24px' }}>
-                        Branch Search
+                        User Type Search
                     </Typography>
                     <TextField
                         value={searchTerm}
@@ -384,44 +380,41 @@ export default function ProductRecord() {
                         Delete Selected ({selected.length})
                     </Button>
                 </Box>
-                <TableContainer component={Paper} sx={{ width: '60%', mt: '24px' }}>
+                <TableContainer component={Paper} sx={{ width: '60%', mt: '24px', }}>
                     <Table sx={{}} aria-label="customized table">
-                        <TableHead>
-                            <TableRow>
+                        <TableHead sx={{}}>
+                            <TableRow sx={{}}>
                                 <StyledTableCell sx={{ width: '1%', textAlign: 'center' }}>
                                     <Checkbox
                                         sx={{ color: '#FFF' }}
-                                        indeterminate={selected.length > 0 && selected.length < branch.length}
-                                        checked={branch.length > 0 && selected.length === branch.length}
+                                        indeterminate={selected.length > 0 && selected.length < typeuser.length}
+                                        checked={typeuser.length > 0 && selected.length === typeuser.length}
                                         onChange={handleSelectAllClick}
                                     />
                                 </StyledTableCell>
                                 <StyledTableCell width='1%' >No.</StyledTableCell>
                                 <StyledTableCell align="center">ID</StyledTableCell>
-                                <StyledTableCell align="center">Branch Name</StyledTableCell>
-                                <StyledTableCell align="center">Address</StyledTableCell>
-                                <StyledTableCell align="center">Telephone</StyledTableCell>
+                                <StyledTableCell align="center">User Type</StyledTableCell>
                                 <StyledTableCell width='1%' align="center"></StyledTableCell>
                                 <StyledTableCell width='1%' align="center"></StyledTableCell>
 
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {branch.map((row) => (
-                                <StyledTableRow key={row.branch_code}>
+                            {typeuser.map((row) => (
+                                <StyledTableRow key={row.typeuser_code}>
                                     <StyledTableCell padding="checkbox" align="center">
                                         <Checkbox
-                                            checked={selected.includes(row.branch_code)}
-                                            onChange={(event) => handleCheckboxChange(event, row.branch_code)}
+                                            checked={selected.includes(row.typeuser_code)}
+                                            onChange={(event) => handleCheckboxChange(event, row.typeuser_code)}
                                         />
+
                                     </StyledTableCell>
-                                    <StyledTableCell component="th" scope="row" >
+                                    <StyledTableCell component="th" scope="row">
                                         {row.id}
                                     </StyledTableCell>
-                                    <StyledTableCell align="center">{row.branch_code}</StyledTableCell>
-                                    <StyledTableCell align="center">{row.branch_name}</StyledTableCell>
-                                    <StyledTableCell align="center">{row.addr1} {row.addr2}</StyledTableCell>
-                                    <StyledTableCell align="center">{row.tel1}</StyledTableCell>
+                                    <StyledTableCell align="center">{row.typeuser_code}</StyledTableCell>
+                                    <StyledTableCell align="center">{row.typeuser_name}</StyledTableCell>
                                     <StyledTableCell align="center">
                                         <IconButton
                                             color="primary"
@@ -436,7 +429,7 @@ export default function ProductRecord() {
                                         <IconButton
                                             color="danger"
                                             size="md"
-                                            onClick={() => handleDelete(row.branch_code)} // Use a function to handle delete
+                                            onClick={() => handleDelete(row.typeuser_code)} // Use a function to handle delete
                                             sx={{ border: '1px solid #F62626', borderRadius: '7px' }}
                                         >
                                             <DeleteIcon sx={{ color: '#F62626' }} />
@@ -446,6 +439,7 @@ export default function ProductRecord() {
                                 </StyledTableRow>
                             ))}
                         </TableBody>
+
                     </Table>
                 </TableContainer>
                 <Stack spacing={2}>
@@ -490,17 +484,16 @@ export default function ProductRecord() {
                             color: '#FFFFFF',
                             px: '8px',
                             py: '4px',
-                            borderRadius: '5px',
+                            borderRadius: '20px',
                             fontWeight: 'bold',
                             zIndex: 1,
-                            borderRadius: '20px',
                             height: '89px',
                             display: 'flex',
                             justifyContent: 'center',
                         }}
                     >
                         <Typography sx={{ fontWeight: '600', fontSize: '14px' }} >
-                            Branch
+                            User Type
                         </Typography>
                     </Box>
                     <Box
@@ -519,19 +512,21 @@ export default function ProductRecord() {
                         }}>
 
                         <Typography sx={{ display: 'flex', flexDirection: 'row' }}>
-                            Branch ID :
-                            <Typography sx={{ color: '#754C27', ml: '12px' }}>
+                            User Type ID :
+                            <Box component="span" sx={{ color: '#754C27', ml: '12px' }}>
                                 #011
-                            </Typography>
+                            </Box>
                         </Typography>
+
                         <Box sx={{ width: '80%', mt: '24px' }}>
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
-                                Branch Id
+                                User Id
                             </Typography>
                             <TextField
                                 size="small"
+                                // placeholder={getLasttypeuserCode}
                                 disabled
-
+                                
                                 sx={{
                                     mt: '8px',
                                     width: '100%',
@@ -539,16 +534,16 @@ export default function ProductRecord() {
                                         borderRadius: '10px',
                                     },
                                 }}
-                                {...formik.getFieldProps("branch_code")}
-                                {...errorHelper(formik, "branch_code")}
-                                value={getLastBranchCode}
+                                {...formik.getFieldProps("typeuser_code")}
+                                {...errorHelper(formik, "typeuser_code")}
+                                value={getLastTypeuserCode}
                             />
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
-                                Branch Name
+                                User Type
                             </Typography>
                             <TextField
                                 size="small"
-                                placeholder="Name"
+                                placeholder="User Type"
                                 sx={{
                                     mt: '8px',
                                     width: '100%',
@@ -556,53 +551,8 @@ export default function ProductRecord() {
                                         borderRadius: '10px',
                                     },
                                 }}
-                                {...formik.getFieldProps("branch_name")}
-                                {...errorHelper(formik, "branch_name")}
-                            />
-                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
-                                Address
-                            </Typography>
-                            <TextField
-                                size="small"
-                                placeholder="Address"
-                                sx={{
-                                    mt: '8px',
-                                    width: '100%',
-                                    '& .MuiOutlinedInput-root': {
-                                        borderRadius: '10px',
-                                    },
-                                }}
-                                {...formik.getFieldProps("addr1")}
-                                {...errorHelper(formik, "addr1")}
-                            />
-                            <TextField
-                                size="small"
-                                placeholder="Address"
-                                sx={{
-                                    mt: '8px',
-                                    width: '100%',
-                                    '& .MuiOutlinedInput-root': {
-                                        borderRadius: '10px',
-                                    },
-                                }}
-                                {...formik.getFieldProps("addr2")}
-                                {...errorHelper(formik, "addr2")}
-                            />
-                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
-                                Telephone
-                            </Typography>
-                            <TextField
-                                size="small"
-                                placeholder="Telephone"
-                                sx={{
-                                    mt: '8px',
-                                    width: '100%',
-                                    '& .MuiOutlinedInput-root': {
-                                        borderRadius: '10px',
-                                    },
-                                }}
-                                {...formik.getFieldProps("tel1")}
-                                {...errorHelper(formik, "tel1")}
+                                {...formik.getFieldProps("typeuser_name")}
+                                {...errorHelper(formik, "typeuser_name")}
                             />
                         </Box>
                         <Box sx={{ mt: '24px' }} >
@@ -618,7 +568,7 @@ export default function ProductRecord() {
                                 Cancel
                             </Button>
                             <Button variant='contained'
-                                onClick={formik.handleSubmit}
+                                onClick={formik.handleSubmit} // ใช้ onClick แทน
                                 sx={{
                                     width: '100px',
                                     bgcolor: '#754C27',
@@ -630,6 +580,7 @@ export default function ProductRecord() {
                             >
                                 Save
                             </Button>
+
                         </Box>
                     </Box>
                 </Box>
@@ -681,7 +632,7 @@ export default function ProductRecord() {
                         }}
                     >
                         <Typography sx={{ fontWeight: '600', fontSize: '14px' }} >
-                            Branch
+                            User Type
                         </Typography>
                     </Box>
                     <Box
@@ -700,18 +651,19 @@ export default function ProductRecord() {
                         }}>
 
                         <Typography sx={{ display: 'flex', flexDirection: 'row' }}>
-                            Branch ID :
-                            <Typography sx={{ color: '#754C27', ml: '12px' }}>
+                            EDIT User Type ID :
+                            <Box component="span" sx={{ color: '#754C27', ml: '12px' }}>
                                 #011
-                            </Typography>
+                            </Box>
                         </Typography>
+
                         <Box sx={{ width: '80%', mt: '24px' }}>
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
-                                EDIT Branch Id
+                                User Id
                             </Typography>
                             <TextField
                                 size="small"
-                                placeholder="Id"
+                                placeholder="User Id"
                                 sx={{
                                     mt: '8px',
                                     width: '100%',
@@ -719,15 +671,16 @@ export default function ProductRecord() {
                                         borderRadius: '10px',
                                     },
                                 }}
-                                {...formik.getFieldProps("branch_code")}
-                                {...errorHelper(formik, "branch_code")}
+                                {...formik.getFieldProps("typeuser_code")}
+                                {...errorHelper(formik, "typeuser_code")}
                             />
+
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
-                                Branch Name
+                                User Type
                             </Typography>
                             <TextField
                                 size="small"
-                                placeholder="Name"
+                                placeholder="User Name"
                                 sx={{
                                     mt: '8px',
                                     width: '100%',
@@ -735,53 +688,8 @@ export default function ProductRecord() {
                                         borderRadius: '10px',
                                     },
                                 }}
-                                {...formik.getFieldProps("branch_name")}
-                                {...errorHelper(formik, "branch_name")}
-                            />
-                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
-                                Address
-                            </Typography>
-                            <TextField
-                                size="small"
-                                placeholder="Address"
-                                sx={{
-                                    mt: '8px',
-                                    width: '100%',
-                                    '& .MuiOutlinedInput-root': {
-                                        borderRadius: '10px',
-                                    },
-                                }}
-                                {...formik.getFieldProps("addr1")}
-                                {...errorHelper(formik, "addr1")}
-                            />
-                            <TextField
-                                size="small"
-                                placeholder="Address"
-                                sx={{
-                                    mt: '8px',
-                                    width: '100%',
-                                    '& .MuiOutlinedInput-root': {
-                                        borderRadius: '10px',
-                                    },
-                                }}
-                                {...formik.getFieldProps("addr2")}
-                                {...errorHelper(formik, "addr2")}
-                            />
-                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
-                                Telephone
-                            </Typography>
-                            <TextField
-                                size="small"
-                                placeholder="Telephone"
-                                sx={{
-                                    mt: '8px',
-                                    width: '100%',
-                                    '& .MuiOutlinedInput-root': {
-                                        borderRadius: '10px',
-                                    },
-                                }}
-                                {...formik.getFieldProps("tel1")}
-                                {...errorHelper(formik, "tel1")}
+                                {...formik.getFieldProps("typeuser_name")}
+                                {...errorHelper(formik, "typeuser_name")}
                             />
                         </Box>
                         <Box sx={{ mt: '24px' }} >
@@ -821,7 +729,7 @@ export default function ProductRecord() {
                     {alert.message}
                 </Alert>
             )}
+
         </>
     );
 }
-

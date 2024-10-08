@@ -1,4 +1,4 @@
-import { Box, Button, InputAdornment, TextField, Typography, Drawer, IconButton } from '@mui/material';
+import { Box, Button, InputAdornment, TextField, Typography, Drawer, IconButton, FormControlLabel, Divider, Grid, Grid2 } from '@mui/material';
 import React, { useState, useEffect } from 'react';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
 import SearchIcon from '@mui/icons-material/Search';
@@ -14,13 +14,16 @@ import Checkbox from '@mui/material/Checkbox';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 // import { addBranch, deleteBranch, updateBranch, productAll, countBranch } from '../api/branchApi';
-import { addProduct, deleteProduct, updateProduct, productAll, countProduct, searchProduct, lastProductCode } from '../api/productrecordApi';
+import { addProduct, deleteProduct, updateProduct, productAll, countProduct, searchProduct, lastProductCode } from '../../api/productrecordApi';
 import { useFormik } from "formik";
 import { useDispatch, useSelector } from "react-redux";
-import { errorHelper } from "./handle-input-error";
+import { errorHelper } from "../handle-input-error";
 import { Alert, AlertTitle } from '@mui/material';
 import Pagination from '@mui/material/Pagination';
 import Stack from '@mui/material/Stack';
+import MenuItem from '@mui/material/MenuItem';
+import FormControl from '@mui/material/FormControl';
+import Select from '@mui/material/Select';
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
     [`&.${tableCellClasses.head}`]: {
@@ -42,7 +45,7 @@ const StyledTableRow = styled(TableRow)(({ theme }) => ({
 }));
 
 
-export default function ProductRecord() {
+export default function UserPermission() {
     const [selected, setSelected] = useState([]);
     const dispatch = useDispatch();
     const [alert, setAlert] = useState({ open: false, message: '', severity: 'success' });
@@ -51,6 +54,7 @@ export default function ProductRecord() {
     const [count, setCount] = useState();
     const [searchTerm, setSearchTerm] = useState("");
     const [getLastProductCode, setGetLastProductCode] = useState([]);
+    const [userTypeName, setUserTypeName] = useState([]);
 
     const handleSearchChange = (e) => {
         setSearchTerm(e.target.value);
@@ -349,7 +353,7 @@ export default function ProductRecord() {
                     }}
                 >
                     <Typography sx={{ fontSize: '16px', fontWeight: '600', mr: '24px' }}>
-                        Product Record Search
+                        User Search
                     </Typography>
                     <TextField
                         value={searchTerm}
@@ -398,13 +402,13 @@ export default function ProductRecord() {
                                     />
                                 </StyledTableCell>
                                 <StyledTableCell width='1%' >No.</StyledTableCell>
-                                <StyledTableCell width='1%' >Type</StyledTableCell>
-                                <StyledTableCell align="center">ID</StyledTableCell>
-                                <StyledTableCell align="center">Product Name</StyledTableCell>
-                                <StyledTableCell align="center">Unit Price</StyledTableCell>
-                                <StyledTableCell align="center">Large Unit</StyledTableCell>
-                                <StyledTableCell align="center">Small Unit</StyledTableCell>
-                                <StyledTableCell align="center">Conversion Quantity </StyledTableCell>
+                                <StyledTableCell width='1%' >ID</StyledTableCell>
+                                <StyledTableCell align="center">User Type</StyledTableCell>
+                                <StyledTableCell align="center">Set General</StyledTableCell>
+                                <StyledTableCell align="center">User Settings</StyledTableCell>
+                                <StyledTableCell align="center">Warehouse</StyledTableCell>
+                                <StyledTableCell align="center">Commissary Kitchen</StyledTableCell>
+                                <StyledTableCell align="center">Branch</StyledTableCell>
                                 <StyledTableCell width='1%' align="center"></StyledTableCell>
                                 <StyledTableCell width='1%' align="center"></StyledTableCell>
 
@@ -428,7 +432,7 @@ export default function ProductRecord() {
                                     <StyledTableCell align="center">{row.bulk_unit_code}</StyledTableCell>
                                     <StyledTableCell align="center">{row.bulk_unit_price}</StyledTableCell>
                                     <StyledTableCell align="center">{row.retail_unit_code}</StyledTableCell>
-                                    <StyledTableCell align="center">{row.unit_conversion_factor}</StyledTableCell>
+                                    <StyledTableCell align="center">{row.retail_unit_code}</StyledTableCell>
                                     <StyledTableCell align="center">
                                         <IconButton
                                             color="primary"
@@ -455,190 +459,9 @@ export default function ProductRecord() {
                         </TableBody>
                     </Table>
                 </TableContainer>
+
+
             </Box>
-            <Drawer
-                anchor="right"
-                open={openDrawer}
-                onClose={toggleDrawer(false)}
-                ModalProps={{
-                    BackdropProps: {
-                        style: {
-                            backgroundColor: 'transparent',
-                        },
-                    },
-                }}
-                PaperProps={{
-                    sx: {
-                        boxShadow: 'none',
-                        width: '25%',
-                        borderRadius: '20px',
-                        border: '1px solid #E4E4E4',
-                        bgcolor: '#FAFAFA'
-                    },
-                }}
-            >
-                <Box
-                    sx={{
-                        width: '100%',
-                        mt: '80px',
-                        flexDirection: 'column'
-                    }}
-                >
-                    <Box
-                        sx={{
-                            position: 'absolute',
-                            top: '48px',
-                            left: '0',
-                            width: '129px',
-                            bgcolor: '#AD7A2C',
-                            color: '#FFFFFF',
-                            px: '8px',
-                            py: '4px',
-                            borderRadius: '5px',
-                            fontWeight: 'bold',
-                            zIndex: 1,
-                            borderRadius: '20px',
-                            height: '89px',
-                            display: 'flex',
-                            justifyContent: 'center',
-                        }}
-                    >
-                        <Typography sx={{ fontWeight: '600', fontSize: '14px' }} >
-                            Product
-                        </Typography>
-                    </Box>
-                    <Box
-                        sx={{
-                            display: 'flex',
-                            justifyContent: 'center',
-                            alignItems: 'center',
-                            flexDirection: 'column',
-                            border: '1px solid #E4E4E4',
-                            borderRadius: '10px',
-                            bgcolor: '#FFFFFF',
-                            height: '100%',
-                            p: '16px',
-                            position: 'relative',
-                            zIndex: 2,
-                        }}>
-
-                        <Typography sx={{ display: 'flex', flexDirection: 'row' }}>
-                            Product ID :
-                            <Typography sx={{ color: '#754C27', ml: '12px' }}>
-                                #011
-                            </Typography>
-                        </Typography>
-                        <Box sx={{ width: '80%', mt: '24px' }}>
-                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
-                                Product Id
-                            </Typography>
-                            <TextField
-                                size="small"
-                                // placeholder={getLastTypeproductCode}
-                                disabled
-
-                                sx={{
-                                    mt: '8px',
-                                    width: '100%',
-                                    '& .MuiOutlinedInput-root': {
-                                        borderRadius: '10px',
-                                    },
-                                }}
-                                {...formik.getFieldProps("product_code")}
-                                {...errorHelper(formik, "product_code")}
-                                value={getLastProductCode}
-                            />
-                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
-                                Product Name
-                            </Typography>
-                            <TextField
-                                size="small"
-                                placeholder="Name"
-                                sx={{
-                                    mt: '8px',
-                                    width: '100%',
-                                    '& .MuiOutlinedInput-root': {
-                                        borderRadius: '10px',
-                                    },
-                                }}
-                                {...formik.getFieldProps("product_name")}
-                                {...errorHelper(formik, "product_name")}
-                            />
-                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
-                                Address
-                            </Typography>
-                            <TextField
-                                size="small"
-                                placeholder="Address"
-                                sx={{
-                                    mt: '8px',
-                                    width: '100%',
-                                    '& .MuiOutlinedInput-root': {
-                                        borderRadius: '10px',
-                                    },
-                                }}
-                                {...formik.getFieldProps("addr1")}
-                                {...errorHelper(formik, "addr1")}
-                            />
-                            <TextField
-                                size="small"
-                                placeholder="Address"
-                                sx={{
-                                    mt: '8px',
-                                    width: '100%',
-                                    '& .MuiOutlinedInput-root': {
-                                        borderRadius: '10px',
-                                    },
-                                }}
-                                {...formik.getFieldProps("addr2")}
-                                {...errorHelper(formik, "addr2")}
-                            />
-                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
-                                Telephone
-                            </Typography>
-                            <TextField
-                                size="small"
-                                placeholder="Telephone"
-                                sx={{
-                                    mt: '8px',
-                                    width: '100%',
-                                    '& .MuiOutlinedInput-root': {
-                                        borderRadius: '10px',
-                                    },
-                                }}
-                                {...formik.getFieldProps("tel1")}
-                                {...errorHelper(formik, "tel1")}
-                            />
-                        </Box>
-                        <Box sx={{ mt: '24px' }} >
-                            <Button variant='contained'
-                                sx={{
-                                    width: '100px',
-                                    bgcolor: '#F62626',
-                                    '&:hover': {
-                                        bgcolor: '#D32F2F',
-                                    },
-                                }}
-                            >
-                                Cancel
-                            </Button>
-                            <Button variant='contained'
-                                onClick={formik.handleSubmit}
-                                sx={{
-                                    width: '100px',
-                                    bgcolor: '#754C27',
-                                    '&:hover': {
-                                        bgcolor: '#5A3D1E',
-                                    },
-                                    ml: '24px'
-                                }}
-                            >
-                                Save
-                            </Button>
-                        </Box>
-                    </Box>
-                </Box>
-            </Drawer>
             <Drawer
                 anchor="right"
                 open={openEditDrawer}
@@ -653,171 +476,323 @@ export default function ProductRecord() {
                 PaperProps={{
                     sx: {
                         boxShadow: 'none',
-                        width: '25%',
+                        width: '100%',
                         borderRadius: '20px',
                         border: '1px solid #E4E4E4',
                         bgcolor: '#FAFAFA'
                     },
                 }}
             >
-                <Box
-                    sx={{
-                        width: '100%',
-                        mt: '80px',
-                        flexDirection: 'column'
-                    }}
-                >
-                    <Box
-                        sx={{
-                            position: 'absolute',
-                            top: '48px',
-                            left: '0',
-                            width: '129px',
-                            bgcolor: '#AD7A2C',
-                            color: '#FFFFFF',
-                            px: '8px',
-                            py: '4px',
-                            borderRadius: '20px',
-                            fontWeight: 'bold',
-                            zIndex: 1,
-                            height: '89px',
-                            display: 'flex',
-                            justifyContent: 'center',
-                        }}
-                    >
-                        <Typography sx={{ fontWeight: '600', fontSize: '14px' }} >
-                            Branch
-                        </Typography>
-                    </Box>
-                    <Box
-                        sx={{
-                            display: 'flex',
-                            justifyContent: 'center',
-                            alignItems: 'center',
-                            flexDirection: 'column',
-                            border: '1px solid #E4E4E4',
-                            borderRadius: '10px',
-                            bgcolor: '#FFFFFF',
-                            height: '100%',
-                            p: '16px',
-                            position: 'relative',
-                            zIndex: 2,
-                        }}>
 
-                        <Typography sx={{ display: 'flex', flexDirection: 'row' }}>
-                            Product ID :
-                            <Typography sx={{ color: '#754C27', ml: '12px' }}>
-                                #011
-                            </Typography>
-                        </Typography>
-                        <Box sx={{ width: '80%', mt: '24px' }}>
+                <Box sx={{ width: '100%', mt: '36px' }}>
+                    <Typography sx={{ fontSize: '16px', fontWeight: '700', color: '#754C27' }}>
+                        User Type Name
+                    </Typography>
+                    <FormControl sx={{ width: 300, mt: 3 }}>
+                        <Select
+                            multiple
+                            displayEmpty
+                            value={userTypeName}
+                            // onChange={handleChange}
+                            // input={<OutlinedInput />}
+                            renderValue={(selected) => {
+                                if (selected.length === 0) {
+                                    return <>User Type Name</>;
+                                }
+
+                                return selected.join(', ');
+                            }}
+                            inputProps={{ 'aria-label': 'Without label' }}
+                        >
+                            <MenuItem disabled value="">
+                                User Type Name
+                            </MenuItem>
+                        </Select>
+                    </FormControl>
+
+                    <Box sx={{ display: 'flex', flexDirection: 'row', mt: '24px' }}>
+                        <FormControlLabel
+                            control={<Checkbox />}
+                            label={<Typography>Warehouse</Typography>}
+                        />
+                        <FormControlLabel
+                            control={<Checkbox />}
+                            label={<Typography>Commissary kitchen</Typography>}
+                        />
+                        <FormControlLabel
+                            control={<Checkbox />}
+                            label={<Typography>Branch</Typography>}
+                        />
+                        <FormControlLabel
+                            control={<Checkbox />}
+                            label={<Typography>General settings</Typography>}
+                        />
+                        <FormControlLabel
+                            control={<Checkbox />}
+                            label={<Typography>User settings</Typography>}
+                        />
+                    </Box>
+                    <Divider sx={{ mt: '24px' }} />
+                    <Grid2 container sx={{ mt: '24px' }}>
+                        <Grid2 item xs={6} sm={3} md={2} sx={{ display: 'flex', flexDirection: 'column' }}>
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
-                                EDIT Product Id
+                                User Type Name
                             </Typography>
-                            <TextField
-                                size="small"
-                                placeholder="Id"
-                                sx={{
-                                    mt: '8px',
-                                    width: '100%',
-                                    '& .MuiOutlinedInput-root': {
-                                        borderRadius: '10px',
-                                    },
-                                }}
-                                {...formik.getFieldProps("product_code")}
-                                {...errorHelper(formik, "product_code")}
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Product Type</Typography>}
                             />
-                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
-                                Product Name
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Counting Unit</Typography>}
+                            />
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Product Record</Typography>}
+                            />
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Branch</Typography>}
+                            />
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Commissary Kitchen</Typography>}
+                            />
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Suppliers</Typography>}
+                            />
+                        </Grid2>
+                        <Grid2 item xs={6} sm={3} md={2} sx={{ display: 'flex', flexDirection: 'column' }}>
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
+                                User Settings
                             </Typography>
-                            <TextField
-                                size="small"
-                                placeholder="Name"
-                                sx={{
-                                    mt: '8px',
-                                    width: '100%',
-                                    '& .MuiOutlinedInput-root': {
-                                        borderRadius: '10px',
-                                    },
-                                }}
-                                {...formik.getFieldProps("product_name")}
-                                {...errorHelper(formik, "product_name")}
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>User Type</Typography>}
                             />
-                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
-                                Address
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>User Permission</Typography>}
+                            />
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Manage Users</Typography>}
+                            />
+                        </Grid2>
+                        <Grid2 item xs={6} sm={3} md={2} sx={{ display: 'flex', flexDirection: 'column' }}>
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
+                                Warehouse
                             </Typography>
-                            <TextField
-                                size="small"
-                                placeholder="Address"
-                                sx={{
-                                    mt: '8px',
-                                    width: '100%',
-                                    '& .MuiOutlinedInput-root': {
-                                        borderRadius: '10px',
-                                    },
-                                }}
-                                {...formik.getFieldProps("addr1")}
-                                {...errorHelper(formik, "addr1")}
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Purchase Order to Supplier</Typography>}
                             />
-                            <TextField
-                                size="small"
-                                placeholder="Address"
-                                sx={{
-                                    mt: '8px',
-                                    width: '100%',
-                                    '& .MuiOutlinedInput-root': {
-                                        borderRadius: '10px',
-                                    },
-                                }}
-                                {...formik.getFieldProps("addr2")}
-                                {...errorHelper(formik, "addr2")}
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Receipt From Supplier</Typography>}
                             />
-                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
-                                Telephone
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Receipt From Kitchen</Typography>}
+                            />
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Dispatch to Kitchen</Typography>}
+                            />
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Dispatch to Branch</Typography>}
+                            />
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Stock Adjustment</Typography>}
+                            />
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
+                                Report
                             </Typography>
-                            <TextField
-                                size="small"
-                                placeholder="Telephone"
-                                sx={{
-                                    mt: '8px',
-                                    width: '100%',
-                                    '& .MuiOutlinedInput-root': {
-                                        borderRadius: '10px',
-                                    },
-                                }}
-                                {...formik.getFieldProps("tel1")}
-                                {...errorHelper(formik, "tel1")}
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Purchase Order to Supplier</Typography>}
                             />
-                        </Box>
-                        <Box sx={{ mt: '24px' }} >
-                            <Button variant='contained'
-                                sx={{
-                                    width: '100px',
-                                    bgcolor: '#F62626',
-                                    '&:hover': {
-                                        bgcolor: '#D32F2F',
-                                    },
-                                }}
-                            >
-                                Cancel
-                            </Button>
-                            <Button
-                                onClick={handleSave}
-                                sx={{
-                                    width: '100px',
-                                    backgroundColor: '#AD7A2C',
-                                    color: '#FFFFFF',
-                                    '&:hover': {
-                                        backgroundColor: '#8C5D1E',
-                                    },
-                                    ml: '24px'
-                                }}
-                            >
-                                Save
-                            </Button>
-
-                        </Box>
-                    </Box>
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Receipt From Supplier</Typography>}
+                            />
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Receipt From Kitchen</Typography>}
+                            />
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Dispatch to Kitchen</Typography>}
+                            />
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Dispatch to Branch</Typography>}
+                            />
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Stock Adjustment</Typography>}
+                            />
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Monthly Stock Card</Typography>}
+                            />
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Monthly Stock Balance</Typography>}
+                            />
+                        </Grid2>
+                        <Grid2 item xs={6} sm={3} md={2} sx={{ display: 'flex', flexDirection: 'column' }}>
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
+                                Commissary Kitchen
+                            </Typography>
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Purchase Order to Warehouse</Typography>}
+                            />
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Receipt From Supplier</Typography>}
+                            />
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Receipt From Warehouse</Typography>}
+                            />
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Goods Requisition</Typography>}
+                            />
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Production Receipt</Typography>}
+                            />
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Transfer to Warehouse</Typography>}
+                            />
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Dispatch to Branch</Typography>}
+                            />
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Stock Adjustment</Typography>}
+                            />
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
+                                Report
+                            </Typography>
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Purchase Order to Warehouse</Typography>}
+                            />
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Receipt From Supplier</Typography>}
+                            />
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Receipt From Warehouse</Typography>}
+                            />
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Goods Requisition</Typography>}
+                            />
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Production Receipt</Typography>}
+                            />
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Transfer to Warehouse</Typography>}
+                            />
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Dispatch to Branch</Typography>}
+                            />
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Stock Adjustment</Typography>}
+                            />
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Monthly Stock Card</Typography>}
+                            />
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Monthly Stock Balance</Typography>}
+                            />
+                        </Grid2>
+                        <Grid2 item xs={6} sm={3} md={2} sx={{ display: 'flex', flexDirection: 'column' }}>
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
+                                Branch
+                            </Typography>
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Set Minimum Stock</Typography>}
+                            />
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Stock Adjustment</Typography>}
+                            />
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Purchase Order to Warehouse</Typography>}
+                            />
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Receipt From Warehouse</Typography>}
+                            />
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Receipt From Kitchen</Typography>}
+                            />
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Receipt From Supplier</Typography>}
+                            />
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Goods Requisition</Typography>}
+                            />
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
+                                Report
+                            </Typography>
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Stock Adjustment</Typography>}
+                            />
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Purchase Order to Warehouse</Typography>}
+                            />
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Receipt From Warehouse</Typography>}
+                            />
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Receipt From Kitchen</Typography>}
+                            />
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Receipt From Supplier</Typography>}
+                            />
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Goods Requisition</Typography>}
+                            />
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Monthly Stock Card</Typography>}
+                            />
+                            <FormControlLabel
+                                control={<Checkbox />}
+                                label={<Typography>Monthly Stock Balance</Typography>}
+                            />
+                        </Grid2>
+                    </Grid2>
                 </Box>
             </Drawer>
             {alert.open && (
@@ -826,6 +801,7 @@ export default function ProductRecord() {
                     {alert.message}
                 </Alert>
             )}
+
         </>
     );
 }

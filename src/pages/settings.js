@@ -66,6 +66,9 @@ export default function Settings() {
         navigate('/generalsettings');
     };
 
+    const handleUserSettings = () => {
+        navigate('/usersettings');
+    };
 
     const isMenuOpen = Boolean(anchorEl);
     const isMobileMenuOpen = Boolean(mobileMoreAnchorEl);
@@ -274,6 +277,7 @@ export default function Settings() {
                         />
                     </Button>
                     <Button
+                        onClick={handleUserSettings}
                         sx={{
                             width: '413px',
                             height: '333px',

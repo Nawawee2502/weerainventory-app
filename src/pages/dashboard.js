@@ -17,7 +17,7 @@ import AccountCircle from '@mui/icons-material/AccountCircle';
 import SettingsIcon from '@mui/icons-material/Settings';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import MoreIcon from '@mui/icons-material/MoreVert';
-import { Button, Grid } from '@mui/material';
+import { Button, Grid, Grid2 } from '@mui/material';
 // import { useRouter } from 'next/router';
 
 const Search = styled('div')(({ theme }) => ({
@@ -72,6 +72,10 @@ export default function Dashboard() {
 
     const handleSettings = () => {
         navigate('/settings');
+    };
+
+    const handleWarehouse = () => {
+        navigate('/warehouse');
     };
 
     const handleProfileMenuOpen = (event) => {
@@ -252,7 +256,7 @@ export default function Dashboard() {
                     </Typography>
                 </Button>
                 <Button
-                    // onClick={''}
+                    onClick={handleWarehouse}
                     sx={{
                         width: '150px',
                         height: '130px',
@@ -318,28 +322,28 @@ export default function Dashboard() {
                         <Typography sx={{ fontSize: '32px', fontWeight: '700', color: '#464255' }}>
                             Dashboard
                         </Typography>
-                        <Grid container spacing={3} sx={{ display: 'flex', flexDirection: 'row', mt: '24px', justifyContent: 'center' }}>
-                            <Grid item >
+                        <Grid2 container spacing={3} sx={{ display: 'flex', flexDirection: 'row', mt: '24px', justifyContent: 'center' }}>
+                            <Grid2 item >
                                 <Box sx={{ width: '280px', height: '141px', bgcolor: '#EDEDED', borderRadius: '14px', boxShadow: '0px 4px 4px 0px #00000040' }}>
 
                                 </Box>
-                            </Grid>
-                            <Grid item >
+                            </Grid2>
+                            <Grid2 item >
                                 <Box sx={{ width: '280px', height: '141px', bgcolor: '#EDEDED', borderRadius: '14px', boxShadow: '0px 4px 4px 0px #00000040' }}>
 
                                 </Box>
-                            </Grid>
-                            <Grid item >
+                            </Grid2>
+                            <Grid2 item >
                                 <Box sx={{ width: '280px', height: '141px', bgcolor: '#EDEDED', borderRadius: '14px', boxShadow: '0px 4px 4px 0px #00000040' }}>
 
                                 </Box>
-                            </Grid>
-                            <Grid item >
+                            </Grid2>
+                            <Grid2 item >
                                 <Box sx={{ width: '280px', height: '141px', bgcolor: '#EDEDED', borderRadius: '14px', boxShadow: '0px 4px 4px 0px #00000040' }}>
 
                                 </Box>
-                            </Grid>
-                        </Grid>
+                            </Grid2>
+                        </Grid2>
                     </Box>
                 </Box>
             </Box>

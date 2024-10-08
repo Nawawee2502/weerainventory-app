@@ -13,6 +13,8 @@ import Dashboard from "./pages/Dashboard";
 import GeneralSettings from "./pages/Generalsettings"
 import Register from "./pages/register";
 import Settings from "./pages/Settings";
+import UserSettings from "./pages/Usersettings";
+import Warehouse from "./pages/Warehouse";
 
 
 const Router = () => {
@@ -27,6 +29,8 @@ const Router = () => {
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/generalsettings" element={<GeneralSettings />} />
                 <Route path="/register" element={<Register />} />
+                <Route path="/usersettings" element={<UserSettings />} />
+                <Route path="/warehouse" element={<Warehouse />}/>
             </Routes>
         </BrowserRouter>
     );

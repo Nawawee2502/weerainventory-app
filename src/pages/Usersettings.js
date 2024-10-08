@@ -13,12 +13,10 @@ import { styled, alpha } from '@mui/material/styles';
 import TabContext from '@mui/lab/TabContext';
 import TabList from '@mui/lab/TabList';
 import TabPanel from '@mui/lab/TabPanel';
-import SetProductType from '../components/generalsettings/Setproducttype';
-import SetCountingUnit from '../components/generalsettings/Setcountingunit';
-import Branch from '../components/generalsettings/Branch';
-import ComissaryKitchen from '../components/generalsettings/Comissarykitchen';
-import Supplier from '../components/generalsettings/Supplier';
-import ProductRecord from '../components/generalsettings/Productrecord';
+import UserType from '../components/usersettings/Usertype';
+import ManageUser from '../components/usersettings/Manageuser';
+import UserPermission from '../components/usersettings/Userpermission';
+
 
 const Search = styled('div')(({ theme }) => ({
     position: 'relative',
@@ -88,7 +86,7 @@ function LinkTab(props) {
     );
 }
 
-export default function GeneralSettings() {
+export default function UserSettings() {
     const [value, setValue] = useState('1');
     const [anchorEl, setAnchorEl] = useState(null);
     const [mobileMoreAnchorEl, setMobileMoreAnchorEl] = useState(null);
@@ -277,31 +275,22 @@ export default function GeneralSettings() {
                         <TabContext value={value}>
                             <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
                                 <TabList onChange={handleChange} aria-label="lab API tabs example">
-                                    <Tab label="Set product type" value="1" />
-                                    <Tab label="Set counting unit" value="2" />
-                                    <Tab label="Product record" value="3" />
-                                    <Tab label="Branch" value="4" />
-                                    <Tab label="Comissary Kitchen" value="5" />
-                                    <Tab label="Supplier" value="6" />
+                                    <Tab label="User Type" value="1" />
+                                    <Tab label="User Permission" value="2" />
+                                    <Tab label="Manage User" value="3" />
                                 </TabList>
                             </Box>
                             <TabPanel value="1">
-                                <SetProductType />
+                                {/* <SetProductType /> */}
+                                <UserType />
                             </TabPanel>
                             <TabPanel value="2">
-                                <SetCountingUnit />
+                                {/* <SetCountingUnit /> */}
+                                <UserPermission />
                             </TabPanel>
                             <TabPanel value="3">
-                                <ProductRecord />
-                            </TabPanel>
-                            <TabPanel value="4">
-                                <Branch />
-                            </TabPanel>
-                            <TabPanel value="5">
-                                <ComissaryKitchen />
-                            </TabPanel>
-                            <TabPanel value="6">
-                                <Supplier />
+                                {/* <ProductRecord /> */}
+                                <ManageUser />
                             </TabPanel>
                         </TabContext>
                     </Box>
