@@ -20,6 +20,7 @@ import { errorHelper } from "../handle-input-error";
 import { Alert, AlertTitle } from '@mui/material';
 import Pagination from '@mui/material/Pagination';
 import Stack from '@mui/material/Stack';
+import Swal from 'sweetalert2';
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
     [`&.${tableCellClasses.head}`]: {
@@ -160,52 +161,106 @@ export default function SetCountingUnit() {
     };
 
     const handleDelete = (unit_code) => {
-        dispatch(deleteUnit({ unit_code }))
-            .unwrap()
-            .then((res) => {
-                setAlert({ open: true, message: 'Deleted successfully', severity: 'success' });
-                setTimeout(() => {
-                    setAlert((prev) => ({ ...prev, open: false }));
-                }, 3000);
-                refetchData();
-                let offset = 0;
-                let limit = 5;
-                dispatch(unitAll({ offset, limit }))
+        Swal.fire({
+            title: 'Are you sure you want to delete this unit?',
+            text: 'This action cannot be undone!',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Delete',
+            cancelButtonText: 'Cancel',
+            reverseButtons: true,
+        }).then((result) => {
+            if (result.isConfirmed) {
+                dispatch(deleteUnit({ unit_code }))
                     .unwrap()
-                    .then((res) => setUnit(res.data));
-            })
-            .catch((err) => {
-                setAlert({ open: true, message: 'Error deleting unit', severity: 'error' });
-                setTimeout(() => {
-                    setAlert((prev) => ({ ...prev, open: false }));
-                }, 3000);
-            });
+                    .then((res) => {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Deleted successfully',
+                            timer: 1500,
+                            showConfirmButton: false,
+                        });
+                        setTimeout(() => {
+                            refetchData();
+                            let offset = 0;
+                            let limit = 5;
+                            dispatch(unitAll({ offset, limit }))
+                                .unwrap()
+                                .then((res) => setUnit(res.data));
+                        }, 2000);
+                    })
+                    .catch((err) => {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error deleting unit',
+                            text: 'Please try again later',
+                            timer: 3000,
+                            showConfirmButton: false,
+                        });
+                    });
+            } else {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Deletion canceled',
+                    timer: 1500,
+                    showConfirmButton: false,
+                });
+            }
+        });
     };
+    
 
     const handleDeleteSelected = () => {
-        Promise.all(selected.map(unit_code =>
-            dispatch(deleteUnit({ unit_code })).unwrap()
-        ))
-            .then(() => {
-                setAlert({ open: true, message: 'Deleted successfully', severity: 'success' });
-                setTimeout(() => {
-                    setAlert((prev) => ({ ...prev, open: false }));
-                }, 3000);
-                setSelected([]);
-                refetchData();
-                let offset = 0;
-                let limit = 5;
-                dispatch(unitAll({ offset, limit }))
-                    .unwrap()
-                    .then((res) => setUnit(res.data));
-            })
-            .catch((err) => {
-                setAlert({ open: true, message: 'Error deleting unit', severity: 'error' });
-                setTimeout(() => {
-                    setAlert((prev) => ({ ...prev, open: false }));
-                }, 3000);
-            });
+        Swal.fire({
+            title: 'Are you sure you want to delete the selected units?',
+            text: 'This action cannot be undone!',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Delete',
+            cancelButtonText: 'Cancel',
+            reverseButtons: true,
+        }).then((result) => {
+            if (result.isConfirmed) {
+                Promise.all(selected.map(unit_code =>
+                    dispatch(deleteUnit({ unit_code })).unwrap()
+                ))
+                    .then(() => {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Deleted successfully',
+                            timer: 1500,
+                            showConfirmButton: false,
+                        });
+                        setTimeout(() => {
+                            setSelected([]);
+                            refetchData();
+                            let offset = 0;
+                            let limit = 5;
+                            dispatch(unitAll({ offset, limit }))
+                                .unwrap()
+                                .then((res) => setUnit(res.data));
+                        }, 2000);
+                    })
+                    .catch((err) => {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error deleting units',
+                            text: 'Please try again later',
+                            timer: 3000,
+                            showConfirmButton: false,
+                        });
+                    });
+            } else {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Deletion canceled',
+                    timer: 1500,
+                    showConfirmButton: false,
+                });
+            }
+        });
     };
+    
 
     const [openDrawer, setOpenDrawer] = useState(false);
     const [openEditDrawer, setOpenEditDrawer] = useState(false);
@@ -255,15 +310,15 @@ export default function SetCountingUnit() {
             .unwrap()
             .then((res) => {
                 let getLastUnitCode = "01";
-    
+
                 if (res.data && res.data.unit_code) {
                     getLastUnitCode = "" + (Number(res.data.unit_code) + 1);
-    
+
                     if (getLastUnitCode.length === 1) {
                         getLastUnitCode = "0" + getLastUnitCode;
-                    } 
+                    }
                 }
-    
+
                 setLastUnitCode(getLastUnitCode);
                 formik.setValues({
                     unit_code: getLastUnitCode,
@@ -273,18 +328,34 @@ export default function SetCountingUnit() {
                 console.error("Error fetching last unit code:", err.message);
             });
     };
-    
+
 
     const formik = useFormik({
         initialValues: {
             unit_code: "",
             unit_name: "",
         },
+        validate: (values) => {
+            let errors = {};
+
+            if (!values.unit_name) {
+                errors.unit_name = 'unit_name cannot be empty';
+            }
+
+            return errors;
+        },
         onSubmit: (values) => {
             dispatch(addUnit(values))
                 .unwrap()
                 .then((res) => {
-                    setAlert({ open: true, message: 'เพิ่มข้อมูลสำเร็จ', severity: 'success' });
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Success',
+                        text: 'เพิ่มข้อมูลสำเร็จ',
+                        timer: 1000,
+                        timerProgressBar: true,
+                        showConfirmButton: false,
+                    });
                     formik.resetForm();
                     refetchData();
                     handleGetLastCode();
@@ -295,10 +366,14 @@ export default function SetCountingUnit() {
 
                 })
                 .catch((err) => {
-                    setAlert({ open: true, message: 'เกิดข้อผิดพลาดในการเพิ่มข้อมูล', severity: 'error' });
-                    setTimeout(() => {
-                        setAlert((prev) => ({ ...prev, open: false }));
-                    }, 3000);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'เกิดข้อผิดพลาดในการเพิ่มข้อมูล',
+                        timer: 3000,
+                        timerProgressBar: true,
+                        showConfirmButton: false,
+                    });
                 });
         },
     });
@@ -444,7 +519,7 @@ export default function SetCountingUnit() {
 
                     </Table>
                 </TableContainer>
-                <Stack spacing={2}>
+                <Stack spacing={2} sx={{ mt:'8px' }}>
                     <Pagination count={count} shape="rounded" onChange={handleChange} page={page} />
                 </Stack>
             </Box>

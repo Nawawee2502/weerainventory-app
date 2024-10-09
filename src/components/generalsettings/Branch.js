@@ -20,6 +20,7 @@ import { errorHelper } from "../handle-input-error";
 import { Alert, AlertTitle } from '@mui/material';
 import Pagination from '@mui/material/Pagination';
 import Stack from '@mui/material/Stack';
+import Swal from 'sweetalert2';
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
     [`&.${tableCellClasses.head}`]: {
@@ -160,52 +161,106 @@ export default function ProductRecord() {
     };
 
     const handleDelete = (branch_code) => {
-        dispatch(deleteBranch({ branch_code }))
-            .unwrap()
-            .then((res) => {
-                setAlert({ open: true, message: 'Deleted successfully', severity: 'success' });
-                setTimeout(() => {
-                    setAlert((prev) => ({ ...prev, open: false }));
-                }, 3000);
-                refetchData();
-                let offset = 0;
-                let limit = 5;
-                dispatch(branchAll({ offset, limit }))
+        Swal.fire({
+            title: 'Are you sure you want to delete this branch?',
+            text: 'This action cannot be undone!',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Delete',
+            cancelButtonText: 'Cancel',
+            reverseButtons: true,
+        }).then((result) => {
+            if (result.isConfirmed) {
+                dispatch(deleteBranch({ branch_code }))
                     .unwrap()
-                    .then((res) => setBranch(res.data));
-            })
-            .catch((err) => {
-                setAlert({ open: true, message: 'Error deleting Branch', severity: 'error' });
-                setTimeout(() => {
-                    setAlert((prev) => ({ ...prev, open: false }));
-                }, 3000);
-            });
+                    .then((res) => {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Deleted successfully',
+                            timer: 1500,
+                            showConfirmButton: false,
+                        });
+                        setTimeout(() => {
+                            refetchData();
+                            let offset = 0;
+                            let limit = 5;
+                            dispatch(branchAll({ offset, limit }))
+                                .unwrap()
+                                .then((res) => setBranch(res.data));
+                        }, 2000);
+                    })
+                    .catch((err) => {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error deleting branch',
+                            text: 'Please try again later',
+                            timer: 3000,
+                            showConfirmButton: false,
+                        });
+                    });
+            } else {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Deletion canceled',
+                    timer: 1500,
+                    showConfirmButton: false,
+                });
+            }
+        });
     };
+    
 
     const handleDeleteSelected = () => {
-        Promise.all(selected.map(branch_code =>
-            dispatch(deleteBranch({ branch_code })).unwrap()
-        ))
-            .then(() => {
-                setAlert({ open: true, message: 'Deleted successfully', severity: 'success' });
-                setTimeout(() => {
-                    setAlert((prev) => ({ ...prev, open: false }));
-                }, 3000);
-                setSelected([]);
-                refetchData();
-                let offset = 0;
-                let limit = 5;
-                dispatch(branchAll({ offset, limit }))
-                    .unwrap()
-                    .then((res) => setBranch(res.data));
-            })
-            .catch((err) => {
-                setAlert({ open: true, message: 'Error deleting branch', severity: 'error' });
-                setTimeout(() => {
-                    setAlert((prev) => ({ ...prev, open: false }));
-                }, 3000);
-            });
+        Swal.fire({
+            title: 'Are you sure you want to delete the selected branches?',
+            text: 'This action cannot be undone!',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Delete',
+            cancelButtonText: 'Cancel',
+            reverseButtons: true,
+        }).then((result) => {
+            if (result.isConfirmed) {
+                Promise.all(selected.map(branch_code =>
+                    dispatch(deleteBranch({ branch_code })).unwrap()
+                ))
+                    .then(() => {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Deleted successfully',
+                            timer: 1500,
+                            showConfirmButton: false,
+                        });
+                        setTimeout(() => {
+                            setSelected([]);
+                            refetchData();
+                            let offset = 0;
+                            let limit = 5;
+                            dispatch(branchAll({ offset, limit }))
+                                .unwrap()
+                                .then((res) => setBranch(res.data));
+                        }, 2000);
+                    })
+                    .catch((err) => {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error deleting branches',
+                            text: 'Please try again later',
+                            timer: 3000,
+                            showConfirmButton: false,
+                        });
+                    });
+            } else {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Deletion canceled',
+                    timer: 1500,
+                    showConfirmButton: false,
+                });
+            }
+        });
     };
+    
 
     const [openDrawer, setOpenDrawer] = useState(false);
     const [openEditDrawer, setOpenEditDrawer] = useState(false);
@@ -288,11 +343,36 @@ export default function ProductRecord() {
             addr2: "",
             tel1: "",
         },
+        validate: (values) => {
+            let errors = {};
+
+            if (!values.branch_name) {
+                errors.branch_name = 'branch_name cannot be empty';
+            }
+            if (!values.addr1) {
+                errors.addr1 = 'addr1 cannot be empty';
+            }
+            if (!values.addr2) {
+                errors.addr2 = 'addr2 cannot be empty';
+            }
+            if (!values.tel1) {
+                errors.tel1 = 'tel1 cannot be empty';
+            }
+
+            return errors;
+        },
         onSubmit: (values) => {
             dispatch(addBranch(values))
                 .unwrap()
                 .then((res) => {
-                    setAlert({ open: true, message: 'เพิ่มข้อมูลสำเร็จ', severity: 'success' });
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Success',
+                        text: 'เพิ่มข้อมูลสำเร็จ',
+                        timer: 1000,
+                        timerProgressBar: true,
+                        showConfirmButton: false,
+                    }); 
                     formik.resetForm();
                     refetchData();
                     handleGetLastCode();
@@ -303,10 +383,14 @@ export default function ProductRecord() {
 
                 })
                 .catch((err) => {
-                    setAlert({ open: true, message: 'เกิดข้อผิดพลาดในการเพิ่มข้อมูล', severity: 'error' });
-                    setTimeout(() => {
-                        setAlert((prev) => ({ ...prev, open: false }));
-                    }, 3000);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'เกิดข้อผิดพลาดในการเพิ่มข้อมูล',
+                        timer: 3000,
+                        timerProgressBar: true,
+                        showConfirmButton: false,
+                    });
                 });
         },
     });
@@ -454,7 +538,7 @@ export default function ProductRecord() {
                         </TableBody>
                     </Table>
                 </TableContainer>
-                <Stack spacing={2}>
+                <Stack spacing={2} sx={{ mt:'8px' }}>
                     <Pagination count={count} shape="rounded" onChange={handleChange} page={page} />
                 </Stack>
             </Box>

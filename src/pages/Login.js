@@ -290,7 +290,7 @@ export default function Login() {
               sx={{
                 mt: '8px',
                 '& .MuiOutlinedInput-root': {
-                  borderRadius: '10px', // Set border-radius here
+                  borderRadius: '10px', 
                 },
               }}
               {...formik.getFieldProps("password")}
@@ -328,22 +328,6 @@ export default function Login() {
           </Box>
         </Grid>
       </Grid>
-      {/* </Box> */}
-      {/* <Grid container sx={{ bgcolor: '#1D2A3A', height: '100vh', width: 'auto' }}>
-        <Grid
-          item
-          // xs={false}
-          // sm={4}
-          md={6}
-          sx={{
-            bgcolor: '#1D2A3A',
-            width: '100%',
-            height: '100%'
-          }}
-        >
-
-        </Grid>
-      </Grid> */}
     </ThemeProvider>
   );
 }

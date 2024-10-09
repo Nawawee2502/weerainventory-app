@@ -20,6 +20,7 @@ import { errorHelper } from "../handle-input-error";
 import { Alert, AlertTitle } from '@mui/material';
 import Pagination from '@mui/material/Pagination';
 import Stack from '@mui/material/Stack';
+import Swal from 'sweetalert2';
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
     [`&.${tableCellClasses.head}`]: {
@@ -150,52 +151,105 @@ export default function SetProductType() {
     };
 
     const handleDelete = (typeproduct_code) => {
-        dispatch(deleteTypeproduct({ typeproduct_code }))
-            .unwrap()
-            .then((res) => {
-                setAlert({ open: true, message: 'Deleted successfully', severity: 'success' });
-                setTimeout(() => {
-                    setAlert((prev) => ({ ...prev, open: false }));
-                }, 3000);
-                refetchData();
-                let offset = 0;
-                let limit = 5;
-                dispatch(fetchAllTypeproducts({ offset, limit }))
+        Swal.fire({
+            title: 'Are you sure you want to delete this product?',
+            text: 'You will not be able to recover this information!',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Delete',
+            cancelButtonText: 'Cancel',
+            reverseButtons: true,
+        }).then((result) => {
+            if (result.isConfirmed) {
+                dispatch(deleteTypeproduct({ typeproduct_code }))
                     .unwrap()
-                    .then((res) => setTypeproducts(res.data));
-            })
-            .catch((err) => {
-                setAlert({ open: true, message: 'Error deleting product', severity: 'error' });
-                setTimeout(() => {
-                    setAlert((prev) => ({ ...prev, open: false }));
-                }, 3000);
-            });
+                    .then((res) => {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Deleted successfully',
+                            timer: 1500,
+                            showConfirmButton: false,
+                        });
+                        setTimeout(() => {
+                            refetchData();
+                            let offset = 0;
+                            let limit = 5;
+                            dispatch(fetchAllTypeproducts({ offset, limit }))
+                                .unwrap()
+                                .then((res) => setTypeproducts(res.data));
+                        }, 2000);
+                    })
+                    .catch((err) => {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error deleting data',
+                            text: 'Please try again',
+                            timer: 3000,
+                            showConfirmButton: false,
+                        });
+                    });
+            } else {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Delete action cancelled',
+                    timer: 1500,
+                    showConfirmButton: false,
+                });
+            }
+        });
     };
 
     const handleDeleteSelected = () => {
-        Promise.all(selected.map(typeproduct_code =>
-            dispatch(deleteTypeproduct({ typeproduct_code })).unwrap()
-        ))
-            .then(() => {
-                setAlert({ open: true, message: 'ลบรายการที่เลือกสำเร็จ', severity: 'success' });
-                setTimeout(() => {
-                    setAlert((prev) => ({ ...prev, open: false }));
-                }, 3000);
-                setSelected([]);
-                refetchData();
-                let offset = 0;
-                let limit = 5;
-                dispatch(fetchAllTypeproducts({ offset, limit }))
-                    .unwrap()
-                    .then((res) => setTypeproducts(res.data));
-            })
-            .catch((err) => {
-                setAlert({ open: true, message: 'เกิดข้อผิดพลาดในการลบ', severity: 'error' });
-                setTimeout(() => {
-                    setAlert((prev) => ({ ...prev, open: false }));
-                }, 3000);
-            });
+        Swal.fire({
+            title: 'Are you sure you want to delete the selected items?',
+            text: 'This action cannot be undone!',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Delete',
+            cancelButtonText: 'Cancel',
+            reverseButtons: true,
+        }).then((result) => {
+            if (result.isConfirmed) {
+                Promise.all(selected.map(typeproduct_code =>
+                    dispatch(deleteTypeproduct({ typeproduct_code })).unwrap()
+                ))
+                    .then(() => {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Selected items deleted successfully',
+                            timer: 1500,
+                            showConfirmButton: false,
+                        });
+                        setTimeout(() => {
+                            setSelected([]);
+                            refetchData();
+                            let offset = 0;
+                            let limit = 5;
+                            dispatch(fetchAllTypeproducts({ offset, limit }))
+                                .unwrap()
+                                .then((res) => setTypeproducts(res.data));
+                        }, 2000);
+                    })
+                    .catch((err) => {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error deleting items',
+                            text: 'Please try again',
+                            timer: 3000,
+                            showConfirmButton: false,
+                        });
+                    });
+            } else {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Delete action canceled',
+                    timer: 1500,
+                    showConfirmButton: false,
+                });
+            }
+        });
     };
+
 
 
     const [openDrawer, setOpenDrawer] = useState(false);
@@ -267,31 +321,55 @@ export default function SetProductType() {
             });
     };
 
+    const errorHelper = (formik, fieldName) => {
+        return {
+            error: formik.touched[fieldName] && Boolean(formik.errors[fieldName]),
+            helperText: formik.touched[fieldName] && formik.errors[fieldName],
+        };
+    };
+
 
     const formik = useFormik({
         initialValues: {
             typeproduct_code: "",
             typeproduct_name: "",
         },
+        validate: (values) => {
+            let errors = {};
+
+            if (!values.typeproduct_name) {
+                errors.typeproduct_name = 'typeproduct_name cannot be empty';
+            }
+
+            return errors;
+        },
         onSubmit: (values) => {
             dispatch(addTypeproduct(values))
                 .unwrap()
                 .then((res) => {
-                    setAlert({ open: true, message: 'เพิ่มข้อมูลสำเร็จ', severity: 'success' });
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Success',
+                        text: 'เพิ่มข้อมูลสำเร็จ',
+                        timer: 1000,
+                        timerProgressBar: true,
+                        showConfirmButton: false,
+                    });
                     formik.resetForm();
                     refetchData();
                     handleGetLastCode();
-
-                    setTimeout(() => {
-                        setAlert((prev) => ({ ...prev, open: false }));
-                    }, 3000);
+                    setOpenDrawer(false);
 
                 })
                 .catch((err) => {
-                    setAlert({ open: true, message: 'เกิดข้อผิดพลาดในการเพิ่มข้อมูล', severity: 'error' });
-                    setTimeout(() => {
-                        setAlert((prev) => ({ ...prev, open: false }));
-                    }, 3000);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'เกิดข้อผิดพลาดในการเพิ่มข้อมูล',
+                        timer: 3000,
+                        timerProgressBar: true,
+                        showConfirmButton: false,
+                    });
                 });
         },
     });
@@ -448,7 +526,7 @@ export default function SetProductType() {
 
                     </Table>
                 </TableContainer>
-                <Stack spacing={2}>
+                <Stack spacing={2} sx={{ mt: '8px' }}>
                     <Pagination count={count} shape="rounded" onChange={handleChange} page={page} />
                 </Stack>
             </Box>
@@ -574,7 +652,7 @@ export default function SetProductType() {
                                 Cancel
                             </Button>
                             <Button variant='contained'
-                                onClick={formik.handleSubmit} // ใช้ onClick แทน
+                                onClick={formik.handleSubmit}
                                 sx={{
                                     width: '100px',
                                     bgcolor: '#754C27',
@@ -729,12 +807,6 @@ export default function SetProductType() {
                     </Box>
                 </Box>
             </Drawer>
-            {alert.open && (
-                <Alert severity={alert.severity} onClose={() => setAlert({ ...alert, open: false })}>
-                    <AlertTitle>{alert.severity === 'success' ? 'Success' : 'Error'}</AlertTitle>
-                    {alert.message}
-                </Alert>
-            )}
 
         </>
     );

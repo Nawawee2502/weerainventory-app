@@ -1,4 +1,4 @@
-import { Box, Button, InputAdornment, TextField, Typography, Drawer, IconButton } from '@mui/material';
+import { Box, Button, InputAdornment, TextField, Typography, Drawer, IconButton, Input } from '@mui/material';
 import React, { useState, useEffect } from 'react';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
 import SearchIcon from '@mui/icons-material/Search';
@@ -21,6 +21,8 @@ import { errorHelper } from "../handle-input-error";
 import { Alert, AlertTitle } from '@mui/material';
 import Pagination from '@mui/material/Pagination';
 import Stack from '@mui/material/Stack';
+import Swal from 'sweetalert2';
+import AddIcon from '@mui/icons-material/Add';
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
     [`&.${tableCellClasses.head}`]: {
@@ -161,52 +163,106 @@ export default function ProductRecord() {
     };
 
     const handleDelete = (product_code) => {
-        dispatch(deleteProduct({ product_code }))
-            .unwrap()
-            .then((res) => {
-                setAlert({ open: true, message: 'Deleted successfully', severity: 'success' });
-                setTimeout(() => {
-                    setAlert((prev) => ({ ...prev, open: false }));
-                }, 3000);
-                refetchData();
-                let offset = 0;
-                let limit = 5;
-                dispatch(productAll({ offset, limit }))
+        Swal.fire({
+            title: 'Are you sure you want to delete this product?',
+            text: 'This action cannot be undone!',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Delete',
+            cancelButtonText: 'Cancel',
+            reverseButtons: true,
+        }).then((result) => {
+            if (result.isConfirmed) {
+                dispatch(deleteProduct({ product_code }))
                     .unwrap()
-                    .then((res) => setProduct(res.data));
-            })
-            .catch((err) => {
-                setAlert({ open: true, message: 'Error deleting Branch', severity: 'error' });
-                setTimeout(() => {
-                    setAlert((prev) => ({ ...prev, open: false }));
-                }, 3000);
-            });
+                    .then((res) => {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Deleted successfully',
+                            timer: 1500,
+                            showConfirmButton: false,
+                        });
+                        setTimeout(() => {
+                            refetchData();
+                            let offset = 0;
+                            let limit = 5;
+                            dispatch(productAll({ offset, limit }))
+                                .unwrap()
+                                .then((res) => setProduct(res.data));
+                        }, 2000);
+                    })
+                    .catch((err) => {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error deleting product',
+                            text: 'Please try again later',
+                            timer: 3000,
+                            showConfirmButton: false,
+                        });
+                    });
+            } else {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Deletion canceled',
+                    timer: 1500,
+                    showConfirmButton: false,
+                });
+            }
+        });
     };
 
+
     const handleDeleteSelected = () => {
-        Promise.all(selected.map(product_code =>
-            dispatch(deleteProduct({ product_code })).unwrap()
-        ))
-            .then(() => {
-                setAlert({ open: true, message: 'Deleted successfully', severity: 'success' });
-                setTimeout(() => {
-                    setAlert((prev) => ({ ...prev, open: false }));
-                }, 3000);
-                setSelected([]);
-                refetchData();
-                let offset = 0;
-                let limit = 5;
-                dispatch(productAll({ offset, limit }))
-                    .unwrap()
-                    .then((res) => setProduct(res.data));
-            })
-            .catch((err) => {
-                setAlert({ open: true, message: 'Error deleting branch', severity: 'error' });
-                setTimeout(() => {
-                    setAlert((prev) => ({ ...prev, open: false }));
-                }, 3000);
-            });
+        Swal.fire({
+            title: 'Are you sure you want to delete the selected products?',
+            text: 'This action cannot be undone!',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Delete',
+            cancelButtonText: 'Cancel',
+            reverseButtons: true,
+        }).then((result) => {
+            if (result.isConfirmed) {
+                Promise.all(selected.map(product_code =>
+                    dispatch(deleteProduct({ product_code })).unwrap()
+                ))
+                    .then(() => {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Deleted successfully',
+                            timer: 1500,
+                            showConfirmButton: false,
+                        });
+                        setTimeout(() => {
+                            setSelected([]);
+                            refetchData();
+                            let offset = 0;
+                            let limit = 5;
+                            dispatch(productAll({ offset, limit }))
+                                .unwrap()
+                                .then((res) => setProduct(res.data));
+                        }, 2000);
+                    })
+                    .catch((err) => {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error deleting products',
+                            text: 'Please try again later',
+                            timer: 3000,
+                            showConfirmButton: false,
+                        });
+                    });
+            } else {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Deletion canceled',
+                    timer: 1500,
+                    showConfirmButton: false,
+                });
+            }
+        });
     };
+
 
     const [openDrawer, setOpenDrawer] = useState(false);
     const [openEditDrawer, setOpenEditDrawer] = useState(false);
@@ -222,17 +278,17 @@ export default function ProductRecord() {
             .unwrap()
             .then((res) => {
                 let lastProductCode = "001";
-    
+
                 if (res.data && res.data.product_code) {
                     lastProductCode = "" + (Number(res.data.product_code) + 1);
-    
+
                     if (lastProductCode.length === 1) {
                         lastProductCode = "00" + lastProductCode;
                     } else if (lastProductCode.length === 2) {
                         lastProductCode = "0" + lastProductCode;
                     }
                 }
-    
+
                 setGetLastProductCode(lastProductCode);
                 formik.setValues({
                     product_code: lastProductCode,
@@ -295,34 +351,52 @@ export default function ProductRecord() {
     const formik = useFormik({
         initialValues: {
             product_img: null,
-            product_code: "",
-            product_name: "",
-            typeproduct_code: "",
-            bulk_unit_code: "",
-            bulk_unit_price: "",
-            retail_unit_code: "",
-            retail_unit_price: "",
-            unit_conversion_factor: "",
+            product_code: '',
+            product_name: '',
+            typeproduct_code: '',
+            bulk_unit_code: '',
+            bulk_unit_price: '',
+            retail_unit_code: '',
+            retail_unit_price: '',
+            unit_conversion_factor: '',
+        },
+        validate: (values) => {
+            const errors = {};
+            if (!values.product_img) errors.product_img = 'product_img cannot be empty';
+            if (!values.product_name) errors.product_name = 'product_name cannot be empty';
+            if (!values.typeproduct_code) errors.typeproduct_code = 'typeproduct_code cannot be empty';
+            if (!values.bulk_unit_code) errors.bulk_unit_code = 'bulk_unit_code cannot be empty';
+            if (!values.bulk_unit_price) errors.bulk_unit_price = 'bulk_unit_price cannot be empty';
+            if (!values.retail_unit_code) errors.retail_unit_code = 'retail_unit_code cannot be empty';
+            if (!values.retail_unit_price) errors.retail_unit_price = 'retail_unit_price cannot be empty';
+            if (!values.unit_conversion_factor) errors.unit_conversion_factor = 'unit_conversion_factor cannot be empty';
+            return errors;
         },
         onSubmit: (values) => {
             dispatch(addProduct(values))
                 .unwrap()
                 .then((res) => {
-                    setAlert({ open: true, message: 'เพิ่มข้อมูลสำเร็จ', severity: 'success' });
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Success',
+                        text: 'เพิ่มข้อมูลสำเร็จ',
+                        timer: 1000,
+                        timerProgressBar: true,
+                        showConfirmButton: false,
+                    });
                     formik.resetForm();
                     refetchData();
                     handleGetLastCode();
-
-                    setTimeout(() => {
-                        setAlert((prev) => ({ ...prev, open: false }));
-                    }, 3000);
-
                 })
                 .catch((err) => {
-                    setAlert({ open: true, message: 'เกิดข้อผิดพลาดในการเพิ่มข้อมูล', severity: 'error' });
-                    setTimeout(() => {
-                        setAlert((prev) => ({ ...prev, open: false }));
-                    }, 3000);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'เกิดข้อผิดพลาดในการเพิ่มข้อมูล',
+                        timer: 3000,
+                        timerProgressBar: true,
+                        showConfirmButton: false,
+                    });
                 });
         },
     });
@@ -478,6 +552,9 @@ export default function ProductRecord() {
                         </TableBody>
                     </Table>
                 </TableContainer>
+                <Stack spacing={2} sx={{ mt: '8px' }}>
+                    <Pagination count={count} shape="rounded" onChange={handleChange} page={page} />
+                </Stack>
             </Box>
             <Drawer
                 anchor="right"
@@ -561,20 +638,83 @@ export default function ProductRecord() {
                                     style={{ maxWidth: '100%', maxHeight: '200px', marginTop: '10px' }}
                                 />
                             )} */}
-                            <input
-                                type="file"
-                                accept="image/*"
-                                onChange={handleImageChange}
-                                style={{ marginTop: '8px', marginBottom: '16px' }}
-                            />
-                            {previewUrl && (
-                                <img
-                                    src={previewUrl}
-                                    alt="Preview"
-                                    style={{ maxWidth: '100%', maxHeight: '200px', marginTop: '10px' }}
-                                />
-                            )}
 
+                            {previewUrl ? (
+                                <Box
+                                    sx={{
+                                        width: '100%',
+                                        height: '202px',
+                                        borderRadius: '15px',
+                                        border: '1px solid #754C27',
+                                        display: 'flex',
+                                        justifyContent: 'center',
+                                        alignItems: 'center',
+                                        backgroundColor: '#f0f0f0',
+                                        marginTop: '10px',
+                                        flexDirection: 'column'
+                                    }}
+                                >
+                                    <img
+                                        src={previewUrl}
+                                        alt="Preview"
+                                        style={{ width: '100%', height: '100%', borderRadius: '15px' }}
+                                    />
+                                </Box>
+
+                            ) : (
+                                <Box
+                                    sx={{
+                                        width: '100%',
+                                        height: '202px',
+                                        borderRadius: '15px',
+                                        border: '1px solid #754C27',
+                                        display: 'flex',
+                                        justifyContent: 'center',
+                                        alignItems: 'center',
+                                        backgroundColor: '#f0f0f0',
+                                        marginTop: '10px',
+                                        flexDirection: 'column'
+                                    }}
+                                >
+                                    <img
+                                        src='/upload.png'
+                                    />
+                                    <Typography sx={{ color: '#878787' }}>
+                                        Upload file
+                                    </Typography>
+                                </Box>
+                            )}
+                            <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                                <Button
+                                    sx={{
+                                        width: '125px',
+                                        height: '35px',
+                                        backgroundColor: '#C17C13',
+                                        borderRadius: '10px',
+                                        padding: '0px',
+                                        cursor: 'pointer',
+                                        '&:hover': {
+                                            backgroundColor: '#a37010',  // Darker shade on hover
+                                        },
+                                        color: 'white',
+                                        mt: '8px',
+                                    }}
+                                    component="label"
+                                >
+                                    <AddIcon fontSize='small' sx={{ mr: '8px' }} />
+                                    Add image
+                                    <input
+                                        id="product_img"
+                                        name="product_img"
+                                        type="file"
+                                        className="custom-input-style"
+                                        style={{ opacity: '0', position:'absolute' }}
+                                        onChange={handleImageChange}
+                                        // {...formik.getFieldProps("product_img")}
+                                        // {...errorHelper(formik, "product_img")}
+                                    />
+                                </Button>
+                            </Box>
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
                                 Type Product
                             </Typography>
@@ -774,16 +914,17 @@ export default function ProductRecord() {
                             color: '#FFFFFF',
                             px: '8px',
                             py: '4px',
-                            borderRadius: '20px',
+                            borderRadius: '5px',
                             fontWeight: 'bold',
                             zIndex: 1,
+                            borderRadius: '20px',
                             height: '89px',
                             display: 'flex',
                             justifyContent: 'center',
                         }}
                     >
                         <Typography sx={{ fontWeight: '600', fontSize: '14px' }} >
-                            Branch
+                            Product
                         </Typography>
                     </Box>
                     <Box
@@ -800,14 +941,48 @@ export default function ProductRecord() {
                             position: 'relative',
                             zIndex: 2,
                         }}>
-
                         <Box sx={{ width: '80%', mt: '24px' }}>
-                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
-                                EDIT Product Id
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
+                                Product Image
+                            </Typography>
+                            {/* <input
+                                type="file"
+                                accept="image/*"
+                                onChange={handleImageChange}
+                                style={{ marginTop: '8px', marginBottom: '16px' }}
+                            />
+                            {previewUrl && (
+                                <img
+                                    src={previewUrl}
+                                    alt="Preview"
+                                    style={{ maxWidth: '100%', maxHeight: '200px', marginTop: '10px' }}
+                                />
+                            )} */}
+
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
+                                Type Product
                             </Typography>
                             <TextField
                                 size="small"
-                                placeholder="Id"
+                                placeholder="type product code"
+                                sx={{
+                                    mt: '8px',
+                                    width: '100%',
+                                    '& .MuiOutlinedInput-root': {
+                                        borderRadius: '10px',
+                                    },
+                                }}
+                                {...formik.getFieldProps("typeproduct_code")}
+                                {...errorHelper(formik, "typeproduct_code")}
+                            />
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
+                                Product Id
+                            </Typography>
+                            <TextField
+                                size="small"
+                                // placeholder={getLastTypeproductCode}
+                                disabled
+
                                 sx={{
                                     mt: '8px',
                                     width: '100%',
@@ -817,6 +992,7 @@ export default function ProductRecord() {
                                 }}
                                 {...formik.getFieldProps("product_code")}
                                 {...errorHelper(formik, "product_code")}
+                                value={getLastProductCode}
                             />
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
                                 Product Name
@@ -835,11 +1011,11 @@ export default function ProductRecord() {
                                 {...errorHelper(formik, "product_name")}
                             />
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
-                                Address
+                                Large unit
                             </Typography>
                             <TextField
                                 size="small"
-                                placeholder="Address"
+                                placeholder="Large unit"
                                 sx={{
                                     mt: '8px',
                                     width: '100%',
@@ -847,28 +1023,15 @@ export default function ProductRecord() {
                                         borderRadius: '10px',
                                     },
                                 }}
-                                {...formik.getFieldProps("addr1")}
-                                {...errorHelper(formik, "addr1")}
-                            />
-                            <TextField
-                                size="small"
-                                placeholder="Address"
-                                sx={{
-                                    mt: '8px',
-                                    width: '100%',
-                                    '& .MuiOutlinedInput-root': {
-                                        borderRadius: '10px',
-                                    },
-                                }}
-                                {...formik.getFieldProps("addr2")}
-                                {...errorHelper(formik, "addr2")}
+                                {...formik.getFieldProps("bulk_unit_code")}
+                                {...errorHelper(formik, "bulk_unit_code")}
                             />
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
-                                Telephone
+                                Large unit price
                             </Typography>
                             <TextField
                                 size="small"
-                                placeholder="Telephone"
+                                placeholder="Large unit price"
                                 sx={{
                                     mt: '8px',
                                     width: '100%',
@@ -876,8 +1039,56 @@ export default function ProductRecord() {
                                         borderRadius: '10px',
                                     },
                                 }}
-                                {...formik.getFieldProps("tel1")}
-                                {...errorHelper(formik, "tel1")}
+                                {...formik.getFieldProps("bulk_unit_price")}
+                                {...errorHelper(formik, "bulk_unit_price")}
+                            />
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
+                                Small unit
+                            </Typography>
+                            <TextField
+                                size="small"
+                                placeholder="Small unit"
+                                sx={{
+                                    mt: '8px',
+                                    width: '100%',
+                                    '& .MuiOutlinedInput-root': {
+                                        borderRadius: '10px',
+                                    },
+                                }}
+                                {...formik.getFieldProps("retail_unit_code")}
+                                {...errorHelper(formik, "retail_unit_code")}
+                            />
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
+                                Small unit price
+                            </Typography>
+                            <TextField
+                                size="small"
+                                placeholder="Small unit price"
+                                sx={{
+                                    mt: '8px',
+                                    width: '100%',
+                                    '& .MuiOutlinedInput-root': {
+                                        borderRadius: '10px',
+                                    },
+                                }}
+                                {...formik.getFieldProps("retail_unit_price")}
+                                {...errorHelper(formik, "retail_unit_price")}
+                            />
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
+                                Conversion Quantity
+                            </Typography>
+                            <TextField
+                                size="small"
+                                placeholder="Conversion Quantity"
+                                sx={{
+                                    mt: '8px',
+                                    width: '100%',
+                                    '& .MuiOutlinedInput-root': {
+                                        borderRadius: '10px',
+                                    },
+                                }}
+                                {...formik.getFieldProps("unit_conversion_factor")}
+                                {...errorHelper(formik, "unit_conversion_factor")}
                             />
                         </Box>
                         <Box sx={{ mt: '24px' }} >
