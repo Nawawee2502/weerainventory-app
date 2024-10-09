@@ -240,27 +240,33 @@ export default function SetProductType() {
             });
     };
 
-    const handleGetLastCode = (  ) => {
+    const handleGetLastCode = () => {
         let test = "";
         dispatch(lastTypeproductCode({ test }))
             .unwrap()
             .then((res) => {
-        
-                console.log(res.data)
-                let lastTypeCode = ""+(Number(res.data.typeproduct_code) + 1)
-                if (lastTypeCode.length === 1) {
-                    lastTypeCode = "00" + lastTypeCode
-                } 
-                if (lastTypeCode.length === 2) {
-                    lastTypeCode = "0" + lastTypeCode
+                let lastTypeCode = "001";
+
+                if (res.data && res.data.typeproduct_code) {
+                    lastTypeCode = "" + (Number(res.data.typeproduct_code) + 1);
+
+                    if (lastTypeCode.length === 1) {
+                        lastTypeCode = "00" + lastTypeCode;
+                    } else if (lastTypeCode.length === 2) {
+                        lastTypeCode = "0" + lastTypeCode;
+                    }
                 }
+
                 setGetLastTypeproductCode(lastTypeCode);
                 formik.setValues({
                     typeproduct_code: lastTypeCode,
                 });
             })
-            .catch((err) => err.message);
+            .catch((err) => {
+                console.error("Error fetching last typeproduct code:", err.message);
+            });
     };
+
 
     const formik = useFormik({
         initialValues: {
@@ -314,7 +320,7 @@ export default function SetProductType() {
                 }}
             >
                 <Button
-                    onClick={toggleDrawer(true) }
+                    onClick={toggleDrawer(true)}
                     sx={{
                         width: '209px',
                         height: '70px',
@@ -526,7 +532,7 @@ export default function SetProductType() {
                                 size="small"
                                 // placeholder={getLastTypeproductCode}
                                 disabled
-                                
+
                                 sx={{
                                     mt: '8px',
                                     width: '100%',

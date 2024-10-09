@@ -220,22 +220,28 @@ export default function ComissaryKitchen() {
         dispatch(lastKitchenCode({ test }))
             .unwrap()
             .then((res) => {
+                let lastKitchenCode = "001";
 
-                console.log(res.data)
-                let lastKitchenCode = "" + (Number(res.data.kitchen_code) + 1)
-                if (lastKitchenCode.length === 1) {
-                    lastKitchenCode = "00" + lastKitchenCode
+                if (res.data && res.data.kitchen_code) {
+                    lastKitchenCode = "" + (Number(res.data.kitchen_code) + 1);
+
+                    if (lastKitchenCode.length === 1) {
+                        lastKitchenCode = "00" + lastKitchenCode;
+                    } else if (lastKitchenCode.length === 2) {
+                        lastKitchenCode = "0" + lastKitchenCode;
+                    }
                 }
-                if (lastKitchenCode.length === 2) {
-                    lastKitchenCode = "0" + lastKitchenCode
-                }
+
                 setGetLastKitchenCode(lastKitchenCode);
                 formik.setValues({
                     kitchen_code: lastKitchenCode,
                 });
             })
-            .catch((err) => err.message);
+            .catch((err) => {
+                console.error("Error fetching last kitchen code:", err.message);
+            });
     };
+
 
     const toggleEditDrawer = (openEditDrawer) => () => {
         setOpenEditDrawer(openEditDrawer);
@@ -559,7 +565,7 @@ export default function ComissaryKitchen() {
                                 }}
                                 {...formik.getFieldProps("kitchen_name")}
                                 {...errorHelper(formik, "kitchen_name")}
-                                
+
                             />
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
                                 Address

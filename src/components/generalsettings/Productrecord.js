@@ -221,15 +221,18 @@ export default function ProductRecord() {
         dispatch(lastProductCode({ test }))
             .unwrap()
             .then((res) => {
-
-                console.log(res.data)
-                let lastProductCode = "" + (Number(res.data.product_code) + 1)
-                if (lastProductCode.length === 1) {
-                    lastProductCode = "00" + lastProductCode
+                let lastProductCode = "001";
+    
+                if (res.data && res.data.product_code) {
+                    lastProductCode = "" + (Number(res.data.product_code) + 1);
+    
+                    if (lastProductCode.length === 1) {
+                        lastProductCode = "00" + lastProductCode;
+                    } else if (lastProductCode.length === 2) {
+                        lastProductCode = "0" + lastProductCode;
+                    }
                 }
-                if (lastProductCode.length === 2) {
-                    lastProductCode = "0" + lastProductCode
-                }
+    
                 setGetLastProductCode(lastProductCode);
                 formik.setValues({
                     product_code: lastProductCode,
@@ -275,13 +278,31 @@ export default function ProductRecord() {
             });
     };
 
+    const [previewUrl, setPreviewUrl] = useState(null);
+
+    const handleImageChange = (event) => {
+        const file = event.target.files[0];
+        if (file) {
+            formik.setFieldValue("product_img", file);
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setPreviewUrl(reader.result);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
     const formik = useFormik({
         initialValues: {
+            product_img: null,
             product_code: "",
             product_name: "",
-            addr1: "",
-            addr2: "",
-            tel1: "",
+            typeproduct_code: "",
+            bulk_unit_code: "",
+            bulk_unit_price: "",
+            retail_unit_code: "",
+            retail_unit_price: "",
+            unit_conversion_factor: "",
         },
         onSubmit: (values) => {
             dispatch(addProduct(values))
@@ -398,12 +419,13 @@ export default function ProductRecord() {
                                     />
                                 </StyledTableCell>
                                 <StyledTableCell width='1%' >No.</StyledTableCell>
-                                <StyledTableCell width='1%' >Type</StyledTableCell>
-                                <StyledTableCell align="center">ID</StyledTableCell>
+                                <StyledTableCell width='1%' >Type Product</StyledTableCell>
+                                <StyledTableCell align="center">Product ID</StyledTableCell>
                                 <StyledTableCell align="center">Product Name</StyledTableCell>
-                                <StyledTableCell align="center">Unit Price</StyledTableCell>
                                 <StyledTableCell align="center">Large Unit</StyledTableCell>
+                                <StyledTableCell align="center">Large Unit Price</StyledTableCell>
                                 <StyledTableCell align="center">Small Unit</StyledTableCell>
+                                <StyledTableCell align="center">Small Unit Price</StyledTableCell>
                                 <StyledTableCell align="center">Conversion Quantity </StyledTableCell>
                                 <StyledTableCell width='1%' align="center"></StyledTableCell>
                                 <StyledTableCell width='1%' align="center"></StyledTableCell>
@@ -428,6 +450,7 @@ export default function ProductRecord() {
                                     <StyledTableCell align="center">{row.bulk_unit_code}</StyledTableCell>
                                     <StyledTableCell align="center">{row.bulk_unit_price}</StyledTableCell>
                                     <StyledTableCell align="center">{row.retail_unit_code}</StyledTableCell>
+                                    <StyledTableCell align="center">{row.retail_unit_price}</StyledTableCell>
                                     <StyledTableCell align="center">{row.unit_conversion_factor}</StyledTableCell>
                                     <StyledTableCell align="center">
                                         <IconButton
@@ -521,15 +544,54 @@ export default function ProductRecord() {
                             position: 'relative',
                             zIndex: 2,
                         }}>
-
-                        <Typography sx={{ display: 'flex', flexDirection: 'row' }}>
-                            Product ID :
-                            <Typography sx={{ color: '#754C27', ml: '12px' }}>
-                                #011
-                            </Typography>
-                        </Typography>
                         <Box sx={{ width: '80%', mt: '24px' }}>
-                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
+                                Product Image
+                            </Typography>
+                            {/* <input
+                                type="file"
+                                accept="image/*"
+                                onChange={handleImageChange}
+                                style={{ marginTop: '8px', marginBottom: '16px' }}
+                            />
+                            {previewUrl && (
+                                <img
+                                    src={previewUrl}
+                                    alt="Preview"
+                                    style={{ maxWidth: '100%', maxHeight: '200px', marginTop: '10px' }}
+                                />
+                            )} */}
+                            <input
+                                type="file"
+                                accept="image/*"
+                                onChange={handleImageChange}
+                                style={{ marginTop: '8px', marginBottom: '16px' }}
+                            />
+                            {previewUrl && (
+                                <img
+                                    src={previewUrl}
+                                    alt="Preview"
+                                    style={{ maxWidth: '100%', maxHeight: '200px', marginTop: '10px' }}
+                                />
+                            )}
+
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
+                                Type Product
+                            </Typography>
+                            <TextField
+                                size="small"
+                                placeholder="type product code"
+                                sx={{
+                                    mt: '8px',
+                                    width: '100%',
+                                    '& .MuiOutlinedInput-root': {
+                                        borderRadius: '10px',
+                                    },
+                                }}
+                                {...formik.getFieldProps("typeproduct_code")}
+                                {...errorHelper(formik, "typeproduct_code")}
+                            />
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
                                 Product Id
                             </Typography>
                             <TextField
@@ -565,11 +627,11 @@ export default function ProductRecord() {
                                 {...errorHelper(formik, "product_name")}
                             />
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
-                                Address
+                                Large unit
                             </Typography>
                             <TextField
                                 size="small"
-                                placeholder="Address"
+                                placeholder="Large unit"
                                 sx={{
                                     mt: '8px',
                                     width: '100%',
@@ -577,28 +639,15 @@ export default function ProductRecord() {
                                         borderRadius: '10px',
                                     },
                                 }}
-                                {...formik.getFieldProps("addr1")}
-                                {...errorHelper(formik, "addr1")}
-                            />
-                            <TextField
-                                size="small"
-                                placeholder="Address"
-                                sx={{
-                                    mt: '8px',
-                                    width: '100%',
-                                    '& .MuiOutlinedInput-root': {
-                                        borderRadius: '10px',
-                                    },
-                                }}
-                                {...formik.getFieldProps("addr2")}
-                                {...errorHelper(formik, "addr2")}
+                                {...formik.getFieldProps("bulk_unit_code")}
+                                {...errorHelper(formik, "bulk_unit_code")}
                             />
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
-                                Telephone
+                                Large unit price
                             </Typography>
                             <TextField
                                 size="small"
-                                placeholder="Telephone"
+                                placeholder="Large unit price"
                                 sx={{
                                     mt: '8px',
                                     width: '100%',
@@ -606,8 +655,56 @@ export default function ProductRecord() {
                                         borderRadius: '10px',
                                     },
                                 }}
-                                {...formik.getFieldProps("tel1")}
-                                {...errorHelper(formik, "tel1")}
+                                {...formik.getFieldProps("bulk_unit_price")}
+                                {...errorHelper(formik, "bulk_unit_price")}
+                            />
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
+                                Small unit
+                            </Typography>
+                            <TextField
+                                size="small"
+                                placeholder="Small unit"
+                                sx={{
+                                    mt: '8px',
+                                    width: '100%',
+                                    '& .MuiOutlinedInput-root': {
+                                        borderRadius: '10px',
+                                    },
+                                }}
+                                {...formik.getFieldProps("retail_unit_code")}
+                                {...errorHelper(formik, "retail_unit_code")}
+                            />
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
+                                Small unit price
+                            </Typography>
+                            <TextField
+                                size="small"
+                                placeholder="Small unit price"
+                                sx={{
+                                    mt: '8px',
+                                    width: '100%',
+                                    '& .MuiOutlinedInput-root': {
+                                        borderRadius: '10px',
+                                    },
+                                }}
+                                {...formik.getFieldProps("retail_unit_price")}
+                                {...errorHelper(formik, "retail_unit_price")}
+                            />
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
+                                Conversion Quantity
+                            </Typography>
+                            <TextField
+                                size="small"
+                                placeholder="Conversion Quantity"
+                                sx={{
+                                    mt: '8px',
+                                    width: '100%',
+                                    '& .MuiOutlinedInput-root': {
+                                        borderRadius: '10px',
+                                    },
+                                }}
+                                {...formik.getFieldProps("unit_conversion_factor")}
+                                {...errorHelper(formik, "unit_conversion_factor")}
                             />
                         </Box>
                         <Box sx={{ mt: '24px' }} >
@@ -704,12 +801,6 @@ export default function ProductRecord() {
                             zIndex: 2,
                         }}>
 
-                        <Typography sx={{ display: 'flex', flexDirection: 'row' }}>
-                            Product ID :
-                            <Typography sx={{ color: '#754C27', ml: '12px' }}>
-                                #011
-                            </Typography>
-                        </Typography>
                         <Box sx={{ width: '80%', mt: '24px' }}>
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
                                 EDIT Product Id

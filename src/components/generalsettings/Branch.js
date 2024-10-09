@@ -257,22 +257,28 @@ export default function ProductRecord() {
         dispatch(lastBranchCode({ test }))
             .unwrap()
             .then((res) => {
+                let lastBranchCode = "001";
 
-                console.log(res.data)
-                let lastBranchCode = "" + (Number(res.data.branch_code) + 1)
-                if (lastBranchCode.length === 1) {
-                    lastBranchCode = "00" + lastBranchCode
+                if (res.data && res.data.branch_code) {
+                    lastBranchCode = "" + (Number(res.data.branch_code) + 1);
+
+                    if (lastBranchCode.length === 1) {
+                        lastBranchCode = "00" + lastBranchCode;
+                    } else if (lastBranchCode.length === 2) {
+                        lastBranchCode = "0" + lastBranchCode;
+                    }
                 }
-                if (lastBranchCode.length === 2) {
-                    lastBranchCode = "0" + lastBranchCode
-                }
+
                 setGetLastBranchCode(lastBranchCode);
                 formik.setValues({
                     branch_code: lastBranchCode,
                 });
             })
-            .catch((err) => err.message);
+            .catch((err) => {
+                console.error("Error fetching last branch code:", err.message);
+            });
     };
+
 
     const formik = useFormik({
         initialValues: {

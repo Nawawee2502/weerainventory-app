@@ -249,27 +249,31 @@ export default function SetCountingUnit() {
             });
     };
 
-    const handleGetLastCode = (  ) => {
+    const handleGetLastCode = () => {
         let test = "";
         dispatch(lastUnitCode({ test }))
             .unwrap()
             .then((res) => {
-        
-                console.log(res.data)
-                let getLastUnitCode = ""+(Number(res.data.unit_code) + 1)
-                if (getLastUnitCode.length === 1) {
-                    getLastUnitCode = "00" + getLastUnitCode
-                } 
-                if (getLastUnitCode.length === 2) {
-                    getLastUnitCode = "0" + getLastUnitCode
+                let getLastUnitCode = "01";
+    
+                if (res.data && res.data.unit_code) {
+                    getLastUnitCode = "" + (Number(res.data.unit_code) + 1);
+    
+                    if (getLastUnitCode.length === 1) {
+                        getLastUnitCode = "0" + getLastUnitCode;
+                    } 
                 }
+    
                 setLastUnitCode(getLastUnitCode);
                 formik.setValues({
                     unit_code: getLastUnitCode,
                 });
             })
-            .catch((err) => err.message);
+            .catch((err) => {
+                console.error("Error fetching last unit code:", err.message);
+            });
     };
+    
 
     const formik = useFormik({
         initialValues: {

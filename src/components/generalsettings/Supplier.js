@@ -220,22 +220,28 @@ export default function Supplier() {
         dispatch(lastSupplierCode({ test }))
             .unwrap()
             .then((res) => {
+                let lastSupplierCode = "001";
 
-                console.log(res.data)
-                let lastSupplierCode = "" + (Number(res.data.supplier_code) + 1)
-                if (lastSupplierCode.length === 1) {
-                    lastSupplierCode = "00" + lastSupplierCode
+                if (res.data && res.data.supplier_code) {
+                    lastSupplierCode = "" + (Number(res.data.supplier_code) + 1);
+
+                    if (lastSupplierCode.length === 1) {
+                        lastSupplierCode = "00" + lastSupplierCode;
+                    } else if (lastSupplierCode.length === 2) {
+                        lastSupplierCode = "0" + lastSupplierCode;
+                    }
                 }
-                if (lastSupplierCode.length === 2) {
-                    lastSupplierCode = "0" + lastSupplierCode
-                }
+
                 setGetLastSupplierCode(lastSupplierCode);
                 formik.setValues({
                     supplier_code: lastSupplierCode,
                 });
             })
-            .catch((err) => err.message);
+            .catch((err) => {
+                console.error("Error fetching last supplier code:", err.message);
+            });
     };
+
 
     const toggleEditDrawer = (openEditDrawer) => () => {
         setOpenEditDrawer(openEditDrawer);
@@ -530,7 +536,7 @@ export default function Supplier() {
                                 size="small"
                                 // placeholder={getLastTypeproductCode}
                                 disabled
-                                
+
                                 sx={{
                                     mt: '8px',
                                     width: '100%',

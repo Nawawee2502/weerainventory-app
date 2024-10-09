@@ -73,7 +73,19 @@ export default function Login() {
       username: "",
       password: "",
     },
-    //validationSchema: ValidationSchema(),
+    validate: (values) => {
+      let errors = {};
+
+      if (!values.username) {
+        errors.username = 'Username cannot be empty';
+      }
+
+      if (!values.password) {
+        errors.password = 'Password cannot be empty';
+      }
+
+      return errors;
+    },
     onSubmit: (values) => {
       dispatch(login(values))
         .unwrap()
@@ -83,12 +95,9 @@ export default function Login() {
         })
         .catch((err) => err.message);
     },
-
-
-
   });
 
-  
+
 
 
 
