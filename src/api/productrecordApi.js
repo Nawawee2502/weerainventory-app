@@ -52,7 +52,6 @@ export const updateProduct = createAsyncThunk(
     }
 );
 
-
 export const deleteProduct = createAsyncThunk(
     "product/delete",
     async ({ product_code }, { dispatch }) => {
@@ -68,7 +67,6 @@ export const deleteProduct = createAsyncThunk(
         }
     }
 );
-
 
 export const productAll = createAsyncThunk(
     "product/read",

@@ -76,7 +76,7 @@ export default function ProductRecord() {
         console.log(value);
         let page = value - 1;
         let offset = page * 5;
-        let limit = value * 5;
+        let limit = 5;
         console.log(limit, offset);
         dispatch(productAll({ offset, limit }))
             .unwrap()
@@ -188,7 +188,14 @@ export default function ProductRecord() {
                             let limit = 5;
                             dispatch(productAll({ offset, limit }))
                                 .unwrap()
-                                .then((res) => setProduct(res.data));
+                                .then((res) => {
+                                    console.log(res.data);
+                                    let resultData = res.data;
+                                    for (let indexArray = 0; indexArray < resultData.length; indexArray++) {
+                                        resultData[indexArray].id = indexArray + 1;
+                                    }
+                                    setProduct(resultData)
+                                });
                         }, 2000);
                     })
                     .catch((err) => {
@@ -306,11 +313,15 @@ export default function ProductRecord() {
     const handleEdit = (row) => {
         setEditProduct(row);
         formik.setValues({
+            product_img: row.product_img,
             product_code: row.product_code,
             product_name: row.product_name,
-            addr1: row.addr1,
-            addr2: row.addr2,
-            tel1: row.tel1,
+            typeproduct_code: row.typeproduct_code,
+            bulk_unit_code: row.bulk_unit_code,
+            bulk_unit_price: row.bulk_unit_price,
+            retail_unit_code: row.retail_unit_code,
+            retail_unit_price: row.retail_unit_price,
+            unit_conversion_factor: row.unit_conversion_factor,
         });
         toggleEditDrawer(true)();
     };
@@ -336,21 +347,11 @@ export default function ProductRecord() {
 
     const [previewUrl, setPreviewUrl] = useState(null);
 
-    const handleImageChange = (event) => {
-        const file = event.target.files[0];
-        if (file) {
-            formik.setFieldValue("product_img", file);
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setPreviewUrl(reader.result);
-            };
-            reader.readAsDataURL(file);
-        }
-    };
+
 
     const formik = useFormik({
         initialValues: {
-            product_img: null,
+            product_img: '',
             product_code: '',
             product_name: '',
             typeproduct_code: '',
@@ -373,6 +374,8 @@ export default function ProductRecord() {
             return errors;
         },
         onSubmit: (values) => {
+            // formik.setFieldValue("product_img", file);
+
             dispatch(addProduct(values))
                 .unwrap()
                 .then((res) => {
@@ -387,6 +390,7 @@ export default function ProductRecord() {
                     formik.resetForm();
                     refetchData();
                     handleGetLastCode();
+
                 })
                 .catch((err) => {
                     Swal.fire({
@@ -400,6 +404,20 @@ export default function ProductRecord() {
                 });
         },
     });
+
+    const handleImageChange = (event) => {
+        const file = event.target.files[0];
+
+        if (file) {
+            formik.setFieldValue("product_img", file);
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setPreviewUrl(reader.result);
+            };
+            reader.readAsDataURL(file);
+            console.log(previewUrl);
+        }
+    };
 
     return (
         <>
@@ -655,6 +673,7 @@ export default function ProductRecord() {
                                     }}
                                 >
                                     <img
+                                        id='previewUrl'
                                         src={previewUrl}
                                         alt="Preview"
                                         style={{ width: '100%', height: '100%', borderRadius: '15px' }}
@@ -708,10 +727,17 @@ export default function ProductRecord() {
                                         name="product_img"
                                         type="file"
                                         className="custom-input-style"
-                                        style={{ opacity: '0', position:'absolute' }}
-                                        onChange={handleImageChange}
-                                        // {...formik.getFieldProps("product_img")}
-                                        // {...errorHelper(formik, "product_img")}
+                                        style={{ opacity: '0', position: 'absolute' }}
+                                        onChange={(event) => {
+                                            const file = event.currentTarget.files[0];
+
+                                            if (file) {
+                                                formik.setFieldValue("product_img", file);
+                                            }
+                                        }}
+                                        {...formik.getFieldProps("product_img")}
+                                        {...errorHelper(formik, "product_img")}
+
                                     />
                                 </Button>
                             </Box>
