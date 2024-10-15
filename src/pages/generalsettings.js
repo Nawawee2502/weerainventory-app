@@ -19,6 +19,7 @@ import Branch from '../components/generalsettings/Branch';
 import ComissaryKitchen from '../components/generalsettings/Comissarykitchen';
 import Supplier from '../components/generalsettings/Supplier';
 import ProductRecord from '../components/generalsettings/Productrecord';
+import { useNavigate } from "react-router-dom";
 
 const Search = styled('div')(({ theme }) => ({
     position: 'relative',
@@ -96,6 +97,8 @@ export default function GeneralSettings() {
     const isMenuOpen = Boolean(anchorEl);
     const isMobileMenuOpen = Boolean(mobileMoreAnchorEl);
 
+    let navigate = useNavigate();
+
     const handleProfileMenuOpen = (event) => {
         setAnchorEl(event.currentTarget);
     };
@@ -120,6 +123,10 @@ export default function GeneralSettings() {
 
     const handleChange = (event, newValue) => {
         setValue(newValue);
+    };
+
+    const handleDashboard = () => {
+        navigate('/dashboard');
     };
 
     const mobileMenuId = 'primary-search-account-menu-mobile';
@@ -180,6 +187,7 @@ export default function GeneralSettings() {
                 <Toolbar>
                     <img
                         src='/logo1.png'
+                        onClick={handleDashboard}
                         style={{
                             width: '52.78px',
                             height: '36px',
@@ -187,6 +195,7 @@ export default function GeneralSettings() {
                     />
                     <img
                         src='/logo2.png'
+                        onClick={handleDashboard}
                         style={{
                             width: '146.55px',
                             height: '20px'

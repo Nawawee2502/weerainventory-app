@@ -176,7 +176,15 @@ export default function SetProductType() {
                             let limit = 5;
                             dispatch(fetchAllTypeproducts({ offset, limit }))
                                 .unwrap()
-                                .then((res) => setTypeproducts(res.data));
+                                .then((res) => {
+                                    console.log(res.data);
+                                    let resultData = res.data;
+                                    for (let indexArray = 0; indexArray < resultData.length; indexArray++) {
+                                        resultData[indexArray].id = indexArray + 1;
+                                    }
+                                    setPage(1);
+                                    setTypeproducts(resultData)
+                                });
                         }, 2000);
                     })
                     .catch((err) => {
@@ -227,7 +235,15 @@ export default function SetProductType() {
                             let limit = 5;
                             dispatch(fetchAllTypeproducts({ offset, limit }))
                                 .unwrap()
-                                .then((res) => setTypeproducts(res.data));
+                                .then((res) => {
+                                    console.log(res.data);
+                                    let resultData = res.data;
+                                    for (let indexArray = 0; indexArray < resultData.length; indexArray++) {
+                                        resultData[indexArray].id = indexArray + 1;
+                                    }
+                                    setPage(1);
+                                    setTypeproducts(resultData)
+                                });
                         }, 2000);
                     })
                     .catch((err) => {
@@ -249,8 +265,6 @@ export default function SetProductType() {
             }
         });
     };
-
-
 
     const [openDrawer, setOpenDrawer] = useState(false);
     const [openEditDrawer, setOpenEditDrawer] = useState(false);
@@ -358,7 +372,7 @@ export default function SetProductType() {
                     formik.resetForm();
                     refetchData();
                     handleGetLastCode();
-                    setOpenDrawer(false);
+                    // setOpenDrawer(false);
 
                 })
                 .catch((err) => {
@@ -595,13 +609,6 @@ export default function SetProductType() {
                             zIndex: 2,
                         }}>
 
-                        <Typography sx={{ display: 'flex', flexDirection: 'row' }}>
-                            Product Type ID :
-                            <Box component="span" sx={{ color: '#754C27', ml: '12px' }}>
-                                #011
-                            </Box>
-                        </Typography>
-
                         <Box sx={{ width: '80%', mt: '24px' }}>
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
                                 Product Id
@@ -734,12 +741,6 @@ export default function SetProductType() {
                             zIndex: 2,
                         }}>
 
-                        <Typography sx={{ display: 'flex', flexDirection: 'row' }}>
-                            EDIT Product Type ID :
-                            <Box component="span" sx={{ color: '#754C27', ml: '12px' }}>
-                                #011
-                            </Box>
-                        </Typography>
 
                         <Box sx={{ width: '80%', mt: '24px' }}>
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>

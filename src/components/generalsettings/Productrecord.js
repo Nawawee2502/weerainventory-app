@@ -1,4 +1,4 @@
-import { Box, Button, InputAdornment, TextField, Typography, Drawer, IconButton, Input } from '@mui/material';
+import { Box, Button, InputAdornment, TextField, Typography, Drawer, IconButton, Select, MenuItem, FormControl } from '@mui/material';
 import React, { useState, useEffect } from 'react';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
 import SearchIcon from '@mui/icons-material/Search';
@@ -13,7 +13,8 @@ import Paper from '@mui/material/Paper';
 import Checkbox from '@mui/material/Checkbox';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
-// import { addBranch, deleteBranch, updateBranch, productAll, countBranch } from '../api/branchApi';
+import { unitAll } from '../../api/productunitApi'
+import { fetchAllTypeproducts } from '../../api/producttypeApi';
 import { addProduct, deleteProduct, updateProduct, productAll, countProduct, searchProduct, lastProductCode } from '../../api/productrecordApi';
 import { useFormik } from "formik";
 import { useDispatch, useSelector } from "react-redux";
@@ -49,10 +50,13 @@ export default function ProductRecord() {
     const dispatch = useDispatch();
     const [alert, setAlert] = useState({ open: false, message: '', severity: 'success' });
     const [product, setProduct] = useState([]);
+    const [typeproducts, setTypeproducts] = useState([]);
     const [page, setPage] = useState(0);
     const [count, setCount] = useState();
     const [searchTerm, setSearchTerm] = useState("");
     const [getLastProductCode, setGetLastProductCode] = useState([]);
+    const [unit, setUnit] = useState([]);
+
 
     const handleSearchChange = (e) => {
         setSearchTerm(e.target.value);
@@ -104,6 +108,8 @@ export default function ProductRecord() {
 
     useEffect(() => {
         refetchData();
+        fetchUnitData();
+        fetchTypeproducts();
         let offset = 0;
         let limit = 5;
         let test = 10;
@@ -418,6 +424,28 @@ export default function ProductRecord() {
             console.log(previewUrl);
         }
     };
+
+    const fetchUnitData = () => {
+        let offset = 0;
+        let limit = 5;
+        dispatch(unitAll({ offset, limit }))
+            .unwrap()
+            .then((res) => {
+                setUnit(res.data);
+            })
+            .catch((err) => console.log(err.message));
+    };
+
+    const fetchTypeproducts = () => {
+        let offset = 0;
+        let limit = 5;
+        dispatch(fetchAllTypeproducts({ offset, limit }))
+            .unwrap()
+            .then((res) => {
+                setTypeproducts(res.data);
+            })
+            .catch((err) => console.log(err.message));
+    }
 
     return (
         <>
@@ -744,7 +772,29 @@ export default function ProductRecord() {
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
                                 Type Product
                             </Typography>
-                            <TextField
+                            <select
+                                id="typeproduct-select"
+                                name="typeproduct_code"
+                                style={{
+                                    width: '100%',
+                                    borderRadius: '10px',
+                                    padding: '8px',
+                                    marginTop: '8px',
+                                    border: '1px solid #ccc',
+                                    outline: 'none',
+                                    height: '40px'
+                                }}
+                                {...formik.getFieldProps("typeproduct_code")}
+                                {...errorHelper(formik, "typeproduct_code")}
+                            >
+                                <option value="" disabled>Select Type Product</option>
+                                {typeproducts.map((item) => (
+                                    <option key={item.typeproduct_code} value={item.typeproduct_code}>
+                                        {item.typeproduct_name}
+                                    </option>
+                                ))}
+                            </select>
+                            {/* <TextField
                                 size="small"
                                 placeholder="type product code"
                                 sx={{
@@ -756,7 +806,7 @@ export default function ProductRecord() {
                                 }}
                                 {...formik.getFieldProps("typeproduct_code")}
                                 {...errorHelper(formik, "typeproduct_code")}
-                            />
+                            /> */}
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
                                 Product Id
                             </Typography>
@@ -795,19 +845,33 @@ export default function ProductRecord() {
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
                                 Large unit
                             </Typography>
-                            <TextField
-                                size="small"
-                                placeholder="Large unit"
-                                sx={{
-                                    mt: '8px',
+                            <select
+                                id="small-unit-select"
+                                name="retail_unit_code"
+                                style={{
                                     width: '100%',
-                                    '& .MuiOutlinedInput-root': {
-                                        borderRadius: '10px',
-                                    },
+                                    borderRadius: '10px',
+                                    padding: '8px',
+                                    marginTop: '8px',
+                                    border: '1px solid #ccc',
+                                    outline: 'none',
+                                    height: '40px'
                                 }}
-                                {...formik.getFieldProps("bulk_unit_code")}
-                                {...errorHelper(formik, "bulk_unit_code")}
-                            />
+                                {...formik.getFieldProps("bulk_unit_code")} 
+                                {...errorHelper(formik, "bulk_unit_code")} 
+                            >
+                                {/* <MenuItem value="" disabled>
+                                        Select Small Unit
+                                    </MenuItem> */}
+                                <option value="" disabled>
+                                    Select Large Unit
+                                </option>
+                                {unit.map((item) => (
+                                    <option key={item.unit_code} value={item.unit_name}>
+                                        {item.unit_name}
+                                    </option>
+                                ))}
+                            </select>
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
                                 Large unit price
                             </Typography>
@@ -827,19 +891,35 @@ export default function ProductRecord() {
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
                                 Small unit
                             </Typography>
-                            <TextField
-                                size="small"
-                                placeholder="Small unit"
-                                sx={{
-                                    mt: '8px',
-                                    width: '100%',
-                                    '& .MuiOutlinedInput-root': {
+                            <FormControl sx={{ width: '100%' }}>
+                                <select
+                                    id="small-unit-select"
+                                    name="retail_unit_code"
+                                    style={{
+                                        width: '100%',
                                         borderRadius: '10px',
-                                    },
-                                }}
-                                {...formik.getFieldProps("retail_unit_code")}
-                                {...errorHelper(formik, "retail_unit_code")}
-                            />
+                                        padding: '8px',
+                                        marginTop: '8px',
+                                        border: '1px solid #ccc',
+                                        outline: 'none',
+                                        height: '40px'
+                                    }}
+                                    {...formik.getFieldProps("retail_unit_code")} 
+                                    {...errorHelper(formik, "retail_unit_code")} 
+                                >
+                                    {/* <MenuItem value="" disabled>
+                                        Select Small Unit
+                                    </MenuItem> */}
+                                    <option value="" disabled >
+                                        Select Small Unit
+                                    </option>
+                                    {unit.map((item) => (
+                                        <option key={item.unit_code} value={item.unit_name}>
+                                            {item.unit_name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </FormControl>
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
                                 Small unit price
                             </Typography>
@@ -901,7 +981,7 @@ export default function ProductRecord() {
                         </Box>
                     </Box>
                 </Box>
-            </Drawer>
+            </Drawer >
             <Drawer
                 anchor="right"
                 open={openEditDrawer}
@@ -1148,12 +1228,14 @@ export default function ProductRecord() {
                     </Box>
                 </Box>
             </Drawer>
-            {alert.open && (
-                <Alert severity={alert.severity} onClose={() => setAlert({ ...alert, open: false })}>
-                    <AlertTitle>{alert.severity === 'success' ? 'Success' : 'Error'}</AlertTitle>
-                    {alert.message}
-                </Alert>
-            )}
+            {
+                alert.open && (
+                    <Alert severity={alert.severity} onClose={() => setAlert({ ...alert, open: false })}>
+                        <AlertTitle>{alert.severity === 'success' ? 'Success' : 'Error'}</AlertTitle>
+                        {alert.message}
+                    </Alert>
+                )
+            }
         </>
     );
 }

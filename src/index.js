@@ -46,6 +46,8 @@ export const Init = () => {
   }, [token]);
 };
 
+// document.title = "Weera Inventory";
+
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(
   <Provider store={store}>

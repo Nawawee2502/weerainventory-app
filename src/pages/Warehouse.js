@@ -13,12 +13,10 @@ import { DashboardLayout } from '@toolpad/core/DashboardLayout';
 import PurchaseOrderToSupplier from '../components/warehouse/Purchaseordertosupplier'
 import ReceiptFromSupplier from '../components/warehouse/Receiptfromsupplier'
 import ReceiptFromKitchen from '../components/warehouse/Receiptfromkitchen';
+import { useNavigate } from "react-router-dom";
+
 
 const NAVIGATION = [
-    {
-        kind: 'header',
-        title: 'Main items',
-    },
     {
         segment: 'purchase-order-to-supplier',
         title: 'Purchase Order to Supplier',
@@ -99,46 +97,31 @@ const NAVIGATION = [
 ];
 
 
-// const demoTheme = createTheme({
-//   cssVariables: {
-//     colorSchemeSelector: 'data-toolpad-color-scheme',
-//   },
-//   colorSchemes: { light: true, dark: true },
-//   breakpoints: {
-//     values: {
-//       xs: 0,
-//       sm: 600,
-//       md: 600,
-//       lg: 1200,
-//       xl: 1536,
-//     },
-//   },
-// });
-
-// function DemoPageContent({ pathname }) {
-//     return (
-//         <Box
-//             sx={{
-//                 py: 4,
-//                 display: 'flex',
-//                 flexDirection: 'column',
-//                 alignItems: 'center',
-//                 textAlign: 'center',
-//             }}
-//         >
-//             <Typography>Dashboard content for {pathname}</Typography>
-//         </Box>
-//     );
-// }
-
-// DemoPageContent.propTypes = {
-//     pathname: PropTypes.string.isRequired,
-// };
+const demoTheme = createTheme({
+    //   cssVariables: {
+    //     colorSchemeSelector: 'data-toolpad-color-scheme',
+    //   },
+    //   colorSchemes: { light: true, dark: true },
+    breakpoints: {
+        values: {
+            xs: 0,
+            sm: 600,
+            md: 600,
+            lg: 1200,
+            xl: 1536,
+        },
+    },
+});
 
 function Warehouse(props) {
     const { window } = props;
 
     const [pathname, setPathname] = React.useState('/dashboard');
+    let navigate = useNavigate();
+
+    const handleDashboard = () => {
+        navigate('/dashboard');
+    };
 
     const router = React.useMemo(() => {
         return {
@@ -170,6 +153,34 @@ function Warehouse(props) {
             navigation={NAVIGATION}
             router={router}
             window={demoWindow}
+            theme={demoTheme}
+            branding={{
+                logo: (
+                    <>
+                        <Box sx={{ display:'flex', alignItems:'center' }}>
+                            <img
+                                src="/logo1.png"
+                                alt="Logo 1"
+                                onClick={handleDashboard}
+                                style={{
+                                    width: '52.78px',
+                                    height: '36',
+                                }}
+                            />
+                            <img
+                                src="/logo2.png"
+                                alt="Logo 2"
+                                onClick={handleDashboard}
+                                style={{
+                                    width: '146.55',
+                                    height: '20px'
+                                }}
+                            />
+                        </Box>
+                    </>
+                ),
+                title: '',
+            }}
         >
             <DashboardLayout>
                 {renderContent()}

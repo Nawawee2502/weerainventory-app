@@ -16,6 +16,8 @@ import Settings from "./pages/Settings";
 import UserSettings from "./pages/Usersettings";
 import Warehouse from "./pages/Warehouse";
 
+document.title = "Weera Inventory";
+
 
 const Router = () => {
     const isAuthentication = useSelector((state) => state.authentication.token);

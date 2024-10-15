@@ -201,6 +201,12 @@ export default function Login() {
             </Box>
           </Grid>
         </Grid> */}
+      <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+        <title>My Awesome Website</title>
+      </head>
       <Grid container sx={{ height: '100vh', width: '100%' }}>
         <Grid item md={6} sm={12} xs={12}
           sx={{
@@ -290,7 +296,7 @@ export default function Login() {
               sx={{
                 mt: '8px',
                 '& .MuiOutlinedInput-root': {
-                  borderRadius: '10px', 
+                  borderRadius: '10px',
                 },
               }}
               {...formik.getFieldProps("password")}

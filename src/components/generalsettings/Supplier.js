@@ -186,7 +186,14 @@ export default function Supplier() {
                             let limit = 5;
                             dispatch(supplierAll({ offset, limit }))
                                 .unwrap()
-                                .then((res) => setSupplier(res.data));
+                                .then((res) => {
+                                    console.log(res.data);
+                                    let resultData = res.data;
+                                    for (let indexArray = 0; indexArray < resultData.length; indexArray++) {
+                                        resultData[indexArray].id = indexArray + 1;
+                                    }
+                                    setSupplier(resultData)
+                                });
                         }, 2000);
                     })
                     .catch((err) => {
@@ -208,7 +215,7 @@ export default function Supplier() {
             }
         });
     };
-    
+
     const handleDeleteSelected = () => {
         Swal.fire({
             title: 'Are you sure you want to delete the selected suppliers?',
@@ -237,7 +244,14 @@ export default function Supplier() {
                             let limit = 5;
                             dispatch(supplierAll({ offset, limit }))
                                 .unwrap()
-                                .then((res) => setSupplier(res.data));
+                                .then((res) => {
+                                    console.log(res.data);
+                                    let resultData = res.data;
+                                    for (let indexArray = 0; indexArray < resultData.length; indexArray++) {
+                                        resultData[indexArray].id = indexArray + 1;
+                                    }
+                                    setSupplier(resultData)
+                                });
                         }, 2000);
                     })
                     .catch((err) => {
@@ -259,7 +273,7 @@ export default function Supplier() {
             }
         });
     };
-    
+
 
     const [openDrawer, setOpenDrawer] = useState(false);
     const [openEditDrawer, setOpenEditDrawer] = useState(false);
@@ -537,7 +551,7 @@ export default function Supplier() {
                         </TableBody>
                     </Table>
                 </TableContainer>
-                <Stack spacing={2} sx={{ mt:'8px' }}>
+                <Stack spacing={2} sx={{ mt: '8px' }}>
                     <Pagination count={count} shape="rounded" onChange={handleChange} page={page} />
                 </Stack>
             </Box>
@@ -607,12 +621,6 @@ export default function Supplier() {
                             zIndex: 2,
                         }}>
 
-                        <Typography sx={{ display: 'flex', flexDirection: 'row' }}>
-                            Supplier ID :
-                            <Typography sx={{ color: '#754C27', ml: '12px' }}>
-                                #011
-                            </Typography>
-                        </Typography>
                         <Box sx={{ width: '80%', mt: '24px' }}>
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
                                 Supplier Id
@@ -788,13 +796,6 @@ export default function Supplier() {
                             position: 'relative',
                             zIndex: 2,
                         }}>
-
-                        <Typography sx={{ display: 'flex', flexDirection: 'row' }}>
-                            Product Type ID :
-                            <Box component="span" sx={{ color: '#754C27', ml: '12px' }}>
-                                #011
-                            </Box>
-                        </Typography>
 
                         <Box sx={{ width: '80%', mt: '24px' }}>
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>

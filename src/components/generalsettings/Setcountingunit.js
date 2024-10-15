@@ -74,7 +74,7 @@ export default function SetCountingUnit() {
         console.log(value);
         let page = value - 1;
         let offset = page * 5;
-        let limit = value * 5;
+        let limit = 5;
         console.log(limit, offset);
         dispatch(unitAll({ offset, limit }))
             .unwrap()
@@ -186,7 +186,14 @@ export default function SetCountingUnit() {
                             let limit = 5;
                             dispatch(unitAll({ offset, limit }))
                                 .unwrap()
-                                .then((res) => setUnit(res.data));
+                                .then((res) => {
+                                    console.log(res.data);
+                                    let resultData = res.data;
+                                    for (let indexArray = 0; indexArray < resultData.length; indexArray++) {
+                                        resultData[indexArray].id = indexArray + 1;
+                                    }
+                                    setUnit(resultData)
+                                });
                         }, 2000);
                     })
                     .catch((err) => {
@@ -208,7 +215,7 @@ export default function SetCountingUnit() {
             }
         });
     };
-    
+
 
     const handleDeleteSelected = () => {
         Swal.fire({
@@ -238,7 +245,14 @@ export default function SetCountingUnit() {
                             let limit = 5;
                             dispatch(unitAll({ offset, limit }))
                                 .unwrap()
-                                .then((res) => setUnit(res.data));
+                                .then((res) => {
+                                    console.log(res.data);
+                                    let resultData = res.data;
+                                    for (let indexArray = 0; indexArray < resultData.length; indexArray++) {
+                                        resultData[indexArray].id = indexArray + 1;
+                                    }
+                                    setUnit(resultData)
+                                });
                         }, 2000);
                     })
                     .catch((err) => {
@@ -260,7 +274,7 @@ export default function SetCountingUnit() {
             }
         });
     };
-    
+
 
     const [openDrawer, setOpenDrawer] = useState(false);
     const [openEditDrawer, setOpenEditDrawer] = useState(false);
@@ -360,9 +374,6 @@ export default function SetCountingUnit() {
                     refetchData();
                     handleGetLastCode();
 
-                    setTimeout(() => {
-                        setAlert((prev) => ({ ...prev, open: false }));
-                    }, 3000);
 
                 })
                 .catch((err) => {
@@ -470,7 +481,7 @@ export default function SetCountingUnit() {
                                     />
                                 </StyledTableCell>
                                 <StyledTableCell width='1%' >No.</StyledTableCell>
-                                <StyledTableCell align="center">ID</StyledTableCell>
+                                <StyledTableCell align="center">Counting ID</StyledTableCell>
                                 <StyledTableCell align="center">Counting Unit</StyledTableCell>
                                 <StyledTableCell width='1%' align="center"></StyledTableCell>
                                 <StyledTableCell width='1%' align="center"></StyledTableCell>
@@ -519,7 +530,7 @@ export default function SetCountingUnit() {
 
                     </Table>
                 </TableContainer>
-                <Stack spacing={2} sx={{ mt:'8px' }}>
+                <Stack spacing={2} sx={{ mt: '8px' }}>
                     <Pagination count={count} shape="rounded" onChange={handleChange} page={page} />
                 </Stack>
             </Box>
@@ -589,12 +600,6 @@ export default function SetCountingUnit() {
                             zIndex: 2,
                         }}>
 
-                        <Typography sx={{ display: 'flex', flexDirection: 'row' }}>
-                            Counting Unit ID :
-                            <Typography sx={{ color: '#754C27', ml: '12px' }}>
-                                #011
-                            </Typography>
-                        </Typography>
                         <Box sx={{ width: '80%', mt: '24px' }}>
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
                                 Counting Unit Id
@@ -726,12 +731,6 @@ export default function SetCountingUnit() {
                             zIndex: 2,
                         }}>
 
-                        <Typography sx={{ display: 'flex', flexDirection: 'row' }}>
-                            Counting Unit ID :
-                            <Box component="span" sx={{ color: '#754C27', ml: '12px' }}>
-                                #011
-                            </Box>
-                        </Typography>
 
                         <Box sx={{ width: '80%', mt: '24px' }}>
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>

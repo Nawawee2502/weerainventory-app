@@ -186,7 +186,14 @@ export default function ProductRecord() {
                             let limit = 5;
                             dispatch(branchAll({ offset, limit }))
                                 .unwrap()
-                                .then((res) => setBranch(res.data));
+                                .then((res) => {
+                                    console.log(res.data);
+                                    let resultData = res.data;
+                                    for (let indexArray = 0; indexArray < resultData.length; indexArray++) {
+                                        resultData[indexArray].id = indexArray + 1;
+                                    }
+                                    setBranch(resultData)
+                                });
                         }, 2000);
                     })
                     .catch((err) => {
@@ -208,7 +215,7 @@ export default function ProductRecord() {
             }
         });
     };
-    
+
 
     const handleDeleteSelected = () => {
         Swal.fire({
@@ -238,7 +245,14 @@ export default function ProductRecord() {
                             let limit = 5;
                             dispatch(branchAll({ offset, limit }))
                                 .unwrap()
-                                .then((res) => setBranch(res.data));
+                                .then((res) => {
+                                    console.log(res.data);
+                                    let resultData = res.data;
+                                    for (let indexArray = 0; indexArray < resultData.length; indexArray++) {
+                                        resultData[indexArray].id = indexArray + 1;
+                                    }
+                                    setBranch(resultData)
+                                });
                         }, 2000);
                     })
                     .catch((err) => {
@@ -260,7 +274,7 @@ export default function ProductRecord() {
             }
         });
     };
-    
+
 
     const [openDrawer, setOpenDrawer] = useState(false);
     const [openEditDrawer, setOpenEditDrawer] = useState(false);
@@ -372,7 +386,7 @@ export default function ProductRecord() {
                         timer: 1000,
                         timerProgressBar: true,
                         showConfirmButton: false,
-                    }); 
+                    });
                     formik.resetForm();
                     refetchData();
                     handleGetLastCode();
@@ -538,7 +552,7 @@ export default function ProductRecord() {
                         </TableBody>
                     </Table>
                 </TableContainer>
-                <Stack spacing={2} sx={{ mt:'8px' }}>
+                <Stack spacing={2} sx={{ mt: '8px' }}>
                     <Pagination count={count} shape="rounded" onChange={handleChange} page={page} />
                 </Stack>
             </Box>
@@ -608,12 +622,6 @@ export default function ProductRecord() {
                             zIndex: 2,
                         }}>
 
-                        <Typography sx={{ display: 'flex', flexDirection: 'row' }}>
-                            Branch ID :
-                            <Typography sx={{ color: '#754C27', ml: '12px' }}>
-                                #011
-                            </Typography>
-                        </Typography>
                         <Box sx={{ width: '80%', mt: '24px' }}>
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
                                 Branch Id
@@ -789,12 +797,6 @@ export default function ProductRecord() {
                             zIndex: 2,
                         }}>
 
-                        <Typography sx={{ display: 'flex', flexDirection: 'row' }}>
-                            Branch ID :
-                            <Typography sx={{ color: '#754C27', ml: '12px' }}>
-                                #011
-                            </Typography>
-                        </Typography>
                         <Box sx={{ width: '80%', mt: '24px' }}>
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
                                 EDIT Branch Id
