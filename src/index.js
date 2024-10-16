@@ -50,11 +50,13 @@ export const Init = () => {
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(
+  
   <Provider store={store}>
     <PersistGate loading={null} persistor={persistor}>
       <Init></Init>
       <Suspense fallback={<LoadingPage />}>
         <ThemeProvider theme={theme}>
+        
           {/* {isAuthentication ? (
                 <Routes />
           ) : (

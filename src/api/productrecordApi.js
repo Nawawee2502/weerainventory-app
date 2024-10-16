@@ -82,6 +82,21 @@ export const productAll = createAsyncThunk(
     }
 );
 
+export const productAlltypeproduct = createAsyncThunk(
+    "product/readWithTypeProduct",
+    async (_, { dispatch }) => {
+      try {
+        const res = await axios.post(BASE_URL + "/api/productalltypeproduct");
+        console.log(res.data);
+        return res.data;
+      } catch (error) {
+        console.error(error.message);
+        throw error;
+      }
+    }
+  );
+  
+
 export const countProduct = createAsyncThunk(
     "product/count",
     async ({ test }, { dispatch }) => {

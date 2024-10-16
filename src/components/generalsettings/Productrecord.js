@@ -15,7 +15,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { unitAll } from '../../api/productunitApi'
 import { fetchAllTypeproducts } from '../../api/producttypeApi';
-import { addProduct, deleteProduct, updateProduct, productAll, countProduct, searchProduct, lastProductCode } from '../../api/productrecordApi';
+import { addProduct, deleteProduct, updateProduct, productAll, countProduct, searchProduct, lastProductCode, productAlltypeproduct } from '../../api/productrecordApi';
 import { useFormik } from "formik";
 import { useDispatch, useSelector } from "react-redux";
 import { errorHelper } from "../handle-input-error";
@@ -50,6 +50,7 @@ export default function ProductRecord() {
     const dispatch = useDispatch();
     const [alert, setAlert] = useState({ open: false, message: '', severity: 'success' });
     const [product, setProduct] = useState([]);
+    const [productAllTypeproduct, setProductAllTypeproduct] = useState([]);
     const [typeproducts, setTypeproducts] = useState([]);
     const [page, setPage] = useState(0);
     const [count, setCount] = useState();
@@ -104,6 +105,21 @@ export default function ProductRecord() {
                 setProduct(res.data);
             })
             .catch((err) => console.log(err.message));
+
+        dispatch(productAlltypeproduct({ offset, limit }))
+            .unwrap()
+            .then((res) => {
+                console.log("productAlltypeproduct");
+                console.log(res.data);
+                let resultData = res.data;
+                for (let indexArray = 0; indexArray < resultData.length; indexArray++) {
+                    resultData[indexArray].id = indexArray + 1;
+                }
+                setProductAllTypeproduct(resultData);
+                console.log(resultData);
+
+            })
+            .catch((err) => err.message);
     };
 
     useEffect(() => {
@@ -123,6 +139,21 @@ export default function ProductRecord() {
                 }
                 setProduct(resultData);
                 console.log(resultData);
+
+            })
+            .catch((err) => err.message);
+
+        dispatch(productAlltypeproduct({ offset, limit }))
+            .unwrap()
+            .then((res) => {
+                console.log("productAlltypeproduct");
+                console.log(res.data);
+                let resultData = res.data;
+                for (let indexArray = 0; indexArray < resultData.length; indexArray++) {
+                    resultData[indexArray].id = indexArray + 1;
+                }
+                setProductAllTypeproduct(resultData);
+                console.log("data : ",resultData);
 
             })
             .catch((err) => err.message);
@@ -285,30 +316,33 @@ export default function ProductRecord() {
         handleGetLastCode();
     };
 
-    const handleGetLastCode = () => {
-        let test = "";
-        dispatch(lastProductCode({ test }))
-            .unwrap()
-            .then((res) => {
-                let lastProductCode = "001";
+    // const handleGetLastCode = () => {
+    //     let test = "";
+    //     dispatch(lastProductCode({ test }))
+    //         .unwrap()
+    //         .then((res) => {
+    //             let lastProductCode = "001";
 
-                if (res.data && res.data.product_code) {
-                    lastProductCode = "" + (Number(res.data.product_code) + 1);
+    //             if (res.data && res.data.product_code) {
+    //                 // แปลงค่า product_code เป็นตัวเลขและเพิ่ม 1
+    //                 lastProductCode = "" + (Number(res.data.product_code) + 1);
 
-                    if (lastProductCode.length === 1) {
-                        lastProductCode = "00" + lastProductCode;
-                    } else if (lastProductCode.length === 2) {
-                        lastProductCode = "0" + lastProductCode;
-                    }
-                }
+    //                 // การเติม 0 ข้างหน้าเพื่อให้มีความยาว 3 หลัก
+    //                 if (lastProductCode.length === 1) {
+    //                     lastProductCode = "00" + lastProductCode;
+    //                 } else if (lastProductCode.length === 2) {
+    //                     lastProductCode = "0" + lastProductCode;
+    //                 }
+    //             }
 
-                setGetLastProductCode(lastProductCode);
-                formik.setValues({
-                    product_code: lastProductCode,
-                });
-            })
-            .catch((err) => err.message);
-    };
+    //             setGetLastProductCode(lastProductCode);
+    //             formik.setFieldValue('product_code', lastProductCode);
+    //         })
+    //         .catch((err) => {
+    //             console.error(err.message);
+    //         });
+    // };
+
 
     const toggleEditDrawer = (openEditDrawer) => () => {
         setOpenEditDrawer(openEditDrawer);
@@ -357,7 +391,7 @@ export default function ProductRecord() {
 
     const formik = useFormik({
         initialValues: {
-            product_img: '',
+            product_img: null,
             product_code: '',
             product_name: '',
             typeproduct_code: '',
@@ -381,6 +415,7 @@ export default function ProductRecord() {
         },
         onSubmit: (values) => {
             // formik.setFieldValue("product_img", file);
+
 
             dispatch(addProduct(values))
                 .unwrap()
@@ -410,6 +445,103 @@ export default function ProductRecord() {
                 });
         },
     });
+    // const formik = useFormik({
+    //     initialValues: {
+    //         product_img: null,
+    //         product_code: '',
+    //         product_name: '',
+    //         typeproduct_code: '',
+    //         bulk_unit_code: '',
+    //         bulk_unit_price: '',
+    //         retail_unit_code: '',
+    //         retail_unit_price: '',
+    //         unit_conversion_factor: '',
+    //     },
+    //     validate: (values) => {
+    //         const errors = {};
+    //         if (!values.product_img) errors.product_img = 'product_img cannot be empty';
+    //         if (!values.product_name) errors.product_name = 'product_name cannot be empty';
+    //         if (!values.typeproduct_code) errors.typeproduct_code = 'typeproduct_code cannot be empty';
+    //         if (!values.bulk_unit_code) errors.bulk_unit_code = 'bulk_unit_code cannot be empty';
+    //         if (!values.bulk_unit_price) errors.bulk_unit_price = 'bulk_unit_price cannot be empty';
+    //         if (!values.retail_unit_code) errors.retail_unit_code = 'retail_unit_code cannot be empty';
+    //         if (!values.retail_unit_price) errors.retail_unit_price = 'retail_unit_price cannot be empty';
+    //         if (!values.unit_conversion_factor) errors.unit_conversion_factor = 'unit_conversion_factor cannot be empty';
+    //         return errors;
+    //     },
+    //     onSubmit: async (values) => {
+    //         const formData = new FormData();
+    //         formData.append('product_img', values.product_img); 
+    //         formData.append('product_code', values.product_code);
+    //         formData.append('product_name', values.product_name);
+    //         formData.append('typeproduct_code', values.typeproduct_code);
+    //         formData.append('bulk_unit_code', values.bulk_unit_code);
+    //         formData.append('bulk_unit_price', values.bulk_unit_price);
+    //         formData.append('retail_unit_code', values.retail_unit_code);
+    //         formData.append('retail_unit_price', values.retail_unit_price);
+    //         formData.append('unit_conversion_factor', values.unit_conversion_factor);
+
+    //         try {
+    //             await dispatch(addProduct(formData)).unwrap();
+    //             Swal.fire({
+    //                 icon: 'success',
+    //                 title: 'Success',
+    //                 text: 'เพิ่มข้อมูลสำเร็จ',
+    //                 timer: 1000,
+    //                 timerProgressBar: true,
+    //                 showConfirmButton: false,
+    //             });
+    //             formik.resetForm();
+    //             refetchData();
+    //             handleGetLastCode();
+    //         } catch (err) {
+    //             Swal.fire({
+    //                 icon: 'error',
+    //                 title: 'Error',
+    //                 text: 'เกิดข้อผิดพลาดในการเพิ่มข้อมูล',
+    //                 timer: 3000,
+    //                 timerProgressBar: true,
+    //                 showConfirmButton: false,
+    //             });
+    //         }
+    //     },
+    // });
+
+    const handleFileChange = (event) => {
+        formik.setFieldValue('product_img', event.currentTarget.files[0]);
+    };
+
+    const handleGetLastCode = () => {
+        let test = "";
+        dispatch(lastProductCode({ test }))
+            .unwrap()
+            .then((res) => {
+                let lastProductCode = "001"; 
+
+                if (res.data && res.data.product_code) {
+
+                    lastProductCode = res.data.product_code.slice(-3);
+                    lastProductCode = (Number(lastProductCode) + 1).toString();
+                    lastProductCode = lastProductCode.padStart(3, '0');
+                }
+
+                setGetLastProductCode(lastProductCode); 
+                formik.setFieldValue('product_code', lastProductCode);
+            })
+            .catch((err) => {
+                console.error(err.message);
+            });
+    };
+
+    useEffect(() => {
+        if (formik.values.typeproduct_code && getLastProductCode) {
+            const newProductCode = `${formik.values.typeproduct_code}${getLastProductCode}`;
+            formik.setFieldValue('product_code', newProductCode); 
+        }
+    }, [formik.values.typeproduct_code, getLastProductCode]);
+
+
+
 
     const handleImageChange = (event) => {
         const file = event.target.files[0];
@@ -539,13 +671,11 @@ export default function ProductRecord() {
                                     />
                                 </StyledTableCell>
                                 <StyledTableCell width='1%' >No.</StyledTableCell>
-                                <StyledTableCell width='1%' >Type Product</StyledTableCell>
+                                <StyledTableCell align="center">Type Product</StyledTableCell>
                                 <StyledTableCell align="center">Product ID</StyledTableCell>
                                 <StyledTableCell align="center">Product Name</StyledTableCell>
                                 <StyledTableCell align="center">Large Unit</StyledTableCell>
-                                <StyledTableCell align="center">Large Unit Price</StyledTableCell>
                                 <StyledTableCell align="center">Small Unit</StyledTableCell>
-                                <StyledTableCell align="center">Small Unit Price</StyledTableCell>
                                 <StyledTableCell align="center">Conversion Quantity </StyledTableCell>
                                 <StyledTableCell width='1%' align="center"></StyledTableCell>
                                 <StyledTableCell width='1%' align="center"></StyledTableCell>
@@ -553,7 +683,7 @@ export default function ProductRecord() {
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {product.map((row) => (
+                            {productAllTypeproduct.map((row) => (
                                 <StyledTableRow key={row.product_code}>
                                     <StyledTableCell padding="checkbox" align="center">
                                         <Checkbox
@@ -561,22 +691,26 @@ export default function ProductRecord() {
                                             onChange={(event) => handleCheckboxChange(event, row.product_code)}
                                         />
                                     </StyledTableCell>
-                                    <StyledTableCell component="th" scope="row" >
+                                    <StyledTableCell component="th" scope="row">
                                         {row.id}
                                     </StyledTableCell>
-                                    <StyledTableCell align="center">{row.typeproduct_code}</StyledTableCell>
+                                    <StyledTableCell align="center">
+                                        {row.tbl_typeproducts?.[0]?.typeproduct_name}
+                                    </StyledTableCell>
                                     <StyledTableCell align="center">{row.product_code}</StyledTableCell>
                                     <StyledTableCell align="center">{row.product_name}</StyledTableCell>
-                                    <StyledTableCell align="center">{row.bulk_unit_code}</StyledTableCell>
-                                    <StyledTableCell align="center">{row.bulk_unit_price}</StyledTableCell>
-                                    <StyledTableCell align="center">{row.retail_unit_code}</StyledTableCell>
-                                    <StyledTableCell align="center">{row.retail_unit_price}</StyledTableCell>
+                                    <StyledTableCell align="center">
+                                        {row.productUnit1?.[0]?.unit_name}
+                                    </StyledTableCell>
+                                    <StyledTableCell align="center">
+                                        {row.productUnit2?.[0]?.unit_name}
+                                    </StyledTableCell>
                                     <StyledTableCell align="center">{row.unit_conversion_factor}</StyledTableCell>
                                     <StyledTableCell align="center">
                                         <IconButton
                                             color="primary"
                                             size="md"
-                                            onClick={() => handleEdit(row)} // เรียกใช้ฟังก์ชัน handleEdit
+                                            onClick={() => handleEdit(row)}
                                             sx={{ border: '1px solid #AD7A2C', borderRadius: '7px' }}
                                         >
                                             <EditIcon sx={{ color: '#AD7A2C' }} />
@@ -586,12 +720,11 @@ export default function ProductRecord() {
                                         <IconButton
                                             color="danger"
                                             size="md"
-                                            onClick={() => handleDelete(row.product_code)} // Use a function to handle delete
+                                            onClick={() => handleDelete(row.product_code)}
                                             sx={{ border: '1px solid #F62626', borderRadius: '7px' }}
                                         >
                                             <DeleteIcon sx={{ color: '#F62626' }} />
                                         </IconButton>
-
                                     </StyledTableCell>
                                 </StyledTableRow>
                             ))}
@@ -756,13 +889,7 @@ export default function ProductRecord() {
                                         type="file"
                                         className="custom-input-style"
                                         style={{ opacity: '0', position: 'absolute' }}
-                                        onChange={(event) => {
-                                            const file = event.currentTarget.files[0];
-
-                                            if (file) {
-                                                formik.setFieldValue("product_img", file);
-                                            }
-                                        }}
+                                        // onChange={handleFileChange}
                                         {...formik.getFieldProps("product_img")}
                                         {...errorHelper(formik, "product_img")}
 
@@ -812,9 +939,7 @@ export default function ProductRecord() {
                             </Typography>
                             <TextField
                                 size="small"
-                                // placeholder={getLastTypeproductCode}
                                 disabled
-
                                 sx={{
                                     mt: '8px',
                                     width: '100%',
@@ -824,7 +949,7 @@ export default function ProductRecord() {
                                 }}
                                 {...formik.getFieldProps("product_code")}
                                 {...errorHelper(formik, "product_code")}
-                                value={getLastProductCode}
+                                value={formik.values.product_code}
                             />
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
                                 Product Name
@@ -857,8 +982,8 @@ export default function ProductRecord() {
                                     outline: 'none',
                                     height: '40px'
                                 }}
-                                {...formik.getFieldProps("bulk_unit_code")} 
-                                {...errorHelper(formik, "bulk_unit_code")} 
+                                {...formik.getFieldProps("bulk_unit_code")}
+                                {...errorHelper(formik, "bulk_unit_code")}
                             >
                                 {/* <MenuItem value="" disabled>
                                         Select Small Unit
@@ -867,7 +992,7 @@ export default function ProductRecord() {
                                     Select Large Unit
                                 </option>
                                 {unit.map((item) => (
-                                    <option key={item.unit_code} value={item.unit_name}>
+                                    <option key={item.unit_code} value={item.unit_code}>
                                         {item.unit_name}
                                     </option>
                                 ))}
@@ -904,8 +1029,8 @@ export default function ProductRecord() {
                                         outline: 'none',
                                         height: '40px'
                                     }}
-                                    {...formik.getFieldProps("retail_unit_code")} 
-                                    {...errorHelper(formik, "retail_unit_code")} 
+                                    {...formik.getFieldProps("retail_unit_code")}
+                                    {...errorHelper(formik, "retail_unit_code")}
                                 >
                                     {/* <MenuItem value="" disabled>
                                         Select Small Unit
@@ -914,7 +1039,7 @@ export default function ProductRecord() {
                                         Select Small Unit
                                     </option>
                                     {unit.map((item) => (
-                                        <option key={item.unit_code} value={item.unit_name}>
+                                        <option key={item.unit_code} value={item.unit_code}>
                                             {item.unit_name}
                                         </option>
                                     ))}
