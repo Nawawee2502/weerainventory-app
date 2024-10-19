@@ -153,7 +153,7 @@ export default function ProductRecord() {
                     resultData[indexArray].id = indexArray + 1;
                 }
                 setProductAllTypeproduct(resultData);
-                console.log("data : ",resultData);
+                console.log("data : ", resultData);
 
             })
             .catch((err) => err.message);
@@ -391,7 +391,6 @@ export default function ProductRecord() {
 
     const formik = useFormik({
         initialValues: {
-            product_img: null,
             product_code: '',
             product_name: '',
             typeproduct_code: '',
@@ -403,7 +402,6 @@ export default function ProductRecord() {
         },
         validate: (values) => {
             const errors = {};
-            if (!values.product_img) errors.product_img = 'product_img cannot be empty';
             if (!values.product_name) errors.product_name = 'product_name cannot be empty';
             if (!values.typeproduct_code) errors.typeproduct_code = 'typeproduct_code cannot be empty';
             if (!values.bulk_unit_code) errors.bulk_unit_code = 'bulk_unit_code cannot be empty';
@@ -415,7 +413,10 @@ export default function ProductRecord() {
         },
         onSubmit: (values) => {
             // formik.setFieldValue("product_img", file);
-
+            const formData = new FormData();
+            formData.append('product_img', values.product_img);
+            // formData.append('file',values.image)
+            console.log(values.product_img)
 
             dispatch(addProduct(values))
                 .unwrap()
@@ -507,16 +508,13 @@ export default function ProductRecord() {
     //     },
     // });
 
-    const handleFileChange = (event) => {
-        formik.setFieldValue('product_img', event.currentTarget.files[0]);
-    };
 
     const handleGetLastCode = () => {
         let test = "";
         dispatch(lastProductCode({ test }))
             .unwrap()
             .then((res) => {
-                let lastProductCode = "001"; 
+                let lastProductCode = "001";
 
                 if (res.data && res.data.product_code) {
 
@@ -525,7 +523,7 @@ export default function ProductRecord() {
                     lastProductCode = lastProductCode.padStart(3, '0');
                 }
 
-                setGetLastProductCode(lastProductCode); 
+                setGetLastProductCode(lastProductCode);
                 formik.setFieldValue('product_code', lastProductCode);
             })
             .catch((err) => {
@@ -536,26 +534,9 @@ export default function ProductRecord() {
     useEffect(() => {
         if (formik.values.typeproduct_code && getLastProductCode) {
             const newProductCode = `${formik.values.typeproduct_code}${getLastProductCode}`;
-            formik.setFieldValue('product_code', newProductCode); 
+            formik.setFieldValue('product_code', newProductCode);
         }
     }, [formik.values.typeproduct_code, getLastProductCode]);
-
-
-
-
-    const handleImageChange = (event) => {
-        const file = event.target.files[0];
-
-        if (file) {
-            formik.setFieldValue("product_img", file);
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setPreviewUrl(reader.result);
-            };
-            reader.readAsDataURL(file);
-            console.log(previewUrl);
-        }
-    };
 
     const fetchUnitData = () => {
         let offset = 0;
@@ -695,15 +676,15 @@ export default function ProductRecord() {
                                         {row.id}
                                     </StyledTableCell>
                                     <StyledTableCell align="center">
-                                        {row.tbl_typeproducts?.[0]?.typeproduct_name}
+                                        {row.tbl_typeproduct?.typeproduct_name}
                                     </StyledTableCell>
                                     <StyledTableCell align="center">{row.product_code}</StyledTableCell>
                                     <StyledTableCell align="center">{row.product_name}</StyledTableCell>
                                     <StyledTableCell align="center">
-                                        {row.productUnit1?.[0]?.unit_name}
+                                        {row.productUnit1?.unit_name}
                                     </StyledTableCell>
                                     <StyledTableCell align="center">
-                                        {row.productUnit2?.[0]?.unit_name}
+                                        {row.productUnit2?.unit_name}
                                     </StyledTableCell>
                                     <StyledTableCell align="center">{row.unit_conversion_factor}</StyledTableCell>
                                     <StyledTableCell align="center">
@@ -729,6 +710,7 @@ export default function ProductRecord() {
                                 </StyledTableRow>
                             ))}
                         </TableBody>
+
                     </Table>
                 </TableContainer>
                 <Stack spacing={2} sx={{ mt: '8px' }}>
@@ -801,101 +783,6 @@ export default function ProductRecord() {
                             zIndex: 2,
                         }}>
                         <Box sx={{ width: '80%', mt: '24px' }}>
-                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
-                                Product Image
-                            </Typography>
-                            {/* <input
-                                type="file"
-                                accept="image/*"
-                                onChange={handleImageChange}
-                                style={{ marginTop: '8px', marginBottom: '16px' }}
-                            />
-                            {previewUrl && (
-                                <img
-                                    src={previewUrl}
-                                    alt="Preview"
-                                    style={{ maxWidth: '100%', maxHeight: '200px', marginTop: '10px' }}
-                                />
-                            )} */}
-
-                            {previewUrl ? (
-                                <Box
-                                    sx={{
-                                        width: '100%',
-                                        height: '202px',
-                                        borderRadius: '15px',
-                                        border: '1px solid #754C27',
-                                        display: 'flex',
-                                        justifyContent: 'center',
-                                        alignItems: 'center',
-                                        backgroundColor: '#f0f0f0',
-                                        marginTop: '10px',
-                                        flexDirection: 'column'
-                                    }}
-                                >
-                                    <img
-                                        id='previewUrl'
-                                        src={previewUrl}
-                                        alt="Preview"
-                                        style={{ width: '100%', height: '100%', borderRadius: '15px' }}
-                                    />
-                                </Box>
-
-                            ) : (
-                                <Box
-                                    sx={{
-                                        width: '100%',
-                                        height: '202px',
-                                        borderRadius: '15px',
-                                        border: '1px solid #754C27',
-                                        display: 'flex',
-                                        justifyContent: 'center',
-                                        alignItems: 'center',
-                                        backgroundColor: '#f0f0f0',
-                                        marginTop: '10px',
-                                        flexDirection: 'column'
-                                    }}
-                                >
-                                    <img
-                                        src='/upload.png'
-                                    />
-                                    <Typography sx={{ color: '#878787' }}>
-                                        Upload file
-                                    </Typography>
-                                </Box>
-                            )}
-                            <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-                                <Button
-                                    sx={{
-                                        width: '125px',
-                                        height: '35px',
-                                        backgroundColor: '#C17C13',
-                                        borderRadius: '10px',
-                                        padding: '0px',
-                                        cursor: 'pointer',
-                                        '&:hover': {
-                                            backgroundColor: '#a37010',  // Darker shade on hover
-                                        },
-                                        color: 'white',
-                                        mt: '8px',
-                                    }}
-                                    component="label"
-                                >
-                                    <AddIcon fontSize='small' sx={{ mr: '8px' }} />
-                                    Add image
-                                    <input
-                                        id="product_img"
-                                        name="product_img"
-                                        type="file"
-                                        className="custom-input-style"
-                                        style={{ opacity: '0', position: 'absolute' }}
-                                        // onChange={handleFileChange}
-                                        {...formik.getFieldProps("product_img")}
-                                        {...errorHelper(formik, "product_img")}
-
-                                    />
-                                </Button>
-                            </Box>
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
                                 Type Product
                             </Typography>
@@ -1173,23 +1060,6 @@ export default function ProductRecord() {
                             zIndex: 2,
                         }}>
                         <Box sx={{ width: '80%', mt: '24px' }}>
-                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
-                                Product Image
-                            </Typography>
-                            {/* <input
-                                type="file"
-                                accept="image/*"
-                                onChange={handleImageChange}
-                                style={{ marginTop: '8px', marginBottom: '16px' }}
-                            />
-                            {previewUrl && (
-                                <img
-                                    src={previewUrl}
-                                    alt="Preview"
-                                    style={{ maxWidth: '100%', maxHeight: '200px', marginTop: '10px' }}
-                                />
-                            )} */}
-
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
                                 Type Product
                             </Typography>

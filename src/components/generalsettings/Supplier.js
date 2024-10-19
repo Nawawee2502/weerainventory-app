@@ -717,6 +717,7 @@ export default function Supplier() {
                                 Cancel
                             </Button>
                             <Button variant='contained'
+                                onClick={formik.handleSubmit}
                                 sx={{
                                     width: '100px',
                                     bgcolor: '#754C27',

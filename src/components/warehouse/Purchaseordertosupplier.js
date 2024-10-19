@@ -13,6 +13,7 @@ import Paper from '@mui/material/Paper';
 import Checkbox from '@mui/material/Checkbox';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import { addSupplier, deleteSupplier, updateSupplier, supplierAll, countSupplier, searchSupplier, lastSupplierCode } from '../../api/supplierApi';
 import { addBranch, deleteBranch, updateBranch, branchAll, countBranch, searchBranch, lastBranchCode } from '../../api/branchApi';
 import { useFormik } from "formik";
 import { useDispatch, useSelector } from "react-redux";
@@ -22,6 +23,17 @@ import Pagination from '@mui/material/Pagination';
 import Stack from '@mui/material/Stack';
 import Swal from 'sweetalert2';
 import PrintIcon from '@mui/icons-material/Print';
+import AddBoxIcon from '@mui/icons-material/AddBox';
+import IndeterminateCheckBoxIcon from '@mui/icons-material/IndeterminateCheckBox';
+import CancelIcon from '@mui/icons-material/Cancel';
+import dayjs from 'dayjs';
+import { DemoContainer, DemoItem } from '@mui/x-date-pickers/internals/demo';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { MobileDatePicker } from '@mui/x-date-pickers/MobileDatePicker';
+import { DesktopDatePicker } from '@mui/x-date-pickers/DesktopDatePicker';
+import { StaticDatePicker } from '@mui/x-date-pickers/StaticDatePicker';
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
   [`&.${tableCellClasses.head}`]: {
@@ -52,6 +64,7 @@ export default function PurchaseOrderToSupplier() {
   const [count, setCount] = useState();
   const [searchTerm, setSearchTerm] = useState("");
   const [getLastBranchCode, setGetLastBranchCode] = useState([]);
+  const [supplier, setSupplier] = useState([]);
 
   const handleSearchChange = (e) => {
     setSearchTerm(e.target.value);
@@ -101,48 +114,64 @@ export default function PurchaseOrderToSupplier() {
       .catch((err) => console.log(err.message));
   };
 
+  // useEffect(() => {
+  //   refetchData();
+  //   let offset = 0;
+  //   let limit = 5;
+  //   let test = 10;
+  //   dispatch(branchAll({ offset, limit }))
+  //     .unwrap()
+  //     .then((res) => {
+  //       console.log("Branch data");
+  //       console.log(res.data);
+  //       let resultData = res.data;
+  //       for (let indexArray = 0; indexArray < resultData.length; indexArray++) {
+  //         resultData[indexArray].id = indexArray + 1;
+  //       }
+  //       setBranch(resultData);
+  //       console.log(resultData);
+
+  //     })
+  //     .catch((err) => err.message);
+
+  //   dispatch(supplierAll({ offset, limit }))
+  //     .unwrap()
+  //     .then((res) => {
+  //       console.log(res.data);
+  //       let resultData = res.data;
+  //       for (let indexArray = 0; indexArray < resultData.length; indexArray++) {
+  //         resultData[indexArray].id = indexArray + 1;
+  //       }
+  //       setBranch(resultData);
+  //       console.log(resultData);
+
+  //     })
+  //     .catch((err) => err.message);
+
+
+  // }, [dispatch]);
   useEffect(() => {
-    refetchData();
     let offset = 0;
     let limit = 5;
-    let test = 10;
+  
     dispatch(branchAll({ offset, limit }))
       .unwrap()
       .then((res) => {
-        console.log(res.data);
-        let resultData = res.data;
-        for (let indexArray = 0; indexArray < resultData.length; indexArray++) {
-          resultData[indexArray].id = indexArray + 1;
-        }
-        setBranch(resultData);
-        console.log(resultData);
-
+        console.log("Branch data", res.data);
+        setBranch(res.data);
       })
-      .catch((err) => err.message);
-
-    dispatch(lastBranchCode({ test }))
+      .catch((err) => console.log(err.message));
+    
+    dispatch(supplierAll({ offset, limit }))
       .unwrap()
       .then((res) => {
-        setGetLastBranchCode(res.data);
-        console.log(res.data)
+        console.log("Supplier data", res.data);
+        setSupplier(res.data);
       })
-      .catch((err) => err.message);
-
-    dispatch(countBranch({ test }))
-      .unwrap()
-      .then((res) => {
-        console.log(res.data);
-        let resData = res.data;
-        let countPaging = Math.floor(resData / 5);
-        let modPaging = resData % 5;
-        if (modPaging > 0) {
-          countPaging++
-        }
-        console.log(countPaging, modPaging);
-        setCount(countPaging);
-      })
-      .catch((err) => err.message);
-  }, [dispatch]);
+      .catch((err) => console.log(err.message));
+  
+  }, [dispatch]); // ให้แน่ใจว่าค่าใน dependency มีการเปลี่ยนแปลงเมื่อจำเป็นเท่านั้น
+  
 
   const handleCheckboxChange = (event, branch_code) => {
     if (event.target.checked) {
@@ -268,133 +297,95 @@ export default function PurchaseOrderToSupplier() {
 
   const toggleDrawer = (openDrawer) => () => {
     setOpenDrawer(openDrawer);
-    handleGetLastCode();
+    // handleGetLastCode();
   };
 
-  const toggleEditDrawer = (openEditDrawer) => () => {
-    setOpenEditDrawer(openEditDrawer);
-  };
+  // const toggleEditDrawer = (openEditDrawer) => () => {
+  //   setOpenEditDrawer(openEditDrawer);
+  // };
 
-  const [editBranch, setEditBranch] = useState(null);
+  // const [editBranch, setEditBranch] = useState(null);
 
-  const handleEdit = (row) => {
-    setEditBranch(row);
-    formik.setValues({
-      branch_code: row.branch_code,
-      branch_name: row.branch_name,
-      addr1: row.addr1,
-      addr2: row.addr2,
-      tel1: row.tel1,
-    });
-    toggleEditDrawer(true)();
-  };
+  // const handleEdit = (row) => {
+  //   setEditBranch(row);
+  //   formik.setValues({
+  //     branch_code: row.branch_code,
+  //     branch_name: row.branch_name,
+  //     addr1: row.addr1,
+  //     addr2: row.addr2,
+  //     tel1: row.tel1,
+  //   });
+  //   toggleEditDrawer(true)();
+  // };
 
-  const handleSave = () => {
-    dispatch(updateBranch(formik.values))
-      .unwrap()
-      .then((res) => {
-        setAlert({ open: true, message: 'Updated success', severity: 'success' });
-        refetchData();
-        toggleEditDrawer(false)();
-        setTimeout(() => {
-          setAlert((prev) => ({ ...prev, open: false }));
-        }, 3000);
-      })
-      .catch((err) => {
-        setAlert({ open: true, message: 'Updated Error', severity: 'error' });
-        setTimeout(() => {
-          setAlert((prev) => ({ ...prev, open: false }));
-        }, 3000);
-      });
-  };
+  // const handleSave = () => {
+  //   dispatch(updateBranch(formik.values))
+  //     .unwrap()
+  //     .then((res) => {
+  //       setAlert({ open: true, message: 'Updated success', severity: 'success' });
+  //       refetchData();
+  //       toggleEditDrawer(false)();
+  //       setTimeout(() => {
+  //         setAlert((prev) => ({ ...prev, open: false }));
+  //       }, 3000);
+  //     })
+  //     .catch((err) => {
+  //       setAlert({ open: true, message: 'Updated Error', severity: 'error' });
+  //       setTimeout(() => {
+  //         setAlert((prev) => ({ ...prev, open: false }));
+  //       }, 3000);
+  //     });
+  // };
 
-  const handleGetLastCode = () => {
-    let test = "";
-    dispatch(lastBranchCode({ test }))
-      .unwrap()
-      .then((res) => {
-        let lastBranchCode = "001";
+  // const handleGetLastCode = () => {
+  //   let test = "";
+  //   dispatch(lastBranchCode({ test }))
+  //     .unwrap()
+  //     .then((res) => {
+  //       let lastBranchCode = "001";
 
-        if (res.data && res.data.branch_code) {
-          lastBranchCode = "" + (Number(res.data.branch_code) + 1);
+  //       if (res.data && res.data.branch_code) {
+  //         lastBranchCode = "" + (Number(res.data.branch_code) + 1);
 
-          if (lastBranchCode.length === 1) {
-            lastBranchCode = "00" + lastBranchCode;
-          } else if (lastBranchCode.length === 2) {
-            lastBranchCode = "0" + lastBranchCode;
-          }
-        }
+  //         if (lastBranchCode.length === 1) {
+  //           lastBranchCode = "00" + lastBranchCode;
+  //         } else if (lastBranchCode.length === 2) {
+  //           lastBranchCode = "0" + lastBranchCode;
+  //         }
+  //       }
 
-        setGetLastBranchCode(lastBranchCode);
-        formik.setValues({
-          branch_code: lastBranchCode,
-        });
-      })
-      .catch((err) => {
-        console.error("Error fetching last branch code:", err.message);
-      });
-  };
+  //       setGetLastBranchCode(lastBranchCode);
+  //       formik.setValues({
+  //         branch_code: lastBranchCode,
+  //       });
+  //     })
+  //     .catch((err) => {
+  //       console.error("Error fetching last branch code:", err.message);
+  //     });
+  // };
 
-
-  const formik = useFormik({
-    initialValues: {
-      branch_code: "",
-      branch_name: "",
-      addr1: "",
-      addr2: "",
-      tel1: "",
+  const mockData = [
+    {
+      no: 1,
+      id: '0001',
+      product: 'Brown rice',
+      quantity: '1',
+      unit: 'Bag of',
+      unit_price: '$66.00',
+      total: '$100.00'
     },
-    validate: (values) => {
-      let errors = {};
-
-      if (!values.branch_name) {
-        errors.branch_name = 'branch_name cannot be empty';
-      }
-      if (!values.addr1) {
-        errors.addr1 = 'addr1 cannot be empty';
-      }
-      if (!values.addr2) {
-        errors.addr2 = 'addr2 cannot be empty';
-      }
-      if (!values.tel1) {
-        errors.tel1 = 'tel1 cannot be empty';
-      }
-
-      return errors;
+    {
+      no: 2,
+      id: '0002',
+      product: 'Egg Noodle',
+      quantity: '2',
+      unit: 'Bag of',
+      unit_price: '$66.00',
+      total: '$100.00'
     },
-    onSubmit: (values) => {
-      dispatch(addBranch(values))
-        .unwrap()
-        .then((res) => {
-          Swal.fire({
-            icon: 'success',
-            title: 'Success',
-            text: 'เพิ่มข้อมูลสำเร็จ',
-            timer: 1000,
-            timerProgressBar: true,
-            showConfirmButton: false,
-          });
-          formik.resetForm();
-          refetchData();
-          handleGetLastCode();
+    // เพิ่มข้อมูลจำลองเพิ่มเติม
+  ];
 
-          setTimeout(() => {
-            setAlert((prev) => ({ ...prev, open: false }));
-          }, 3000);
-
-        })
-        .catch((err) => {
-          Swal.fire({
-            icon: 'error',
-            title: 'Error',
-            text: 'เกิดข้อผิดพลาดในการเพิ่มข้อมูล',
-            timer: 3000,
-            timerProgressBar: true,
-            showConfirmButton: false,
-          });
-        });
-    },
-  });
 
   return (
     <>
@@ -521,7 +512,7 @@ export default function PurchaseOrderToSupplier() {
                     <IconButton
                       color="primary"
                       size="md"
-                      onClick={() => handleEdit(row)} // เรียกใช้ฟังก์ชัน handleEdit
+                      // onClick={() => handleEdit(row)} // เรียกใช้ฟังก์ชัน handleEdit
                       sx={{ border: '1px solid #AD7A2C', borderRadius: '7px' }}
                     >
                       <EditIcon sx={{ color: '#AD7A2C' }} />
@@ -622,49 +613,84 @@ export default function PurchaseOrderToSupplier() {
                   <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
                     Date
                   </Typography>
-                  <TextField
-                    size="small"
-                    placeholder="Date"
-                    sx={{
-                      mt: '8px',
-                      width: '100%',
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: '10px',
-                      },
-                    }}
-                  />
+                  <LocalizationProvider dateAdapter={AdapterDayjs} >
+                    <DesktopDatePicker
+                      defaultValue={dayjs('2022-04-17')}
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          borderRadius: '10px',
+                          height: '40px',
+                          mt: '8px',
+                        },
+                        width: '100%'
+                      }}
+                    />
+                  </LocalizationProvider>
                 </Grid2>
                 <Grid2 item size={{ xs: 12, md: 6 }}>
                   <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
                     Supplier
                   </Typography>
-                  <TextField
-                    size="small"
-                    placeholder='Suppllier'
+                  <Box
+                    component="select"
                     sx={{
                       mt: '8px',
                       width: '100%',
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: '10px',
+                      height: '40px',
+                      borderRadius: '10px',
+                      padding: '0 14px',
+                      border: '1px solid rgba(0, 0, 0, 0.23)',
+                      fontSize: '16px',
+                      '&:focus': {
+                        outline: 'none',
+                        borderColor: '#754C27',
+                      },
+                      '& option': {
+                        fontSize: '16px',
                       },
                     }}
-                  />
+                    id="supplier"
+                  >
+                    <option value="">Select a supplier</option>
+                    {supplier.map((supplierItem) => (
+                      <option key={supplierItem.supplier_code} value={supplierItem.supplier_name}>
+                        {supplierItem.supplier_name}
+                      </option>
+                    ))}
+                  </Box>
                 </Grid2>
                 <Grid2 item size={{ xs: 12, md: 6 }}>
                   <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
                     Branch
                   </Typography>
-                  <TextField
-                    size="small"
-                    placeholder="Branch"
+                  <Box
+                    component="select"
                     sx={{
                       mt: '8px',
                       width: '100%',
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: '10px',
+                      height: '40px',
+                      borderRadius: '10px',
+                      padding: '0 14px',
+                      border: '1px solid rgba(0, 0, 0, 0.23)',
+                      fontSize: '16px',
+                      '&:focus': {
+                        outline: 'none',
+                        borderColor: '#754C27',
+                      },
+                      '& option': {
+                        fontSize: '16px',
                       },
                     }}
-                  />
+                    id="branch"
+                  >
+                    <option value="">Select a branch</option>
+                    {branch.map((branchItem) => (
+                      <option key={branchItem.branch_code} value={branchItem.branch_name}>
+                        {branchItem.branch_name}
+                      </option>
+                    ))}
+
+                  </Box>
                 </Grid2>
                 <Grid2 item size={{ xs: 12, md: 6 }}>
                   <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
@@ -736,6 +762,61 @@ export default function PurchaseOrderToSupplier() {
                   }}
                 />
               </Box>
+              <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', mb: '12px' }}>
+                <table style={{ width: '100%', marginTop: '24px' }}>
+                  <thead>
+                    <tr>
+                      <th style={{ padding: '4px', fontSize: '12px', width: '1%' }}>No.</th>
+                      <th style={{ padding: '4px', fontSize: '12px', textAlign: 'center', width: '1%' }}>ID</th>
+                      <th style={{ padding: '4px', fontSize: '12px', textAlign: 'center', width: '15%' }}>Product</th>
+                      <th style={{ padding: '4px', fontSize: '12px', textAlign: 'center' }}>Quantity</th>
+                      <th style={{ padding: '4px', fontSize: '12px', textAlign: 'center', width: '10%' }}>Unit</th>
+                      <th style={{ padding: '4px', fontSize: '12px', textAlign: 'center' }}>Unit Price</th>
+                      <th style={{ padding: '4px', fontSize: '12px', textAlign: 'center' }}>Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {mockData.map((row) => (
+                      <tr key={row.id}>
+                        <td style={{ padding: '4px', fontSize: '12px' }}>{row.no}</td>
+                        <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center' }}>{row.id}</td>
+                        <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center' }}>{row.product}</td>
+                        <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center' }}>
+                          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                            <IconButton size="small">
+                              <IndeterminateCheckBoxIcon fontSize='small' />
+                            </IconButton>
+                            <span style={{ margin: '0 4px' }}>{row.quantity}</span>
+                            <IconButton size="small">
+                              <AddBoxIcon fontSize='small' />
+                            </IconButton>
+                          </div>
+                        </td>
+                        <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center' }}>{row.unit}</td>
+                        <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center' }}>
+                          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                            <IconButton size="small">
+                              <IndeterminateCheckBoxIcon fontSize='small' />
+                            </IconButton>
+                            <span style={{ margin: '0 4px' }}>{row.unit_price}</span>
+                            <IconButton size="small">
+                              <AddBoxIcon fontSize='small' />
+                            </IconButton>
+                          </div>
+                        </td>
+                        <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center' }}>
+                          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                            <span style={{ margin: '0 4px' }}>{row.total}</span>
+                            <IconButton size="small">
+                              <CancelIcon fontSize='small' sx={{ color:'red' }} />
+                            </IconButton>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </Box>
               <Box sx={{ width: '100%', height: '145px', bgcolor: '#EAB86C', borderRadius: '10px', p: '18px' }}>
                 <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
                   <Typography sx={{ color: '#FFFFFF' }}>
@@ -762,200 +843,13 @@ export default function PurchaseOrderToSupplier() {
                   </Typography>
                 </Box>
               </Box>
-              <Button sx={{ width:'100%', height:'48px', mt:'24px', bgcolor:'#754C27', color:'#FFFFFF' }}>
+              <Button sx={{ width: '100%', height: '48px', mt: '24px', bgcolor: '#754C27', color: '#FFFFFF' }}>
                 Save
               </Button>
             </Box>
           </Box>
         </Box>
       </Drawer>
-      <Drawer
-        anchor="right"
-        open={openEditDrawer}
-        onClose={toggleEditDrawer(false)}
-        ModalProps={{
-          BackdropProps: {
-            style: {
-              backgroundColor: 'transparent',
-            },
-          },
-        }}
-        PaperProps={{
-          sx: {
-            boxShadow: 'none',
-            width: '25%',
-            borderRadius: '20px',
-            border: '1px solid #E4E4E4',
-            bgcolor: '#FAFAFA'
-          },
-        }}
-      >
-        <Box
-          sx={{
-            width: '100%',
-            mt: '80px',
-            flexDirection: 'column'
-          }}
-        >
-          <Box
-            sx={{
-              position: 'absolute',
-              top: '48px',
-              left: '0',
-              width: '129px',
-              bgcolor: '#AD7A2C',
-              color: '#FFFFFF',
-              px: '8px',
-              py: '4px',
-              borderRadius: '20px',
-              fontWeight: 'bold',
-              zIndex: 1,
-              height: '89px',
-              display: 'flex',
-              justifyContent: 'center',
-            }}
-          >
-            <Typography sx={{ fontWeight: '600', fontSize: '14px' }} >
-              Branch
-            </Typography>
-          </Box>
-          <Box
-            sx={{
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              flexDirection: 'column',
-              border: '1px solid #E4E4E4',
-              borderRadius: '10px',
-              bgcolor: '#FFFFFF',
-              height: '100%',
-              p: '16px',
-              position: 'relative',
-              zIndex: 2,
-            }}>
-
-            <Typography sx={{ display: 'flex', flexDirection: 'row' }}>
-              Branch ID :
-              <Typography sx={{ color: '#754C27', ml: '12px' }}>
-                #011
-              </Typography>
-            </Typography>
-            <Box sx={{ width: '80%', mt: '24px' }}>
-              <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
-                EDIT Branch Id
-              </Typography>
-              <TextField
-                size="small"
-                placeholder="Id"
-                sx={{
-                  mt: '8px',
-                  width: '100%',
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: '10px',
-                  },
-                }}
-                {...formik.getFieldProps("branch_code")}
-                {...errorHelper(formik, "branch_code")}
-              />
-              <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
-                Branch Name
-              </Typography>
-              <TextField
-                size="small"
-                placeholder="Name"
-                sx={{
-                  mt: '8px',
-                  width: '100%',
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: '10px',
-                  },
-                }}
-                {...formik.getFieldProps("branch_name")}
-                {...errorHelper(formik, "branch_name")}
-              />
-              <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
-                Address
-              </Typography>
-              <TextField
-                size="small"
-                placeholder="Address"
-                sx={{
-                  mt: '8px',
-                  width: '100%',
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: '10px',
-                  },
-                }}
-                {...formik.getFieldProps("addr1")}
-                {...errorHelper(formik, "addr1")}
-              />
-              <TextField
-                size="small"
-                placeholder="Address"
-                sx={{
-                  mt: '8px',
-                  width: '100%',
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: '10px',
-                  },
-                }}
-                {...formik.getFieldProps("addr2")}
-                {...errorHelper(formik, "addr2")}
-              />
-              <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
-                Telephone
-              </Typography>
-              <TextField
-                size="small"
-                placeholder="Telephone"
-                sx={{
-                  mt: '8px',
-                  width: '100%',
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: '10px',
-                  },
-                }}
-                {...formik.getFieldProps("tel1")}
-                {...errorHelper(formik, "tel1")}
-              />
-            </Box>
-            <Box sx={{ mt: '24px' }} >
-              <Button variant='contained'
-                sx={{
-                  width: '100px',
-                  bgcolor: '#F62626',
-                  '&:hover': {
-                    bgcolor: '#D32F2F',
-                  },
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSave}
-                sx={{
-                  width: '100px',
-                  backgroundColor: '#AD7A2C',
-                  color: '#FFFFFF',
-                  '&:hover': {
-                    backgroundColor: '#8C5D1E',
-                  },
-                  ml: '24px'
-                }}
-              >
-                Save
-              </Button>
-
-            </Box>
-          </Box>
-        </Box>
-      </Drawer>
-      {alert.open && (
-        <Alert severity={alert.severity} onClose={() => setAlert({ ...alert, open: false })}>
-          <AlertTitle>{alert.severity === 'success' ? 'Success' : 'Error'}</AlertTitle>
-          {alert.message}
-        </Alert>
-      )}
     </>
   );
 }
