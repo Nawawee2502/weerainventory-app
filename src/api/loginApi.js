@@ -1,6 +1,6 @@
 import axios from "axios";
 import { createAsyncThunk } from "@reduxjs/toolkit";
-import { addToken, getToken } from "../store/reducers/authentication";
+import { addToken, getToken, addUserData, getUserData } from "../store/reducers/authentication";
 
 import { useDispatch, useSelector } from "react-redux";
 
@@ -20,8 +20,9 @@ export const login = createAsyncThunk(
 
       console.log(res.data);
       console.log(res.data.tokenKey);
-
+      localStorage.setItem("userData2", JSON.stringify(res.data.data));
       dispatch(addToken(res.data.tokenKey));
+      dispatch(addUserData(res.data.data));
       // if (res.data.result === true) {
       // }
       return res.data;

@@ -141,3 +141,35 @@ export const searchProduct = createAsyncThunk(
     }
   );
 
+  export const searchProductCode = createAsyncThunk(
+    "productproduct/search",
+    async ({ product_code }, { dispatch }) => {
+      try {
+        const res = await axios.post(BASE_URL + "/api/SearchProductCode", {
+          product_code,
+        });
+        console.log(res.data);
+        return res.data;
+      } catch (error) {
+        console.error(error.message);
+        throw error;
+      }
+    }
+  );
+  
+  export const searchProductName = createAsyncThunk(
+    "productproduct/search",
+    async ({ product_name }, { dispatch }) => {
+      try {
+        const res = await axios.post(BASE_URL + "/api/SearchProductname", {
+          product_name,
+        });
+        console.log(res.data);
+        return res.data;
+      } catch (error) {
+        console.error(error.message);
+        throw error;
+      }
+    }
+  );
+

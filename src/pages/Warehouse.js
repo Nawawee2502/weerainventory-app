@@ -10,10 +10,11 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import LayersIcon from '@mui/icons-material/Layers';
 import { AppProvider } from '@toolpad/core/AppProvider';
 import { DashboardLayout } from '@toolpad/core/DashboardLayout';
-import PurchaseOrderToSupplier from '../components/warehouse/Purchaseordertosupplier'
+import PurchaseOrderToSupplier from '../components/warehouse/purchaseordertosupplier/Purchaseordertosupplier'
 import ReceiptFromSupplier from '../components/warehouse/Receiptfromsupplier'
 import ReceiptFromKitchen from '../components/warehouse/Receiptfromkitchen';
 import { useNavigate } from "react-router-dom";
+import HomePurchaseOrderToSupplier from '../components/warehouse/purchaseordertosupplier/HomePurchaseOrdertoSupplier';
 
 
 const NAVIGATION = [
@@ -137,13 +138,13 @@ function Warehouse(props) {
     const renderContent = () => {
         switch (pathname) {
             case '/purchase-order-to-supplier':
-                return <PurchaseOrderToSupplier />;
+                return <HomePurchaseOrderToSupplier />;
             case '/receipt-from-supplier':
                 return <ReceiptFromSupplier />;
             case '/receipt-from-kitchen':
                 return <ReceiptFromKitchen />;
             default:
-                return <PurchaseOrderToSupplier />;
+                return <HomePurchaseOrderToSupplier />;
         }
     };
 
@@ -182,7 +183,7 @@ function Warehouse(props) {
                 title: '',
             }}
         >
-            <DashboardLayout>
+            <DashboardLayout defaultSidebarCollapsed>
                 {renderContent()}
             </DashboardLayout>
         </AppProvider>
