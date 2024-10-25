@@ -33,6 +33,7 @@ const Router = () => {
                 <Route path="/register" element={<Register />} />
                 <Route path="/usersettings" element={<UserSettings />} />
                 <Route path="/warehouse" element={<Warehouse />}/>
+                {/* <Route path="/edit/:id" element={<FormComponent mode="edit" />} /> */}
             </Routes>
         </BrowserRouter>
     );

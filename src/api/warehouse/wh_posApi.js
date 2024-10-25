@@ -30,7 +30,7 @@ const BASE_URL = `${process.env.REACT_APP_URL_API}`;
 
 export const addWh_pos = createAsyncThunk(
     "wh_pos/add",
-    async ( req , { dispatch }) => {
+    async (req, { dispatch }) => {
         try {
             console.log("API APP");
             console.log(req);
@@ -75,6 +75,22 @@ export const updateWh_pos = createAsyncThunk(
     }
 );
 
+export const Wh_posByRefno = createAsyncThunk(
+    "branch/read",
+    async ( refno , { dispatch }) => {
+        try {
+            console.log("REFNO", refno)
+            const res = await axios.post(BASE_URL + "/api/wh_posbyrefno", {
+                refno,
+            });
+            console.log(res.data);
+            return res.data;
+        } catch (error) {
+            console.error(error.message);
+            throw error;
+        }
+    }
+);
 
 export const deleteWh_pos = createAsyncThunk(
     "branch/delete",
@@ -109,9 +125,11 @@ export const wh_posAlljoindt = createAsyncThunk(
 
 export const wh_posAllrdate = createAsyncThunk(
     "branch/read",
-    async ({ offset, limit }, { dispatch }) => {
+    async ({ refno }, { dispatch }) => {
         try {
-            const res = await axios.post(BASE_URL + "/api/Wh_posAllrdate", { offset: offset, limit: limit });
+            const res = await axios.post(BASE_URL + "/api/Wh_posAllrdate", {
+                refno,
+            });
             console.log(res.data);
             return res.data;
         } catch (error) {

@@ -15,7 +15,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { addSupplier, deleteSupplier, updateSupplier, supplierAll, countSupplier, searchSupplier, lastSupplierCode } from '../../../api/supplierApi';
 import { addBranch, deleteBranch, updateBranch, branchAll, countBranch, searchBranch, lastBranchCode } from '../../../api/branchApi';
-import { addWh_pos, updateWh_pos, deleteWh_pos, wh_posAlljoindt, wh_posAllrdate } from '../../../api/warehouse/wh_posApi';
+import { addWh_pos, updateWh_pos, deleteWh_pos, wh_posAlljoindt, wh_posAllrdate, Wh_posByRefno } from '../../../api/warehouse/wh_posApi';
 import { Wh_posdtAllinnerjoin } from '../../../api/warehouse/wh_posdtApi';
 import { searchProductCode } from '../../../api/productrecordApi';
 import { useFormik } from "formik";
@@ -24,6 +24,8 @@ import Pagination from '@mui/material/Pagination';
 import Stack from '@mui/material/Stack';
 import Swal from 'sweetalert2';
 import PrintIcon from '@mui/icons-material/Print';
+import CancelIcon from '@mui/icons-material/Cancel';
+import DatePicker from 'react-datepicker';
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
   [`&.${tableCellClasses.head}`]: {
@@ -310,6 +312,62 @@ export default function PurchaseOrderToSupplier({ onCreate }) {
     });
   };
 
+  // +++++++++++++++EDIT++++++++++++++++ 
+
+  const [openEditDrawer, setOpenEditDrawer] = useState(false);
+
+  const toggleEditDrawer = (openEditDrawer) => () => {
+    setOpenEditDrawer(openEditDrawer);
+  };
+  const [startDate, setStartDate] = useState(new Date());
+
+
+  const [editKitchen, setEditKitchen] = useState(null);
+
+  const [wh_posByRefnoData, setWh_posByRefnoData] = useState([]);
+  const [editRefno, setEditRefno] = useState('');
+  const [editSupplier, setEditSupplier] = useState('');
+  const [editBranch, setEditBranch] = useState('');
+  const [editDate, setEditDate] = useState('');
+  const [editProduct, setEditProduct] = useState([]);
+
+
+  const handleEdit = (refnotmp) => {
+    console.log("TEST", refnotmp)
+    dispatch(Wh_posByRefno(refnotmp))
+      .unwrap()
+      .then((res) => {
+        console.log(res.data);
+        setWh_posByRefnoData(res.data);
+        setEditRefno(res.data.refno);
+        let tmpDate = res.data.rdate.split("/");
+        setEditDate(
+          new Date(tmpDate[2] + '-' + tmpDate[1] + '-' + tmpDate[0])
+        );
+        setEditSupplier(res.data.supplier_code);
+        setEditBranch(res.data.branch_code);
+        setEditProduct(res.data.wh_posdts);
+      })
+      .catch((err) => err.message);
+    toggleEditDrawer(true)();
+  };
+
+  // const handleEditChange = (event, value) => {
+  //   setPage(value);
+  //   console.log(value);
+  //   let page = value - 1;
+  //   let offset = page * 5;
+  //   let limit = value * 5;
+  //   console.log(limit, offset);
+  //   dispatch(setWh_posByRefno({ offset, limit }))
+  //     .unwrap()
+  //     .then((res) => {
+  //       console.log(res.data);
+  //       setWh_posByRefno(res.data);
+  //     })
+  //     .catch((err) => err.message);
+  // };
+
 
   return (
     <>
@@ -441,7 +499,7 @@ export default function PurchaseOrderToSupplier({ onCreate }) {
                     <IconButton
                       color="primary"
                       size="md"
-                      // onClick={() => handleEdit(row)} // Use handleEdit function for row editing
+                      onClick={() => handleEdit(row.refno)}
                       sx={{ border: '1px solid #AD7A2C', borderRadius: '7px' }}
                     >
                       <EditIcon sx={{ color: '#AD7A2C' }} />
@@ -476,6 +534,320 @@ export default function PurchaseOrderToSupplier({ onCreate }) {
           <Pagination count={count} shape="rounded" onChange={handleChange} page={page} />
         </Stack>
       </Box>
+      <Drawer
+        anchor="right"
+        open={openEditDrawer}
+        onClose={toggleEditDrawer(false)}
+        ModalProps={{
+          BackdropProps: {
+            style: {
+              backgroundColor: 'transparent',
+            },
+          },
+        }}
+        PaperProps={{
+          sx: {
+            boxShadow: 'none',
+            width: '40%',
+            borderRadius: '20px',
+            border: '1px solid #E4E4E4',
+            bgcolor: '#FAFAFA'
+          },
+        }}
+      >
+        <Box
+          sx={{
+            width: '100%',
+            mt: '80px',
+            flexDirection: 'column'
+          }}
+        >
+          <Box
+            sx={{
+              width: '100%',
+              mt: '10px',
+              flexDirection: 'column'
+            }}
+          >
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                flexDirection: 'column',
+                border: '1px solid #E4E4E4',
+                borderRadius: '10px',
+                bgcolor: '#FFFFFF',
+                height: '100%',
+                p: '16px',
+                position: 'relative',
+                zIndex: 2,
+                mb: '50px'
+              }}>
+              <Box sx={{ width: '90%', mt: '24px' }}>
+                <Grid2 container spacing={2}>
+                  <Grid2 item size={{ xs: 12, md: 6 }}>
+                    <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
+                      Ref.no
+                    </Typography>
+                    <TextField
+                      value={editRefno || ''}
+                      disabled
+                      size="small"
+                      placeholder='Ref.no'
+                      sx={{
+                        mt: '8px',
+                        width: '100%',
+                        '& .MuiOutlinedInput-root': {
+                          borderRadius: '10px',
+                          fontWeight: '700'
+                        },
+                      }}
+                    />
+                  </Grid2>
+                  <Grid2 item size={{ xs: 12, md: 6 }}>
+                    <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
+                      Date
+                    </Typography>
+                    <DatePicker
+                      selected={editDate}
+                      onChange={(date) => {
+                        setStartDate(date);
+                        // handleGetLastRefNo(date); // Call when the date is selected
+                      }}
+                      dateFormat="dd/MM/yyyy"
+                      customInput={
+                        <TextField
+                          size="small"
+                          fullWidth
+                          sx={{
+                            mt: '8px',
+                            width: '80%',
+                            '& .MuiInputBase-root': {
+                              width: '100%',
+                            },
+                            '& .MuiOutlinedInput-root': {
+                              borderRadius: '10px',
+                            },
+                          }}
+                        />
+                      }
+                    />
+
+                  </Grid2>
+                  <Grid2 item size={{ xs: 12, md: 6 }}>
+                    <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
+                      Supplier
+                    </Typography>
+                    <Box
+                      value={editSupplier}
+                      // onChange={(e) => setSaveSupplier(e.target.value)}
+                      component="select"
+                      sx={{
+                        mt: '8px',
+                        width: '100%',
+                        height: '40px',
+                        borderRadius: '10px',
+                        padding: '0 14px',
+                        border: '1px solid rgba(0, 0, 0, 0.23)',
+                        fontSize: '16px',
+                        '&:focus': {
+                          outline: 'none',
+                          borderColor: '#754C27',
+                        },
+                        '& option': {
+                          fontSize: '16px',
+                        },
+                      }}
+                      id="supplier"
+                    >
+                      <option value="">Select a supplier</option>
+                      {supplier.map((supplierItem) => (
+                        <option key={supplierItem.supplier_code} value={supplierItem.supplier_code}>
+                          {supplierItem.supplier_name}
+                        </option>
+                      ))}
+                    </Box>
+                  </Grid2>
+                  <Grid2 item size={{ xs: 12, md: 6 }}>
+                    <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
+                      Branch
+                    </Typography>
+                    <Box
+                      // onChange={(e) => setSaveBranch(e.target.value)}
+                      value={editBranch}
+                      component="select"
+                      sx={{
+                        mt: '8px',
+                        width: '100%',
+                        height: '40px',
+                        borderRadius: '10px',
+                        padding: '0 14px',
+                        border: '1px solid rgba(0, 0, 0, 0.23)',
+                        fontSize: '16px',
+                        '&:focus': {
+                          outline: 'none',
+                          borderColor: '#754C27',
+                        },
+                        '& option': {
+                          fontSize: '16px',
+                        },
+                      }}
+                      id="branch"
+                    >
+                      <option value="">Select a branch</option>
+                      {branch.map((branchItem) => (
+                        <option key={branchItem.branch_code} value={branchItem.branch_code}>
+                          {branchItem.branch_name}
+                        </option>
+                      ))}
+
+                    </Box>
+                  </Grid2>
+                </Grid2>
+                <Divider sx={{ mt: '24px' }} />
+                <Box sx={{ display: 'flex', flexDirection: 'row', width: '100%', p: '24px 0px' }}>
+                  <Typography sx={{ fontSize: '20px', fontWeight: '600' }}>
+                    Current Order
+                  </Typography>
+                  <Typography sx={{ ml: 'auto' }}>
+                    Product Search
+                  </Typography>
+                  <TextField
+                    value={searchTerm}
+                    onKeyUp={handleSearchChange}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    // onChange={handleSearchChange}
+                    placeholder="Search"
+                    sx={{
+
+                      '& .MuiInputBase-root': {
+                        height: '30px',
+                        width: '100%'
+                      },
+                      '& .MuiOutlinedInput-input': {
+                        padding: '8.5px 14px',
+                      },
+                      width: '50%',
+                      ml: '12px'
+                    }}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <SearchIcon sx={{ color: '#5A607F' }} />
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                  <Button sx={{ ml: 'auto', bgcolor: '#E2EDFB', borderRadius: '6px', width: '105px' }}>
+                    Clear All
+                  </Button>
+                </Box>
+                <Box sx={{ display: 'flex', flexDirection: 'row', width: '100%', p: '12px 0px', justifyContent: 'center', alignItems: 'center' }}>
+
+                </Box>
+
+                <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', mb: '12px' }}>
+                  <table style={{ width: '100%', marginTop: '24px' }}>
+                    <thead>
+                      <tr>
+                        <th style={{ padding: '4px', fontSize: '14px', width: '1%', color: '#754C27', fontWeight: '800' }}>No.</th>
+                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '15%', color: '#754C27', fontWeight: '800' }}>Product code</th>
+                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '15%', color: '#754C27', fontWeight: '800' }}>Product name</th>
+                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Quantity</th>
+                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '10%', color: '#754C27', fontWeight: '800' }}>Unit</th>
+                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Unit Price</th>
+                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Total</th>
+                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '1%', color: '#754C27', fontWeight: '800' }}></th>
+                      </tr>
+                      <tr>
+                        <td colSpan="8">
+                          <Divider sx={{ width: '100%', color: '#C6C6C6', border: '1px solid #C6C6C6' }} />
+                        </td>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {editProduct.map((product, index) => (
+                        <tr key={product.product_code}>
+                          <td style={{ padding: '4px', fontSize: '12px', fontWeight: '800' }}>{index + 1}</td>
+                          <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>{product.product_code}</td>
+                          <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>{product.tbl_product.product_name}</td>
+                          <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                            <input
+                              type="number"
+                              value={product.qty}
+                              // onChange={(e) => handleQuantityChange(product.product_code, e.target.value)}
+                              style={{ width: '50px', textAlign: 'center', fontWeight: '600' }}
+                            />
+                          </td>
+                          <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                            <select
+                              value={product.tbl_product.unit_code}
+                            // onChange={(e) => handleUnitChange(product.product_code, e.target.value)}
+                            >
+                              <option value={product.tbl_product.productUnit1.unit_code}>{product.tbl_product.productUnit1.unit_name}</option>
+                              <option value={product.tbl_product.productUnit2.unit_code}>{product.tbl_product.productUnit2.unit_name}</option>
+                            </select>
+                          </td>
+                          <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                            {/* {units[product.product_code] === product.unit_code
+                              ? product.bulk_unit_price
+                              : product.retail_unit_price} */}
+                            {product.uprice}
+                          </td>
+                          <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                            {product.amt}
+                          </td>
+                          <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                            <IconButton
+                            // onClick={() => handleDeleteWhProduct(product.product_code)}
+                            >
+                              <CancelIcon />
+                            </IconButton>
+                          </td> {/* เพิ่มช่องนี้สำหรับ IconButton */}
+                        </tr>
+
+                      ))}
+                    </tbody>
+                  </table>
+
+                </Box>
+                <Box sx={{ width: '100%', height: '145px', bgcolor: '#EAB86C', borderRadius: '10px', p: '18px' }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
+                    <Typography sx={{ color: '#FFFFFF' }}>
+                      Subtotal
+                    </Typography>
+                    <Typography sx={{ color: '#FFFFFF', ml: 'auto' }}>
+                      $100.50
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', mt: '8px' }}>
+                    <Typography sx={{ color: '#FFFFFF' }}>
+                      Tax(12%)
+                    </Typography>
+                    <Typography sx={{ color: '#FFFFFF', ml: 'auto' }}>
+                      $11.50
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', mt: '8px' }}>
+                    <Typography sx={{ color: '#FFFFFF', fontSize: '30px', fontWeight: '600' }}>
+                      Total
+                    </Typography>
+                    <Typography sx={{ color: '#FFFFFF', ml: 'auto', fontSize: '30px', fontWeight: '600' }}>
+                      $93.46
+                    </Typography>
+                  </Box>
+                </Box>
+                <Button
+                  // onClick={handleSaveWhposdt}
+                  sx={{ width: '100%', height: '48px', mt: '24px', bgcolor: '#754C27', color: '#FFFFFF' }}>
+                  Save
+                </Button>
+              </Box>
+            </Box>
+          </Box>
+        </Box>
+      </Drawer>
     </>
   );
 }

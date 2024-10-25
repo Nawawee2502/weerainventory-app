@@ -22,7 +22,7 @@ import Swal from 'sweetalert2';
 
 
 
-function CreatePurchaseOrderToSupplier({ onBack }) {
+function EditPurchaseOrderToSupplier({ onBack }) {
   const [selected, setSelected] = useState([]);
   const dispatch = useDispatch();
   const [alert, setAlert] = useState({ open: false, message: '', severity: 'success' });
@@ -267,6 +267,20 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
     }
 
     let tmpProduct = []
+
+    // products.forEach = (item) => {
+    //   const itemData = {
+    //     refno: item.refno,
+    //     product_code: item.product_code,
+    //     // qty: item.qty,
+    //     qty: '1',
+    //     unit_code: item.unit_code,
+    //     uprice: item.price,
+    //     amt: '1'
+    //     // amt: item.amt,
+    //   }
+    //   tmpProduct.push(itemData)
+    // }
 
     for (let i = 0; i < products.length; i++) {
       const itemData = {
@@ -610,4 +624,4 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
   );
 }
 
-export default CreatePurchaseOrderToSupplier;
+export default EditPurchaseOrderToSupplier;

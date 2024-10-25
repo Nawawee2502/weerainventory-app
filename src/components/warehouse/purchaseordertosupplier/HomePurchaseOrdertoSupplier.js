@@ -18,6 +18,7 @@ export default function HomePurchaseOrderToSupplier() {
 
   // State to control the display of CreatePurchaseOrderToSupplier
   const [showCreateComponent, setShowCreateComponent] = React.useState(false);
+  const [showEditComponent, setShowEditComponent] = React.useState(false);
 
   const handleCreate = () => {
     setShowCreateComponent(true); // Show the CreatePurchaseOrderToSupplier component
@@ -36,6 +37,7 @@ export default function HomePurchaseOrderToSupplier() {
           ) : (
             <CreatePurchaseOrderToSupplier onBack={handleBack} />
           )}
+          
         </PageContainer>
       </Paper>
     </AppProvider>
