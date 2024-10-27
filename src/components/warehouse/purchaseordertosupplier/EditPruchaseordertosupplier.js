@@ -1,336 +1,380 @@
-// import React from 'react';
-// import { Box, Button, Typography } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import { Box, Button, InputAdornment, TextField, Typography, Drawer, IconButton, Grid2, Divider } from '@mui/material';
+import { Box, Button, InputAdornment, TextField, Typography, IconButton, Grid2, Divider } from '@mui/material';
 import React, { useState, useEffect } from 'react';
 import SearchIcon from '@mui/icons-material/Search';
-import { addSupplier, deleteSupplier, updateSupplier, supplierAll, countSupplier, searchSupplier, lastSupplierCode } from '../../../api/supplierApi';
-import { addBranch, deleteBranch, updateBranch, branchAll, countBranch, searchBranch, lastBranchCode } from '../../../api/branchApi';
-import { addWh_pos, updateWh_pos, deleteWh_pos, wh_posAlljoindt, wh_posAllrdate } from '../../../api/warehouse/wh_posApi';
-import { refno, addWh_posdt } from '../../../api/warehouse/wh_posdtApi';
-import { searchProductCode, searchProductName } from '../../../api/productrecordApi';
-import { useFormik } from "formik";
-import { useDispatch, useSelector } from "react-redux";
-import dayjs from 'dayjs';
-import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { DesktopDatePicker } from '@mui/x-date-pickers/DesktopDatePicker';
+import { supplierAll } from '../../../api/supplierApi';
+import { branchAll } from '../../../api/branchApi';
+import { updateWh_posdt, deleteWh_posdt, addWh_posdt } from '../../../api/warehouse/wh_posdtApi';
+import { updateWh_pos, Wh_posByRefno } from '../../../api/warehouse/wh_posApi';
+import { searchProductName } from '../../../api/productrecordApi';
+import { useDispatch } from "react-redux";
 import CancelIcon from '@mui/icons-material/Cancel';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import Swal from 'sweetalert2';
 
-
-
-function EditPurchaseOrderToSupplier({ onBack }) {
-  const [selected, setSelected] = useState([]);
+function EditPurchaseOrderToSupplier({ onBack, editRefno }) {
   const dispatch = useDispatch();
-  const [alert, setAlert] = useState({ open: false, message: '', severity: 'success' });
   const [branch, setBranch] = useState([]);
-  const [page, setPage] = useState(0);
-  const [count, setCount] = useState();
   const [searchTerm, setSearchTerm] = useState("");
   const [supplier, setSupplier] = useState([]);
-  const [whpos, setWhpos] = useState([]);
-  const [whposdt, setWhposdt] = useState([]);
   const [products, setProducts] = useState([]);
   const [quantities, setQuantities] = useState({});
   const [units, setUnits] = useState({});
   const [totals, setTotals] = useState({});
-  const [startDate, setStartDate] = useState(new Date());
-  const [inputValue, setInputValue] = useState('');
-  const [lastRefNo, setLastRefNo] = useState('');
+  const [editDate, setEditDate] = useState(new Date());
   const [saveSupplier, setSaveSupplier] = useState('');
   const [saveBranch, setSaveBranch] = useState('');
   const [subtotal, setSubtotal] = useState(0);
   const [tax, setTax] = useState(0);
   const [total, setTotal] = useState(0);
-
-  // const userData = useSelector((state) => state.authentication.userData);
-  // console.log("userData", userData)
-  // const userData2 = localStorage.getItem("userData2");
-  const userDataJson = localStorage.getItem("userData2");
-  const userData2 = JSON.parse(userDataJson);
-  console.log("userData2")
-  console.log(userData2)
-
-  let whProduct = [];
-
-  const handleSearchChange = (e) => {
-    console.log("e.key");
-    console.log(e.key);
-    if (e.key === 'Enter') {
-      searchWh();
-    } else {
-      setSearchTerm(e.target.value)
-    }
-    return true;
-  };
-
-  const searchWh = () => {
-    dispatch(searchProductName({ product_name: searchTerm }))
-      .unwrap()
-      .then((res) => {
-        whProduct = products;
-        whProduct.push(res.data[0]);
-
-        // กำหนดค่า quantity เริ่มต้นเป็น 1
-        const initialQuantity = 1;
-
-        // กำหนดค่า unit เริ่มต้นเป็น unit1 ของสินค้า
-        const unitCode = res.data[0].productUnit1.unit_code;
-
-        // คำนวณ total เริ่มต้น
-        const total = calculateTotal(initialQuantity, unitCode, res.data[0]);
-
-        // อัปเดต state ของ products, quantity, unit และ total
-        setProducts(whProduct);
-        setQuantities((prevQuantities) => ({
-          ...prevQuantities,
-          [res.data[0].product_code]: initialQuantity,
-        }));
-        setUnits((prevUnits) => ({
-          ...prevUnits,
-          [res.data[0].product_code]: unitCode,
-        }));
-        setTotals((prevTotals) => ({
-          ...prevTotals,
-          [res.data[0].product_code]: total,
-        }));
-
-        setSearchTerm(''); // รีเซ็ตค่า search term
-      })
-      .catch((err) => console.log(err.message));
-  };
-
-
-  const handleDeleteWhProduct = (product_code) => {
-    whProduct = products;
-    whProduct = whProduct.filter((item) => item.product_code != product_code);
-    setProducts(whProduct);
-  }
-
-  useEffect(() => {
-    // searchWh();
-  }, [products]);
-
-  const handleQuantityChange = (product_code, newQuantity) => {
-    // ตรวจสอบว่าค่า quantity ห้ามน้อยกว่า 1
-    if (newQuantity >= 1) {
-      setQuantities((prevQuantities) => ({
-        ...prevQuantities,
-        [product_code]: newQuantity,
-      }));
-
-      // คำนวณ total ใหม่เมื่อ quantity เปลี่ยน
-      const selectedProduct = products.find((product) => product.product_code === product_code);
-      const unit = units[product_code];
-      const total = calculateTotal(newQuantity, unit, selectedProduct);
-
-      // อัปเดต total
-      setTotals((prevTotals) => ({
-        ...prevTotals,
-        [product_code]: total,
-      }));
-    } else {
-      // alert('Quantity cannot be less than 1'); // แจ้งเตือนเมื่อค่าต่ำกว่า 1
-    }
-  };
-
-
-  const handleUnitChange = (productCode, newUnitCode) => {
-    setUnits((prevUnits) => ({
-      ...prevUnits,
-      [productCode]: newUnitCode,
-    }));
-    updateTotal(productCode, quantities[productCode], newUnitCode);
-  };
-
-  const updateTotal = (productCode, quantity, unitCode) => {
-    const product = products.find((p) => p.product_code === productCode);
-    const unitPrice =
-      unitCode === product.productUnit1.unit_code
-        ? product.bulk_unit_price
-        : product.retail_unit_price;
-    const newTotal = quantity * unitPrice;
-    setTotals((prevTotals) => ({
-      ...prevTotals,
-      [productCode]: newTotal,
-    }));
-  };
+  const [originalProducts, setOriginalProducts] = useState([]);
 
   const calculateTotal = (quantity, unitCode, product) => {
-    const unitPrice =
-      unitCode === product.productUnit1.unit_code
-        ? product.bulk_unit_price
-        : product.retail_unit_price;
+    const unitPrice = unitCode === product.productUnit1.unit_code
+      ? product.bulk_unit_price
+      : product.retail_unit_price;
     return quantity * unitPrice;
   };
 
+  const calculateOrderTotals = () => {
+    const orderSubtotal = products.reduce((sum, product) => {
+      const productCode = product.product_code;
+      const quantity = quantities[productCode] || 1;
+      const unitCode = units[productCode] || product.productUnit1.unit_code;
+      const unitPrice = unitCode === product.productUnit1.unit_code
+        ? product.bulk_unit_price
+        : product.retail_unit_price;
+      return sum + (quantity * unitPrice);
+    }, 0);
+
+    const orderTax = orderSubtotal * 0.12;
+    const orderTotal = orderSubtotal + orderTax;
+
+    setSubtotal(orderSubtotal);
+    setTax(orderTax);
+    setTotal(orderTotal);
+  };
+
+  // useEffect สำหรับโหลดข้อมูลครั้งแรก
   useEffect(() => {
-    let offset = 0;
-    let limit = 5;
-    let test = 10;
-    dispatch(wh_posAlljoindt({ offset, limit }))
+    // โหลดข้อมูล Order และ Products
+    dispatch(Wh_posByRefno(editRefno))
       .unwrap()
       .then((res) => {
-        console.log("---------whpos---------")
-        console.log(res.data);
-        let resultData = res.data;
-        for (let indexArray = 0; indexArray < resultData.length; indexArray++) {
-          resultData[indexArray].id = indexArray + 1;
-        }
-        setWhpos(resultData);
-        console.log(resultData);
+        // แปลงวันที่
+        const [day, month, year] = res.data.rdate.split("/");
+        setEditDate(new Date(year, month - 1, day));
 
+        // เซ็ตข้อมูล supplier และ branch
+        setSaveSupplier(res.data.supplier_code);
+        setSaveBranch(res.data.branch_code);
+
+        // แปลงข้อมูล products
+        const orderProducts = res.data.wh_posdts.map(item => ({
+          product_code: item.product_code,
+          product_name: item.tbl_product.product_name,
+          bulk_unit_price: item.tbl_product.bulk_unit_price,
+          retail_unit_price: item.tbl_product.retail_unit_price,
+          productUnit1: item.tbl_product.productUnit1,
+          productUnit2: item.tbl_product.productUnit2,
+          qty: item.qty,
+          unit_code: item.unit_code,
+          uprice: item.uprice,
+          amt: item.amt,
+          isNewProduct: false // เพิ่ม flag สำหรับสินค้าเดิม
+        }));
+
+        // เซ็ต products และเก็บข้อมูลต้นฉบับ
+        setProducts(orderProducts);
+        setOriginalProducts(orderProducts);
+
+        // สร้าง objects สำหรับเก็บค่าต่างๆ
+        const initialQuantities = {};
+        const initialUnits = {};
+        const initialTotals = {};
+
+        // เก็บค่าเริ่มต้นของแต่ละ product
+        orderProducts.forEach(item => {
+          initialQuantities[item.product_code] = parseInt(item.qty);
+          initialUnits[item.product_code] = item.unit_code;
+          initialTotals[item.product_code] = parseFloat(item.amt);
+        });
+
+        // เซ็ตค่าต่างๆ
+        setQuantities(initialQuantities);
+        setUnits(initialUnits);
+        setTotals(initialTotals);
+
+        // เซ็ตยอดรวมเริ่มต้น
+        setSubtotal(parseFloat(res.data.total));
+        setTax(parseFloat(res.data.total) * 0.12);
+        setTotal(parseFloat(res.data.total) * 1.12);
       })
-      .catch((err) => err.message);
+      .catch((err) => {
+        console.log(err.message);
+        Swal.fire({
+          icon: 'error',
+          title: 'Error loading order data',
+          text: err.message,
+          confirmButtonText: 'OK'
+        });
+      });
 
-    dispatch(refno({ test }))
-      .unwrap()
-      .then((res) => {
-        setLastRefNo(res.data);
-        console.log("last refno", res.data)
-        if (startDate) {
-          handleGetLastRefNo(startDate);
-        }
-      })
-      .catch((err) => err.message);
-
+    // โหลด suppliers และ branches สำหรับ dropdown
+    const offset = 0;
+    const limit = 100;
 
     dispatch(branchAll({ offset, limit }))
       .unwrap()
-      .then((res) => {
-        console.log("Branch data", res.data);
-        setBranch(res.data);
-
-      })
-      .catch((err) => console.log(err.message));
+      .then((res) => setBranch(res.data))
+      .catch((err) => {
+        console.log(err.message);
+        Swal.fire({
+          icon: 'error',
+          title: 'Error loading branch data',
+          text: err.message,
+          confirmButtonText: 'OK'
+        });
+      });
 
     dispatch(supplierAll({ offset, limit }))
       .unwrap()
-      .then((res) => {
-        console.log("Supplier data", res.data);
-        setSupplier(res.data);
-      })
-      .catch((err) => console.log(err.message));
+      .then((res) => setSupplier(res.data))
+      .catch((err) => {
+        console.log(err.message);
+        Swal.fire({
+          icon: 'error',
+          title: 'Error loading supplier data',
+          text: err.message,
+          confirmButtonText: 'OK'
+        });
+      });
+  }, [dispatch, editRefno]);
 
-  }, [dispatch]);
+  const handleSearchChange = (e) => {
+    if (e.key === 'Enter') {
+      searchProduct();
+    } else {
+      setSearchTerm(e.target.value);
+    }
+  };
 
-  const handleGetLastRefNo = (selectedDate) => {
-    const year = selectedDate.getFullYear().toString().slice(-2); // Last 2 digits of year
-    const month = (selectedDate.getMonth() + 1).toString().padStart(2, '0'); // Month in MM format
-
-    const baseRefNo = `WPOS${year}${month}`; // Base refno with the selected year and month
-
-    // Fetch last refno from the database (เลขลำดับล่าสุด ไม่ต้องสนใจปี/เดือน)
-    dispatch(refno({ test: 10 }))
+  const searchProduct = () => {
+    dispatch(searchProductName({ product_name: searchTerm }))
       .unwrap()
       .then((res) => {
-        let lastRefNo = res.data;
+        const newProduct = {
+          ...res.data[0],
+          isNewProduct: true // เพิ่ม flag เพื่อระบุว่าเป็นสินค้าใหม่
+        };
 
-        if (lastRefNo && typeof lastRefNo === 'object') {
-          lastRefNo = lastRefNo.refno || ''; // ตรวจสอบว่ามีค่า refno ใน object หรือไม่
+        // เช็คว่าสินค้านี้มีอยู่ในรายการแล้วหรือไม่
+        const isExisting = products.some(p => p.product_code === newProduct.product_code);
+
+        if (isExisting) {
+          Swal.fire({
+            icon: 'warning',
+            title: 'Product already exists in the order',
+            showConfirmButton: false,
+            timer: 1500
+          });
+          return;
         }
 
-        let newRefNo;
+        setProducts(prev => [...prev, newProduct]);
+        setQuantities(prev => ({
+          ...prev,
+          [newProduct.product_code]: 1
+        }));
+        setUnits(prev => ({
+          ...prev,
+          [newProduct.product_code]: newProduct.productUnit1.unit_code
+        }));
 
-        // Extract only the number part from the last refno (ลำดับตัวเลขอย่างเดียว)
-        if (lastRefNo) {
-          const lastNumber = parseInt(lastRefNo.slice(-3)); // Get last 3 digits (the sequence number)
-          const increment = lastNumber + 1; // Increment the number
-          newRefNo = `${baseRefNo}${increment.toString().padStart(3, '0')}`; // Create new refno
-        } else {
-          newRefNo = `${baseRefNo}001`; // Default if no refno exists
-        }
+        const total = calculateTotal(1, newProduct.productUnit1.unit_code, newProduct);
+        setTotals(prev => ({
+          ...prev,
+          [newProduct.product_code]: total
+        }));
 
-        setLastRefNo(newRefNo); // Set the new refno
-        console.log("Generated refno:", newRefNo);
+        setSearchTerm('');
+        calculateOrderTotals();
       })
       .catch((err) => console.log(err.message));
   };
 
-  const handleSaveWhposdt = () => {
-    const day = String(startDate.getDate()).padStart(2, '0');
-    const month = String(startDate.getMonth() + 1).padStart(2, '0'); // เพิ่ม 1 เพราะ getMonth() เริ่มที่ 0
-    const year = startDate.getFullYear();
+  const handleQuantityChange = (productCode, newQuantity) => {
+    if (newQuantity >= 1) {
+      setQuantities(prev => ({
+        ...prev,
+        [productCode]: parseInt(newQuantity)
+      }));
 
-    const headerData = {
-      refno: lastRefNo,
-      rdate: day + '/' + month + '/' + year,
+      const product = products.find(p => p.product_code === productCode);
+      const unitCode = units[productCode] || product.productUnit1.unit_code;
+      const total = calculateTotal(newQuantity, unitCode, product);
+
+      setTotals(prev => ({
+        ...prev,
+        [productCode]: total
+      }));
+
+      setTimeout(calculateOrderTotals, 0);
+    }
+  };
+
+  const handleUnitChange = (productCode, newUnitCode) => {
+    setUnits(prev => ({
+      ...prev,
+      [productCode]: newUnitCode
+    }));
+
+    const quantity = quantities[productCode] || 1;
+    const product = products.find(p => p.product_code === productCode);
+    const total = calculateTotal(quantity, newUnitCode, product);
+
+    setTotals(prev => ({
+      ...prev,
+      [productCode]: total
+    }));
+
+    setTimeout(calculateOrderTotals, 0);
+  };
+
+  const handleDeleteProduct = (productCode) => {
+    setProducts(prev => prev.filter(p => p.product_code !== productCode));
+    const newQuantities = { ...quantities };
+    const newUnits = { ...units };
+    const newTotals = { ...totals };
+    delete newQuantities[productCode];
+    delete newUnits[productCode];
+    delete newTotals[productCode];
+    setQuantities(newQuantities);
+    setUnits(newUnits);
+    setTotals(newTotals);
+    setTimeout(calculateOrderTotals, 0);
+  };
+
+  const handleUpdateOrder = async () => {
+    if (!saveSupplier || !saveBranch) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Please select supplier and branch',
+        showConfirmButton: false,
+        timer: 1500
+      });
+      return;
+    }
+
+    if (products.length === 0) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Please add at least one product',
+        showConfirmButton: false,
+        timer: 1500
+      });
+      return;
+    }
+
+    const day = String(editDate.getDate()).padStart(2, '0');
+    const month = String(editDate.getMonth() + 1).padStart(2, '0');
+    const year = editDate.getFullYear();
+
+    // ข้อมูลสำหรับ update wh_pos
+    const updateHeaderData = {
+      refno: editRefno,
+      rdate: `${day}/${month}/${year}`,
+      trdate: `${year}${month}${day}`,
+      myear: year.toString(),
+      monthh: month,
       supplier_code: saveSupplier,
       branch_code: saveBranch,
-      trdate: year + month + day,
-      monthh: month,
-      myear: year,
-      user_code: userData2.user_code
-    }
+      total: total.toString()
+    };
 
-    let tmpProduct = []
+    // เตรียมข้อมูลสินค้าทั้งหมดที่จะอัพเดท
+    const productsToProcess = products.map(product => ({
+      refno: editRefno,
+      product_code: product.product_code,
+      qty: quantities[product.product_code].toString(),
+      unit_code: units[product.product_code],
+      uprice: (units[product.product_code] === product.productUnit1.unit_code
+        ? product.bulk_unit_price
+        : product.retail_unit_price).toString(),
+      amt: totals[product.product_code].toString(),
+      isNewProduct: product.isNewProduct // เพิ่ม flag เพื่อระบุว่าเป็นสินค้าใหม่หรือไม่
+    }));
 
-    // products.forEach = (item) => {
-    //   const itemData = {
-    //     refno: item.refno,
-    //     product_code: item.product_code,
-    //     // qty: item.qty,
-    //     qty: '1',
-    //     unit_code: item.unit_code,
-    //     uprice: item.price,
-    //     amt: '1'
-    //     // amt: item.amt,
-    //   }
-    //   tmpProduct.push(itemData)
-    // }
+    // เตรียมข้อมูลสินค้าที่ถูกลบ
+    const deletedProducts = originalProducts.filter(original =>
+      !products.some(current => current.product_code === original.product_code)
+    ).map(product => ({
+      refno: editRefno,
+      product_code: product.product_code
+    }));
 
-    for (let i = 0; i < products.length; i++) {
-      const itemData = {
-        refno: headerData.refno,
-        product_code: products[i].product_code,
-        // qty: products.qty,
-        qty: '1',
-        unit_code: '1',
-        uprice: '1',
-        amt: '1'
-        // amt: item.amt,
+    Swal.fire({
+      title: 'Updating order...',
+      allowOutsideClick: false,
+      didOpen: () => {
+        Swal.showLoading();
       }
-      tmpProduct.push(itemData)
+    });
+
+    try {
+      // 1. อัพเดท wh_pos
+      await dispatch(updateWh_pos(updateHeaderData)).unwrap();
+
+      // 2. ดำเนินการกับ wh_posdt
+      // 2.1 ลบสินค้าที่ถูกนำออก
+      if (deletedProducts.length > 0) {
+        await Promise.all(deletedProducts.map(product =>
+          dispatch(deleteWh_posdt({
+            refno: editRefno,
+            product_code: product.product_code  // เพิ่ม product_code
+          })).unwrap()
+        ));
+      }
+
+      // 2.2 แยกระหว่างสินค้าที่ต้อง update และเพิ่มใหม่
+      const updatePromises = productsToProcess
+        .filter(product => !product.isNewProduct)
+        .map(product => dispatch(updateWh_posdt(product)).unwrap());
+
+      const addPromises = productsToProcess
+        .filter(product => product.isNewProduct)
+        .map(product => dispatch(addWh_posdt(product)).unwrap());
+
+      // รวมและรอให้ทุก operations เสร็จสิ้น
+      await Promise.all([...updatePromises, ...addPromises]);
+
+      Swal.fire({
+        icon: 'success',
+        title: 'Order updated successfully',
+        text: `Reference No: ${editRefno}`,
+        showConfirmButton: false,
+        timer: 1500
+      }).then(() => {
+        onBack();
+      });
+    } catch (err) {
+      console.error("Error details:", err);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error updating order',
+        text: err.message || 'An unknown error occurred',
+        confirmButtonText: 'OK'
+      });
     }
+  };
 
-    console.log("PRODUCT", products)
-    console.log("TMP", tmpProduct)
-
-    const productArrayData = {
-      products: tmpProduct,
-    }
-
-    const footerData = {
-      subtotal: subtotal,
-      tax: tax,
-      total: total,
-    }
-
-    const orderData = {
-      headerData: headerData,
-      productArrayData: tmpProduct,
-      footerData: footerData,
-    }
-
-    dispatch(addWh_pos(orderData))
-      .unwrap()
-      .then((res) => {
-        console.log("API UI")
-        console.log(res.data)
-      })
-      .catch((err) => err.message);
-
-
-    console.log("headerData", headerData);
-    console.log("productArrayData", productArrayData);
-    console.log("arrayData", footerData);
-  }
-
-
-
+  const deletedProducts = originalProducts.filter(original =>
+    !products.some(current => current.product_code === original.product_code)
+  ).map(product => ({
+    refno: editRefno,
+    product_code: product.product_code  // ต้องมี product_code
+  }));
 
   return (
     <Box sx={{ width: '100%' }}>
@@ -370,10 +414,9 @@ function EditPurchaseOrderToSupplier({ onBack }) {
                   Ref.no
                 </Typography>
                 <TextField
-                  value={lastRefNo || ''}
+                  value={editRefno || ''}
                   disabled
                   size="small"
-                  placeholder='Ref.no'
                   sx={{
                     mt: '8px',
                     width: '100%',
@@ -389,11 +432,8 @@ function EditPurchaseOrderToSupplier({ onBack }) {
                   Date
                 </Typography>
                 <DatePicker
-                  selected={startDate}
-                  onChange={(date) => {
-                    setStartDate(date);
-                    handleGetLastRefNo(date); // Call when the date is selected
-                  }}
+                  selected={editDate}
+                  onChange={date => setEditDate(date)}
                   dateFormat="dd/MM/yyyy"
                   customInput={
                     <TextField
@@ -412,13 +452,13 @@ function EditPurchaseOrderToSupplier({ onBack }) {
                     />
                   }
                 />
-
               </Grid2>
               <Grid2 item size={{ xs: 12, md: 6 }}>
                 <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
                   Supplier
                 </Typography>
                 <Box
+                  value={saveSupplier}
                   onChange={(e) => setSaveSupplier(e.target.value)}
                   component="select"
                   sx={{
@@ -437,12 +477,11 @@ function EditPurchaseOrderToSupplier({ onBack }) {
                       fontSize: '16px',
                     },
                   }}
-                  id="supplier"
                 >
                   <option value="">Select a supplier</option>
-                  {supplier.map((supplierItem) => (
-                    <option key={supplierItem.supplier_code} value={supplierItem.supplier_code}>
-                      {supplierItem.supplier_name}
+                  {supplier.map((item) => (
+                    <option key={item.supplier_code} value={item.supplier_code}>
+                      {item.supplier_name}
                     </option>
                   ))}
                 </Box>
@@ -452,6 +491,7 @@ function EditPurchaseOrderToSupplier({ onBack }) {
                   Branch
                 </Typography>
                 <Box
+                  value={saveBranch}
                   onChange={(e) => setSaveBranch(e.target.value)}
                   component="select"
                   sx={{
@@ -470,15 +510,13 @@ function EditPurchaseOrderToSupplier({ onBack }) {
                       fontSize: '16px',
                     },
                   }}
-                  id="branch"
                 >
                   <option value="">Select a branch</option>
-                  {branch.map((branchItem) => (
-                    <option key={branchItem.branch_code} value={branchItem.branch_code}>
-                      {branchItem.branch_name}
+                  {branch.map((item) => (
+                    <option key={item.branch_code} value={item.branch_code}>
+                      {item.branch_name}
                     </option>
                   ))}
-
                 </Box>
               </Grid2>
             </Grid2>
@@ -494,10 +532,8 @@ function EditPurchaseOrderToSupplier({ onBack }) {
                 value={searchTerm}
                 onKeyUp={handleSearchChange}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                // onChange={handleSearchChange}
                 placeholder="Search"
                 sx={{
-
                   '& .MuiInputBase-root': {
                     height: '30px',
                     width: '100%'
@@ -516,12 +552,26 @@ function EditPurchaseOrderToSupplier({ onBack }) {
                   ),
                 }}
               />
-              <Button sx={{ ml: 'auto', bgcolor: '#E2EDFB', borderRadius: '6px', width: '105px' }}>
+              <Button
+                onClick={() => {
+                  setProducts([]);
+                  setQuantities({});
+                  setUnits({});
+                  setTotals({});
+                  calculateOrderTotals();
+                }}
+                sx={{
+                  ml: 'auto',
+                  bgcolor: '#E2EDFB',
+                  borderRadius: '6px',
+                  width: '105px',
+                  '&:hover': {
+                    bgcolor: '#C5D9F2',
+                  }
+                }}
+              >
                 Clear All
               </Button>
-            </Box>
-            <Box sx={{ display: 'flex', flexDirection: 'row', width: '100%', p: '12px 0px', justifyContent: 'center', alignItems: 'center' }}>
-
             </Box>
 
             <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', mb: '12px' }}>
@@ -544,63 +594,79 @@ function EditPurchaseOrderToSupplier({ onBack }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {products.map((product, index) => (
-                    <tr key={product.product_code}>
-                      <td style={{ padding: '4px', fontSize: '12px', fontWeight: '800' }}>{index + 1}</td>
-                      <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>{product.product_code}</td>
-                      <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>{product.product_name}</td>
-                      <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
-                        <input
-                          type="number"
-                          value={quantities[product.product_code] || 1}
-                          onChange={(e) => handleQuantityChange(product.product_code, e.target.value)}
-                          style={{ width: '50px', textAlign: 'center', fontWeight: '600' }}
-                        />
-                      </td>
-                      <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
-                        <select
-                          value={units[product.product_code]}
-                          onChange={(e) => handleUnitChange(product.product_code, e.target.value)}
-                        >
-                          <option value={product.productUnit1.unit_code}>{product.productUnit1.unit_name}</option>
-                          <option value={product.productUnit2.unit_code}>{product.productUnit2.unit_name}</option>
-                        </select>
-                      </td>
-                      <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
-                        {units[product.product_code] === product.productUnit1.unit_code
-                          ? product.bulk_unit_price
-                          : product.retail_unit_price}
-                      </td>
-                      <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
-                        {totals[product.product_code]}
-                      </td>
-                      <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
-                        <IconButton onClick={() => handleDeleteWhProduct(product.product_code)}>
-                          <CancelIcon />
-                        </IconButton>
-                      </td> {/* เพิ่มช่องนี้สำหรับ IconButton */}
-                    </tr>
+                  {products.map((product, index) => {
+                    const productCode = product.product_code;
+                    const currentUnit = units[productCode] || product.productUnit1.unit_code;
+                    const currentQuantity = quantities[productCode] || 1;
+                    const currentUnitPrice = currentUnit === product.productUnit1.unit_code
+                      ? product.bulk_unit_price
+                      : product.retail_unit_price;
+                    const currentTotal = (currentQuantity * currentUnitPrice).toFixed(2);
 
-                  ))}
+                    return (
+                      <tr key={productCode}>
+                        <td style={{ padding: '4px', fontSize: '12px', fontWeight: '800' }}>{index + 1}</td>
+                        <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>{productCode}</td>
+                        <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>{product.product_name}</td>
+                        <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                          <input
+                            type="number"
+                            min="1"
+                            value={currentQuantity}
+                            onChange={(e) => handleQuantityChange(productCode, parseInt(e.target.value))}
+                            style={{
+                              width: '50px',
+                              textAlign: 'center',
+                              fontWeight: '600',
+                              padding: '4px'
+                            }}
+                          />
+                        </td>
+                        <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                          <select
+                            value={currentUnit}
+                            onChange={(e) => handleUnitChange(productCode, e.target.value)}
+                            style={{
+                              padding: '4px',
+                              borderRadius: '4px'
+                            }}
+                          >
+                            <option value={product.productUnit1.unit_code}>{product.productUnit1.unit_name}</option>
+                            <option value={product.productUnit2.unit_code}>{product.productUnit2.unit_name}</option>
+                          </select>
+                        </td>
+                        <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                          {currentUnitPrice.toFixed(2)}
+                        </td>
+                        <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                          {currentTotal}
+                        </td>
+                        <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                          <IconButton
+                            onClick={() => handleDeleteProduct(productCode)}
+                            size="small"
+                          >
+                            <CancelIcon />
+                          </IconButton>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
-
             </Box>
-            <Box sx={{ width: '100%', height: '145px', bgcolor: '#EAB86C', borderRadius: '10px', p: '18px' }}>
+
+            <Box sx={{ width: '100%', height: 'auto', bgcolor: '#EAB86C', borderRadius: '10px', p: '18px' }}>
               <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-                <Typography sx={{ color: '#FFFFFF' }}>
-                  Subtotal
-                </Typography>
+                <Typography sx={{ color: '#FFFFFF' }}>Subtotal</Typography>
                 <Typography sx={{ color: '#FFFFFF', ml: 'auto' }}>
-                  $100.50
+                  ${subtotal.toFixed(2)}
                 </Typography>
               </Box>
               <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', mt: '8px' }}>
-                <Typography sx={{ color: '#FFFFFF' }}>
-                  Tax(12%)
-                </Typography>
+                <Typography sx={{ color: '#FFFFFF' }}>Tax(12%)</Typography>
                 <Typography sx={{ color: '#FFFFFF', ml: 'auto' }}>
-                  $11.50
+                  ${tax.toFixed(2)}
                 </Typography>
               </Box>
               <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', mt: '8px' }}>
@@ -608,14 +674,25 @@ function EditPurchaseOrderToSupplier({ onBack }) {
                   Total
                 </Typography>
                 <Typography sx={{ color: '#FFFFFF', ml: 'auto', fontSize: '30px', fontWeight: '600' }}>
-                  $93.46
+                  ${total.toFixed(2)}
                 </Typography>
               </Box>
             </Box>
+
             <Button
-              onClick={handleSaveWhposdt}
-              sx={{ width: '100%', height: '48px', mt: '24px', bgcolor: '#754C27', color: '#FFFFFF' }}>
-              Save
+              onClick={handleUpdateOrder}
+              sx={{
+                width: '100%',
+                height: '48px',
+                mt: '24px',
+                bgcolor: '#754C27',
+                color: '#FFFFFF',
+                '&:hover': {
+                  bgcolor: '#5D3A1F',
+                }
+              }}
+            >
+              Update
             </Button>
           </Box>
         </Box>

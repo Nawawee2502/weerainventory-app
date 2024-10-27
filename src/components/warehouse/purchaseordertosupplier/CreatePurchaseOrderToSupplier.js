@@ -108,32 +108,41 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
     whProduct = products;
     whProduct = whProduct.filter((item) => item.product_code != product_code);
     setProducts(whProduct);
-  }
+
+    // Calculate totals after deleting product
+    setTimeout(() => calculateOrderTotals(), 0);
+  };
 
   useEffect(() => {
-    // searchWh();
-  }, [products]);
+    if (products.length > 0) {
+      calculateOrderTotals();
+    } else {
+      // Reset totals when no products
+      setSubtotal(0);
+      setTax(0);
+      setTotal(0);
+    }
+  }, [products, quantities, units]);
+
 
   const handleQuantityChange = (product_code, newQuantity) => {
-    // ตรวจสอบว่าค่า quantity ห้ามน้อยกว่า 1
     if (newQuantity >= 1) {
       setQuantities((prevQuantities) => ({
         ...prevQuantities,
-        [product_code]: newQuantity,
+        [product_code]: parseInt(newQuantity),
       }));
 
-      // คำนวณ total ใหม่เมื่อ quantity เปลี่ยน
       const selectedProduct = products.find((product) => product.product_code === product_code);
-      const unit = units[product_code];
+      const unit = units[product_code] || selectedProduct.productUnit1.unit_code;
       const total = calculateTotal(newQuantity, unit, selectedProduct);
 
-      // อัปเดต total
       setTotals((prevTotals) => ({
         ...prevTotals,
         [product_code]: total,
       }));
-    } else {
-      // alert('Quantity cannot be less than 1'); // แจ้งเตือนเมื่อค่าต่ำกว่า 1
+
+      // Calculate totals after quantity change
+      setTimeout(calculateOrderTotals, 0);
     }
   };
 
@@ -143,28 +152,50 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
       ...prevUnits,
       [productCode]: newUnitCode,
     }));
-    updateTotal(productCode, quantities[productCode], newUnitCode);
+
+    const quantity = quantities[productCode] || 1;
+    updateTotal(productCode, quantity, newUnitCode);
+
+    // Calculate totals after unit change
+    setTimeout(calculateOrderTotals, 0);
   };
 
   const updateTotal = (productCode, quantity, unitCode) => {
     const product = products.find((p) => p.product_code === productCode);
-    const unitPrice =
-      unitCode === product.productUnit1.unit_code
-        ? product.bulk_unit_price
-        : product.retail_unit_price;
+    const unitPrice = unitCode === product.productUnit1.unit_code
+      ? product.bulk_unit_price
+      : product.retail_unit_price;
     const newTotal = quantity * unitPrice;
+
     setTotals((prevTotals) => ({
       ...prevTotals,
       [productCode]: newTotal,
     }));
   };
-
   const calculateTotal = (quantity, unitCode, product) => {
-    const unitPrice =
-      unitCode === product.productUnit1.unit_code
+    const unitPrice = unitCode === product.productUnit1.unit_code
+      ? product.bulk_unit_price
+      : product.retail_unit_price;
+    return quantity * unitPrice;
+  };
+
+  const calculateOrderTotals = () => {
+    const orderSubtotal = products.reduce((sum, product) => {
+      const productCode = product.product_code;
+      const quantity = quantities[productCode] || 1;
+      const unitCode = units[productCode] || product.productUnit1.unit_code;
+      const unitPrice = unitCode === product.productUnit1.unit_code
         ? product.bulk_unit_price
         : product.retail_unit_price;
-    return quantity * unitPrice;
+      return sum + (quantity * unitPrice);
+    }, 0);
+
+    const orderTax = orderSubtotal * 0.12;
+    const orderTotal = orderSubtotal + orderTax;
+
+    setSubtotal(orderSubtotal);
+    setTax(orderTax);
+    setTotal(orderTotal);
   };
 
   useEffect(() => {
@@ -250,9 +281,56 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
       .catch((err) => console.log(err.message));
   };
 
+  const resetForm = () => {
+    // รีเซ็ตข้อมูลทั้งหมด
+    setProducts([]);
+    setQuantities({});
+    setUnits({});
+    setTotals({});
+    setSubtotal(0);
+    setTax(0);
+    setTotal(0);
+    setSaveSupplier('');
+    setSaveBranch('');
+
+    // ดึง refno ใหม่
+    const test = 10;
+    dispatch(refno({ test }))
+      .unwrap()
+      .then((res) => {
+        setLastRefNo(res.data);
+        if (startDate) {
+          handleGetLastRefNo(startDate);
+        }
+      })
+      .catch((err) => console.log(err.message));
+  };
+
   const handleSaveWhposdt = () => {
+    // ตรวจสอบว่ามีการเลือก supplier และ branch หรือไม่
+    if (!saveSupplier || !saveBranch) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Please select supplier and branch',
+        showConfirmButton: false,
+        timer: 1500
+      });
+      return;
+    }
+
+    // ตรวจสอบว่ามีสินค้าในรายการหรือไม่
+    if (products.length === 0) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Please add at least one product',
+        showConfirmButton: false,
+        timer: 1500
+      });
+      return;
+    }
+
     const day = String(startDate.getDate()).padStart(2, '0');
-    const month = String(startDate.getMonth() + 1).padStart(2, '0'); // เพิ่ม 1 เพราะ getMonth() เริ่มที่ 0
+    const month = String(startDate.getMonth() + 1).padStart(2, '0');
     const year = startDate.getFullYear();
 
     const headerData = {
@@ -266,54 +344,72 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
       user_code: userData2.user_code
     }
 
-    let tmpProduct = []
+    // Create array of products with updated values
+    const tmpProduct = products.map(product => {
+      const productCode = product.product_code;
+      const quantity = quantities[productCode] || 1;
+      const unitCode = units[productCode] || product.productUnit1.unit_code;
 
-    for (let i = 0; i < products.length; i++) {
-      const itemData = {
+      const unitPrice = unitCode === product.productUnit1.unit_code
+        ? product.bulk_unit_price
+        : product.retail_unit_price;
+
+      const amount = quantity * unitPrice;
+
+      return {
         refno: headerData.refno,
-        product_code: products[i].product_code,
-        // qty: products.qty,
-        qty: '1',
-        unit_code: '1',
-        uprice: '1',
-        amt: '1'
-        // amt: item.amt,
-      }
-      tmpProduct.push(itemData)
-    }
-
-    console.log("PRODUCT", products)
-    console.log("TMP", tmpProduct)
-
-    const productArrayData = {
-      products: tmpProduct,
-    }
-
-    const footerData = {
-      subtotal: subtotal,
-      tax: tax,
-      total: total,
-    }
+        product_code: productCode,
+        qty: quantity.toString(),
+        unit_code: unitCode,
+        uprice: unitPrice.toString(),
+        amt: amount.toString()
+      };
+    });
 
     const orderData = {
       headerData: headerData,
       productArrayData: tmpProduct,
-      footerData: footerData,
-    }
+      footerData: {
+        subtotal: subtotal,
+        tax: tax,
+        total: total,
+      },
+    };
+
+    // แสดง loading ระหว่างบันทึกข้อมูล
+    Swal.fire({
+      title: 'Saving order...',
+      allowOutsideClick: false,
+      didOpen: () => {
+        Swal.showLoading();
+      }
+    });
 
     dispatch(addWh_pos(orderData))
       .unwrap()
       .then((res) => {
-        console.log("API UI")
-        console.log(res.data)
+        // ปิด loading และแสดงข้อความสำเร็จ
+        Swal.fire({
+          icon: 'success',
+          title: 'Create order successfully',
+          text: `Reference No: ${lastRefNo}`,
+          showConfirmButton: false,
+          timer: 1500
+        }).then(() => {
+          // รีเซ็ตฟอร์มหลังจากบันทึกสำเร็จ
+          resetForm();
+        });
       })
-      .catch((err) => err.message);
-
-
-    console.log("headerData", headerData);
-    console.log("productArrayData", productArrayData);
-    console.log("arrayData", footerData);
-  }
+      .catch((err) => {
+        // กรณีเกิดข้อผิดพลาด
+        Swal.fire({
+          icon: 'error',
+          title: 'Error saving order',
+          text: err.message,
+          confirmButtonText: 'OK'
+        });
+      });
+  };
 
 
 
@@ -530,63 +626,79 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {products.map((product, index) => (
-                    <tr key={product.product_code}>
-                      <td style={{ padding: '4px', fontSize: '12px', fontWeight: '800' }}>{index + 1}</td>
-                      <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>{product.product_code}</td>
-                      <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>{product.product_name}</td>
-                      <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
-                        <input
-                          type="number"
-                          value={quantities[product.product_code] || 1}
-                          onChange={(e) => handleQuantityChange(product.product_code, e.target.value)}
-                          style={{ width: '50px', textAlign: 'center', fontWeight: '600' }}
-                        />
-                      </td>
-                      <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
-                        <select
-                          value={units[product.product_code]}
-                          onChange={(e) => handleUnitChange(product.product_code, e.target.value)}
-                        >
-                          <option value={product.productUnit1.unit_code}>{product.productUnit1.unit_name}</option>
-                          <option value={product.productUnit2.unit_code}>{product.productUnit2.unit_name}</option>
-                        </select>
-                      </td>
-                      <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
-                        {units[product.product_code] === product.productUnit1.unit_code
-                          ? product.bulk_unit_price
-                          : product.retail_unit_price}
-                      </td>
-                      <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
-                        {totals[product.product_code]}
-                      </td>
-                      <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
-                        <IconButton onClick={() => handleDeleteWhProduct(product.product_code)}>
-                          <CancelIcon />
-                        </IconButton>
-                      </td> {/* เพิ่มช่องนี้สำหรับ IconButton */}
-                    </tr>
+                  {products.map((product, index) => {
+                    const productCode = product.product_code;
+                    const currentUnit = units[productCode] || product.productUnit1.unit_code;
+                    const currentQuantity = quantities[productCode] || 1;
+                    const currentUnitPrice = currentUnit === product.productUnit1.unit_code
+                      ? product.bulk_unit_price
+                      : product.retail_unit_price;
+                    const currentTotal = (currentQuantity * currentUnitPrice).toFixed(2);
 
-                  ))}
+                    return (
+                      <tr key={productCode}>
+                        <td style={{ padding: '4px', fontSize: '12px', fontWeight: '800' }}>{index + 1}</td>
+                        <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>{productCode}</td>
+                        <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>{product.product_name}</td>
+                        <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                          <input
+                            type="number"
+                            min="1"
+                            value={currentQuantity}
+                            onChange={(e) => handleQuantityChange(productCode, parseInt(e.target.value))}
+                            style={{
+                              width: '50px',
+                              textAlign: 'center',
+                              fontWeight: '600',
+                              padding: '4px'
+                            }}
+                          />
+                        </td>
+                        <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                          <select
+                            value={currentUnit}
+                            onChange={(e) => handleUnitChange(productCode, e.target.value)}
+                            style={{
+                              padding: '4px',
+                              borderRadius: '4px'
+                            }}
+                          >
+                            <option value={product.productUnit1.unit_code}>{product.productUnit1.unit_name}</option>
+                            <option value={product.productUnit2.unit_code}>{product.productUnit2.unit_name}</option>
+                          </select>
+                        </td>
+                        <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                          {currentUnitPrice.toFixed(2)}
+                        </td>
+                        <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                          {currentTotal}
+                        </td>
+                        <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                          <IconButton
+                            onClick={() => handleDeleteWhProduct(productCode)}
+                            size="small"
+                          >
+                            <CancelIcon />
+                          </IconButton>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
-
             </Box>
-            <Box sx={{ width: '100%', height: '145px', bgcolor: '#EAB86C', borderRadius: '10px', p: '18px' }}>
+
+            <Box sx={{ width: '100%', height: 'auto', bgcolor: '#EAB86C', borderRadius: '10px', p: '18px' }}>
               <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-                <Typography sx={{ color: '#FFFFFF' }}>
-                  Subtotal
-                </Typography>
+                <Typography sx={{ color: '#FFFFFF' }}>Subtotal</Typography>
                 <Typography sx={{ color: '#FFFFFF', ml: 'auto' }}>
-                  $100.50
+                  ${subtotal.toFixed(2)}
                 </Typography>
               </Box>
               <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', mt: '8px' }}>
-                <Typography sx={{ color: '#FFFFFF' }}>
-                  Tax(12%)
-                </Typography>
+                <Typography sx={{ color: '#FFFFFF' }}>Tax(12%)</Typography>
                 <Typography sx={{ color: '#FFFFFF', ml: 'auto' }}>
-                  $11.50
+                  ${tax.toFixed(2)}
                 </Typography>
               </Box>
               <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', mt: '8px' }}>
@@ -594,7 +706,7 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
                   Total
                 </Typography>
                 <Typography sx={{ color: '#FFFFFF', ml: 'auto', fontSize: '30px', fontWeight: '600' }}>
-                  $93.46
+                  ${total.toFixed(2)}
                 </Typography>
               </Box>
             </Box>

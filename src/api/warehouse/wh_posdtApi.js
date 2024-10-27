@@ -26,18 +26,17 @@ export const addWh_posdt = createAsyncThunk(
 );
 
 export const updateWh_posdt = createAsyncThunk(
-    "branch/update",
-    async ({ refno, product_code, qty, unit_code, uprice, amt }, { dispatch }) => {
+    "wh_posdt/update",
+    async (productData, { dispatch }) => {
         try {
-            const res = await axios.post(BASE_URL + "/api/updatewh_posdt", {
-                refno,
-                product_code,
-                qty,
-                unit_code,
-                uprice,
-                amt,
+            const res = await axios.post(BASE_URL + "/api/updateWh_posdt", {
+                refno: productData.refno,
+                product_code: productData.product_code,
+                qty: productData.qty,
+                unit_code: productData.unit_code,
+                uprice: productData.uprice,
+                amt: productData.amt
             });
-            console.log(res.data);
             return res.data;
         } catch (error) {
             console.error(error.message);
@@ -48,13 +47,13 @@ export const updateWh_posdt = createAsyncThunk(
 
 
 export const deleteWh_posdt = createAsyncThunk(
-    "branch/delete",
-    async ({ refno }, { dispatch }) => {
+    "wh_posdt/delete",
+    async ({ refno, product_code }, { dispatch }) => {  // เพิ่ม product_code ในพารามิเตอร์
         try {
-            const res = await axios.post(BASE_URL + "/api/deletewh_posdt", {
+            const res = await axios.post(BASE_URL + "/api/deleteWh_posdt", {
                 refno,
+                product_code  // เพิ่ม product_code ในการส่งข้อมูล
             });
-            console.log(res.data);
             return res.data;
         } catch (error) {
             console.error(error.message);
@@ -62,7 +61,6 @@ export const deleteWh_posdt = createAsyncThunk(
         }
     }
 );
-
 
 export const Wh_posdtAlljoindt = createAsyncThunk(
     "branch/read",

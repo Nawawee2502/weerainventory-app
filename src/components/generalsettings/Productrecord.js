@@ -68,7 +68,7 @@ export default function ProductRecord() {
             dispatch(searchProduct({ product_name: searchTerm }))
                 .unwrap()
                 .then((res) => {
-                    setProduct(res.data);
+                    setProductAllTypeproduct(res.data); // เปลี่ยนเป็น setProductAllTypeproduct
                 })
                 .catch((err) => console.log(err.message));
         } else {
@@ -78,20 +78,19 @@ export default function ProductRecord() {
 
     const handleChange = (event, value) => {
         setPage(value);
-        console.log(value);
         let page = value - 1;
         let offset = page * 5;
         let limit = 5;
-        console.log(limit, offset);
-        dispatch(productAll({ offset, limit }))
+        
+        // เปลี่ยนจาก productAll เป็น productAlltypeproduct
+        dispatch(productAlltypeproduct({ offset, limit }))
             .unwrap()
             .then((res) => {
-                console.log(res.data);
                 let resultData = res.data;
                 for (let indexArray = 0; indexArray < resultData.length; indexArray++) {
                     resultData[indexArray].id = offset + indexArray + 1;
                 }
-                setProduct(resultData);
+                setProductAllTypeproduct(resultData); // เปลี่ยนเป็น setProductAllTypeproduct
             })
             .catch((err) => err.message);
     };
@@ -99,27 +98,18 @@ export default function ProductRecord() {
     const refetchData = () => {
         let offset = 0;
         let limit = 5;
-        dispatch(productAll({ offset, limit }))
-            .unwrap()
-            .then((res) => {
-                setProduct(res.data);
-            })
-            .catch((err) => console.log(err.message));
-
+        
+        // เรียก API productAlltypeproduct แทน productAll
         dispatch(productAlltypeproduct({ offset, limit }))
             .unwrap()
             .then((res) => {
-                console.log("productAlltypeproduct");
-                console.log(res.data);
                 let resultData = res.data;
                 for (let indexArray = 0; indexArray < resultData.length; indexArray++) {
                     resultData[indexArray].id = indexArray + 1;
                 }
                 setProductAllTypeproduct(resultData);
-                console.log(resultData);
-
             })
-            .catch((err) => err.message);
+            .catch((err) => console.log(err.message));
     };
 
     useEffect(() => {
@@ -129,34 +119,17 @@ export default function ProductRecord() {
         let offset = 0;
         let limit = 5;
         let test = 10;
-        dispatch(productAll({ offset, limit }))
-            .unwrap()
-            .then((res) => {
-                console.log(res.data);
-                let resultData = res.data;
-                for (let indexArray = 0; indexArray < resultData.length; indexArray++) {
-                    resultData[indexArray].id = indexArray + 1;
-                }
-                setProduct(resultData);
-                console.log(resultData);
-
-            })
-            .catch((err) => err.message);
 
         dispatch(productAlltypeproduct({ offset, limit }))
-            .unwrap()
-            .then((res) => {
-                console.log("productAlltypeproduct");
-                console.log(res.data);
-                let resultData = res.data;
-                for (let indexArray = 0; indexArray < resultData.length; indexArray++) {
-                    resultData[indexArray].id = indexArray + 1;
-                }
-                setProductAllTypeproduct(resultData);
-                console.log("data : ", resultData);
-
-            })
-            .catch((err) => err.message);
+        .unwrap()
+        .then((res) => {
+            let resultData = res.data;
+            for (let indexArray = 0; indexArray < resultData.length; indexArray++) {
+                resultData[indexArray].id = indexArray + 1;
+            }
+            setProductAllTypeproduct(resultData);
+        })
+        .catch((err) => err.message);
 
         dispatch(lastProductCode({ test }))
             .unwrap()
@@ -316,33 +289,6 @@ export default function ProductRecord() {
         handleGetLastCode();
     };
 
-    // const handleGetLastCode = () => {
-    //     let test = "";
-    //     dispatch(lastProductCode({ test }))
-    //         .unwrap()
-    //         .then((res) => {
-    //             let lastProductCode = "001";
-
-    //             if (res.data && res.data.product_code) {
-    //                 // แปลงค่า product_code เป็นตัวเลขและเพิ่ม 1
-    //                 lastProductCode = "" + (Number(res.data.product_code) + 1);
-
-    //                 // การเติม 0 ข้างหน้าเพื่อให้มีความยาว 3 หลัก
-    //                 if (lastProductCode.length === 1) {
-    //                     lastProductCode = "00" + lastProductCode;
-    //                 } else if (lastProductCode.length === 2) {
-    //                     lastProductCode = "0" + lastProductCode;
-    //                 }
-    //             }
-
-    //             setGetLastProductCode(lastProductCode);
-    //             formik.setFieldValue('product_code', lastProductCode);
-    //         })
-    //         .catch((err) => {
-    //             console.error(err.message);
-    //         });
-    // };
-
 
     const toggleEditDrawer = (openEditDrawer) => () => {
         setOpenEditDrawer(openEditDrawer);
@@ -446,67 +392,6 @@ export default function ProductRecord() {
                 });
         },
     });
-    // const formik = useFormik({
-    //     initialValues: {
-    //         product_img: null,
-    //         product_code: '',
-    //         product_name: '',
-    //         typeproduct_code: '',
-    //         bulk_unit_code: '',
-    //         bulk_unit_price: '',
-    //         retail_unit_code: '',
-    //         retail_unit_price: '',
-    //         unit_conversion_factor: '',
-    //     },
-    //     validate: (values) => {
-    //         const errors = {};
-    //         if (!values.product_img) errors.product_img = 'product_img cannot be empty';
-    //         if (!values.product_name) errors.product_name = 'product_name cannot be empty';
-    //         if (!values.typeproduct_code) errors.typeproduct_code = 'typeproduct_code cannot be empty';
-    //         if (!values.bulk_unit_code) errors.bulk_unit_code = 'bulk_unit_code cannot be empty';
-    //         if (!values.bulk_unit_price) errors.bulk_unit_price = 'bulk_unit_price cannot be empty';
-    //         if (!values.retail_unit_code) errors.retail_unit_code = 'retail_unit_code cannot be empty';
-    //         if (!values.retail_unit_price) errors.retail_unit_price = 'retail_unit_price cannot be empty';
-    //         if (!values.unit_conversion_factor) errors.unit_conversion_factor = 'unit_conversion_factor cannot be empty';
-    //         return errors;
-    //     },
-    //     onSubmit: async (values) => {
-    //         const formData = new FormData();
-    //         formData.append('product_img', values.product_img); 
-    //         formData.append('product_code', values.product_code);
-    //         formData.append('product_name', values.product_name);
-    //         formData.append('typeproduct_code', values.typeproduct_code);
-    //         formData.append('bulk_unit_code', values.bulk_unit_code);
-    //         formData.append('bulk_unit_price', values.bulk_unit_price);
-    //         formData.append('retail_unit_code', values.retail_unit_code);
-    //         formData.append('retail_unit_price', values.retail_unit_price);
-    //         formData.append('unit_conversion_factor', values.unit_conversion_factor);
-
-    //         try {
-    //             await dispatch(addProduct(formData)).unwrap();
-    //             Swal.fire({
-    //                 icon: 'success',
-    //                 title: 'Success',
-    //                 text: 'เพิ่มข้อมูลสำเร็จ',
-    //                 timer: 1000,
-    //                 timerProgressBar: true,
-    //                 showConfirmButton: false,
-    //             });
-    //             formik.resetForm();
-    //             refetchData();
-    //             handleGetLastCode();
-    //         } catch (err) {
-    //             Swal.fire({
-    //                 icon: 'error',
-    //                 title: 'Error',
-    //                 text: 'เกิดข้อผิดพลาดในการเพิ่มข้อมูล',
-    //                 timer: 3000,
-    //                 timerProgressBar: true,
-    //                 showConfirmButton: false,
-    //             });
-    //         }
-    //     },
-    // });
 
 
     const handleGetLastCode = () => {
@@ -1234,4 +1119,3 @@ export default function ProductRecord() {
         </>
     );
 }
-

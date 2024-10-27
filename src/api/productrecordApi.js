@@ -82,18 +82,21 @@ export const productAll = createAsyncThunk(
 );
 
 export const productAlltypeproduct = createAsyncThunk(
-    "product/readWithTypeProduct",
-    async (_, { dispatch }) => {
-      try {
-        const res = await axios.post(BASE_URL + "/api/productalltypeproduct");
-        console.log(res.data);
-        return res.data;
-      } catch (error) {
-        console.error(error.message);
-        throw error;
-      }
+  "product/readWithTypeProduct",
+  async ({ offset, limit }, { dispatch }) => {  // รับ parameters
+    try {
+      const res = await axios.post(BASE_URL + "/api/productalltypeproduct", {
+        offset: offset,
+        limit: limit
+      });  // ส่ง offset, limit ไปที่ API
+      console.log(res.data);
+      return res.data;
+    } catch (error) {
+      console.error(error.message);
+      throw error;
     }
-  );
+  }
+);
   
 
 export const countProduct = createAsyncThunk(

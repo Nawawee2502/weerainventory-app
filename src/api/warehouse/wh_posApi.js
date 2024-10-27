@@ -52,21 +52,19 @@ export const addWh_pos = createAsyncThunk(
 );
 
 export const updateWh_pos = createAsyncThunk(
-    "branch/update",
-    async ({ refno, rdate, trdate, myear, monthh, supplier_code, branch_code, total, user_code }, { dispatch }) => {
+    "wh_pos/update",
+    async (orderData, { dispatch }) => {
         try {
             const res = await axios.post(BASE_URL + "/api/updateWh_pos", {
-                refno,
-                rdate,
-                trdate,
-                myear,
-                monthh,
-                supplier_code,
-                branch_code,
-                total,
-                user_code,
+                refno: orderData.refno,
+                rdate: orderData.rdate,
+                trdate: orderData.trdate,
+                myear: orderData.myear,
+                monthh: orderData.monthh,
+                supplier_code: orderData.supplier_code,
+                branch_code: orderData.branch_code,
+                total: orderData.total
             });
-            console.log(res.data);
             return res.data;
         } catch (error) {
             console.error(error.message);
@@ -77,7 +75,7 @@ export const updateWh_pos = createAsyncThunk(
 
 export const Wh_posByRefno = createAsyncThunk(
     "branch/read",
-    async ( refno , { dispatch }) => {
+    async (refno, { dispatch }) => {
         try {
             console.log("REFNO", refno)
             const res = await axios.post(BASE_URL + "/api/wh_posbyrefno", {
