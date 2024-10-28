@@ -13,7 +13,7 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import Swal from 'sweetalert2';
 
-function EditPurchaseOrderToSupplier({ onBack, editRefno }) {
+function PdfPurchaseOrderToSupplier({ onBack, editRefno }) {
   const dispatch = useDispatch();
   const [branch, setBranch] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -699,4 +699,4 @@ function EditPurchaseOrderToSupplier({ onBack, editRefno }) {
   );
 }
 
-export default EditPurchaseOrderToSupplier;
+export default PdfPurchaseOrderToSupplier;

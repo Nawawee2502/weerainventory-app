@@ -51,6 +51,7 @@ export default function ComissaryKitchen() {
     const [count, setCount] = useState();
     const [searchTerm, setSearchTerm] = useState("");
     const [getLastKitchenCode, setGetLastKitchenCode] = useState([]);
+    const [itemsPerPage] = useState(5);
 
     const handleSearchChange = (e) => {
         setSearchTerm(e.target.value);
@@ -71,11 +72,9 @@ export default function ComissaryKitchen() {
 
     const handleChange = (event, value) => {
         setPage(value);
-        console.log(value);
-        let page = value - 1;
-        let offset = page * 5;
-        let limit = value * 5;
-        console.log(limit, offset);
+        const page = value - 1;
+        const offset = page * itemsPerPage;
+        const limit = itemsPerPage;
         dispatch(kitchenAll({ offset, limit }))
             .unwrap()
             .then((res) => {
@@ -89,19 +88,37 @@ export default function ComissaryKitchen() {
             .catch((err) => err.message);
     };
 
-    const refetchData = () => {
-        let offset = 0;
-        let limit = 5;
+    const refetchData = (targetPage = 1) => {
+        const offset = (targetPage - 1) * itemsPerPage;
+        const limit = itemsPerPage;
+
         dispatch(kitchenAll({ offset, limit }))
             .unwrap()
             .then((res) => {
-                setKitchen(res.data);
+                let resultData = res.data;
+                for (let indexArray = 0; indexArray < resultData.length; indexArray++) {
+                    resultData[indexArray].id = offset + indexArray + 1;
+                }
+                setKitchen(resultData);
+
+                // หลังจากได้ข้อมูลแล้ว ดึงจำนวนรายการทั้งหมด
+                dispatch(countKitchen({ test: "" }))
+                    .unwrap()
+                    .then((countRes) => {
+                        const totalItems = countRes.data;
+                        const totalPages = Math.ceil(totalItems / itemsPerPage);
+                        setCount(totalPages);
+                        setPage(targetPage);
+                    })
+                    .catch((err) => console.log(err.message));
             })
             .catch((err) => console.log(err.message));
     };
 
+
+
     useEffect(() => {
-        refetchData();
+        refetchData(1);
         let offset = 0;
         let limit = 5;
         let test = 10;
@@ -181,7 +198,7 @@ export default function ComissaryKitchen() {
                             showConfirmButton: false,
                         });
                         setTimeout(() => {
-                            refetchData();
+                            refetchData(page);
                             let offset = 0;
                             let limit = 5;
                             dispatch(kitchenAll({ offset, limit }))
@@ -240,7 +257,7 @@ export default function ComissaryKitchen() {
                         });
                         setTimeout(() => {
                             setSelected([]);
-                            refetchData();
+                            refetchData(page);
                             let offset = 0;
                             let limit = 5;
                             dispatch(kitchenAll({ offset, limit }))
@@ -335,7 +352,7 @@ export default function ComissaryKitchen() {
             .unwrap()
             .then((res) => {
                 setAlert({ open: true, message: 'Updated success', severity: 'success' });
-                refetchData();
+                refetchData(page);
                 toggleEditDrawer(false)();
                 setTimeout(() => {
                     setAlert((prev) => ({ ...prev, open: false }));
@@ -387,10 +404,20 @@ export default function ComissaryKitchen() {
                         timerProgressBar: true,
                         showConfirmButton: false,
                     });
-                    formik.resetForm();
-                    refetchData();
-                    handleGetLastCode();
 
+                    // Calculate which page the new item will be on
+                    dispatch(countKitchen({ test: "" }))
+                        .unwrap()
+                        .then((countRes) => {
+                            const totalItems = countRes.data;
+                            const targetPage = Math.ceil(totalItems / itemsPerPage);
+
+                            // Reset form and refresh data with the new page
+                            formik.resetForm();
+                            refetchData(targetPage);
+                            handleGetLastCode();
+                            setOpenDrawer(false);
+                        });
                 })
                 .catch((err) => {
                     Swal.fire({
@@ -402,7 +429,7 @@ export default function ComissaryKitchen() {
                         showConfirmButton: false,
                     });
                 });
-        },
+        }
     });
 
     return (

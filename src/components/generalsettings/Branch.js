@@ -51,6 +51,7 @@ export default function ProductRecord() {
     const [count, setCount] = useState();
     const [searchTerm, setSearchTerm] = useState("");
     const [getLastBranchCode, setGetLastBranchCode] = useState([]);
+    const [itemsPerPage] = useState(5);
 
     const handleSearchChange = (e) => {
         setSearchTerm(e.target.value);
@@ -71,15 +72,13 @@ export default function ProductRecord() {
 
     const handleChange = (event, value) => {
         setPage(value);
-        console.log(value);
-        let page = value - 1;
-        let offset = page * 5;
-        let limit = value * 5;
-        console.log(limit, offset);
+        const page = value - 1;
+        const offset = page * itemsPerPage;
+        const limit = itemsPerPage;
+
         dispatch(branchAll({ offset, limit }))
             .unwrap()
             .then((res) => {
-                console.log(res.data);
                 let resultData = res.data;
                 for (let indexArray = 0; indexArray < resultData.length; indexArray++) {
                     resultData[indexArray].id = offset + indexArray + 1;
@@ -89,19 +88,35 @@ export default function ProductRecord() {
             .catch((err) => err.message);
     };
 
-    const refetchData = () => {
-        let offset = 0;
-        let limit = 5;
+    const refetchData = (targetPage = 1) => {
+        const offset = (targetPage - 1) * itemsPerPage;
+        const limit = itemsPerPage;
+
         dispatch(branchAll({ offset, limit }))
             .unwrap()
             .then((res) => {
-                setBranch(res.data);
+                let resultData = res.data;
+                for (let indexArray = 0; indexArray < resultData.length; indexArray++) {
+                    resultData[indexArray].id = offset + indexArray + 1;
+                }
+                setBranch(resultData);
+
+                // หลังจากได้ข้อมูลแล้ว ดึงจำนวนรายการทั้งหมด
+                dispatch(countBranch({ test: "" }))
+                    .unwrap()
+                    .then((countRes) => {
+                        const totalItems = countRes.data;
+                        const totalPages = Math.ceil(totalItems / itemsPerPage);
+                        setCount(totalPages);
+                        setPage(targetPage);
+                    })
+                    .catch((err) => console.log(err.message));
             })
             .catch((err) => console.log(err.message));
     };
 
     useEffect(() => {
-        refetchData();
+        refetchData(1);
         let offset = 0;
         let limit = 5;
         let test = 10;
@@ -307,7 +322,7 @@ export default function ProductRecord() {
             .unwrap()
             .then((res) => {
                 setAlert({ open: true, message: 'Updated success', severity: 'success' });
-                refetchData();
+                refetchData(page);
                 toggleEditDrawer(false)();
                 setTimeout(() => {
                     setAlert((prev) => ({ ...prev, open: false }));
@@ -387,14 +402,20 @@ export default function ProductRecord() {
                         timerProgressBar: true,
                         showConfirmButton: false,
                     });
-                    formik.resetForm();
-                    refetchData();
-                    handleGetLastCode();
 
-                    setTimeout(() => {
-                        setAlert((prev) => ({ ...prev, open: false }));
-                    }, 3000);
+                    // Calculate which page the new item will be on
+                    dispatch(countBranch({ test: "" }))
+                        .unwrap()
+                        .then((countRes) => {
+                            const totalItems = countRes.data;
+                            const targetPage = Math.ceil(totalItems / itemsPerPage);
 
+                            // Reset form and refresh data with the new page
+                            formik.resetForm();
+                            refetchData(targetPage);
+                            handleGetLastCode();
+                            setOpenDrawer(false);
+                        });
                 })
                 .catch((err) => {
                     Swal.fire({

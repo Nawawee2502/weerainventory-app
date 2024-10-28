@@ -51,6 +51,7 @@ export default function SetCountingUnit() {
     const [count, setCount] = useState();
     const [searchTerm, setSearchTerm] = useState("");
     const [getLastUnitCode, setLastUnitCode] = useState([]);
+    const [itemsPerPage] = useState(5);
 
     const handleSearchChange = (e) => {
         setSearchTerm(e.target.value);
@@ -71,15 +72,13 @@ export default function SetCountingUnit() {
 
     const handleChange = (event, value) => {
         setPage(value);
-        console.log(value);
-        let page = value - 1;
-        let offset = page * 5;
-        let limit = 5;
-        console.log(limit, offset);
+        const page = value - 1;
+        const offset = page * itemsPerPage;
+        const limit = itemsPerPage;
+
         dispatch(unitAll({ offset, limit }))
             .unwrap()
             .then((res) => {
-                console.log(res.data);
                 let resultData = res.data;
                 for (let indexArray = 0; indexArray < resultData.length; indexArray++) {
                     resultData[indexArray].id = offset + indexArray + 1;
@@ -89,19 +88,35 @@ export default function SetCountingUnit() {
             .catch((err) => err.message);
     };
 
-    const refetchData = () => {
-        let offset = 0;
-        let limit = 5;
+    const refetchData = (targetPage = 1) => {
+        const offset = (targetPage - 1) * itemsPerPage;
+        const limit = itemsPerPage;
+
         dispatch(unitAll({ offset, limit }))
             .unwrap()
             .then((res) => {
-                setUnit(res.data);
+                let resultData = res.data;
+                for (let indexArray = 0; indexArray < resultData.length; indexArray++) {
+                    resultData[indexArray].id = offset + indexArray + 1;
+                }
+                setUnit(resultData);
+
+                // หลังจากได้ข้อมูลแล้ว ดึงจำนวนรายการทั้งหมด
+                dispatch(countUnit({ test: "" }))
+                    .unwrap()
+                    .then((countRes) => {
+                        const totalItems = countRes.data;
+                        const totalPages = Math.ceil(totalItems / itemsPerPage);
+                        setCount(totalPages);
+                        setPage(targetPage);
+                    })
+                    .catch((err) => console.log(err.message));
             })
             .catch((err) => console.log(err.message));
     };
 
     useEffect(() => {
-        refetchData();
+        refetchData(1);
         let offset = 0;
         let limit = 5;
         let test = 10;
@@ -181,7 +196,7 @@ export default function SetCountingUnit() {
                             showConfirmButton: false,
                         });
                         setTimeout(() => {
-                            refetchData();
+                            refetchData(page);
                             let offset = 0;
                             let limit = 5;
                             dispatch(unitAll({ offset, limit }))
@@ -240,7 +255,7 @@ export default function SetCountingUnit() {
                         });
                         setTimeout(() => {
                             setSelected([]);
-                            refetchData();
+                            refetchData(page);
                             let offset = 0;
                             let limit = 5;
                             dispatch(unitAll({ offset, limit }))
@@ -304,7 +319,7 @@ export default function SetCountingUnit() {
             .unwrap()
             .then((res) => {
                 setAlert({ open: true, message: 'Updated success', severity: 'success' });
-                refetchData();
+                refetchData(page); // ใช้หน้าปัจจุบัน
                 toggleEditDrawer(false)();
                 setTimeout(() => {
                     setAlert((prev) => ({ ...prev, open: false }));
@@ -370,11 +385,20 @@ export default function SetCountingUnit() {
                         timerProgressBar: true,
                         showConfirmButton: false,
                     });
-                    formik.resetForm();
-                    refetchData();
-                    handleGetLastCode();
 
+                    // Calculate which page the new item will be on
+                    dispatch(countUnit({ test: "" }))
+                        .unwrap()
+                        .then((countRes) => {
+                            const totalItems = countRes.data;
+                            const targetPage = Math.ceil(totalItems / itemsPerPage);
 
+                            // Reset form and refresh data with the new page
+                            formik.resetForm();
+                            refetchData(targetPage);
+                            handleGetLastCode();
+                            setOpenDrawer(false);
+                        });
                 })
                 .catch((err) => {
                     Swal.fire({
@@ -386,7 +410,7 @@ export default function SetCountingUnit() {
                         showConfirmButton: false,
                     });
                 });
-        },
+        }
     });
 
     return (
@@ -734,10 +758,11 @@ export default function SetCountingUnit() {
 
                         <Box sx={{ width: '80%', mt: '24px' }}>
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
-                                EDIT Counting Unit Id
+                                Counting Unit Id
                             </Typography>
                             <TextField
                                 size="small"
+                                disabled
                                 placeholder="Counting Unit Id"
                                 sx={{
                                     mt: '8px',

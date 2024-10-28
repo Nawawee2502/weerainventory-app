@@ -51,6 +51,7 @@ export default function SetProductType() {
     const [count, setCount] = useState();
     const [searchTerm, setSearchTerm] = useState("");
     const [getLastTypeproductCode, setGetLastTypeproductCode] = useState([]);
+    const [itemsPerPage] = useState(5);
 
     const handleSearchChange = (e) => {
         setSearchTerm(e.target.value);
@@ -72,9 +73,10 @@ export default function SetProductType() {
 
     const handleChange = (event, value) => {
         setPage(value);
-        let page = value - 1;
-        let offset = page * 5;
-        let limit = 5;
+        const page = value - 1;
+        const offset = page * itemsPerPage;
+        const limit = itemsPerPage;
+
         dispatch(fetchAllTypeproducts({ offset, limit }))
             .unwrap()
             .then((res) => {
@@ -87,11 +89,36 @@ export default function SetProductType() {
             .catch((err) => err.message);
     };
 
+    const refetchData = (targetPage = 1) => {
+        const offset = (targetPage - 1) * itemsPerPage;
+        const limit = itemsPerPage;
 
+        dispatch(fetchAllTypeproducts({ offset, limit }))
+            .unwrap()
+            .then((res) => {
+                let resultData = res.data;
+                for (let indexArray = 0; indexArray < resultData.length; indexArray++) {
+                    resultData[indexArray].id = offset + indexArray + 1;
+                }
+                setTypeproducts(resultData);
+
+                // หลังจากได้ข้อมูลแล้ว ดึงจำนวนรายการทั้งหมด
+                dispatch(countProduct({ test: "" }))
+                    .unwrap()
+                    .then((countRes) => {
+                        const totalItems = countRes.data;
+                        const totalPages = Math.ceil(totalItems / itemsPerPage);
+                        setCount(totalPages);
+                        setPage(targetPage);
+                    })
+                    .catch((err) => console.log(err.message));
+            })
+            .catch((err) => console.log(err.message));
+    };
 
 
     useEffect(() => {
-        refetchData();
+        refetchData(1);
         let offset = 0;
         let limit = 5;
         let test = 10;
@@ -171,7 +198,7 @@ export default function SetProductType() {
                             showConfirmButton: false,
                         });
                         setTimeout(() => {
-                            refetchData();
+                            refetchData(page);
                             let offset = 0;
                             let limit = 5;
                             dispatch(fetchAllTypeproducts({ offset, limit }))
@@ -230,7 +257,7 @@ export default function SetProductType() {
                         });
                         setTimeout(() => {
                             setSelected([]);
-                            refetchData();
+                            refetchData(page);
                             let offset = 0;
                             let limit = 5;
                             dispatch(fetchAllTypeproducts({ offset, limit }))
@@ -294,7 +321,7 @@ export default function SetProductType() {
             .unwrap()
             .then((res) => {
                 setAlert({ open: true, message: 'อัปเดตข้อมูลสำเร็จ', severity: 'success' });
-                refetchData();
+                refetchData(page); // ใช้หน้าปัจจุบัน
                 toggleEditDrawer(false)();
                 setTimeout(() => {
                     setAlert((prev) => ({ ...prev, open: false }));
@@ -369,11 +396,20 @@ export default function SetProductType() {
                         timerProgressBar: true,
                         showConfirmButton: false,
                     });
-                    formik.resetForm();
-                    refetchData();
-                    handleGetLastCode();
-                    // setOpenDrawer(false);
 
+                    // Calculate which page the new item will be on
+                    dispatch(countProduct({ test: "" }))
+                        .unwrap()
+                        .then((countRes) => {
+                            const totalItems = countRes.data;
+                            const targetPage = Math.ceil(totalItems / itemsPerPage);
+
+                            // Reset form and refresh data with the new page
+                            formik.resetForm();
+                            refetchData(targetPage);
+                            handleGetLastCode();
+                            setOpenDrawer(false);
+                        });
                 })
                 .catch((err) => {
                     Swal.fire({
@@ -385,19 +421,10 @@ export default function SetProductType() {
                         showConfirmButton: false,
                     });
                 });
-        },
+        }
     });
 
-    const refetchData = () => {
-        let offset = 0;
-        let limit = 5;
-        dispatch(fetchAllTypeproducts({ offset, limit }))
-            .unwrap()
-            .then((res) => {
-                setTypeproducts(res.data);
-            })
-            .catch((err) => console.log(err.message));
-    };
+
 
     return (
         <>
@@ -747,6 +774,7 @@ export default function SetProductType() {
                                 Product Id
                             </Typography>
                             <TextField
+                                disabled
                                 size="small"
                                 placeholder="Product Id"
                                 sx={{

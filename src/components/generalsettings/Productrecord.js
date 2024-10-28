@@ -57,7 +57,7 @@ export default function ProductRecord() {
     const [searchTerm, setSearchTerm] = useState("");
     const [getLastProductCode, setGetLastProductCode] = useState([]);
     const [unit, setUnit] = useState([]);
-
+    const [itemsPerPage] = useState(5);
 
     const handleSearchChange = (e) => {
         setSearchTerm(e.target.value);
@@ -81,7 +81,7 @@ export default function ProductRecord() {
         let page = value - 1;
         let offset = page * 5;
         let limit = 5;
-        
+
         // เปลี่ยนจาก productAll เป็น productAlltypeproduct
         dispatch(productAlltypeproduct({ offset, limit }))
             .unwrap()
@@ -95,11 +95,42 @@ export default function ProductRecord() {
             .catch((err) => err.message);
     };
 
-    const refetchData = () => {
+    const refetchData = (targetPage = 1) => {
+        const offset = (targetPage - 1) * itemsPerPage;
+        const limit = itemsPerPage;
+
+        // เรียก API เพื่อดึงข้อมูลสินค้า
+        dispatch(productAlltypeproduct({ offset, limit }))
+            .unwrap()
+            .then((res) => {
+                let resultData = res.data;
+                for (let indexArray = 0; indexArray < resultData.length; indexArray++) {
+                    resultData[indexArray].id = offset + indexArray + 1;
+                }
+                setProductAllTypeproduct(resultData);
+
+                // หลังจากได้ข้อมูลสินค้าแล้ว ดึงจำนวนรายการทั้งหมด
+                dispatch(countProduct({ test: "" }))
+                    .unwrap()
+                    .then((countRes) => {
+                        const totalItems = countRes.data;
+                        const totalPages = Math.ceil(totalItems / itemsPerPage);
+                        setCount(totalPages);
+                        setPage(targetPage);
+                    })
+                    .catch((err) => console.log(err.message));
+            })
+            .catch((err) => console.log(err.message));
+    };
+
+    useEffect(() => {
+        refetchData(1);
+        fetchUnitData();
+        fetchTypeproducts();
         let offset = 0;
         let limit = 5;
-        
-        // เรียก API productAlltypeproduct แทน productAll
+        let test = 10;
+
         dispatch(productAlltypeproduct({ offset, limit }))
             .unwrap()
             .then((res) => {
@@ -109,27 +140,7 @@ export default function ProductRecord() {
                 }
                 setProductAllTypeproduct(resultData);
             })
-            .catch((err) => console.log(err.message));
-    };
-
-    useEffect(() => {
-        refetchData();
-        fetchUnitData();
-        fetchTypeproducts();
-        let offset = 0;
-        let limit = 5;
-        let test = 10;
-
-        dispatch(productAlltypeproduct({ offset, limit }))
-        .unwrap()
-        .then((res) => {
-            let resultData = res.data;
-            for (let indexArray = 0; indexArray < resultData.length; indexArray++) {
-                resultData[indexArray].id = indexArray + 1;
-            }
-            setProductAllTypeproduct(resultData);
-        })
-        .catch((err) => err.message);
+            .catch((err) => err.message);
 
         dispatch(lastProductCode({ test }))
             .unwrap()
@@ -299,15 +310,14 @@ export default function ProductRecord() {
     const handleEdit = (row) => {
         setEditProduct(row);
         formik.setValues({
-            product_img: row.product_img,
-            product_code: row.product_code,
-            product_name: row.product_name,
-            typeproduct_code: row.typeproduct_code,
-            bulk_unit_code: row.bulk_unit_code,
-            bulk_unit_price: row.bulk_unit_price,
-            retail_unit_code: row.retail_unit_code,
-            retail_unit_price: row.retail_unit_price,
-            unit_conversion_factor: row.unit_conversion_factor,
+            product_code: row.product_code || '',
+            product_name: row.product_name || '',
+            typeproduct_code: row.typeproduct_code || '',
+            bulk_unit_code: row.bulk_unit_code || '',
+            bulk_unit_price: row.bulk_unit_price || '',
+            retail_unit_code: row.retail_unit_code || '',
+            retail_unit_price: row.retail_unit_price || '',
+            unit_conversion_factor: row.unit_conversion_factor || '',
         });
         toggleEditDrawer(true)();
     };
@@ -358,12 +368,6 @@ export default function ProductRecord() {
             return errors;
         },
         onSubmit: (values) => {
-            // formik.setFieldValue("product_img", file);
-            const formData = new FormData();
-            formData.append('product_img', values.product_img);
-            // formData.append('file',values.image)
-            console.log(values.product_img)
-
             dispatch(addProduct(values))
                 .unwrap()
                 .then((res) => {
@@ -375,10 +379,20 @@ export default function ProductRecord() {
                         timerProgressBar: true,
                         showConfirmButton: false,
                     });
-                    formik.resetForm();
-                    refetchData();
-                    handleGetLastCode();
 
+                    // Calculate which page the new item will be on
+                    dispatch(countProduct({ test: "" }))
+                        .unwrap()
+                        .then((countRes) => {
+                            const totalItems = countRes.data;
+                            const targetPage = Math.ceil(totalItems / itemsPerPage);
+
+                            // Reset form and refresh data with the new page
+                            formik.resetForm();
+                            refetchData(targetPage);
+                            handleGetLastCode();
+                            setOpenDrawer(false);
+                        });
                 })
                 .catch((err) => {
                     Swal.fire({
@@ -400,19 +414,54 @@ export default function ProductRecord() {
             .unwrap()
             .then((res) => {
                 let lastProductCode = "001";
-
-                if (res.data && res.data.product_code) {
-
-                    lastProductCode = res.data.product_code.slice(-3);
-                    lastProductCode = (Number(lastProductCode) + 1).toString();
-                    lastProductCode = lastProductCode.padStart(3, '0');
+    
+                if (res.data && res.data.length > 0) {
+                    // แยกเฉพาะตัวเลข 3 ตัวท้ายและแปลงเป็นตัวเลข
+                    const allNumbers = res.data
+                        .map(product => parseInt(product.product_code.slice(-3)))
+                        .sort((a, b) => a - b); // เรียงจากน้อยไปมาก
+    
+                    let nextNumber = 1; // เริ่มจาก 1
+    
+                    // หาช่องว่างของตัวเลข
+                    for (let i = 0; i < allNumbers.length; i++) {
+                        if (allNumbers[i] === nextNumber) {
+                            nextNumber++;
+                        } else if (allNumbers[i] > nextNumber) {
+                            break;
+                        }
+                    }
+    
+                    // แปลงกลับเป็น string และเติม 0 ข้างหน้า
+                    lastProductCode = nextNumber.toString().padStart(3, '0');
+    
+                    // ตรวจสอบว่าเกิน 999 หรือไม่
+                    if (nextNumber > 999) {
+                        throw new Error('Running number exceeded maximum value (999)');
+                    }
                 }
-
+    
                 setGetLastProductCode(lastProductCode);
-                formik.setFieldValue('product_code', lastProductCode);
+                
+                // ถ้ามี typeproduct_code แล้ว ให้สร้าง product_code เต็ม
+                if (formik.values.typeproduct_code) {
+                    const newProductCode = `${formik.values.typeproduct_code}${lastProductCode}`;
+                    formik.setFieldValue('product_code', newProductCode);
+                } else {
+                    formik.setFieldValue('product_code', lastProductCode);
+                }
             })
             .catch((err) => {
                 console.error(err.message);
+                // แสดง error message ถ้าต้องการ
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: err.message || 'Error generating product code',
+                    timer: 3000,
+                    timerProgressBar: true,
+                    showConfirmButton: false,
+                });
             });
     };
 
@@ -949,6 +998,7 @@ export default function ProductRecord() {
                                 Type Product
                             </Typography>
                             <TextField
+                                disabled
                                 size="small"
                                 placeholder="type product code"
                                 sx={{
@@ -960,6 +1010,7 @@ export default function ProductRecord() {
                                 }}
                                 {...formik.getFieldProps("typeproduct_code")}
                                 {...errorHelper(formik, "typeproduct_code")}
+                                value={formik.values.typeproduct_code}
                             />
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
                                 Product Id
@@ -978,7 +1029,7 @@ export default function ProductRecord() {
                                 }}
                                 {...formik.getFieldProps("product_code")}
                                 {...errorHelper(formik, "product_code")}
-                                value={getLastProductCode}
+                                value={formik.values.product_code}
                             />
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
                                 Product Name
