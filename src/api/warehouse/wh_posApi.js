@@ -109,17 +109,19 @@ export const deleteWh_pos = createAsyncThunk(
 
 export const wh_posAlljoindt = createAsyncThunk(
     "branch/read",
-    async ({ offset, limit }, { dispatch }) => {
-        try {
-            const res = await axios.post(BASE_URL + "/api/wh_posAlljoindt", { offset: offset, limit: limit });
-            console.log(res.data);
-            return res.data;
-        } catch (error) {
-            console.error(error.message);
-            throw error;
-        }
+    async ({ offset = 0, limit = 5 }, { dispatch }) => {
+      try {
+        const res = await axios.post(BASE_URL + "/api/wh_posAlljoindt", { 
+          offset, 
+          limit
+        });
+        return res.data;
+      } catch (error) {
+        console.error(error.message);
+        throw error;
+      }
     }
-);
+  );
 
 export const wh_posAllrdate = createAsyncThunk(
     "branch/read",

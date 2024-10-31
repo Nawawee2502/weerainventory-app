@@ -60,12 +60,10 @@ export default function PurchaseOrderToSupplier({ onCreate }) {
   const [whpos, setWhpos] = useState([]);
   const [whposdt, setWhposdt] = useState([]);
   const [products, setProducts] = useState([]);
-
-
-
   const [quantities, setQuantities] = useState({});
   const [units, setUnits] = useState({});
   const [totals, setTotals] = useState({});
+  const [itemsPerPage] = useState(5);
 
   const handleSearchChange = (e) => {
     setSearchTerm(e.target.value);
@@ -101,8 +99,9 @@ export default function PurchaseOrderToSupplier({ onCreate }) {
 
 
   useEffect(() => {
-    fetchData();
-  }, [searchTerm]);
+    // Initial data load
+    refetchData(1);
+  }, [dispatch]);
 
 
   // const calculateTotal = (quantity, unitCode, product) => {
@@ -146,53 +145,74 @@ export default function PurchaseOrderToSupplier({ onCreate }) {
   //     .catch((err) => err.message);
   // };
 
-  const refetchData = () => {
-    let offset = 0;
-    let limit = 5;
-    dispatch(branchAll({ offset, limit }))
+
+  const handleChange = (event, value) => {
+    setPage(value);
+    const offset = (value - 1) * itemsPerPage;
+    const limit = itemsPerPage;
+
+    // Clear existing data before fetching new page
+    setWhpos([]);
+
+    dispatch(wh_posAlljoindt({ offset, limit }))
       .unwrap()
       .then((res) => {
-        setBranch(res.data);
+        const resultData = res.data.map((item, index) => ({
+          ...item,
+          id: offset + index + 1
+        }));
+        setWhpos(resultData); // Replace old data instead of accumulating
       })
       .catch((err) => console.log(err.message));
   };
 
   useEffect(() => {
-    let offset = 0;
-    let limit = 5;
+    const fetchInitialData = () => {
+      const offset = 0;
+      const limit = itemsPerPage;
+
+      dispatch(wh_posAlljoindt({ offset, limit }))
+        .unwrap()
+        .then((res) => {
+          const resultData = res.data.map((item, index) => ({
+            ...item,
+            id: index + 1
+          }));
+          setWhpos(resultData);
+          
+          // Calculate total pages
+          const totalItems = res.total || resultData.length * 2; // Adjust based on your API
+          const totalPages = Math.ceil(totalItems / itemsPerPage);
+          setCount(totalPages);
+        })
+        .catch((err) => console.log(err.message));
+    };
+
+    fetchInitialData();
+  }, [dispatch, itemsPerPage]);
+
+  const refetchData = (targetPage = 1) => {
+    const offset = (targetPage - 1) * itemsPerPage;
+    const limit = itemsPerPage;
+
+    // setWhpos([]); // Clear existing data
+
     dispatch(wh_posAlljoindt({ offset, limit }))
       .unwrap()
       .then((res) => {
-        console.log("---------whpos---------")
-        console.log(res.data);
-        let resultData = res.data;
-        for (let indexArray = 0; indexArray < resultData.length; indexArray++) {
-          resultData[indexArray].id = indexArray + 1;
-        }
+        const resultData = res.data.map((item, index) => ({
+          ...item,
+          id: offset + index + 1
+        }));
         setWhpos(resultData);
-        console.log(resultData);
-
+        
+        const totalItems = res.total || resultData.length * 2;
+        const totalPages = Math.ceil(totalItems / itemsPerPage);
+        setCount(totalPages);
+        setPage(targetPage);
       })
-      .catch((err) => err.message);
-
-    // dispatch(branchAll({ offset, limit }))
-    //   .unwrap()
-    //   .then((res) => {
-    //     console.log("Branch data", res.data);
-    //     setBranch(res.data);
-    //   })
-    //   .catch((err) => console.log(err.message));
-
-    // dispatch(supplierAll({ offset, limit }))
-    //   .unwrap()
-    //   .then((res) => {
-    //     console.log("Supplier data", res.data);
-    //     setSupplier(res.data);
-    //   })
-    //   .catch((err) => console.log(err.message));
-
-  }, [dispatch]); // ให้แน่ใจว่าค่าใน dependency มีการเปลี่ยนแปลงเมื่อจำเป็นเท่านั้น
-
+      .catch((err) => console.log(err.message));
+  };
 
   const handleCheckboxChange = (event, branch_code) => {
     if (event.target.checked) {
@@ -687,6 +707,14 @@ export default function PurchaseOrderToSupplier({ onCreate }) {
             </TableBody>
           </Table>
         </TableContainer>
+        <Stack spacing={2} sx={{ mt: '8px' }}>
+        <Pagination 
+          count={count} 
+          shape="rounded" 
+          onChange={handleChange} 
+          page={page} 
+        />
+      </Stack>
         {/* <Stack spacing={2} sx={{ mt: '8px' }}>
           <Pagination count={count} shape="rounded" onChange={handleChange} page={page} />
         </Stack> */}

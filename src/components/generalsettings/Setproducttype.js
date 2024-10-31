@@ -424,7 +424,15 @@ export default function SetProductType() {
         }
     });
 
+    const handleCancelCreate = () => {
+        formik.resetForm();
+        setOpenDrawer(false);
+    };
 
+    const handleCancelEdit = () => {
+        formik.resetForm();
+        setOpenEditDrawer(false);
+    };
 
     return (
         <>
@@ -674,6 +682,7 @@ export default function SetProductType() {
                             />
                         </Box>
                         <Box sx={{ mt: '24px' }} >
+                        onClick={handleCancelCreate}
                             <Button variant='contained'
                                 sx={{
                                     width: '100px',
@@ -806,6 +815,7 @@ export default function SetProductType() {
                             />
                         </Box>
                         <Box sx={{ mt: '24px' }} >
+                        onClick={handleCancelEdit}
                             <Button variant='contained'
                                 sx={{
                                     width: '100px',
@@ -813,7 +823,7 @@ export default function SetProductType() {
                                     '&:hover': {
                                         bgcolor: '#D32F2F',
                                     },
-                                }}
+                                }} 
                             >
                                 Cancel
                             </Button>

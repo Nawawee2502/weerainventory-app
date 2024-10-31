@@ -7,10 +7,8 @@ import DashboardIcon from '@mui/icons-material/Dashboard';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import DescriptionIcon from '@mui/icons-material/Description';
-import LayersIcon from '@mui/icons-material/Layers';
 import { AppProvider } from '@toolpad/core/AppProvider';
 import { DashboardLayout } from '@toolpad/core/DashboardLayout';
-import PurchaseOrderToSupplier from '../components/warehouse/purchaseordertosupplier/Purchaseordertosupplier'
 import ReceiptFromSupplier from '../components/warehouse/Receiptfromsupplier'
 import ReceiptFromKitchen from '../components/warehouse/Receiptfromkitchen';
 import { useNavigate } from "react-router-dom";

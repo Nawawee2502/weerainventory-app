@@ -616,6 +616,7 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
                     <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Quantity</th>
                     <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '10%', color: '#754C27', fontWeight: '800' }}>Unit</th>
                     <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Unit Price</th>
+                    <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Tax</th>
                     <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Total</th>
                     <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '1%', color: '#754C27', fontWeight: '800' }}></th>
                   </tr>
@@ -671,13 +672,16 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
                           {currentUnitPrice.toFixed(2)}
                         </td>
                         <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                          {product.tax1 === 'Y' ? 'Yes' : product.tax1 === 'N' ? 'No' : product.tax1}
+                        </td>
+                        <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
                           {currentTotal}
                         </td>
                         <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
                           <IconButton
                             onClick={() => handleDeleteWhProduct(productCode)}
                             size="small"
-                          >
+                          > 
                             <CancelIcon />
                           </IconButton>
                         </td>
@@ -690,13 +694,13 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
 
             <Box sx={{ width: '100%', height: 'auto', bgcolor: '#EAB86C', borderRadius: '10px', p: '18px' }}>
               <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-                <Typography sx={{ color: '#FFFFFF' }}>Subtotal</Typography>
+                <Typography sx={{ color: '#FFFFFF' }}>Taxable</Typography>
                 <Typography sx={{ color: '#FFFFFF', ml: 'auto' }}>
                   ${subtotal.toFixed(2)}
                 </Typography>
               </Box>
               <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', mt: '8px' }}>
-                <Typography sx={{ color: '#FFFFFF' }}>Tax(12%)</Typography>
+                <Typography sx={{ color: '#FFFFFF' }}>Non-taxable</Typography>
                 <Typography sx={{ color: '#FFFFFF', ml: 'auto' }}>
                   ${tax.toFixed(2)}
                 </Typography>
