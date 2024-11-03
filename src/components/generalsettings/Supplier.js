@@ -429,6 +429,16 @@ export default function Supplier() {
         }
     });
 
+    const handleCancelCreate = () => {
+        formik.resetForm();
+        setOpenDrawer(false);
+    };
+
+    const handleCancelEdit = () => {
+        formik.resetForm();
+        setOpenEditDrawer(false);
+    };
+
     return (
         <>
             <Box
@@ -727,6 +737,7 @@ export default function Supplier() {
                         </Box>
                         <Box sx={{ mt: '24px' }} >
                             <Button variant='contained'
+                                onClick={handleCancelCreate}
                                 sx={{
                                     width: '100px',
                                     bgcolor: '#F62626',
@@ -897,6 +908,7 @@ export default function Supplier() {
                         </Box>
                         <Box sx={{ mt: '24px' }} >
                             <Button variant='contained'
+                                onClick={handleCancelEdit}
                                 sx={{
                                     width: '100px',
                                     bgcolor: '#F62626',
@@ -926,12 +938,6 @@ export default function Supplier() {
                     </Box>
                 </Box>
             </Drawer>
-            {alert.open && (
-                <Alert severity={alert.severity} onClose={() => setAlert({ ...alert, open: false })}>
-                    <AlertTitle>{alert.severity === 'success' ? 'Success' : 'Error'}</AlertTitle>
-                    {alert.message}
-                </Alert>
-            )}
         </>
     );
 }

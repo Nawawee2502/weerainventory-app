@@ -82,7 +82,6 @@ export default function ProductRecord() {
         let offset = page * 5;
         let limit = 5;
 
-        // เปลี่ยนจาก productAll เป็น productAlltypeproduct
         dispatch(productAlltypeproduct({ offset, limit }))
             .unwrap()
             .then((res) => {
@@ -90,7 +89,7 @@ export default function ProductRecord() {
                 for (let indexArray = 0; indexArray < resultData.length; indexArray++) {
                     resultData[indexArray].id = offset + indexArray + 1;
                 }
-                setProductAllTypeproduct(resultData); // เปลี่ยนเป็น setProductAllTypeproduct
+                setProductAllTypeproduct(resultData); 
             })
             .catch((err) => err.message);
     };
@@ -414,15 +413,15 @@ export default function ProductRecord() {
             .unwrap()
             .then((res) => {
                 let lastProductCode = "001";
-    
+
                 if (res.data && res.data.length > 0) {
                     // แยกเฉพาะตัวเลข 3 ตัวท้ายและแปลงเป็นตัวเลข
                     const allNumbers = res.data
                         .map(product => parseInt(product.product_code.slice(-3)))
                         .sort((a, b) => a - b); // เรียงจากน้อยไปมาก
-    
+
                     let nextNumber = 1; // เริ่มจาก 1
-    
+
                     // หาช่องว่างของตัวเลข
                     for (let i = 0; i < allNumbers.length; i++) {
                         if (allNumbers[i] === nextNumber) {
@@ -431,18 +430,18 @@ export default function ProductRecord() {
                             break;
                         }
                     }
-    
+
                     // แปลงกลับเป็น string และเติม 0 ข้างหน้า
                     lastProductCode = nextNumber.toString().padStart(3, '0');
-    
+
                     // ตรวจสอบว่าเกิน 999 หรือไม่
                     if (nextNumber > 999) {
                         throw new Error('Running number exceeded maximum value (999)');
                     }
                 }
-    
+
                 setGetLastProductCode(lastProductCode);
-                
+
                 // ถ้ามี typeproduct_code แล้ว ให้สร้าง product_code เต็ม
                 if (formik.values.typeproduct_code) {
                     const newProductCode = `${formik.values.typeproduct_code}${lastProductCode}`;
@@ -493,6 +492,16 @@ export default function ProductRecord() {
             })
             .catch((err) => console.log(err.message));
     }
+
+    const handleCancelCreate = () => {
+        formik.resetForm();
+        setOpenDrawer(false);
+    };
+
+    const handleCancelEdit = () => {
+        formik.resetForm();
+        setOpenEditDrawer(false);
+    };
 
     return (
         <>
@@ -901,6 +910,7 @@ export default function ProductRecord() {
                         </Box>
                         <Box sx={{ mt: '24px' }} >
                             <Button variant='contained'
+                                onClick={handleCancelCreate}
                                 sx={{
                                     width: '100px',
                                     bgcolor: '#F62626',
@@ -1130,6 +1140,7 @@ export default function ProductRecord() {
                         </Box>
                         <Box sx={{ mt: '24px' }} >
                             <Button variant='contained'
+                                onClick={handleCancelEdit}
                                 sx={{
                                     width: '100px',
                                     bgcolor: '#F62626',

@@ -432,6 +432,16 @@ export default function ComissaryKitchen() {
         }
     });
 
+    const handleCancelCreate = () => {
+        formik.resetForm();
+        setOpenDrawer(false);
+    };
+
+    const handleCancelEdit = () => {
+        formik.resetForm();
+        setOpenEditDrawer(false);
+    };
+
     return (
         <>
             <Box
@@ -729,6 +739,7 @@ export default function ComissaryKitchen() {
                         </Box>
                         <Box sx={{ mt: '24px' }} >
                             <Button variant='contained'
+                                onClick={handleCancelCreate}
                                 sx={{
                                     width: '100px',
                                     bgcolor: '#F62626',
@@ -902,6 +913,7 @@ export default function ComissaryKitchen() {
                         </Box>
                         <Box sx={{ mt: '24px' }} >
                             <Button variant='contained'
+                                onClick={handleCancelEdit}
                                 sx={{
                                     width: '100px',
                                     bgcolor: '#F62626',

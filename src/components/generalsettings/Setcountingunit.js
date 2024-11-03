@@ -413,6 +413,16 @@ export default function SetCountingUnit() {
         }
     });
 
+    const handleCancelCreate = () => {
+        formik.resetForm();
+        setOpenDrawer(false);
+    };
+
+    const handleCancelEdit = () => {
+        formik.resetForm();
+        setOpenEditDrawer(false);
+    };
+
     return (
         <>
             <Box
@@ -663,6 +673,7 @@ export default function SetCountingUnit() {
                         </Box>
                         <Box sx={{ mt: '24px' }} >
                             <Button variant='contained'
+                                onClick={handleCancelCreate}
                                 sx={{
                                     width: '100px',
                                     bgcolor: '#F62626',
@@ -792,6 +803,7 @@ export default function SetCountingUnit() {
                             />
                         </Box>
                         <Box sx={{ mt: '24px' }} >
+                            onClick={handleCancelEdit}
                             <Button variant='contained'
                                 sx={{
                                     width: '100px',
@@ -822,12 +834,6 @@ export default function SetCountingUnit() {
                     </Box>
                 </Box>
             </Drawer>
-            {alert.open && (
-                <Alert severity={alert.severity} onClose={() => setAlert({ ...alert, open: false })}>
-                    <AlertTitle>{alert.severity === 'success' ? 'Success' : 'Error'}</AlertTitle>
-                    {alert.message}
-                </Alert>
-            )}
         </>
     );
 }

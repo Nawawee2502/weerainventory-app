@@ -682,7 +682,7 @@ export default function SetProductType() {
                             />
                         </Box>
                         <Box sx={{ mt: '24px' }} >
-                        onClick={handleCancelCreate}
+                            onClick={handleCancelCreate}
                             <Button variant='contained'
                                 sx={{
                                     width: '100px',
@@ -815,7 +815,7 @@ export default function SetProductType() {
                             />
                         </Box>
                         <Box sx={{ mt: '24px' }} >
-                        onClick={handleCancelEdit}
+                            onClick={handleCancelEdit}
                             <Button variant='contained'
                                 sx={{
                                     width: '100px',
@@ -823,7 +823,7 @@ export default function SetProductType() {
                                     '&:hover': {
                                         bgcolor: '#D32F2F',
                                     },
-                                }} 
+                                }}
                             >
                                 Cancel
                             </Button>

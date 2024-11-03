@@ -26,6 +26,7 @@ import Swal from 'sweetalert2';
 import PrintIcon from '@mui/icons-material/Print';
 import { PDFDownloadLink, Document, Page, Text, View, StyleSheet, pdf } from '@react-pdf/renderer';
 import { saveAs } from 'file-saver';
+import { generatePDF } from './Pdf.js'
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
   [`&.${tableCellClasses.head}`]: {
@@ -69,48 +70,10 @@ export default function PurchaseOrderToSupplier({ onCreate }) {
     setSearchTerm(e.target.value);
   };
 
-  const fetchData = () => {
-    if (searchTerm) {
-      // Mock API call with searchProductCode
-      dispatch(searchProductCode({ product_code: searchTerm }))
-        .unwrap()
-        .then((res) => {
-          // กรอง product ที่ product_code ขึ้นต้นด้วย searchTerm และยาวไม่เกินความยาวที่ถูกต้อง
-          const filteredProducts = res.data.filter((product) =>
-            product.product_code.startsWith(searchTerm)
-          );
-
-          setProducts(filteredProducts); // Set product data จาก API หลังกรอง
-          const initialQuantities = {};
-          const initialUnits = {};
-          const initialTotals = {};
-          filteredProducts.forEach((product) => {
-            initialQuantities[product.product_code] = 1; // ตั้งค่าเริ่มต้นของ quantity เป็น 1
-            initialUnits[product.product_code] = product.productUnit1.unit_code; // ตั้งค่า default unit เป็น bulk unit
-            initialTotals[product.product_code] = calculateTotal(1, product.productUnit1.unit_code, product); // คำนวณ total
-          });
-          setQuantities(initialQuantities);
-          setUnits(initialUnits);
-          setTotals(initialTotals);
-        })
-        .catch((err) => console.log(err.message));
-    }
-  };
-
-
   useEffect(() => {
     // Initial data load
     refetchData(1);
   }, [dispatch]);
-
-
-  // const calculateTotal = (quantity, unitCode, product) => {
-  //   const unitPrice =
-  //     unitCode === product.productUnit1.unit_code
-  //       ? product.bulk_unit_price
-  //       : product.retail_unit_price;
-  //   return quantity * unitPrice;
-  // };
 
   useEffect(() => {
     if (searchTerm) {
@@ -124,27 +87,6 @@ export default function PurchaseOrderToSupplier({ onCreate }) {
       refetchData();
     }
   }, [searchTerm, dispatch]);
-
-  // const handleChange = (event, value) => {
-  //   setPage(value);
-  //   console.log(value);
-  //   let page = value - 1;
-  //   let offset = page * 5;
-  //   let limit = value * 5;
-  //   console.log(limit, offset);
-  //   dispatch(branchAll({ offset, limit }))
-  //     .unwrap()
-  //     .then((res) => {
-  //       console.log(res.data);
-  //       let resultData = res.data;
-  //       for (let indexArray = 0; indexArray < resultData.length; indexArray++) {
-  //         resultData[indexArray].id = offset + indexArray + 1;
-  //       }
-  //       setBranch(resultData);
-  //     })
-  //     .catch((err) => err.message);
-  // };
-
 
   const handleChange = (event, value) => {
     setPage(value);
@@ -179,7 +121,7 @@ export default function PurchaseOrderToSupplier({ onCreate }) {
             id: index + 1
           }));
           setWhpos(resultData);
-          
+
           // Calculate total pages
           const totalItems = res.total || resultData.length * 2; // Adjust based on your API
           const totalPages = Math.ceil(totalItems / itemsPerPage);
@@ -205,7 +147,7 @@ export default function PurchaseOrderToSupplier({ onCreate }) {
           id: offset + index + 1
         }));
         setWhpos(resultData);
-        
+
         const totalItems = res.total || resultData.length * 2;
         const totalPages = Math.ceil(totalItems / itemsPerPage);
         setCount(totalPages);
@@ -332,218 +274,48 @@ export default function PurchaseOrderToSupplier({ onCreate }) {
     });
   };
 
-  const [editDate, setEditDate] = useState(new Date());
+
   const [saveSupplier, setSaveSupplier] = useState('');
   const [saveBranch, setSaveBranch] = useState('');
+  const [editDate, setEditDate] = useState(new Date());
   const [subtotal, setSubtotal] = useState(0);
   const [tax, setTax] = useState(0);
   const [total, setTotal] = useState(0);
   const [originalProducts, setOriginalProducts] = useState([]);
+  
 
-  const [rdate, setRdate] = useState('');
-  const [monthh, setMonthh] = useState('');
-  const [myear, setMyear] = useState('');
-  const [refno, setRefno] = useState('');
-  const [trDate, setTrDate] = useState('');
-  const [userCode, setUserCode] = useState('');
-  const [productForPrint, setProductForPrint] = useState([]);
-
-  const calculateTotal = (quantity, unitCode, product) => {
-    const unitPrice = unitCode === product.productUnit1.unit_code
-      ? product.bulk_unit_price
-      : product.retail_unit_price;
-    return quantity * unitPrice;
-  };
-
-  const calculateOrderTotals = () => {
-    const orderSubtotal = products.reduce((sum, product) => {
-      const productCode = product.product_code;
-      const quantity = quantities[productCode] || 1;
-      const unitCode = units[productCode] || product.productUnit1.unit_code;
-      const unitPrice = unitCode === product.productUnit1.unit_code
-        ? product.bulk_unit_price
-        : product.retail_unit_price;
-      return sum + (quantity * unitPrice);
-    }, 0);
-
-    const orderTax = orderSubtotal * 0.12;
-    const orderTotal = orderSubtotal + orderTax;
-
-    setSubtotal(orderSubtotal);
-    setTax(orderTax);
-    setTotal(orderTotal);
-  };
-
-  const getDataForPrint = (refno) => {
-    console.log("--------------DATAREFNO------------");
-    console.log(refno);
-    dispatch(Wh_posByRefno(refno))
-      .unwrap()
-      .then(async (res) => {
-        // แปลงวันที่
-        const [day, month, year] = res.data.rdate.split("/");
-        setEditDate(new Date(year, month - 1, day));
-        console.log("--------------DATA------------");
-        console.log(res.data.supplier_code);
-
-
-        // เซ็ตข้อมูล supplier และ branch
-        setSaveSupplier(res.data.supplier_code);
-        setSaveBranch(res.data.branch_code);
-        
-        // แปลงข้อมูล products
-        const orderProducts = res.data.wh_posdts.map(item => ({
-          product_code: item.product_code,
-          product_name: item.tbl_product.product_name,
-          bulk_unit_price: item.tbl_product.bulk_unit_price,
-          retail_unit_price: item.tbl_product.retail_unit_price,
-          productUnit1: item.tbl_product.productUnit1,
-          productUnit2: item.tbl_product.productUnit2,
-          qty: item.qty,
-          unit_code: item.unit_code,
-          uprice: item.uprice,
-          amt: item.amt,
-          isNewProduct: false // เพิ่ม flag สำหรับสินค้าเดิม
-        }));
-
-        // เซ็ต products และเก็บข้อมูลต้นฉบับ
-        setProducts(orderProducts);
-        setOriginalProducts(orderProducts);
-
-        // // สร้าง objects สำหรับเก็บค่าต่างๆ
-        // const initialQuantities = {};
-        // const initialUnits = {};
-        // const initialTotals = {};
-
-        // // เก็บค่าเริ่มต้นของแต่ละ product
-        // orderProducts.forEach(item => {
-        //   initialQuantities[item.product_code] = parseInt(item.qty);
-        //   initialUnits[item.product_code] = item.unit_code;
-        //   initialTotals[item.product_code] = parseFloat(item.amt);
-        // });
-
-        // // เซ็ตค่าต่างๆ
-        // setQuantities(initialQuantities);
-        // setUnits(initialUnits);
-        // setTotals(initialTotals);
-
-        // // เซ็ตยอดรวมเริ่มต้น
-        // setSubtotal(parseFloat(res.data.total));
-        // setTax(parseFloat(res.data.total) * 0.12);
-        // setTotal(parseFloat(res.data.total) * 1.12);
-        console.log("--------------DATA2------------");
-        console.log(orderProducts);
-
-        setSupplier(res.data.supplier_code);
-        setBranch(res.data.branch_code);
-        setMonthh(res.data.monthh);
-        setMyear(res.data.myear);
-        setRdate(res.data.rdate);
-        setRefno(res.data.refno);
-        setTotal(res.data.total);
-        setTrDate(res.data.trdate);
-        setUserCode(res.data.user_code);
-        console.log("--------------DATA------------");
-        console.log(userCode);
-
-        const doc = <PurchaseOrderPDF supplier={supplier} refNo={refno} date={rdate} branch={saveBranch} productArray={orderProducts} total={total}/>;
-        const asBlob = await pdf(doc).toBlob();
-        const url = URL.createObjectURL(asBlob);
-        window.open(url, '_blank');
-      })
-      .catch((err) => {
-        console.log(err.message);
-        Swal.fire({
-          icon: 'error',
-          title: 'Error loading order data',
-          text: err.message,
-          confirmButtonText: 'OK'
-        });
-      });
-  }
 
   const PrintPurchaseOrderPDF = async (refno) => {
-    // const doc = <PurchaseOrderPDF />;
-    // const asBlob = await pdf(doc).toBlob();
-    // saveAs(asBlob, 'purchase_order.pdf');
-    getDataForPrint(refno);
-
-
-    // const doc = <PurchaseOrderPDF />;
-    // const asBlob = await pdf(doc).toBlob();
-    // const url = URL.createObjectURL(asBlob);
-    // window.open(url, '_blank');
+    try {
+      dispatch(Wh_posByRefno(refno))
+        .unwrap()
+        .then(async (res) => {
+          const pdfContent = await generatePDF(refno, res.data);
+          if (pdfContent) {
+            const asBlob = await pdf(pdfContent).toBlob();
+            const url = URL.createObjectURL(asBlob);
+            window.open(url, '_blank');
+          }
+        })
+        .catch((err) => {
+          console.log(err.message);
+          Swal.fire({
+            icon: 'error',
+            title: 'Error loading order data',
+            text: err.message,
+            confirmButtonText: 'OK'
+          });
+        });
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error generating PDF',
+        text: 'Please try again later',
+        confirmButtonText: 'OK'
+      });
+    }
   };
-
-  const PurchaseOrderPDF = ({ supplier, refNo, date, branch, productArray }) => (
-    <Document>
-      <Page style={styles.page}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text>WEERA THAI RAINBOW</Text>
-          <Text>3111 Valley Blvd S-10 Las Vegas NV 8910</Text>
-          <Text>โทร ......</Text>
-        </View>
-
-        {/* Supplier Info */}
-        <View style={{ flexDirection: 'row', marginVertical: 10 }}>
-          <View style={{ flex: 1 }}>
-            <Text>Supplier: {supplier}</Text>
-            <Text>Branch: {branch}</Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text>Ref No.: {refNo}</Text>
-            <Text>Date: {date}</Text>
-          </View>
-        </View>
-
-        {/* Table Header */}
-
-        <View style={styles.tableHeader}>
-          <Text style={[styles.cell, { flex: 0.5 }]}>Item</Text>
-          <Text style={styles.cell}>Description</Text>
-          <Text style={styles.cell}>QTY</Text>
-          <Text style={styles.cell}>UPrice</Text>
-          <Text style={styles.cell}>Unit</Text>
-          <Text style={styles.cell}>Amount</Text>
-        </View>
-
-        {/* Table Rows */}
-        {productArray.map((item, index) => (
-          <View style={styles.row} key={index}>
-            <Text style={[styles.cell, { flex: 0.5 }]}>{index + 1}</Text>
-            <Text style={styles.cell}>Product Description</Text>
-            <Text style={styles.cell}>{item.qty}</Text>
-            <Text style={styles.cell}>{item.unit_code}</Text>
-            <Text style={styles.cell}>{item.uprice}</Text>
-            <Text style={styles.cell}>{item.amt}</Text>
-          </View>
-        ))}
-
-        {/* Grand Total */}
-        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 10 }}>
-          <Text>Grand Total: {total}</Text>
-        </View>
-
-        {/* Footer */}
-        <View style={styles.footer}>
-          <View>
-            <Text>Authorized Signature: </Text>
-            <Text>_________________________</Text>
-          </View>
-          <View>
-            <Text>Quoted By:</Text>
-            <Text>Sale:</Text>
-            <Text>Mobile:</Text>
-          </View>
-          <View>
-            <Text>Approved By:</Text>
-            <Text>Date:</Text>
-          </View>
-        </View> 
-      </Page>
-    </Document>
-  );
 
 
   return (
@@ -708,13 +480,13 @@ export default function PurchaseOrderToSupplier({ onCreate }) {
           </Table>
         </TableContainer>
         <Stack spacing={2} sx={{ mt: '8px' }}>
-        <Pagination 
-          count={count} 
-          shape="rounded" 
-          onChange={handleChange} 
-          page={page} 
-        />
-      </Stack>
+          <Pagination
+            count={count}
+            shape="rounded"
+            onChange={handleChange}
+            page={page}
+          />
+        </Stack>
         {/* <Stack spacing={2} sx={{ mt: '8px' }}>
           <Pagination count={count} shape="rounded" onChange={handleChange} page={page} />
         </Stack> */}
