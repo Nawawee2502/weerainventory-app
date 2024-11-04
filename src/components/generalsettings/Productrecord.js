@@ -89,7 +89,7 @@ export default function ProductRecord() {
                 for (let indexArray = 0; indexArray < resultData.length; indexArray++) {
                     resultData[indexArray].id = offset + indexArray + 1;
                 }
-                setProductAllTypeproduct(resultData); 
+                setProductAllTypeproduct(resultData);
             })
             .catch((err) => err.message);
     };
@@ -182,7 +182,7 @@ export default function ProductRecord() {
         }
     };
 
-    
+
 
     const handleDelete = (product_code) => {
         Swal.fire({
@@ -319,6 +319,7 @@ export default function ProductRecord() {
             retail_unit_code: row.retail_unit_code || '',
             retail_unit_price: row.retail_unit_price || '',
             unit_conversion_factor: row.unit_conversion_factor || '',
+            tax1: row.tax1 || '', // เพิ่ม tax1
         });
         toggleEditDrawer(true)();
     };
@@ -356,6 +357,7 @@ export default function ProductRecord() {
             retail_unit_code: '',
             retail_unit_price: '',
             unit_conversion_factor: '',
+            tax1: '', // เพิ่ม tax1
         },
         validate: (values) => {
             const errors = {};
@@ -366,6 +368,7 @@ export default function ProductRecord() {
             if (!values.retail_unit_code) errors.retail_unit_code = 'retail_unit_code cannot be empty';
             if (!values.retail_unit_price) errors.retail_unit_price = 'retail_unit_price cannot be empty';
             if (!values.unit_conversion_factor) errors.unit_conversion_factor = 'unit_conversion_factor cannot be empty';
+            if (!values.tax1) errors.tax1 = 'Tax cannot be empty'; // เพิ่ม validation สำหรับ tax1
             return errors;
         },
         onSubmit: (values) => {
@@ -486,8 +489,8 @@ export default function ProductRecord() {
 
     const fetchTypeproducts = () => {
         let offset = 0;
-        let limit = 5;
-        dispatch(fetchAllTypeproducts({ offset, limit }))
+        let limit = 999999;
+        dispatch(fetchAllTypeproducts({}))
             .unwrap()
             .then((res) => {
                 setTypeproducts(res.data);
@@ -600,6 +603,7 @@ export default function ProductRecord() {
                                 <StyledTableCell align="center">Type Product</StyledTableCell>
                                 <StyledTableCell align="center">Product ID</StyledTableCell>
                                 <StyledTableCell align="center">Product Name</StyledTableCell>
+                                <StyledTableCell align="center">Tax</StyledTableCell>
                                 <StyledTableCell align="center">Large Unit</StyledTableCell>
                                 <StyledTableCell align="center">Small Unit</StyledTableCell>
                                 <StyledTableCell align="center">Conversion Quantity </StyledTableCell>
@@ -625,6 +629,9 @@ export default function ProductRecord() {
                                     </StyledTableCell>
                                     <StyledTableCell align="center">{row.product_code}</StyledTableCell>
                                     <StyledTableCell align="center">{row.product_name}</StyledTableCell>
+                                    <StyledTableCell align="center">
+                                        {row.tax1 === 'Y' ? 'Yes' : 'No'}
+                                    </StyledTableCell>
                                     <StyledTableCell align="center">
                                         {row.productUnit1?.unit_name}
                                     </StyledTableCell>
@@ -799,6 +806,27 @@ export default function ProductRecord() {
                                 {...formik.getFieldProps("product_name")}
                                 {...errorHelper(formik, "product_name")}
                             />
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
+                                Tax
+                            </Typography>
+                            <select
+                                name="tax1"
+                                style={{
+                                    width: '100%',
+                                    borderRadius: '10px',
+                                    padding: '8px',
+                                    marginTop: '8px',
+                                    border: '1px solid #ccc',
+                                    outline: 'none',
+                                    height: '40px'
+                                }}
+                                {...formik.getFieldProps("tax1")}
+                                {...errorHelper(formik, "tax1")}
+                            >
+                                <option value="" disabled>Select Tax Option</option>
+                                <option value="Y">Yes</option>
+                                <option value="N">No</option>
+                            </select>
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
                                 Large unit
                             </Typography>
@@ -1059,6 +1087,27 @@ export default function ProductRecord() {
                                 {...formik.getFieldProps("product_name")}
                                 {...errorHelper(formik, "product_name")}
                             />
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
+                                Tax
+                            </Typography>
+                            <select
+                                name="tax1"
+                                style={{
+                                    width: '100%',
+                                    borderRadius: '10px',
+                                    padding: '8px',
+                                    marginTop: '8px',
+                                    border: '1px solid #ccc',
+                                    outline: 'none',
+                                    height: '40px'
+                                }}
+                                {...formik.getFieldProps("tax1")}
+                                {...errorHelper(formik, "tax1")}
+                            >
+                                <option value="" disabled>Select Tax Option</option>
+                                <option value="Y">Yes</option>
+                                <option value="N">No</option>
+                            </select>
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
                                 Large unit
                             </Typography>

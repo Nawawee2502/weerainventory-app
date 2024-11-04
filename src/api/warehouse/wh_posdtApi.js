@@ -6,7 +6,7 @@ const BASE_URL = `${process.env.REACT_APP_URL_API}`;
 
 export const addWh_posdt = createAsyncThunk(
     "branch/add",
-    async ({ refno, product_code, qty, unit_code, uprice, amt }, { dispatch }) => {
+    async ({ refno, product_code, qty, unit_code, uprice, tax1, amt }, { dispatch }) => {
         try {
             const res = await axios.post(BASE_URL + "/api/addWh_posdt", {
                 refno,
@@ -14,6 +14,7 @@ export const addWh_posdt = createAsyncThunk(
                 qty,
                 unit_code,
                 uprice,
+                tax1,
                 amt,
             });
             console.log(res.data);
@@ -35,6 +36,7 @@ export const updateWh_posdt = createAsyncThunk(
                 qty: productData.qty,
                 unit_code: productData.unit_code,
                 uprice: productData.uprice,
+                tax1: productData.tax1,
                 amt: productData.amt
             });
             return res.data;

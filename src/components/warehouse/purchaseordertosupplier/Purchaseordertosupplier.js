@@ -15,7 +15,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { addSupplier, deleteSupplier, updateSupplier, supplierAll, countSupplier, searchSupplier, lastSupplierCode } from '../../../api/supplierApi';
 import { addBranch, deleteBranch, updateBranch, branchAll, countBranch, searchBranch, lastBranchCode } from '../../../api/branchApi';
-import { addWh_pos, updateWh_pos, deleteWh_pos, wh_posAlljoindt, wh_posAllrdate, Wh_posByRefno } from '../../../api/warehouse/wh_posApi';
+import { addWh_pos, updateWh_pos, deleteWh_pos, wh_posAlljoindt, wh_posAllrdate, Wh_posByRefno, countwh_pos } from '../../../api/warehouse/wh_posApi';
 import { Wh_posdtAllinnerjoin, deleteWh_posdt } from '../../../api/warehouse/wh_posdtApi';
 import { searchProductCode } from '../../../api/productrecordApi';
 import { useFormik } from "formik";
@@ -70,90 +70,93 @@ export default function PurchaseOrderToSupplier({ onCreate, onEdit }) {
     setSearchTerm(e.target.value);
   };
 
-  useEffect(() => {
-    // Initial data load
-    refetchData(1);
-  }, [dispatch]);
 
   useEffect(() => {
-    if (searchTerm) {
-      dispatch(searchProductCode({ product_code: searchTerm }))
-        .unwrap()
-        .then((res) => {
-          setProducts(res.data);
-        })
-        .catch((err) => console.log(err.message));
-    } else {
-      refetchData();
-    }
+    const searchTimeout = setTimeout(() => {
+      if (searchTerm) {
+        dispatch(searchProductCode({ product_code: searchTerm }))
+          .unwrap()
+          .then((res) => {
+            setProducts(res.data);
+          })
+          .catch((err) => console.log(err.message));
+      }
+    }, 500); // debounce search
+
+    return () => clearTimeout(searchTimeout);
   }, [searchTerm, dispatch]);
 
   const handleChange = (event, value) => {
-    setPage(value);
-    const offset = (value - 1) * itemsPerPage;
-    const limit = itemsPerPage;
-
-    // Clear existing data before fetching new page
-    setWhpos([]);
-
-    dispatch(wh_posAlljoindt({ offset, limit }))
-      .unwrap()
-      .then((res) => {
-        const resultData = res.data.map((item, index) => ({
-          ...item,
-          id: offset + index + 1
-        }));
-        setWhpos(resultData); // Replace old data instead of accumulating
-      })
-      .catch((err) => console.log(err.message));
+    refetchData(value);
   };
 
   useEffect(() => {
-    const fetchInitialData = () => {
-      const offset = 0;
-      const limit = itemsPerPage;
+    const fetchInitialData = async () => {
+      try {
+        const offset = 0;
+        const limit = itemsPerPage;
 
-      dispatch(wh_posAlljoindt({ offset, limit }))
-        .unwrap()
-        .then((res) => {
+        const res = await dispatch(wh_posAlljoindt({ offset, limit })).unwrap();
+        console.log('API Response:', res);
+
+        if (res.result && Array.isArray(res.data)) {
           const resultData = res.data.map((item, index) => ({
             ...item,
             id: index + 1
           }));
           setWhpos(resultData);
+        }
 
-          // Calculate total pages
-          const totalItems = res.total || resultData.length * 2; // Adjust based on your API
+        const countRes = await dispatch(countwh_pos({ test: "" })).unwrap();
+        if (countRes.result) {
+          const totalItems = countRes.data;
           const totalPages = Math.ceil(totalItems / itemsPerPage);
           setCount(totalPages);
-        })
-        .catch((err) => console.log(err.message));
+          setPage(1);
+        }
+      } catch (err) {
+        console.error("Error fetching initial data:", err);
+      }
     };
 
     fetchInitialData();
   }, [dispatch, itemsPerPage]);
 
-  const refetchData = (targetPage = 1) => {
-    const offset = (targetPage - 1) * itemsPerPage;
-    const limit = itemsPerPage;
+  const refetchData = async (targetPage = 1) => {
+    try {
+      setWhpos([]); // clear old data
 
-    // setWhpos([]); // Clear existing data
+      const offset = (targetPage - 1) * itemsPerPage;
+      const limit = itemsPerPage;
 
-    dispatch(wh_posAlljoindt({ offset, limit }))
-      .unwrap()
-      .then((res) => {
+      const [res, countRes] = await Promise.all([
+        dispatch(wh_posAlljoindt({ offset, limit })).unwrap(),
+        dispatch(countwh_pos({ test: "" })).unwrap()
+      ]);
+
+      if (res.result && Array.isArray(res.data)) {
         const resultData = res.data.map((item, index) => ({
           ...item,
           id: offset + index + 1
         }));
         setWhpos(resultData);
+      }
 
-        const totalItems = res.total || resultData.length * 2;
+      if (countRes.result) {
+        const totalItems = countRes.data;
         const totalPages = Math.ceil(totalItems / itemsPerPage);
         setCount(totalPages);
         setPage(targetPage);
-      })
-      .catch((err) => console.log(err.message));
+      }
+    } catch (err) {
+      console.error("Error fetching data:", err);
+      // อาจจะเพิ่ม error handling เช่น แสดง alert
+      Swal.fire({
+        icon: 'error',
+        title: 'Error loading data',
+        text: err.message || 'An unknown error occurred',
+      });
+    }
   };
 
   const handleCheckboxChange = (event, branch_code) => {
@@ -175,20 +178,39 @@ export default function PurchaseOrderToSupplier({ onCreate, onEdit }) {
 
   const loadData = async (pageNumber) => {
     try {
+      // เคลียร์ข้อมูลเก่าก่อน
+      setWhpos([]);
+
       const offset = (pageNumber - 1) * itemsPerPage;
       const limit = itemsPerPage;
 
+      // ดึงข้อมูลหน้าที่ต้องการ
       const res = await dispatch(wh_posAlljoindt({ offset, limit })).unwrap();
 
-      const resultData = res.data.map((item, index) => ({
-        ...item,
-        id: offset + index + 1
-      }));
+      if (res.result && Array.isArray(res.data)) {
+        const resultData = res.data.map((item, index) => ({
+          ...item,
+          id: offset + index + 1
+        }));
+        setWhpos(resultData);
+      }
 
-      setWhpos(resultData);
-      const totalPages = Math.ceil(res.total / itemsPerPage);
-      setCount(totalPages);
-      setPage(pageNumber);
+      // นับจำนวนข้อมูลทั้งหมด
+      const countRes = await dispatch(countwh_pos({ test: "" })).unwrap();
+      if (countRes.result) {
+        const totalItems = countRes.data;
+        const totalPages = Math.ceil(totalItems / itemsPerPage);
+        setCount(totalPages);
+
+        // ตรวจสอบว่าหน้าที่จะแสดงถูกต้อง
+        if (pageNumber > totalPages) {
+          const newPage = Math.max(1, totalPages);
+          setPage(newPage);
+          await loadData(newPage);
+        } else {
+          setPage(pageNumber);
+        }
+      }
     } catch (err) {
       console.error("Error loading data:", err);
     }
@@ -228,6 +250,12 @@ export default function PurchaseOrderToSupplier({ onCreate, onEdit }) {
           // 3. ลบข้อมูลใน wh_pos
           await dispatch(deleteWh_pos({ refno })).unwrap();
 
+          // 4. นับจำนวนข้อมูลที่เหลือและคำนวณหน้า
+          const countRes = await dispatch(countwh_pos({ test: "" })).unwrap();
+          const remainingItems = countRes.data;
+          const totalPages = Math.ceil(remainingItems / itemsPerPage);
+          const newPage = page > totalPages ? Math.max(1, totalPages) : page;
+
           Swal.fire({
             icon: 'success',
             title: 'Order deleted successfully',
@@ -235,8 +263,8 @@ export default function PurchaseOrderToSupplier({ onCreate, onEdit }) {
             showConfirmButton: false,
           });
 
-          // 4. โหลดข้อมูลใหม่
-          await loadData(page);
+          // 5. โหลดข้อมูลใหม่
+          await loadData(newPage);
 
         } catch (err) {
           console.error("Error:", err);
@@ -270,15 +298,11 @@ export default function PurchaseOrderToSupplier({ onCreate, onEdit }) {
           }
         });
 
-        // กรองเฉพาะ rows ที่ถูกเลือก
         const selectedRows = whpos.filter(row => selected.includes(row.branch_code));
-
-        // สร้าง array ของ promises สำหรับการลบแต่ละ order
         const deletePromises = selectedRows.map(row =>
           dispatch(Wh_posByRefno(row.refno))
             .unwrap()
             .then(async (res) => {
-              // 1. ลบข้อมูลใน wh_posdt ทั้งหมดที่มี refno นี้
               const deletePosdtPromises = res.data.wh_posdts.map(item =>
                 dispatch(deleteWh_posdt({
                   refno: row.refno,
@@ -287,15 +311,20 @@ export default function PurchaseOrderToSupplier({ onCreate, onEdit }) {
               );
 
               await Promise.all(deletePosdtPromises);
-
-              // 2. ลบข้อมูลใน wh_pos
               return dispatch(deleteWh_pos({ refno: row.refno })).unwrap();
             })
         );
 
-        // รอให้การลบทั้งหมดเสร็จสิ้น
         Promise.all(deletePromises)
-          .then(() => {
+          .then(async () => {
+            // นับจำนวนข้อมูลที่เหลือและคำนวณหน้า
+            const countRes = await dispatch(countwh_pos({ test: "" })).unwrap();
+            const remainingItems = countRes.data;
+            const totalPages = Math.ceil(remainingItems / itemsPerPage);
+            const newPage = page > totalPages ? Math.max(1, totalPages) : page;
+
+            setSelected([]);
+
             Swal.fire({
               icon: 'success',
               title: 'Selected orders deleted successfully',
@@ -303,10 +332,9 @@ export default function PurchaseOrderToSupplier({ onCreate, onEdit }) {
               showConfirmButton: false,
             });
 
-            // Reset selection และโหลดข้อมูลใหม่
-            setSelected([]);
+            // โหลดข้อมูลใหม่
             setTimeout(() => {
-              refetchData(page);
+              loadData(newPage);
             }, 1500);
           })
           .catch((err) => {
@@ -529,10 +557,12 @@ export default function PurchaseOrderToSupplier({ onCreate, onEdit }) {
         </TableContainer>
         <Stack spacing={2} sx={{ mt: '8px' }}>
           <Pagination
-            count={count}
-            shape="rounded"
+            count={count || 0}  // ถ้า count เป็น undefined ให้ใช้ 0
+            page={page || 1}    // ถ้า page เป็น undefined ให้ใช้ 1
             onChange={handleChange}
-            page={page}
+            shape="rounded"
+            showFirstButton
+            showLastButton
           />
         </Stack>
       </Box>

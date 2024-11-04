@@ -90,6 +90,10 @@ export default function Settings() {
         setMobileMoreAnchorEl(event.currentTarget);
     };
 
+    const handleBackToDashboard = () => {
+        navigate('/dashboard');
+    };
+
     const mobileMenuId = 'primary-search-account-menu-mobile';
     const renderMobileMenu = (
         <Menu
@@ -251,57 +255,104 @@ export default function Settings() {
                     sx={{
                         display: 'flex',
                         justifyContent: 'center',
+                        width: '100%',  // เพิ่มความกว้างเต็ม
+                        flexDirection: 'column',  // เปลี่ยนเป็น column
+                        alignItems: 'center',     // จัดให้อยู่กลาง
                     }}>
-                    <Button
-                        onClick={handleGeneralSettings}
+                    <Box sx={{
+                        display: 'flex',
+                        justifyContent: 'center',
+                        width: '100%',
+                        mb: '24px'  // เพิ่มระยะห่างด้านล่าง
+                    }}>
+                        <Button
+                            onClick={handleGeneralSettings}
+                            sx={{
+                                width: '413px',
+                                height: '333px',
+                                bgcolor: '#FFFFFF',
+                                boxShadow: '0px 4px 4px 0px #00000040',
+                                borderRadius: '10px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                                '&:hover': {
+                                    bgcolor: '#F0F0F0',
+                                },
+                            }}>
+                            <Typography sx={{ fontSize: '16px', fontWeight: '700', color: '#1D2A3A' }}>
+                                General settings
+                            </Typography>
+                            <img
+                                style={{ width: '245px', height: '245px' }}
+                                src='/generalsetting.png'
+                            />
+                        </Button>
+                        <Button
+                            onClick={handleUserSettings}
+                            sx={{
+                                width: '413px',
+                                height: '333px',
+                                bgcolor: '#FFFFFF',
+                                boxShadow: '0px 4px 4px 0px #00000040',
+                                borderRadius: '10px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                                ml: '24px',
+                                '&:hover': {
+                                    bgcolor: '#F0F0F0',
+                                },
+                            }}>
+                            <Typography sx={{ fontSize: '16px', fontWeight: '700', color: '#1D2A3A' }}>
+                                User settings
+                            </Typography>
+                            <img
+                                style={{ width: '245px', height: '245px' }}
+                                src='/usersetting.png'
+                            />
+                        </Button>
+                    </Box>
+
+                    <Box
                         sx={{
-                            width: '413px',
-                            height: '333px',
-                            bgcolor: '#FFFFFF',
-                            boxShadow: '0px 4px 4px 0px #00000040',
-                            borderRadius: '10px',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            justifyContent: 'center',
-                            alignItems: 'center',
-                            '&:hover': {
-                                bgcolor: '#F0F0F0',
-                            },
-                        }}>
-                        <Typography sx={{ fontSize: '16px', fontWeight: '700', color: '#1D2A3A' }}>
-                            General settings
-                        </Typography>
-                        <img
-                            style={{ width: '245px', height: '245px' }}
-                            src='/generalsetting.png'
-                        />
-                    </Button>
-                    <Button
-                        onClick={handleUserSettings}
-                        sx={{
-                            width: '413px',
-                            height: '333px',
-                            bgcolor: '#FFFFFF',
-                            boxShadow: '0px 4px 4px 0px #00000040',
-                            borderRadius: '10px',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            justifyContent: 'center',
-                            alignItems: 'center',
-                            ml: '24px',
-                            '&:hover': {
-                                bgcolor: '#F0F0F0',
-                            },
-                        }}>
-                        <Typography sx={{ fontSize: '16px', fontWeight: '700', color: '#1D2A3A' }}>
-                            User settings
-                        </Typography>
-                        <img
-                            style={{ width: '245px', height: '245px' }}
-                            src='/usersetting.png'
-                        />
-                    </Button>
+                            position: 'fixed',  // ใช้ fixed positioning
+                            bottom: '24px',     // ห่างจากด้านล่าง 24px
+                            left: '24px',       // ห่างจากด้านซ้าย 24px
+                            zIndex: 10,         // ให้อยู่ด้านหน้าสุด
+                        }}
+                    >
+                        <Button
+                            onClick={handleBackToDashboard}
+                            sx={{
+                                width: '100px',
+                                height: '30px',
+                                bgcolor: '#FFFFFF',
+                                color: '#754C27',
+                                borderRadius: '10px',
+                                border: '1px solid #754C27',
+                                boxShadow: '0px 4px 4px 0px #00000040',
+                                textTransform: 'none',
+                                fontSize: '16px',
+                                fontWeight: 'bold',
+                                minWidth: 'unset',  // ยกเลิกความกว้างขั้นต่ำของ Button
+                                minHeight: 'unset', // ยกเลิกความสูงขั้นต่ำของ Button
+                                padding: 0,         // ลบ padding
+                                '&:hover': {
+                                    bgcolor: '#F5F5F5',  // สีเมื่อ hover แบบอ่อนๆ
+                                },
+                                display: 'flex',
+                                justifyContent: 'center',
+                                alignItems: 'center'
+                            }}
+                        >
+                            Back
+                        </Button>
+                    </Box>
                 </Box>
+
             </Box>
             {renderMobileMenu}
             {/* test */}

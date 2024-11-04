@@ -20,6 +20,7 @@ import { errorHelper } from "../handle-input-error";
 import { Alert, AlertTitle } from '@mui/material';
 import Pagination from '@mui/material/Pagination';
 import Stack from '@mui/material/Stack';
+import Swal from 'sweetalert2';
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
     [`&.${tableCellClasses.head}`]: {
@@ -50,6 +51,7 @@ export default function UserType() {
     const [count, setCount] = useState();
     const [searchTerm, setSearchTerm] = useState("");
     const [getLastTypeuserCode, setGetLastTypeuserCode] = useState([]);
+    const [itemsPerPage] = useState(5);
 
     const handleSearchChange = (e) => {
         setSearchTerm(e.target.value);
@@ -71,9 +73,10 @@ export default function UserType() {
 
     const handleChange = (event, value) => {
         setPage(value);
-        let page = value - 1;
-        let offset = page * 5;
-        let limit = 5;
+        const page = value - 1;
+        const offset = page * itemsPerPage;
+        const limit = itemsPerPage;
+
         dispatch(fetchAlltypeuser({ offset, limit }))
             .unwrap()
             .then((res) => {
@@ -150,51 +153,115 @@ export default function UserType() {
     };
 
     const handleDelete = (typeuser_code) => {
-        dispatch(deletetypeuser({ typeuser_code }))
-            .unwrap()
-            .then((res) => {
-                setAlert({ open: true, message: 'Deleted successfully', severity: 'success' });
-                setTimeout(() => {
-                    setAlert((prev) => ({ ...prev, open: false }));
-                }, 3000);
-                refetchData();
-                let offset = 0;
-                let limit = 5;
-                dispatch(fetchAlltypeuser({ offset, limit }))
+        Swal.fire({
+            title: 'Are you sure you want to delete this user type?',
+            text: 'This action cannot be undone!',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Delete',
+            cancelButtonText: 'Cancel',
+            reverseButtons: true,
+        }).then((result) => {
+            if (result.isConfirmed) {
+                dispatch(deletetypeuser({ typeuser_code }))
                     .unwrap()
-                    .then((res) => setTypeuser(res.data));
-            })
-            .catch((err) => {
-                setAlert({ open: true, message: 'Error deleting User', severity: 'error' });
-                setTimeout(() => {
-                    setAlert((prev) => ({ ...prev, open: false }));
-                }, 3000);
-            });
+                    .then((res) => {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Deleted successfully',
+                            timer: 1500,
+                            showConfirmButton: false,
+                        });
+                        setTimeout(() => {
+                            refetchData(page);
+                            let offset = 0;
+                            let limit = 5;
+                            dispatch(fetchAlltypeuser({ offset, limit }))
+                                .unwrap()
+                                .then((res) => {
+                                    let resultData = res.data;
+                                    for (let indexArray = 0; indexArray < resultData.length; indexArray++) {
+                                        resultData[indexArray].id = indexArray + 1;
+                                    }
+                                    setTypeuser(resultData)
+                                });
+                        }, 2000);
+                    })
+                    .catch((err) => {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error deleting user type',
+                            text: 'Please try again later',
+                            timer: 3000,
+                            showConfirmButton: false,
+                        });
+                    });
+            } else {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Deletion canceled',
+                    timer: 1500,
+                    showConfirmButton: false,
+                });
+            }
+        });
     };
 
     const handleDeleteSelected = () => {
-        Promise.all(selected.map(typeuser_code =>
-            dispatch(deletetypeuser({ typeuser_code })).unwrap()
-        ))
-            .then(() => {
-                setAlert({ open: true, message: 'ลบรายการที่เลือกสำเร็จ', severity: 'success' });
-                setTimeout(() => {
-                    setAlert((prev) => ({ ...prev, open: false }));
-                }, 3000);
-                setSelected([]);
-                refetchData();
-                let offset = 0;
-                let limit = 5;
-                dispatch(fetchAlltypeuser({ offset, limit }))
-                    .unwrap()
-                    .then((res) => setTypeuser(res.data));
-            })
-            .catch((err) => {
-                setAlert({ open: true, message: 'เกิดข้อผิดพลาดในการลบ', severity: 'error' });
-                setTimeout(() => {
-                    setAlert((prev) => ({ ...prev, open: false }));
-                }, 3000);
-            });
+        Swal.fire({
+            title: 'Are you sure you want to delete the selected user types?',
+            text: 'This action cannot be undone!',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Delete',
+            cancelButtonText: 'Cancel',
+            reverseButtons: true,
+        }).then((result) => {
+            if (result.isConfirmed) {
+                Promise.all(selected.map(typeuser_code =>
+                    dispatch(deletetypeuser({ typeuser_code })).unwrap()
+                ))
+                    .then(() => {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Deleted successfully',
+                            timer: 1500,
+                            showConfirmButton: false,
+                        });
+                        setTimeout(() => {
+                            setSelected([]);
+                            refetchData(page);
+                            let offset = 0;
+                            let limit = 5;
+                            dispatch(fetchAlltypeuser({ offset, limit }))
+                                .unwrap()
+                                .then((res) => {
+                                    let resultData = res.data;
+                                    for (let indexArray = 0; indexArray < resultData.length; indexArray++) {
+                                        resultData[indexArray].id = indexArray + 1;
+                                    }
+                                    setTypeuser(resultData)
+                                });
+                        }, 2000);
+                    })
+                    .catch((err) => {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error deleting user types',
+                            text: 'Please try again later',
+                            timer: 3000,
+                            showConfirmButton: false,
+                        });
+                    });
+            } else {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Deletion canceled',
+                    timer: 1500,
+                    showConfirmButton: false,
+                });
+            }
+        });
     };
 
 
@@ -240,26 +307,29 @@ export default function UserType() {
             });
     };
 
-    const handleGetLastCode = (  ) => {
+    const handleGetLastCode = () => {
         let test = "";
         dispatch(lastTypeuserCode({ test }))
             .unwrap()
             .then((res) => {
-        
-                console.log(res.data)
-                let lastTypeCode = ""+(Number(res.data.typeuser_code) + 1)
-                if (lastTypeCode.length === 1) {
-                    lastTypeCode = "00" + lastTypeCode
-                } 
-                if (lastTypeCode.length === 2) {
-                    lastTypeCode = "0" + lastTypeCode
+                let lastTypeCode = "01";
+
+                if (res.data && res.data.typeuser_code) {
+                    lastTypeCode = "" + (Number(res.data.typeuser_code) + 1);
+
+                    if (lastTypeCode.length === 1) {
+                        lastTypeCode = "0" + lastTypeCode;
+                    }
                 }
+
                 setGetLastTypeuserCode(lastTypeCode);
                 formik.setValues({
                     typeuser_code: lastTypeCode,
                 });
             })
-            .catch((err) => err.message);
+            .catch((err) => {
+                console.error("Error fetching last user type code:", err.message);
+            });
     };
 
     const formik = useFormik({
@@ -267,36 +337,86 @@ export default function UserType() {
             typeuser_code: "",
             typeuser_name: "",
         },
+        validate: (values) => {
+            let errors = {};
+            if (!values.typeuser_name) {
+                errors.typeuser_name = 'User type name cannot be empty';
+            }
+            return errors;
+        },
         onSubmit: (values) => {
             dispatch(addTypeuser(values))
                 .unwrap()
                 .then((res) => {
-                    setAlert({ open: true, message: 'เพิ่มข้อมูลสำเร็จ', severity: 'success' });
-                    formik.resetForm();
-                    refetchData();
-                    handleGetLastCode();
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Success',
+                        text: 'เพิ่มข้อมูลสำเร็จ',
+                        timer: 1000,
+                        timerProgressBar: true,
+                        showConfirmButton: false,
+                    });
 
-                    setTimeout(() => {
-                        setAlert((prev) => ({ ...prev, open: false }));
-                    }, 3000);
+                    // Calculate which page the new item will be on
+                    dispatch(countTypeuser({ test: "" }))
+                        .unwrap()
+                        .then((countRes) => {
+                            const totalItems = countRes.data;
+                            const targetPage = Math.ceil(totalItems / itemsPerPage);
 
+                            // Reset form and refresh data with the new page
+                            formik.resetForm();
+                            refetchData(targetPage);
+                            handleGetLastCode();
+                            setOpenDrawer(false);
+                        });
                 })
                 .catch((err) => {
-                    setAlert({ open: true, message: 'เกิดข้อผิดพลาดในการเพิ่มข้อมูล', severity: 'error' });
-                    setTimeout(() => {
-                        setAlert((prev) => ({ ...prev, open: false }));
-                    }, 3000);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'เกิดข้อผิดพลาดในการเพิ่มข้อมูล',
+                        timer: 3000,
+                        timerProgressBar: true,
+                        showConfirmButton: false,
+                    });
                 });
         },
     });
 
-    const refetchData = () => {
-        let offset = 0;
-        let limit = 5;
+    const handleCancelCreate = () => {
+        formik.resetForm();
+        setOpenDrawer(false);
+    };
+
+    const handleCancelEdit = () => {
+        formik.resetForm();
+        setOpenEditDrawer(false);
+    };
+
+    const refetchData = (targetPage = 1) => {
+        const offset = (targetPage - 1) * itemsPerPage;
+        const limit = itemsPerPage;
+
         dispatch(fetchAlltypeuser({ offset, limit }))
             .unwrap()
             .then((res) => {
-                setTypeuser(res.data);
+                let resultData = res.data;
+                for (let indexArray = 0; indexArray < resultData.length; indexArray++) {
+                    resultData[indexArray].id = offset + indexArray + 1;
+                }
+                setTypeuser(resultData);
+
+                // หลังจากได้ข้อมูลแล้ว ดึงจำนวนรายการทั้งหมด
+                dispatch(countTypeuser({ test: "" }))
+                    .unwrap()
+                    .then((countRes) => {
+                        const totalItems = countRes.data;
+                        const totalPages = Math.ceil(totalItems / itemsPerPage);
+                        setCount(totalPages);
+                        setPage(targetPage);
+                    })
+                    .catch((err) => console.log(err.message));
             })
             .catch((err) => console.log(err.message));
     };
@@ -314,7 +434,7 @@ export default function UserType() {
                 }}
             >
                 <Button
-                    onClick={toggleDrawer(true) }
+                    onClick={toggleDrawer(true)}
                     sx={{
                         width: '209px',
                         height: '70px',
@@ -393,7 +513,7 @@ export default function UserType() {
                                     />
                                 </StyledTableCell>
                                 <StyledTableCell width='1%' >No.</StyledTableCell>
-                                <StyledTableCell align="center">ID</StyledTableCell>
+                                <StyledTableCell align="center">User Type Code</StyledTableCell>
                                 <StyledTableCell align="center">User Type</StyledTableCell>
                                 <StyledTableCell width='1%' align="center"></StyledTableCell>
                                 <StyledTableCell width='1%' align="center"></StyledTableCell>
@@ -526,7 +646,7 @@ export default function UserType() {
                                 size="small"
                                 // placeholder={getLasttypeuserCode}
                                 disabled
-                                
+
                                 sx={{
                                     mt: '8px',
                                     width: '100%',
@@ -650,18 +770,12 @@ export default function UserType() {
                             zIndex: 2,
                         }}>
 
-                        <Typography sx={{ display: 'flex', flexDirection: 'row' }}>
-                            EDIT User Type ID :
-                            <Box component="span" sx={{ color: '#754C27', ml: '12px' }}>
-                                #011
-                            </Box>
-                        </Typography>
-
                         <Box sx={{ width: '80%', mt: '24px' }}>
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
                                 User Id
                             </Typography>
                             <TextField
+                                disabled
                                 size="small"
                                 placeholder="User Id"
                                 sx={{
@@ -723,13 +837,6 @@ export default function UserType() {
                     </Box>
                 </Box>
             </Drawer>
-            {alert.open && (
-                <Alert severity={alert.severity} onClose={() => setAlert({ ...alert, open: false })}>
-                    <AlertTitle>{alert.severity === 'success' ? 'Success' : 'Error'}</AlertTitle>
-                    {alert.message}
-                </Alert>
-            )}
-
         </>
     );
 }

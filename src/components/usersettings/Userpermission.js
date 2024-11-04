@@ -338,47 +338,42 @@ export default function UserPermission() {
         initialValues,
         onSubmit: async (values) => {
             try {
-                await dispatch(addTypeUserPermission(values));
-                setOpenDrawer(false);
-                formik.resetForm();
+                const response = await dispatch(addTypeUserPermission(values)).unwrap();
+
+                if (response.result) {
+                    // Get total count to determine which page to load
+                    const countResponse = await dispatch(countTypeUserPermissions({ test: "" }));
+                    if (countResponse.payload?.data) {
+                        const totalItems = countResponse.payload.data;
+                        const targetPage = Math.ceil(totalItems / itemsPerPage);
+                        setOpenDrawer(false);
+                        await Swal.fire({
+                            icon: 'success',
+                            title: 'Success',
+                            text: 'เพิ่มข้อมูลสำเร็จ',
+                            timer: 1500,
+                            showConfirmButton: false,
+                        });
+
+                        // Reset form and refresh data
+                        formik.resetForm();
+
+                        await loadData(targetPage); // โหลดข้อมูลหน้าสุดท้าย
+                    }
+                } else {
+                    throw new Error(response.message || 'เกิดข้อผิดพลาดในการเพิ่มข้อมูล');
+                }
             } catch (error) {
-                console.error('Error saving permissions:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: error.message || 'เกิดข้อผิดพลาดในการเพิ่มข้อมูล',
+                    timer: 1500,
+                    showConfirmButton: false,
+                });
             }
-        },
-    });
-
-    formik.onSubmit = async (values) => {
-        try {
-            await dispatch(addTypeUserPermission(values));
-
-            // Get total count to determine which page to load
-            const countResponse = await dispatch(countTypeUserPermissions({ test: "" }));
-            if (countResponse.payload?.data) {
-                const totalItems = countResponse.payload.data;
-                const targetPage = Math.ceil(totalItems / itemsPerPage);
-
-                // Reset form and refresh data
-                formik.resetForm();
-                loadData(targetPage);
-                setOpenDrawer(false);
-            }
-
-            Swal.fire({
-                icon: 'success',
-                title: 'Added successfully',
-                timer: 1500,
-                showConfirmButton: false,
-            });
-        } catch (error) {
-            Swal.fire({
-                icon: 'error',
-                title: 'Error adding permission',
-                text: 'Please try again',
-                timer: 3000,
-                showConfirmButton: false,
-            });
         }
-    };
+    });
 
     useEffect(() => {
         const loadUserTypes = async () => {
@@ -449,7 +444,7 @@ export default function UserPermission() {
             }}
         >
             <Button
-                onClick={toggleDrawer(true)}
+                onClick={toggleDrawer('create')(true)}
                 sx={{
                     width: '209px',
                     height: '70px',

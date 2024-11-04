@@ -1,4 +1,4 @@
-import { Box, Button, InputAdornment, TextField, Typography, Drawer, IconButton } from '@mui/material';
+import { Box, Button, InputAdornment, TextField, Typography, Drawer, IconButton, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 import React, { useState, useEffect } from 'react';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
 import SearchIcon from '@mui/icons-material/Search';
@@ -13,14 +13,20 @@ import Paper from '@mui/material/Paper';
 import Checkbox from '@mui/material/Checkbox';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
-// import { addBranch, deleteBranch, updateBranch, productAll, countBranch } from '../api/branchApi';
-import { addProduct, deleteProduct, updateProduct, productAll, countProduct, searchProduct, lastProductCode } from '../../api/productrecordApi';
 import { useFormik } from "formik";
-import { useDispatch, useSelector } from "react-redux";
-import { errorHelper } from "../handle-input-error";
-import { Alert, AlertTitle } from '@mui/material';
+import { useDispatch } from "react-redux";
+import { fetchAlltypeuser } from '../../api/usertypeApi';
 import Pagination from '@mui/material/Pagination';
 import Stack from '@mui/material/Stack';
+import Swal from 'sweetalert2';
+import {
+    register,
+    updateUser,
+    deleteUser,
+    showUser,
+    searchUser,
+    getLastUserCode
+} from '../../api/loginApi';
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
     [`&.${tableCellClasses.head}`]: {
@@ -41,269 +47,327 @@ const StyledTableRow = styled(TableRow)(({ theme }) => ({
     },
 }));
 
-
 export default function ManageUser() {
     const [selected, setSelected] = useState([]);
     const dispatch = useDispatch();
     const [alert, setAlert] = useState({ open: false, message: '', severity: 'success' });
-    const [product, setProduct] = useState([]);
-    const [page, setPage] = useState(0);
-    const [count, setCount] = useState();
+    const [page, setPage] = useState(1);
+    const [count, setCount] = useState(0);
     const [searchTerm, setSearchTerm] = useState("");
-    const [getLastProductCode, setGetLastProductCode] = useState([]);
+    const [users, setUsers] = useState([]);
+    const [itemsPerPage] = useState(5);
+    const [editMode, setEditMode] = useState(false);
+    const [openDrawer, setOpenDrawer] = useState(false);
+    const [userTypes, setUserTypes] = useState([]);
 
-    const handleSearchChange = (e) => {
-        setSearchTerm(e.target.value);
-    };
-
-    useEffect(() => {
-        if (searchTerm) {
-            dispatch(searchProduct({ product_name: searchTerm }))
-                .unwrap()
-                .then((res) => {
-                    setProduct(res.data);
-                })
-                .catch((err) => console.log(err.message));
-        } else {
-            refetchData();
+    const loadUserTypes = async () => {
+        try {
+            const res = await dispatch(fetchAlltypeuser({ offset: 0, limit: 100 })).unwrap();
+            if (res.result && Array.isArray(res.data)) {
+                setUserTypes(res.data);
+            }
+        } catch (error) {
+            showAlert('Error loading user types', 'error');
         }
-    }, [searchTerm, dispatch]);
-
-    const handleChange = (event, value) => {
-        setPage(value);
-        console.log(value);
-        let page = value - 1;
-        let offset = page * 5;
-        let limit = value * 5;
-        console.log(limit, offset);
-        dispatch(productAll({ offset, limit }))
-            .unwrap()
-            .then((res) => {
-                console.log(res.data);
-                let resultData = res.data;
-                for (let indexArray = 0; indexArray < resultData.length; indexArray++) {
-                    resultData[indexArray].id = offset + indexArray + 1;
-                }
-                setProduct(resultData);
-            })
-            .catch((err) => err.message);
-    };
-
-    const refetchData = () => {
-        let offset = 0;
-        let limit = 5;
-        dispatch(productAll({ offset, limit }))
-            .unwrap()
-            .then((res) => {
-                setProduct(res.data);
-            })
-            .catch((err) => console.log(err.message));
     };
 
     useEffect(() => {
-        refetchData();
-        let offset = 0;
-        let limit = 5;
-        let test = 10;
-        dispatch(productAll({ offset, limit }))
-            .unwrap()
-            .then((res) => {
-                console.log(res.data);
-                let resultData = res.data;
-                for (let indexArray = 0; indexArray < resultData.length; indexArray++) {
-                    resultData[indexArray].id = indexArray + 1;
-                }
-                setProduct(resultData);
-                console.log(resultData);
+        loadUserTypes();
+    }, []);
 
-            })
-            .catch((err) => err.message);
+    const validate = values => {
+        const errors = {};
 
-        dispatch(lastProductCode({ test }))
-            .unwrap()
-            .then((res) => {
-                setGetLastProductCode(res.data);
-                console.log(res.data)
-            })
-            .catch((err) => err.message);
+        if (!values.username) {
+            errors.username = 'Username is required';
+        }
 
-        dispatch(countProduct({ test }))
-            .unwrap()
-            .then((res) => {
-                console.log(res.data);
-                let resData = res.data;
-                let countPaging = Math.floor(resData / 5);
-                let modPaging = resData % 5;
-                if (modPaging > 0) {
-                    countPaging++
-                }
-                console.log(countPaging, modPaging);
-                setCount(countPaging);
-            })
-            .catch((err) => err.message);
-    }, [dispatch]);
+        if (!values.password && !editMode) {
+            errors.password = 'Password is required';
+        } else if (values.password && values.password.length < 6) {
+            errors.password = 'Password must be at least 6 characters';
+        }
 
-    const handleCheckboxChange = (event, product_code) => {
+        if (!values.email) {
+            errors.email = 'Email is required';
+        } else if (!/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,4}$/i.test(values.email)) {
+            errors.email = 'Invalid email address';
+        }
+
+        if (!values.typeuser_code) {
+            errors.typeuser_code = 'User type is required';
+        }
+
+        return errors;
+    };
+
+    useEffect(() => {
+        fetchUsers();
+    }, [page]);
+
+    async function fetchUsers() {
+        try {
+            const offset = (page - 1) * itemsPerPage;
+            const res = await dispatch(showUser({
+                offset: offset,
+                limit: itemsPerPage
+            })).unwrap();
+
+            console.log('Fetched users:', res.data); // เพิ่ม log
+
+            if (res.data && Array.isArray(res.data)) {
+                const paginatedData = res.data.map((user, index) => ({
+                    ...user,
+                    id: offset + index + 1
+                }));
+                setUsers(paginatedData);
+                setCount(Math.ceil(res.data.length / itemsPerPage));
+            } else {
+                console.error('Invalid data format received:', res.data);
+            }
+        } catch (error) {
+            console.error('Error fetching users:', error);
+            showAlert('Error fetching users', 'error');
+        }
+    }
+
+    function showAlert(message, type = 'success') {
+        setAlert({ show: true, message, type });
+        setTimeout(() => setAlert({ show: false, message: '', type: 'success' }), 3000);
+    }
+
+    async function handleSubmit(values) {
+        try {
+            if (editMode) {
+                await dispatch(updateUser(values)).unwrap();
+                showAlert('User updated successfully');
+            } else {
+                await dispatch(register(values)).unwrap();
+                showAlert('User created successfully');
+            }
+            handleCloseDrawer();
+            fetchUsers();
+        } catch (error) {
+            showAlert(error.message || 'Operation failed', 'error');
+        }
+    }
+
+    const handleSearchChange = async (e) => {
+        setSearchTerm(e.target.value);
+        try {
+            if (e.target.value) {
+                const res = await dispatch(searchUser({ username: e.target.value })).unwrap();
+                setUsers(res.data);
+            } else {
+                fetchUsers();
+            }
+        } catch (error) {
+            showAlert('Search failed', 'error');
+        }
+    };
+
+    const handleCheckboxChange = (event, user_code) => {
         if (event.target.checked) {
-            setSelected([...selected, product_code]);
+            setSelected([...selected, user_code]);
         } else {
-            setSelected(selected.filter((item) => item !== product_code));
+            setSelected(selected.filter((item) => item !== user_code));
         }
     };
 
     const handleSelectAllClick = (event) => {
         if (event.target.checked) {
-            const newSelected = product.map((row) => row.product_code);
+            const newSelected = users.map((user) => user.user_code);
             setSelected(newSelected);
         } else {
             setSelected([]);
         }
     };
 
-    const handleDelete = (product_code) => {
-        dispatch(deleteProduct({ product_code }))
-            .unwrap()
-            .then((res) => {
-                setAlert({ open: true, message: 'Deleted successfully', severity: 'success' });
-                setTimeout(() => {
-                    setAlert((prev) => ({ ...prev, open: false }));
-                }, 3000);
-                refetchData();
-                let offset = 0;
-                let limit = 5;
-                dispatch(productAll({ offset, limit }))
-                    .unwrap()
-                    .then((res) => setProduct(res.data));
-            })
-            .catch((err) => {
-                setAlert({ open: true, message: 'Error deleting Branch', severity: 'error' });
-                setTimeout(() => {
-                    setAlert((prev) => ({ ...prev, open: false }));
-                }, 3000);
-            });
+    const handleDelete = (user_code) => {
+        Swal.fire({
+            title: 'Are you sure?',
+            text: "You won't be able to revert this!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, delete it!',
+            cancelButtonText: 'No, cancel!',
+            reverseButtons: true
+        }).then(async (result) => {
+            if (result.isConfirmed) {
+                try {
+                    await dispatch(deleteUser({ user_code })).unwrap();
+                    Swal.fire('Deleted!', 'User has been deleted.', 'success');
+                    fetchUsers();
+                } catch (error) {
+                    Swal.fire('Error!', 'Failed to delete user.', 'error');
+                }
+            }
+        });
+    };
+
+    const handleEdit = (user) => {
+        setEditMode(true);
+        formik.setValues({
+            user_code: user.user_code,
+            username: user.username,
+            email: user.email,
+            line_uid: user.line_uid || '',
+            typeuser_code: user.typeuser_code,
+            password: ''
+        });
+        setOpenDrawer(true);
+    };
+
+    const handleCloseDrawer = () => {
+        setOpenDrawer(false);
+        setEditMode(false);
+        formik.resetForm();
     };
 
     const handleDeleteSelected = () => {
-        Promise.all(selected.map(product_code =>
-            dispatch(deleteProduct({ product_code })).unwrap()
-        ))
-            .then(() => {
-                setAlert({ open: true, message: 'Deleted successfully', severity: 'success' });
-                setTimeout(() => {
-                    setAlert((prev) => ({ ...prev, open: false }));
-                }, 3000);
-                setSelected([]);
-                refetchData();
-                let offset = 0;
-                let limit = 5;
-                dispatch(productAll({ offset, limit }))
-                    .unwrap()
-                    .then((res) => setProduct(res.data));
-            })
-            .catch((err) => {
-                setAlert({ open: true, message: 'Error deleting branch', severity: 'error' });
-                setTimeout(() => {
-                    setAlert((prev) => ({ ...prev, open: false }));
-                }, 3000);
-            });
-    };
-
-    const [openDrawer, setOpenDrawer] = useState(false);
-    const [openEditDrawer, setOpenEditDrawer] = useState(false);
-
-    const toggleDrawer = (openDrawer) => () => {
-        setOpenDrawer(openDrawer);
-        handleGetLastCode();
-    };
-
-    const handleGetLastCode = () => {
-        let test = "";
-        dispatch(lastProductCode({ test }))
-            .unwrap()
-            .then((res) => {
-
-                console.log(res.data)
-                let lastProductCode = "" + (Number(res.data.product_code) + 1)
-                if (lastProductCode.length === 1) {
-                    lastProductCode = "00" + lastProductCode
+        Swal.fire({
+            title: 'Are you sure?',
+            text: `You are about to delete ${selected.length} users`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, delete them!',
+            cancelButtonText: 'No, cancel!',
+            reverseButtons: true
+        }).then(async (result) => {
+            if (result.isConfirmed) {
+                try {
+                    await Promise.all(selected.map(user_code =>
+                        dispatch(deleteUser({ user_code })).unwrap()
+                    ));
+                    Swal.fire('Deleted!', 'Users have been deleted.', 'success');
+                    setSelected([]);
+                    fetchUsers();
+                } catch (error) {
+                    Swal.fire('Error!', 'Failed to delete users.', 'error');
                 }
-                if (lastProductCode.length === 2) {
-                    lastProductCode = "0" + lastProductCode
-                }
-                setGetLastProductCode(lastProductCode);
-                formik.setValues({
-                    product_code: lastProductCode,
-                });
-            })
-            .catch((err) => err.message);
-    };
-
-    const toggleEditDrawer = (openEditDrawer) => () => {
-        setOpenEditDrawer(openEditDrawer);
-    };
-
-    const [editProduct, setEditProduct] = useState(null);
-
-    const handleEdit = (row) => {
-        setEditProduct(row);
-        formik.setValues({
-            product_code: row.product_code,
-            product_name: row.product_name,
-            addr1: row.addr1,
-            addr2: row.addr2,
-            tel1: row.tel1,
+            }
         });
-        toggleEditDrawer(true)();
     };
 
-    const handleSave = () => {
-        dispatch(updateProduct(formik.values))
-            .unwrap()
-            .then((res) => {
-                setAlert({ open: true, message: 'Updated success', severity: 'success' });
-                refetchData();
-                toggleEditDrawer(false)();
-                setTimeout(() => {
-                    setAlert((prev) => ({ ...prev, open: false }));
-                }, 3000);
-            })
-            .catch((err) => {
-                setAlert({ open: true, message: 'Updated Error', severity: 'error' });
-                setTimeout(() => {
-                    setAlert((prev) => ({ ...prev, open: false }));
-                }, 3000);
+    const handleGenerateUserCode = async () => {
+        try {
+            const response = await dispatch(getLastUserCode()).unwrap();
+            console.log('Last user code response:', response); // Debug log
+
+            let lastCode = '001';
+            if (response.result && response.data) {
+                // แปลงเป็นตัวเลขโดยตรง
+                const currentNumber = parseInt(response.data.user_code, 10);
+                const nextNumber = currentNumber + 1;
+
+                // Format ให้เป็น 3 หลักเสมอ
+                lastCode = nextNumber.toString().padStart(3, '0');
+
+                console.log('Current number:', currentNumber); // Debug log
+                console.log('Next number:', nextNumber); // Debug log
+                console.log('Formatted code:', lastCode); // Debug log
+            }
+
+            return lastCode;
+        } catch (error) {
+            console.error('Error generating user code:', error);
+            return '001';
+        }
+    };
+
+    const handleCreate = async (values) => {
+        try {
+            const userCode = await handleGenerateUserCode();
+            console.log('Generated user code:', userCode);
+
+            // ตรวจสอบว่ามี user code นี้อยู่แล้วหรือไม่
+            const checkExisting = await dispatch(showUser({
+                offset: 0,
+                limit: 1000 // ควรปรับตามความเหมาะสม
+            })).unwrap();
+
+            if (checkExisting.data.some(user => user.user_code === userCode)) {
+                throw new Error('User code already exists. Please try again.');
+            }
+
+            const userData = {
+                user_code: userCode,
+                username: values.username,
+                password: values.password,
+                email: values.email,
+                typeuser_code: values.typeuser_code,
+                line_uid: values.line_uid || ''
+            };
+
+            const response = await dispatch(register(userData)).unwrap();
+
+            if (response.result) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Success',
+                    text: 'เพิ่มข้อมูลสำเร็จ',
+                    timer: 1500,
+                    showConfirmButton: false,
+                });
+
+                handleCloseDrawer();
+                await fetchUsers();
+            } else {
+                throw new Error(response.message || 'เกิดข้อผิดพลาดในการเพิ่มข้อมูล');
+            }
+        } catch (error) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: error.message || 'เกิดข้อผิดพลาดในการเพิ่มข้อมูล',
+                timer: 1500,
+                showConfirmButton: false,
             });
+        }
+    };
+
+    const handleUpdate = async (values) => {
+        try {
+            await dispatch(updateUser(values)).unwrap();
+
+            Swal.fire({
+                icon: 'success',
+                title: 'Success',
+                text: 'แก้ไขข้อมูลสำเร็จ',
+                timer: 1500,
+                showConfirmButton: false,
+            });
+
+            handleCloseDrawer();
+            fetchUsers();
+        } catch (error) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: error.message || 'เกิดข้อผิดพลาดในการแก้ไขข้อมูล',
+                timer: 1500,
+                showConfirmButton: false,
+            });
+        }
     };
 
     const formik = useFormik({
         initialValues: {
-            product_code: "",
-            product_name: "",
-            addr1: "",
-            addr2: "",
-            tel1: "",
+            user_code: '',
+            username: '',
+            password: '',
+            email: '',
+            line_uid: '',
+            typeuser_code: ''
         },
-        onSubmit: (values) => {
-            dispatch(addProduct(values))
-                .unwrap()
-                .then((res) => {
-                    setAlert({ open: true, message: 'เพิ่มข้อมูลสำเร็จ', severity: 'success' });
-                    formik.resetForm();
-                    refetchData();
-                    handleGetLastCode();
-
-                    setTimeout(() => {
-                        setAlert((prev) => ({ ...prev, open: false }));
-                    }, 3000);
-
-                })
-                .catch((err) => {
-                    setAlert({ open: true, message: 'เกิดข้อผิดพลาดในการเพิ่มข้อมูล', severity: 'error' });
-                    setTimeout(() => {
-                        setAlert((prev) => ({ ...prev, open: false }));
-                    }, 3000);
-                });
-        },
+        validate,
+        onSubmit: async (values) => {
+            if (editMode) {
+                await handleUpdate(values);
+            } else {
+                await handleCreate(values);
+            }
+        }
     });
 
     return (
@@ -319,7 +383,7 @@ export default function ManageUser() {
                 }}
             >
                 <Button
-                    onClick={toggleDrawer(true)}
+                    onClick={() => setOpenDrawer(true)}
                     sx={{
                         width: '209px',
                         height: '70px',
@@ -339,6 +403,7 @@ export default function ManageUser() {
                         Create
                     </Typography>
                 </Button>
+
                 <Box
                     sx={{
                         display: 'flex',
@@ -374,530 +439,397 @@ export default function ManageUser() {
                         }}
                     />
                 </Box>
-                <Box sx={{ width: '90%', mt: '24px' }}>
-                    <Button
-                        variant="contained"
-                        color="error"
-                        onClick={handleDeleteSelected}
-                        sx={{ mt: 2 }}
-                        disabled={selected.length === 0}
-                    >
-                        Delete Selected ({selected.length})
-                    </Button>
-                </Box>
-                <TableContainer component={Paper} sx={{ width: '90%', mt: '24px' }}>
+
+                {selected.length > 0 && (
+                    <Box sx={{ width: '90%', mt: '24px' }}>
+                        <Button
+                            variant="contained"
+                            color="error"
+                            onClick={handleDeleteSelected}
+                            sx={{ mt: 2 }}
+                        >
+                            Delete Selected ({selected.length})
+                        </Button>
+                    </Box>
+                )}
+
+                <TableContainer component={Paper} sx={{ width: '100%', mt: '24px' }}>
                     <Table sx={{}} aria-label="customized table">
                         <TableHead>
                             <TableRow>
-                                <StyledTableCell sx={{ width: '1%', textAlign: 'center' }}>
+                                <StyledTableCell padding="checkbox">
                                     <Checkbox
                                         sx={{ color: '#FFF' }}
-                                        indeterminate={selected.length > 0 && selected.length < product.length}
-                                        checked={product.length > 0 && selected.length === product.length}
+                                        indeterminate={selected.length > 0 && selected.length < users.length}
+                                        checked={users.length > 0 && selected.length === users.length}
                                         onChange={handleSelectAllClick}
                                     />
                                 </StyledTableCell>
-                                <StyledTableCell width='1%' >No.</StyledTableCell>
-                                <StyledTableCell width='1%' >User ID</StyledTableCell>
-                                <StyledTableCell align="center">User Name</StyledTableCell>
-                                <StyledTableCell align="center">User Type</StyledTableCell>
-                                <StyledTableCell align="center">User</StyledTableCell>
-                                <StyledTableCell align="center">Email</StyledTableCell>
-                                <StyledTableCell align="center">Line ID</StyledTableCell>
-                                <StyledTableCell width='1%' align="center"></StyledTableCell>
-                                <StyledTableCell width='1%' align="center"></StyledTableCell>
-
+                                <StyledTableCell>No.</StyledTableCell>
+                                <StyledTableCell>User ID</StyledTableCell>
+                                <StyledTableCell>Username</StyledTableCell>
+                                <StyledTableCell>User Type</StyledTableCell>
+                                <StyledTableCell>Email</StyledTableCell>
+                                <StyledTableCell>Line ID</StyledTableCell>
+                                <StyledTableCell></StyledTableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {product.map((row) => (
-                                <StyledTableRow key={row.product_code}>
-                                    <StyledTableCell padding="checkbox" align="center">
+                            {users.map((user) => (
+                                <StyledTableRow key={user.user_code}>
+                                    <StyledTableCell padding="checkbox">
                                         <Checkbox
-                                            checked={selected.includes(row.product_code)}
-                                            onChange={(event) => handleCheckboxChange(event, row.product_code)}
+                                            checked={selected.includes(user.user_code)}
+                                            onChange={(event) => handleCheckboxChange(event, user.user_code)}
                                         />
                                     </StyledTableCell>
-                                    <StyledTableCell component="th" scope="row" >
-                                        {row.id}
+                                    <StyledTableCell>{user.id}</StyledTableCell>
+                                    <StyledTableCell>{user.user_code}</StyledTableCell>
+                                    <StyledTableCell>{user.username}</StyledTableCell>
+                                    <StyledTableCell>
+                                        {user.tbl_typeuser?.typeuser_name || user.Tbl_typeuser?.typeuser_name || '-'}
                                     </StyledTableCell>
-                                    <StyledTableCell align="center">{row.typeproduct_code}</StyledTableCell>
-                                    <StyledTableCell align="center">{row.product_code}</StyledTableCell>
-                                    <StyledTableCell align="center">{row.product_name}</StyledTableCell>
-                                    <StyledTableCell align="center">{row.bulk_unit_code}</StyledTableCell>
-                                    <StyledTableCell align="center">{row.bulk_unit_price}</StyledTableCell>
-                                    <StyledTableCell align="center">{row.retail_unit_code}</StyledTableCell>
-                                    <StyledTableCell align="center">
+                                    <StyledTableCell>{user.email}</StyledTableCell>
+                                    <StyledTableCell>{user.line_uid}</StyledTableCell>
+                                    <StyledTableCell>
                                         <IconButton
-                                            color="primary"
-                                            size="md"
-                                            onClick={() => handleEdit(row)} // เรียกใช้ฟังก์ชัน handleEdit
-                                            sx={{ border: '1px solid #AD7A2C', borderRadius: '7px' }}
+                                            onClick={() => handleEdit(user)}
+                                            sx={{ mr: 1, border: '1px solid #AD7A2C', borderRadius: '7px' }}
                                         >
                                             <EditIcon sx={{ color: '#AD7A2C' }} />
                                         </IconButton>
-                                    </StyledTableCell>
-                                    <StyledTableCell align="center">
                                         <IconButton
-                                            color="danger"
-                                            size="md"
-                                            onClick={() => handleDelete(row.product_code)} // Use a function to handle delete
+                                            onClick={() => handleDelete(user.user_code)}
                                             sx={{ border: '1px solid #F62626', borderRadius: '7px' }}
                                         >
                                             <DeleteIcon sx={{ color: '#F62626' }} />
                                         </IconButton>
-
                                     </StyledTableCell>
                                 </StyledTableRow>
                             ))}
                         </TableBody>
                     </Table>
                 </TableContainer>
+
+                <Stack spacing={2} sx={{ mt: '8px' }}>
+                    <Pagination
+                        count={count}
+                        page={page}
+                        onChange={(e, value) => setPage(value)}
+                        shape="rounded"
+                        showFirstButton
+                        showLastButton
+                    />
+                </Stack>
+
+                <Drawer
+                    anchor="right"
+                    open={openDrawer && !editMode}
+                    onClose={handleCloseDrawer}
+                    ModalProps={{
+                        BackdropProps: {
+                            style: { backgroundColor: 'transparent' }
+                        }
+                    }}
+                    PaperProps={{
+                        sx: {
+                            boxShadow: 'none',
+                            width: '25%',
+                            borderRadius: '20px',
+                            border: '1px solid #E4E4E4',
+                            bgcolor: '#FAFAFA'
+                        },
+                    }}
+                >
+                    <Box sx={{ width: '100%', mt: '80px', flexDirection: 'column' }}>
+                        <Box sx={{
+                            position: 'absolute',
+                            top: '48px',
+                            left: '0',
+                            width: '129px',
+                            bgcolor: '#AD7A2C',
+                            color: '#FFFFFF',
+                            px: '8px',
+                            py: '4px',
+                            borderRadius: '20px',
+                            fontWeight: 'bold',
+                            zIndex: 1,
+                            height: '89px',
+                            display: 'flex',
+                            justifyContent: 'center',
+                        }}>
+                            <Typography sx={{ fontWeight: '600', fontSize: '14px' }}>
+                                Create User
+                            </Typography>
+                        </Box>
+                        <Box sx={{
+                            display: 'flex',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            flexDirection: 'column',
+                            border: '1px solid #E4E4E4',
+                            borderRadius: '10px',
+                            bgcolor: '#FFFFFF',
+                            height: '100%',
+                            p: '16px',
+                            position: 'relative',
+                            zIndex: 2,
+                        }}>
+                            <Box sx={{ width: '80%', mt: '24px' }}>
+                                <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
+                                    Username
+                                </Typography>
+                                <TextField
+                                    fullWidth
+                                    size="small"
+                                    name="username"
+                                    placeholder="Username"
+                                    {...formik.getFieldProps('username')}
+                                    error={formik.touched.username && Boolean(formik.errors.username)}
+                                    helperText={formik.touched.username && formik.errors.username}
+                                    sx={{ mb: 2 }}
+                                />
+
+                                <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
+                                    Password
+                                </Typography>
+                                <TextField
+                                    fullWidth
+                                    size="small"
+                                    type="password"
+                                    name="password"
+                                    placeholder="Password"
+                                    {...formik.getFieldProps('password')}
+                                    error={formik.touched.password && Boolean(formik.errors.password)}
+                                    helperText={formik.touched.password && formik.errors.password}
+                                    sx={{ mb: 2 }}
+                                />
+
+                                <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
+                                    Email
+                                </Typography>
+                                <TextField
+                                    fullWidth
+                                    size="small"
+                                    name="email"
+                                    placeholder="Email"
+                                    {...formik.getFieldProps('email')}
+                                    error={formik.touched.email && Boolean(formik.errors.email)}
+                                    helperText={formik.touched.email && formik.errors.email}
+                                    sx={{ mb: 2 }}
+                                />
+
+                                <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
+                                    User Type
+                                </Typography>
+                                <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+                                    <Select
+                                        name="typeuser_code"
+                                        value={formik.values.typeuser_code}
+                                        onChange={formik.handleChange}
+                                        error={formik.touched.typeuser_code && Boolean(formik.errors.typeuser_code)}
+                                    >
+                                        {userTypes.map((type) => (
+                                            <MenuItem key={type.typeuser_code} value={type.typeuser_code}>
+                                                {type.typeuser_name}
+                                            </MenuItem>
+                                        ))}
+                                    </Select>
+                                    {formik.touched.typeuser_code && formik.errors.typeuser_code && (
+                                        <Typography color="error" variant="caption">
+                                            {formik.errors.typeuser_code}
+                                        </Typography>
+                                    )}
+                                </FormControl>
+
+                                <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
+                                    Line ID
+                                </Typography>
+                                <TextField
+                                    fullWidth
+                                    size="small"
+                                    name="line_uid"
+                                    placeholder="Line ID"
+                                    {...formik.getFieldProps('line_uid')}
+                                    sx={{ mb: 2 }}
+                                />
+                            </Box>
+
+                            <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
+                                <Button
+                                    variant="contained"
+                                    onClick={handleCloseDrawer}
+                                    sx={{
+                                        width: '100px',
+                                        bgcolor: '#F62626',
+                                        '&:hover': { bgcolor: '#D32F2F' }
+                                    }}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    variant="contained"
+                                    onClick={formik.handleSubmit}
+                                    sx={{
+                                        width: '100px',
+                                        bgcolor: '#754C27',
+                                        '&:hover': { bgcolor: '#5A3D1E' }
+                                    }}
+                                >
+                                    Save
+                                </Button>
+                            </Box>
+                        </Box>
+                    </Box>
+                </Drawer>
+
+                {/* Edit Drawer */}
+                <Drawer
+                    anchor="right"
+                    open={openDrawer && editMode}
+                    onClose={handleCloseDrawer}
+                    ModalProps={{
+                        BackdropProps: {
+                            style: { backgroundColor: 'transparent' }
+                        }
+                    }}
+                    PaperProps={{
+                        sx: {
+                            boxShadow: 'none',
+                            width: '25%',
+                            borderRadius: '20px',
+                            border: '1px solid #E4E4E4',
+                            bgcolor: '#FAFAFA'
+                        },
+                    }}
+                >
+                    <Box sx={{ width: '100%', mt: '80px', flexDirection: 'column' }}>
+                        <Box sx={{
+                            position: 'absolute',
+                            top: '48px',
+                            left: '0',
+                            width: '129px',
+                            bgcolor: '#AD7A2C',
+                            color: '#FFFFFF',
+                            px: '8px',
+                            py: '4px',
+                            borderRadius: '20px',
+                            fontWeight: 'bold',
+                            zIndex: 1,
+                            height: '89px',
+                            display: 'flex',
+                            justifyContent: 'center',
+                        }}>
+                            <Typography sx={{ fontWeight: '600', fontSize: '14px' }}>
+                                Edit User
+                            </Typography>
+                        </Box>
+                        <Box sx={{
+                            display: 'flex',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            flexDirection: 'column',
+                            border: '1px solid #E4E4E4',
+                            borderRadius: '10px',
+                            bgcolor: '#FFFFFF',
+                            height: '100%',
+                            p: '16px',
+                            position: 'relative',
+                            zIndex: 2,
+                        }}>
+                            <Box sx={{ width: '80%', mt: '24px' }}>
+                                <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
+                                    Username
+                                </Typography>
+                                <TextField
+                                    fullWidth
+                                    size="small"
+                                    name="username"
+                                    placeholder="Username"
+                                    {...formik.getFieldProps('username')}
+                                    error={formik.touched.username && Boolean(formik.errors.username)}
+                                    helperText={formik.touched.username && formik.errors.username}
+                                    sx={{ mb: 2 }}
+                                />
+
+                                <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
+                                    Email
+                                </Typography>
+                                <TextField
+                                    fullWidth
+                                    size="small"
+                                    name="email"
+                                    placeholder="Email"
+                                    {...formik.getFieldProps('email')}
+                                    error={formik.touched.email && Boolean(formik.errors.email)}
+                                    helperText={formik.touched.email && formik.errors.email}
+                                    sx={{ mb: 2 }}
+                                />
+
+                                <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
+                                    User Type
+                                </Typography>
+                                <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+                                    <Select
+                                        name="typeuser_code"
+                                        value={formik.values.typeuser_code}
+                                        onChange={formik.handleChange}
+                                        error={formik.touched.typeuser_code && Boolean(formik.errors.typeuser_code)}
+                                    >
+                                        {userTypes.map((type) => (
+                                            <MenuItem key={type.typeuser_code} value={type.typeuser_code}>
+                                                {type.typeuser_name}
+                                            </MenuItem>
+                                        ))}
+                                    </Select>
+                                    {formik.touched.typeuser_code && formik.errors.typeuser_code && (
+                                        <Typography color="error" variant="caption">
+                                            {formik.errors.typeuser_code}
+                                        </Typography>
+                                    )}
+                                </FormControl>
+
+                                <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
+                                    Line ID
+                                </Typography>
+                                <TextField
+                                    fullWidth
+                                    size="small"
+                                    name="line_uid"
+                                    placeholder="Line ID"
+                                    {...formik.getFieldProps('line_uid')}
+                                    sx={{ mb: 2 }}
+                                />
+                            </Box>
+
+                            <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
+                                <Button
+                                    variant="contained"
+                                    onClick={handleCloseDrawer}
+                                    sx={{
+                                        width: '100px',
+                                        bgcolor: '#F62626',
+                                        '&:hover': { bgcolor: '#D32F2F' }
+                                    }}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    variant="contained"
+                                    onClick={formik.handleSubmit}
+                                    sx={{
+                                        width: '100px',
+                                        bgcolor: '#754C27',
+                                        '&:hover': { bgcolor: '#5A3D1E' }
+                                    }}
+                                >
+                                    Update
+                                </Button>
+                            </Box>
+                        </Box>
+                    </Box>
+                </Drawer>
             </Box>
-            <Drawer
-                anchor="right"
-                open={openDrawer}
-                onClose={toggleDrawer(false)}
-                ModalProps={{
-                    BackdropProps: {
-                        style: {
-                            backgroundColor: 'transparent',
-                        },
-                    },
-                }}
-                PaperProps={{
-                    sx: {
-                        boxShadow: 'none',
-                        width: '25%',
-                        borderRadius: '20px',
-                        border: '1px solid #E4E4E4',
-                        bgcolor: '#FAFAFA'
-                    },
-                }}
-            >
-                <Box
-                    sx={{
-                        width: '100%',
-                        mt: '80px',
-                        flexDirection: 'column'
-                    }}
-                >
-                    <Box
-                        sx={{
-                            position: 'absolute',
-                            top: '48px',
-                            left: '0',
-                            width: '129px',
-                            bgcolor: '#AD7A2C',
-                            color: '#FFFFFF',
-                            px: '8px',
-                            py: '4px',
-                            borderRadius: '5px',
-                            fontWeight: 'bold',
-                            zIndex: 1,
-                            borderRadius: '20px',
-                            height: '89px',
-                            display: 'flex',
-                            justifyContent: 'center',
-                        }}
-                    >
-                        <Typography sx={{ fontWeight: '600', fontSize: '14px' }} >
-                            Product
-                        </Typography>
-                    </Box>
-                    <Box
-                        sx={{
-                            display: 'flex',
-                            justifyContent: 'center',
-                            alignItems: 'center',
-                            flexDirection: 'column',
-                            border: '1px solid #E4E4E4',
-                            borderRadius: '10px',
-                            bgcolor: '#FFFFFF',
-                            height: '100%',
-                            p: '16px',
-                            position: 'relative',
-                            zIndex: 2,
-                        }}>
-
-                        <Typography sx={{ display: 'flex', flexDirection: 'row' }}>
-                            Product ID :
-                            <Typography sx={{ color: '#754C27', ml: '12px' }}>
-                                #011
-                            </Typography>
-                        </Typography>
-                        <Box sx={{ width: '80%', mt: '24px' }}>
-                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
-                                User Id
-                            </Typography>
-                            <TextField
-                                size="small"
-                                // placeholder={getLastTypeproductCode}
-                                disabled
-
-                                sx={{
-                                    mt: '8px',
-                                    width: '100%',
-                                    '& .MuiOutlinedInput-root': {
-                                        borderRadius: '10px',
-                                    },
-                                }}
-                                {...formik.getFieldProps("")}
-                                {...errorHelper(formik, "")}
-                                value={getLastProductCode}
-                            />
-                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
-                                User Name
-                            </Typography>
-                            <TextField
-                                size="small"
-                                placeholder="Name"
-                                sx={{
-                                    mt: '8px',
-                                    width: '100%',
-                                    '& .MuiOutlinedInput-root': {
-                                        borderRadius: '10px',
-                                    },
-                                }}
-                                {...formik.getFieldProps("")}
-                                {...errorHelper(formik, "")}
-                            />
-                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
-                                User Type Name
-                            </Typography>
-                            <TextField
-                                size="small"
-                                placeholder="User Type Name"
-                                sx={{
-                                    mt: '8px',
-                                    width: '100%',
-                                    '& .MuiOutlinedInput-root': {
-                                        borderRadius: '10px',
-                                    },
-                                }}
-                                {...formik.getFieldProps("")}
-                                {...errorHelper(formik, "")}
-                            />
-                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
-                                User
-                            </Typography>
-                            <TextField
-                                size="small"
-                                placeholder="User"
-                                sx={{
-                                    mt: '8px',
-                                    width: '100%',
-                                    '& .MuiOutlinedInput-root': {
-                                        borderRadius: '10px',
-                                    },
-                                }}
-                                {...formik.getFieldProps("")}
-                                {...errorHelper(formik, "")}
-                            />
-                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
-                                Password
-                            </Typography>
-                            <TextField
-                                size="small"
-                                placeholder="Password"
-                                sx={{
-                                    mt: '8px',
-                                    width: '100%',
-                                    '& .MuiOutlinedInput-root': {
-                                        borderRadius: '10px',
-                                    },
-                                }}
-                                {...formik.getFieldProps("")}
-                                {...errorHelper(formik, "")}
-                            />
-                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
-                                Email
-                            </Typography>
-                            <TextField
-                                size="small"
-                                placeholder="Email"
-                                sx={{
-                                    mt: '8px',
-                                    width: '100%',
-                                    '& .MuiOutlinedInput-root': {
-                                        borderRadius: '10px',
-                                    },
-                                }}
-                                {...formik.getFieldProps("")}
-                                {...errorHelper(formik, "")}
-                            />
-                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
-                                Line ID
-                            </Typography>
-                            <TextField
-                                size="small"
-                                placeholder="Line ID"
-                                sx={{
-                                    mt: '8px',
-                                    width: '100%',
-                                    '& .MuiOutlinedInput-root': {
-                                        borderRadius: '10px',
-                                    },
-                                }}
-                                {...formik.getFieldProps("")}
-                                {...errorHelper(formik, "")}
-                            />
-                        </Box>
-                        <Box sx={{ mt: '24px' }} >
-                            <Button variant='contained'
-                                sx={{
-                                    width: '100px',
-                                    bgcolor: '#F62626',
-                                    '&:hover': {
-                                        bgcolor: '#D32F2F',
-                                    },
-                                }}
-                            >
-                                Cancel
-                            </Button>
-                            <Button variant='contained'
-                                onClick={formik.handleSubmit}
-                                sx={{
-                                    width: '100px',
-                                    bgcolor: '#754C27',
-                                    '&:hover': {
-                                        bgcolor: '#5A3D1E',
-                                    },
-                                    ml: '24px'
-                                }}
-                            >
-                                Save
-                            </Button>
-                        </Box>
-                    </Box>
-                </Box>
-            </Drawer>
-            <Drawer
-                anchor="right"
-                open={openEditDrawer}
-                onClose={toggleEditDrawer(false)}
-                ModalProps={{
-                    BackdropProps: {
-                        style: {
-                            backgroundColor: 'transparent',
-                        },
-                    },
-                }}
-                PaperProps={{
-                    sx: {
-                        boxShadow: 'none',
-                        width: '25%',
-                        borderRadius: '20px',
-                        border: '1px solid #E4E4E4',
-                        bgcolor: '#FAFAFA'
-                    },
-                }}
-            >
-                <Box
-                    sx={{
-                        width: '100%',
-                        mt: '80px',
-                        flexDirection: 'column'
-                    }}
-                >
-                    <Box
-                        sx={{
-                            position: 'absolute',
-                            top: '48px',
-                            left: '0',
-                            width: '129px',
-                            bgcolor: '#AD7A2C',
-                            color: '#FFFFFF',
-                            px: '8px',
-                            py: '4px',
-                            borderRadius: '20px',
-                            fontWeight: 'bold',
-                            zIndex: 1,
-                            height: '89px',
-                            display: 'flex',
-                            justifyContent: 'center',
-                        }}
-                    >
-                        <Typography sx={{ fontWeight: '600', fontSize: '14px' }} >
-                            Branch
-                        </Typography>
-                    </Box>
-                    <Box
-                        sx={{
-                            display: 'flex',
-                            justifyContent: 'center',
-                            alignItems: 'center',
-                            flexDirection: 'column',
-                            border: '1px solid #E4E4E4',
-                            borderRadius: '10px',
-                            bgcolor: '#FFFFFF',
-                            height: '100%',
-                            p: '16px',
-                            position: 'relative',
-                            zIndex: 2,
-                        }}>
-
-                        <Typography sx={{ display: 'flex', flexDirection: 'row' }}>
-                            User ID :
-                            <Typography sx={{ color: '#754C27', ml: '12px' }}>
-                                #011
-                            </Typography>
-                        </Typography>
-                        <Box sx={{ width: '80%', mt: '24px' }}>
-                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
-                                User Id
-                            </Typography>
-                            <TextField
-                                size="small"
-                                // placeholder={getLastTypeproductCode}
-                                disabled
-
-                                sx={{
-                                    mt: '8px',
-                                    width: '100%',
-                                    '& .MuiOutlinedInput-root': {
-                                        borderRadius: '10px',
-                                    },
-                                }}
-                                {...formik.getFieldProps("")}
-                                {...errorHelper(formik, "")}
-                                value={getLastProductCode}
-                            />
-                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
-                                User Name
-                            </Typography>
-                            <TextField
-                                size="small"
-                                placeholder="Name"
-                                sx={{
-                                    mt: '8px',
-                                    width: '100%',
-                                    '& .MuiOutlinedInput-root': {
-                                        borderRadius: '10px',
-                                    },
-                                }}
-                                {...formik.getFieldProps("")}
-                                {...errorHelper(formik, "")}
-                            />
-                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
-                                User Type Name
-                            </Typography>
-                            <TextField
-                                size="small"
-                                placeholder="User Type Name"
-                                sx={{
-                                    mt: '8px',
-                                    width: '100%',
-                                    '& .MuiOutlinedInput-root': {
-                                        borderRadius: '10px',
-                                    },
-                                }}
-                                {...formik.getFieldProps("")}
-                                {...errorHelper(formik, "")}
-                            />
-                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
-                                User
-                            </Typography>
-                            <TextField
-                                size="small"
-                                placeholder="User"
-                                sx={{
-                                    mt: '8px',
-                                    width: '100%',
-                                    '& .MuiOutlinedInput-root': {
-                                        borderRadius: '10px',
-                                    },
-                                }}
-                                {...formik.getFieldProps("")}
-                                {...errorHelper(formik, "")}
-                            />
-                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
-                                Password
-                            </Typography>
-                            <TextField
-                                size="small"
-                                placeholder="Password"
-                                sx={{
-                                    mt: '8px',
-                                    width: '100%',
-                                    '& .MuiOutlinedInput-root': {
-                                        borderRadius: '10px',
-                                    },
-                                }}
-                                {...formik.getFieldProps("")}
-                                {...errorHelper(formik, "")}
-                            />
-                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
-                                Email
-                            </Typography>
-                            <TextField
-                                size="small"
-                                placeholder="Email"
-                                sx={{
-                                    mt: '8px',
-                                    width: '100%',
-                                    '& .MuiOutlinedInput-root': {
-                                        borderRadius: '10px',
-                                    },
-                                }}
-                                {...formik.getFieldProps("")}
-                                {...errorHelper(formik, "")}
-                            />
-                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
-                                Line ID
-                            </Typography>
-                            <TextField
-                                size="small"
-                                placeholder="Line ID"
-                                sx={{
-                                    mt: '8px',
-                                    width: '100%',
-                                    '& .MuiOutlinedInput-root': {
-                                        borderRadius: '10px',
-                                    },
-                                }}
-                                {...formik.getFieldProps("")}
-                                {...errorHelper(formik, "")}
-                            />
-                        </Box>
-                        <Box sx={{ mt: '24px' }} >
-                            <Button variant='contained'
-                                sx={{
-                                    width: '100px',
-                                    bgcolor: '#F62626',
-                                    '&:hover': {
-                                        bgcolor: '#D32F2F',
-                                    },
-                                }}
-                            >
-                                Cancel
-                            </Button>
-                            <Button
-                                onClick={handleSave}
-                                sx={{
-                                    width: '100px',
-                                    backgroundColor: '#AD7A2C',
-                                    color: '#FFFFFF',
-                                    '&:hover': {
-                                        backgroundColor: '#8C5D1E',
-                                    },
-                                    ml: '24px'
-                                }}
-                            >
-                                Save
-                            </Button>
-
-                        </Box>
-                    </Box>
-                </Box>
-            </Drawer>
-            {alert.open && (
-                <Alert severity={alert.severity} onClose={() => setAlert({ ...alert, open: false })}>
-                    <AlertTitle>{alert.severity === 'success' ? 'Success' : 'Error'}</AlertTitle>
-                    {alert.message}
-                </Alert>
-            )}
         </>
     );
 }
-

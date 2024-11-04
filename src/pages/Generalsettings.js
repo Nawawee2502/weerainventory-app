@@ -129,6 +129,10 @@ export default function GeneralSettings() {
         navigate('/dashboard');
     };
 
+    const handleBackToSettings = () => {
+        navigate('/settings');
+    };
+
     const mobileMenuId = 'primary-search-account-menu-mobile';
     const renderMobileMenu = (
         <Menu
@@ -187,7 +191,6 @@ export default function GeneralSettings() {
                 <Toolbar>
                     <img
                         src='/logo1.png'
-                        onClick={handleDashboard}
                         style={{
                             width: '52.78px',
                             height: '36px',
@@ -195,7 +198,6 @@ export default function GeneralSettings() {
                     />
                     <img
                         src='/logo2.png'
-                        onClick={handleDashboard}
                         style={{
                             width: '146.55px',
                             height: '20px'
@@ -252,37 +254,31 @@ export default function GeneralSettings() {
                     </Box>
                 </Toolbar>
             </AppBar>
-            <Box
-                sx={{
-                    width: '100%',
+            <Box sx={{
+                width: '100%',
+                height: '100%',
+                display: 'flex',
+                justifyContent: 'center',
+                flexWrap: 'wrap',
+                mt: '24px',
+                bgcolor: '#EDEDED',
+                overflowX: 'hidden',
+            }}>
+                <Box sx={{
+                    width: '98%',
                     height: '100%',
-                    display: 'flex',
-                    justifyContent: 'center',
                     flexWrap: 'wrap',
-                    mt: '24px',
-                    bgcolor: '#EDEDED',
+                    bgcolor: 'white',
                     overflowX: 'hidden',
-                }}
-            >
-                <Box
-                    sx={{
-                        width: '98%',
-                        height: '100%',
-                        flexWrap: 'wrap',
-                        bgcolor: 'white',
-                        overflowX: 'hidden',
-                        mt: '60px',
-                        borderRadius: '15px',
-                        mr: 'auto',
-                        ml: 'auto',
-                    }}
-                >
-                    <Box
-                        sx={{
-                            alignItems: 'center',
-                            p: '24px'
-                        }}
-                    >
+                    mt: '60px',
+                    borderRadius: '15px',
+                    mr: 'auto',
+                    ml: 'auto',
+                }}>
+                    <Box sx={{
+                        alignItems: 'center',
+                        p: '24px'
+                    }}>
                         <TabContext value={value}>
                             <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
                                 <TabList onChange={handleChange} aria-label="lab API tabs example">
@@ -292,6 +288,18 @@ export default function GeneralSettings() {
                                     <Tab label="Branch" value="4" />
                                     <Tab label="Comissary Kitchen" value="5" />
                                     <Tab label="Supplier" value="6" />
+                                    <Tab
+                                        label="Back"
+                                        value="7"
+                                        onClick={handleBackToSettings}
+                                        sx={{
+                                            marginLeft: 'auto',  // ทำให้ tab อยู่ทางขวาสุด
+                                            color: '#F62626',   // สีแดง
+                                            '&:hover': {
+                                                color: '#D32F2F'  // สีแดงเข้มเมื่อ hover
+                                            }
+                                        }}
+                                    />
                                 </TabList>
                             </Box>
                             <TabPanel value="1">
@@ -312,12 +320,14 @@ export default function GeneralSettings() {
                             <TabPanel value="6">
                                 <Supplier />
                             </TabPanel>
+                            <TabPanel value="7">
+                                {/* ไม่ต้องใส่อะไรเพราะจะ navigate ไปหน้า settings ทันทีที่กด */}
+                            </TabPanel>
                         </TabContext>
                     </Box>
                 </Box>
             </Box>
             {renderMobileMenu}
-            {/* test */}
         </>
     );
 }

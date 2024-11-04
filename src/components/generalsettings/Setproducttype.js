@@ -682,8 +682,9 @@ export default function SetProductType() {
                             />
                         </Box>
                         <Box sx={{ mt: '24px' }} >
-                            onClick={handleCancelCreate}
+
                             <Button variant='contained'
+                                onClick={handleCancelCreate}
                                 sx={{
                                     width: '100px',
                                     bgcolor: '#F62626',

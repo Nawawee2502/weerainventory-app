@@ -338,6 +338,8 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
       rdate: day + '/' + month + '/' + year,
       supplier_code: saveSupplier,
       branch_code: saveBranch,
+      taxable: 1,
+      nontaxable: 1,
       trdate: year + month + day,
       monthh: month,
       myear: year,
@@ -362,6 +364,7 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
         qty: quantity.toString(),
         unit_code: unitCode,
         uprice: unitPrice.toString(),
+        tax1: '1',
         amt: amount.toString()
       };
     });

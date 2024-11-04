@@ -6,10 +6,9 @@ const BASE_URL = `${process.env.REACT_APP_URL_API}`;
 
 export const addProduct = createAsyncThunk(
   "product/add",
-  async ({ product_code, product_name, typeproduct_code, bulk_unit_code, bulk_unit_price, retail_unit_code, retail_unit_price, unit_conversion_factor }, { dispatch }) => {
+  async ({ product_code, product_name, typeproduct_code, bulk_unit_code, bulk_unit_price, retail_unit_code, retail_unit_price, unit_conversion_factor, tax1 }, { dispatch }) => {
     try {
       const res = await axios.post(BASE_URL + "/api/addproduct", {
-        // product_img,
         product_code,
         product_name,
         typeproduct_code,
@@ -18,6 +17,7 @@ export const addProduct = createAsyncThunk(
         retail_unit_code,
         retail_unit_price,
         unit_conversion_factor,
+        tax1,
       });
       console.log(res.data);
       return res.data;
@@ -30,7 +30,7 @@ export const addProduct = createAsyncThunk(
 
 export const updateProduct = createAsyncThunk(
   "product/update",
-  async ({ product_code, product_name, typeproduct_code, bulk_unit_code, bulk_unit_price, retail_unit_code, retail_unit_price, unit_conversion_factor }, { dispatch }) => {
+  async ({ product_code, product_name, typeproduct_code, bulk_unit_code, bulk_unit_price, retail_unit_code, retail_unit_price, unit_conversion_factor, tax1 }, { dispatch }) => {
     try {
       const res = await axios.post(BASE_URL + "/api/updateproduct", {
         product_code,
@@ -41,6 +41,7 @@ export const updateProduct = createAsyncThunk(
         retail_unit_code,
         retail_unit_price,
         unit_conversion_factor,
+        tax1,
       });
       console.log(res.data);
       return res.data;

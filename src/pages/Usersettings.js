@@ -16,6 +16,7 @@ import TabPanel from '@mui/lab/TabPanel';
 import UserType from '../components/usersettings/Usertype';
 import ManageUser from '../components/usersettings/Manageuser';
 import UserPermission from '../components/usersettings/Userpermission';
+import { useNavigate } from "react-router-dom";
 
 
 const Search = styled('div')(({ theme }) => ({
@@ -90,6 +91,7 @@ export default function UserSettings() {
     const [value, setValue] = useState('1');
     const [anchorEl, setAnchorEl] = useState(null);
     const [mobileMoreAnchorEl, setMobileMoreAnchorEl] = useState(null);
+    const navigate = useNavigate();
 
     const isMenuOpen = Boolean(anchorEl);
     const isMobileMenuOpen = Boolean(mobileMoreAnchorEl);
@@ -118,6 +120,10 @@ export default function UserSettings() {
 
     const handleChange = (event, newValue) => {
         setValue(newValue);
+    };
+
+    const handleBackToSettings = () => {
+        navigate('/settings');
     };
 
     const mobileMenuId = 'primary-search-account-menu-mobile';
@@ -278,6 +284,18 @@ export default function UserSettings() {
                                     <Tab label="User Type" value="1" />
                                     <Tab label="User Permission" value="2" />
                                     <Tab label="Manage User" value="3" />
+                                    <Tab
+                                        label="Back"
+                                        value="4"
+                                        onClick={handleBackToSettings}
+                                        sx={{
+                                            marginLeft: 'auto',  // ทำให้ tab อยู่ทางขวาสุด
+                                            color: '#F62626',   // สีแดง
+                                            '&:hover': {
+                                                color: '#D32F2F'  // สีแดงเข้มเมื่อ hover
+                                            }
+                                        }}
+                                    />
                                 </TabList>
                             </Box>
                             <TabPanel value="1">
@@ -291,6 +309,9 @@ export default function UserSettings() {
                             <TabPanel value="3">
                                 {/* <ProductRecord /> */}
                                 <ManageUser />
+                            </TabPanel>
+                            <TabPanel value="4">
+                                {/* ไม่ต้องใส่อะไรเพราะจะ navigate ไปหน้า settings ทันทีที่กด */}
                             </TabPanel>
                         </TabContext>
                     </Box>

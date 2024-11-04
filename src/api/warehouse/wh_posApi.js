@@ -63,6 +63,8 @@ export const updateWh_pos = createAsyncThunk(
                 monthh: orderData.monthh,
                 supplier_code: orderData.supplier_code,
                 branch_code: orderData.branch_code,
+                taxable: orderData.taxable,
+                nontaxable: orderData.nontaxable,
                 total: orderData.total
             });
             return res.data;
@@ -110,18 +112,18 @@ export const deleteWh_pos = createAsyncThunk(
 export const wh_posAlljoindt = createAsyncThunk(
     "branch/read",
     async ({ offset = 0, limit = 5 }, { dispatch }) => {
-      try {
-        const res = await axios.post(BASE_URL + "/api/wh_posAlljoindt", { 
-          offset, 
-          limit
-        });
-        return res.data;
-      } catch (error) {
-        console.error(error.message);
-        throw error;
-      }
+        try {
+            const res = await axios.post(BASE_URL + "/api/wh_posAlljoindt", {
+                offset,
+                limit
+            });
+            return res.data;
+        } catch (error) {
+            console.error(error.message);
+            throw error;
+        }
     }
-  );
+);
 
 export const wh_posAllrdate = createAsyncThunk(
     "branch/read",
@@ -144,6 +146,21 @@ export const refno = createAsyncThunk(
     async ({ test }, { dispatch }) => {
         try {
             const res = await axios.post(BASE_URL + "/api/refno", { test: test });
+            console.log(res.data);
+            return res.data;
+        } catch (error) {
+            console.error(error.message);
+            throw error;
+        }
+    }
+);
+
+export const countwh_pos = createAsyncThunk(
+    "whpos/count",
+    async ({ test }, { dispatch }) => {
+        try {
+            console.log("____TETS____");
+            const res = await axios.post(BASE_URL + "/api/countwh_pos", { test: test });
             console.log(res.data);
             return res.data;
         } catch (error) {
