@@ -16,7 +16,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import { addSupplier, deleteSupplier, updateSupplier, supplierAll, countSupplier, searchSupplier, lastSupplierCode } from '../../../api/supplierApi';
 import { addBranch, deleteBranch, updateBranch, branchAll, countBranch, searchBranch, lastBranchCode } from '../../../api/branchApi';
 import { addWh_pos, updateWh_pos, deleteWh_pos, wh_posAlljoindt, wh_posAllrdate, Wh_posByRefno } from '../../../api/warehouse/wh_posApi';
-import { Wh_posdtAllinnerjoin } from '../../../api/warehouse/wh_posdtApi';
+import { Wh_posdtAllinnerjoin, deleteWh_posdt } from '../../../api/warehouse/wh_posdtApi';
 import { searchProductCode } from '../../../api/productrecordApi';
 import { useFormik } from "formik";
 import { useDispatch, useSelector } from "react-redux";
@@ -48,7 +48,7 @@ const StyledTableRow = styled(TableRow)(({ theme }) => ({
 }));
 
 
-export default function PurchaseOrderToSupplier({ onCreate }) {
+export default function PurchaseOrderToSupplier({ onCreate, onEdit }) {
   const [selected, setSelected] = useState([]);
   const dispatch = useDispatch();
   const [alert, setAlert] = useState({ open: false, message: '', severity: 'success' });
@@ -173,59 +173,87 @@ export default function PurchaseOrderToSupplier({ onCreate }) {
     }
   };
 
-  const handleDelete = (branch_code) => {
+  const loadData = async (pageNumber) => {
+    try {
+      const offset = (pageNumber - 1) * itemsPerPage;
+      const limit = itemsPerPage;
+
+      const res = await dispatch(wh_posAlljoindt({ offset, limit })).unwrap();
+
+      const resultData = res.data.map((item, index) => ({
+        ...item,
+        id: offset + index + 1
+      }));
+
+      setWhpos(resultData);
+      const totalPages = Math.ceil(res.total / itemsPerPage);
+      setCount(totalPages);
+      setPage(pageNumber);
+    } catch (err) {
+      console.error("Error loading data:", err);
+    }
+  };
+
+  const handleDelete = (refno) => {
     Swal.fire({
-      title: 'Are you sure you want to delete this branch?',
+      title: 'Are you sure you want to delete this order?',
       text: 'This action cannot be undone!',
       icon: 'warning',
       showCancelButton: true,
       confirmButtonText: 'Delete',
       cancelButtonText: 'Cancel',
       reverseButtons: true,
-    }).then((result) => {
+    }).then(async (result) => {
       if (result.isConfirmed) {
-        dispatch(deleteBranch({ branch_code }))
-          .unwrap()
-          .then((res) => {
-            Swal.fire({
-              icon: 'success',
-              title: 'Deleted successfully',
-              timer: 1500,
-              showConfirmButton: false,
-            });
-            setTimeout(() => {
-              refetchData();
-              let offset = 0;
-              let limit = 5;
-              dispatch(branchAll({ offset, limit }))
-                .unwrap()
-                .then((res) => setBranch(res.data));
-            }, 2000);
-          })
-          .catch((err) => {
-            Swal.fire({
-              icon: 'error',
-              title: 'Error deleting branch',
-              text: 'Please try again later',
-              timer: 3000,
-              showConfirmButton: false,
-            });
+        try {
+          Swal.fire({
+            title: 'Deleting order...',
+            allowOutsideClick: false,
+            didOpen: () => {
+              Swal.showLoading();
+            }
           });
-      } else {
-        Swal.fire({
-          icon: 'info',
-          title: 'Deletion canceled',
-          timer: 1500,
-          showConfirmButton: false,
-        });
+
+          // 1. ดึงข้อมูล order
+          const orderData = await dispatch(Wh_posByRefno(refno)).unwrap();
+
+          // 2. ลบข้อมูลใน wh_posdt
+          for (const item of orderData.data.wh_posdts) {
+            await dispatch(deleteWh_posdt({
+              refno: refno,
+              product_code: item.product_code
+            })).unwrap();
+          }
+
+          // 3. ลบข้อมูลใน wh_pos
+          await dispatch(deleteWh_pos({ refno })).unwrap();
+
+          Swal.fire({
+            icon: 'success',
+            title: 'Order deleted successfully',
+            timer: 1500,
+            showConfirmButton: false,
+          });
+
+          // 4. โหลดข้อมูลใหม่
+          await loadData(page);
+
+        } catch (err) {
+          console.error("Error:", err);
+          Swal.fire({
+            icon: 'error',
+            title: 'Error deleting order',
+            text: err.message || 'An unknown error occurred',
+            confirmButtonText: 'OK'
+          });
+        }
       }
     });
   };
 
-
   const handleDeleteSelected = () => {
     Swal.fire({
-      title: 'Are you sure you want to delete the selected branches?',
+      title: 'Are you sure you want to delete the selected orders?',
       text: 'This action cannot be undone!',
       icon: 'warning',
       showCancelButton: true,
@@ -234,42 +262,62 @@ export default function PurchaseOrderToSupplier({ onCreate }) {
       reverseButtons: true,
     }).then((result) => {
       if (result.isConfirmed) {
-        Promise.all(selected.map(branch_code =>
-          dispatch(deleteBranch({ branch_code })).unwrap()
-        ))
+        Swal.fire({
+          title: 'Deleting orders...',
+          allowOutsideClick: false,
+          didOpen: () => {
+            Swal.showLoading();
+          }
+        });
+
+        // กรองเฉพาะ rows ที่ถูกเลือก
+        const selectedRows = whpos.filter(row => selected.includes(row.branch_code));
+
+        // สร้าง array ของ promises สำหรับการลบแต่ละ order
+        const deletePromises = selectedRows.map(row =>
+          dispatch(Wh_posByRefno(row.refno))
+            .unwrap()
+            .then(async (res) => {
+              // 1. ลบข้อมูลใน wh_posdt ทั้งหมดที่มี refno นี้
+              const deletePosdtPromises = res.data.wh_posdts.map(item =>
+                dispatch(deleteWh_posdt({
+                  refno: row.refno,
+                  product_code: item.product_code
+                })).unwrap()
+              );
+
+              await Promise.all(deletePosdtPromises);
+
+              // 2. ลบข้อมูลใน wh_pos
+              return dispatch(deleteWh_pos({ refno: row.refno })).unwrap();
+            })
+        );
+
+        // รอให้การลบทั้งหมดเสร็จสิ้น
+        Promise.all(deletePromises)
           .then(() => {
             Swal.fire({
               icon: 'success',
-              title: 'Deleted successfully',
+              title: 'Selected orders deleted successfully',
               timer: 1500,
               showConfirmButton: false,
             });
+
+            // Reset selection และโหลดข้อมูลใหม่
+            setSelected([]);
             setTimeout(() => {
-              setSelected([]);
-              refetchData();
-              let offset = 0;
-              let limit = 5;
-              dispatch(branchAll({ offset, limit }))
-                .unwrap()
-                .then((res) => setBranch(res.data));
-            }, 2000);
+              refetchData(page);
+            }, 1500);
           })
           .catch((err) => {
+            console.error("Error details:", err);
             Swal.fire({
               icon: 'error',
-              title: 'Error deleting branches',
-              text: 'Please try again later',
-              timer: 3000,
-              showConfirmButton: false,
+              title: 'Error deleting orders',
+              text: err.message || 'An unknown error occurred',
+              confirmButtonText: 'OK'
             });
           });
-      } else {
-        Swal.fire({
-          icon: 'info',
-          title: 'Deletion canceled',
-          timer: 1500,
-          showConfirmButton: false,
-        });
       }
     });
   };
@@ -282,7 +330,7 @@ export default function PurchaseOrderToSupplier({ onCreate }) {
   const [tax, setTax] = useState(0);
   const [total, setTotal] = useState(0);
   const [originalProducts, setOriginalProducts] = useState([]);
-  
+
 
 
   const PrintPurchaseOrderPDF = async (refno) => {
@@ -448,7 +496,7 @@ export default function PurchaseOrderToSupplier({ onCreate }) {
                     <IconButton
                       color="primary"
                       size="md"
-                      // onClick={() => handleEdit(row)} // Use handleEdit function for row editing
+                      onClick={() => onEdit(row.refno)} // เรียกใช้ onEdit prop พร้อมส่ง refno
                       sx={{ border: '1px solid #AD7A2C', borderRadius: '7px' }}
                     >
                       <EditIcon sx={{ color: '#AD7A2C' }} />
@@ -458,7 +506,7 @@ export default function PurchaseOrderToSupplier({ onCreate }) {
                     <IconButton
                       color="danger"
                       size="md"
-                      onClick={() => handleDelete(row.branch_code)} // Use handleDelete function for row deletion
+                      onClick={() => handleDelete(row.refno)}  // เปลี่ยนจาก branch_code เป็น refno
                       sx={{ border: '1px solid #F62626', borderRadius: '7px' }}
                     >
                       <DeleteIcon sx={{ color: '#F62626' }} />
@@ -487,58 +535,7 @@ export default function PurchaseOrderToSupplier({ onCreate }) {
             page={page}
           />
         </Stack>
-        {/* <Stack spacing={2} sx={{ mt: '8px' }}>
-          <Pagination count={count} shape="rounded" onChange={handleChange} page={page} />
-        </Stack> */}
       </Box>
     </>
   );
 }
-
-
-
-
-// const PrintPurchaseOrderPDF = (refNo) => (
-//     <div>
-//     <PDFDownloadLink document={<PurchaseOrderPDF />} fileName={refNo+".pdf"}>
-//       {({ loading }) => (loading ? 'Loading document...' : 'Download PDF')}
-//     </PDFDownloadLink>
-//   </div>
-// );
-
-
-
-const styles = StyleSheet.create({
-  page: {
-    padding: 20,
-    fontSize: 10,
-  },
-  header: {
-    textAlign: 'center',
-    marginBottom: 10,
-  },
-  tableHeader: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: '#000',
-    borderBottomStyle: 'solid',
-    padding: 5,
-  },
-  row: {
-    flexDirection: 'row',
-    borderBottomWidth: 0.5,
-    borderBottomColor: '#000',
-    borderBottomStyle: 'solid',
-    padding: 5,
-  },
-  cell: {
-    flex: 1,
-    textAlign: 'center',
-  },
-  footer: {
-    marginTop: 20,
-    fontSize: 8,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-});

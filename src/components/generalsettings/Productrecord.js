@@ -182,6 +182,8 @@ export default function ProductRecord() {
         }
     };
 
+    
+
     const handleDelete = (product_code) => {
         Swal.fire({
             title: 'Are you sure you want to delete this product?',
