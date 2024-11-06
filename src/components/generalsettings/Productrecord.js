@@ -1221,14 +1221,6 @@ export default function ProductRecord() {
                     </Box>
                 </Box>
             </Drawer>
-            {
-                alert.open && (
-                    <Alert severity={alert.severity} onClose={() => setAlert({ ...alert, open: false })}>
-                        <AlertTitle>{alert.severity === 'success' ? 'Success' : 'Error'}</AlertTitle>
-                        {alert.message}
-                    </Alert>
-                )
-            }
         </>
     );
 }

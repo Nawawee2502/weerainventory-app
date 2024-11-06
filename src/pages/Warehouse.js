@@ -6,45 +6,52 @@ import { createTheme } from '@mui/material/styles';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import BarChartIcon from '@mui/icons-material/BarChart';
-import DescriptionIcon from '@mui/icons-material/Description';
+import Button from '@mui/material/Button';
 import { AppProvider } from '@toolpad/core/AppProvider';
 import { DashboardLayout } from '@toolpad/core/DashboardLayout';
 import ReceiptFromSupplier from '../components/warehouse/Receiptfromsupplier'
 import ReceiptFromKitchen from '../components/warehouse/Receiptfromkitchen';
 import { useNavigate } from "react-router-dom";
 import HomePurchaseOrderToSupplier from '../components/warehouse/purchaseordertosupplier/HomePurchaseOrdertoSupplier';
-
+import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined';
+import ReceiptOutlinedIcon from '@mui/icons-material/ReceiptOutlined';
+import LocalShippingOutlinedIcon from '@mui/icons-material/LocalShippingOutlined';
+import CountertopsOutlinedIcon from '@mui/icons-material/CountertopsOutlined';
+import HouseSidingOutlinedIcon from '@mui/icons-material/HouseSidingOutlined';
+import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
+import CircleIcon from '@mui/icons-material/Circle';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 
 const NAVIGATION = [
     {
         segment: 'purchase-order-to-supplier',
         title: 'Purchase Order to Supplier',
-        icon: <DashboardIcon />,
+        icon: <ReceiptLongOutlinedIcon />,
     },
     {
         segment: 'receipt-from-supplier',
         title: 'Receipt From Supplier',
-        icon: <DashboardIcon />,
+        icon: <ReceiptOutlinedIcon />,
     },
     {
         segment: 'receipt-from-kitchen',
         title: 'Receipt From Kitchen',
-        icon: <DashboardIcon />,
+        icon: <LocalShippingOutlinedIcon />,
     },
     {
         segment: 'dispatch-to-kitchen',
         title: 'Dispatch to Kitchen',
-        icon: <DashboardIcon />,
+        icon: <CountertopsOutlinedIcon />,
     },
     {
         segment: 'dispatch-to-branch',
         title: 'Dispatch to Branch',
-        icon: <DashboardIcon />,
+        icon: <HouseSidingOutlinedIcon />,
     },
     {
         segment: 'stock-adjustment',
         title: 'Stock Adjustment',
-        icon: <DashboardIcon />,
+        icon: <Inventory2OutlinedIcon />,
     },
     {
         segment: 'reports',
@@ -54,44 +61,46 @@ const NAVIGATION = [
             {
                 segment: 'purchase-order-to-supplier',
                 title: 'Purchase Order to Supplier',
-                icon: <DescriptionIcon />,
+                icon: <CircleIcon fontSize='small' />,
             },
             {
                 segment: 'receipt-from-supplier',
                 title: 'Receipt From Supplier',
-                icon: <DescriptionIcon />,
+                icon: <CircleIcon fontSize='small' />,
             },
             {
                 segment: 'receipt-from-kitchen',
                 title: 'Receipt From Kitchen',
-                icon: <DescriptionIcon />,
+                icon: <CircleIcon fontSize='small' />,
             },
             {
                 segment: 'dispatch-to-kitchen',
                 title: 'Dispatch to Kitchen',
-                icon: <DescriptionIcon />,
+                icon: <CircleIcon fontSize='small' />,
             },
             {
                 segment: 'dispatch-to-branch',
                 title: 'Dispatch to Branch',
-                icon: <DescriptionIcon />,
+                icon: <CircleIcon fontSize='small' />,
             },
             {
                 segment: 'stock-adjustment',
                 title: 'Stock Adjustment',
-                icon: <DescriptionIcon />,
+                icon: <CircleIcon fontSize='small' />,
             },
             {
                 segment: 'monthly-stock-card',
                 title: 'Monthly Stock Card',
-                icon: <DescriptionIcon />,
+                icon: <CircleIcon fontSize='small' />,
             },
             {
                 segment: 'monthly-stock-balance',
                 title: 'Monthly Stock Balance',
-                icon: <DescriptionIcon />,
+                icon: <CircleIcon fontSize='small' />,
             },
+
         ],
+
     },
 ];
 
@@ -120,6 +129,41 @@ function Warehouse(props) {
 
     const handleDashboard = () => {
         navigate('/dashboard');
+    };
+
+    function SidebarFooter({ mini }) {
+        const navigate = useNavigate();
+
+        return (
+            <Box
+                sx={{
+                    p: 2,
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center'
+                }}
+            >
+                <Button
+                    variant="text"
+                    startIcon={!mini && <ArrowBackIcon />}
+                    onClick={() => navigate('/dashboard')}
+                    sx={{
+                        minWidth: 0,
+                        p: mini ? 1 : 2,
+                        color: 'text.secondary',
+                        '&:hover': {
+                            color: 'primary.main'
+                        }
+                    }}
+                >
+                    {mini ? <ArrowBackIcon /> : 'Back to Dashboard'}
+                </Button>
+            </Box>
+        );
+    }
+
+    SidebarFooter.propTypes = {
+        mini: PropTypes.bool.isRequired,
     };
 
     const router = React.useMemo(() => {
@@ -156,7 +200,7 @@ function Warehouse(props) {
             branding={{
                 logo: (
                     <>
-                        <Box sx={{ display:'flex', alignItems:'center' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
                             <img
                                 src="/logo1.png"
                                 alt="Logo 1"
@@ -181,7 +225,10 @@ function Warehouse(props) {
                 title: '',
             }}
         >
-            <DashboardLayout defaultSidebarCollapsed>
+            <DashboardLayout
+                defaultSidebarCollapsed
+                slots={{ sidebarFooter: SidebarFooter }}
+            >
                 {renderContent()}
             </DashboardLayout>
         </AppProvider>

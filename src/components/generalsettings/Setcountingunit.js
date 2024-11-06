@@ -803,8 +803,9 @@ export default function SetCountingUnit() {
                             />
                         </Box>
                         <Box sx={{ mt: '24px' }} >
-                            onClick={handleCancelEdit}
+
                             <Button variant='contained'
+                                onClick={handleCancelEdit}
                                 sx={{
                                     width: '100px',
                                     bgcolor: '#F62626',

@@ -389,23 +389,24 @@ export default function UserPermission() {
         loadUserTypes();
     }, [dispatch]);
 
-    const toggleDrawer = (drawerType) => (open) => (event) => {
-        if (event?.type === 'keydown' && (event.key === 'Tab' || event.key === 'Shift')) {
-            return;
-        }
-
+    const toggleDrawer = (drawerType) => {
         if (drawerType === 'edit') {
-            setOpenEditDrawer(open);
-            if (!open) {
-                setEditingPermission(null);
+            return {
+                open: () => setOpenEditDrawer(true),
+                close: () => {
+                    setOpenEditDrawer(false);
+                    setEditingPermission(null);
+                    formik.resetForm();
+                }
+            };
+        }
+        return {
+            open: () => setOpenDrawer(true),
+            close: () => {
+                setOpenDrawer(false);
+                formik.resetForm();
             }
-        } else {
-            setOpenDrawer(open);
-        }
-
-        if (!open) {
-            formik.resetForm();
-        }
+        };
     };
 
     const handleCheckboxChangeFormik = (name) => (event) => {
@@ -444,7 +445,7 @@ export default function UserPermission() {
             }}
         >
             <Button
-                onClick={toggleDrawer('create')(true)}
+                onClick={() => toggleDrawer('create').open()}
                 sx={{
                     width: '209px',
                     height: '70px',
@@ -559,7 +560,7 @@ export default function UserPermission() {
             <Drawer
                 anchor="right"
                 open={openDrawer}
-                onClose={toggleDrawer(false)}
+                onClose={() => toggleDrawer('create').close()}
                 PaperProps={{
                     sx: {
                         width: '70%',
@@ -568,7 +569,7 @@ export default function UserPermission() {
                 }}
             >
                 <IconButton
-                    onClick={toggleDrawer(false)}
+                    onClick={() => toggleDrawer('create').close()}
                     sx={{ position: 'absolute', right: 8, top: 8 }}
                 >
                     <CloseIcon />
@@ -682,7 +683,6 @@ export default function UserPermission() {
                                 </Grid>
                             )}
 
-                            {/* Warehouse Section */}
                             {/* Warehouse Section */}
                             {formik.values.menu_setwarehouse === 'Y' && (
                                 <Grid item xs={12} md={4}>
@@ -939,7 +939,9 @@ export default function UserPermission() {
                                 background: 'linear-gradient(180deg, #AD7A2C 0%, #754C27 100%)',
                                 '&:hover': {
                                     background: 'linear-gradient(180deg, #8C5D1E 0%, #5D3A1F 100%)',
-                                }
+                                },
+                                marginBottom: '48px'
+
                             }}
                         >
                             Save Permissions
@@ -950,7 +952,7 @@ export default function UserPermission() {
             <Drawer
                 anchor="right"
                 open={openEditDrawer}
-                onClose={toggleDrawer('edit')(false)}
+                onClose={() => toggleDrawer('edit').close()}
                 PaperProps={{
                     sx: {
                         width: '70%',
@@ -959,7 +961,7 @@ export default function UserPermission() {
                 }}
             >
                 <IconButton
-                    onClick={toggleDrawer('edit')(false)}
+                    onClick={() => toggleDrawer('edit').close()}
                     sx={{ position: 'absolute', right: 8, top: 8 }}
                 >
                     <CloseIcon />
@@ -1151,7 +1153,7 @@ export default function UserPermission() {
                     {/* Action Buttons */}
                     <Box sx={{ mt: 4, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
                         <Button
-                            onClick={toggleDrawer('edit')(false)}
+                            onClick={() => toggleDrawer('edit').close()}
                             variant="outlined"
                             sx={{
                                 color: '#754C27',

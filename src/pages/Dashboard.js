@@ -252,7 +252,7 @@ export default function Dashboard() {
                         src='/shop.png'
                     />
                     <Typography sx={{ fontSize: '16px', fontWeight: '700', color: '#1D2A3A' }}>
-                        Shop
+                        Restaurant
                     </Typography>
                 </Button>
                 <Button
