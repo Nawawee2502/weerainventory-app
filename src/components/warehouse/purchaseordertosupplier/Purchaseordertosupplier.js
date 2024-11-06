@@ -27,6 +27,46 @@ import PrintIcon from '@mui/icons-material/Print';
 import { PDFDownloadLink, Document, Page, Text, View, StyleSheet, pdf } from '@react-pdf/renderer';
 import { saveAs } from 'file-saver';
 import { generatePDF } from './Pdf.js'
+import DatePicker from 'react-datepicker';
+import "react-datepicker/dist/react-datepicker.css";
+import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+
+
+const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
+  <Box sx={{ position: 'relative', display: 'inline-block', width: '100%' }}>
+    <TextField
+      value={value}
+      onClick={onClick}
+      placeholder={placeholder}
+      ref={ref}
+      size="small"
+      sx={{
+        '& .MuiInputBase-root': {
+          height: '38px',
+          width: '100%', // ให้ขนาดเต็มตาม parent
+          backgroundColor: '#fff',
+        },
+        '& .MuiOutlinedInput-input': {
+          cursor: 'pointer',
+          paddingRight: '40px',
+        }
+      }}
+      InputProps={{
+        readOnly: true,
+        endAdornment: (
+          <InputAdornment position="end">
+            <CalendarTodayIcon
+              sx={{
+                color: '#754C27',
+                cursor: 'pointer'
+              }}
+            />
+          </InputAdornment>
+        ),
+      }}
+    />
+  </Box>
+));
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
   [`&.${tableCellClasses.head}`]: {
@@ -65,11 +105,63 @@ export default function PurchaseOrderToSupplier({ onCreate, onEdit }) {
   const [units, setUnits] = useState({});
   const [totals, setTotals] = useState({});
   const [itemsPerPage] = useState(5);
+  const [filterDate, setFilterDate] = useState(new Date());
+
+  const datepickerStyles = `
+  .react-datepicker {
+    font-family: Arial, sans-serif;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  }
+  .react-datepicker__header {
+    background-color: #754C27;
+    border-bottom: none;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    padding-top: 10px;
+  }
+  .react-datepicker__current-month {
+    color: white;
+    font-weight: bold;
+    font-size: 1rem;
+  }
+  .react-datepicker__day-name {
+    color: white;
+  }
+  .react-datepicker__day--selected {
+    background-color: #754C27;
+    color: white;
+  }
+  .react-datepicker__day--selected:hover {
+    background-color: #5d3a1f;
+  }
+  .react-datepicker__day:hover {
+    background-color: #f0f0f0;
+  }
+  .react-datepicker__navigation {
+    top: 13px;
+  }
+  .react-datepicker__navigation-icon::before {
+    border-color: white;
+  }
+  .react-datepicker__triangle {
+    display: none;
+  }
+`;
 
   const handleSearchChange = (e) => {
     setSearchTerm(e.target.value);
   };
 
+  // ฟังก์ชั่นสำหรับจัดรูปแบบวันที่เป็น dd/mm/yyyy
+  const formatDate = (date) => {
+    if (!date) return "";
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
 
   useEffect(() => {
     const searchTimeout = setTimeout(() => {
@@ -91,36 +183,68 @@ export default function PurchaseOrderToSupplier({ onCreate, onEdit }) {
   };
 
   useEffect(() => {
-    const fetchInitialData = async () => {
+    const fetchData = async () => {
       try {
-        const offset = 0;
+        // ตรวจสอบให้แน่ใจว่า page ไม่น้อยกว่า 1
+        const currentPage = Math.max(1, page);
+        // คำนวณ offset โดยป้องกันไม่ให้ติดลบ
+        const offset = Math.max(0, (currentPage - 1) * itemsPerPage);
         const limit = itemsPerPage;
 
         const res = await dispatch(wh_posAlljoindt({ offset, limit })).unwrap();
-        console.log('API Response:', res);
 
-        if (res.result && Array.isArray(res.data)) {
-          const resultData = res.data.map((item, index) => ({
-            ...item,
-            id: index + 1
-          }));
-          setWhpos(resultData);
-        }
+        // กรองข้อมูลตามวันที่
+        let filteredData = res.data;
+        const formattedFilterDate = formatDate(filterDate);
+        filteredData = res.data.filter(item => item.rdate === formattedFilterDate);
 
+        // กำหนด id ใหม่สำหรับข้อมูลที่กรองแล้ว
+        const resultData = filteredData.map((item, index) => ({
+          ...item,
+          id: offset + index + 1
+        }));
+
+        setWhpos(resultData);
+
+        // อัพเดทจำนวนหน้า
         const countRes = await dispatch(countwh_pos({ test: "" })).unwrap();
         if (countRes.result) {
-          const totalItems = countRes.data;
+          const totalItems = filteredData.length;
           const totalPages = Math.ceil(totalItems / itemsPerPage);
           setCount(totalPages);
-          setPage(1);
+
+          // ตรวจสอบว่าหน้าปัจจุบันไม่เกินจำนวนหน้าทั้งหมด
+          if (currentPage > totalPages) {
+            setPage(Math.max(1, totalPages));
+          }
         }
       } catch (err) {
-        console.error("Error fetching initial data:", err);
+        console.error("Error fetching data:", err);
+        Swal.fire({
+          icon: 'error',
+          title: 'Error loading data',
+          text: err.message || 'An unknown error occurred',
+        });
       }
     };
 
-    fetchInitialData();
-  }, [dispatch, itemsPerPage]);
+    fetchData();
+  }, [page, filterDate, dispatch, itemsPerPage]);
+
+  const handleDateChange = (date) => {
+    setFilterDate(date);
+    setPage(1); // รีเซ็ตกลับไปหน้าแรกเมื่อเปลี่ยนวันที่
+  };
+
+  const clearFilters = () => {
+    setFilterDate(new Date()); // กลับไปเป็นวันปัจจุบัน
+    setSearchTerm("");
+    setPage(1);
+  };
+
+  const handlePageChange = (event, value) => {
+    setPage(value);
+  };
 
   const refetchData = async (targetPage = 1) => {
     try {
@@ -438,10 +562,11 @@ export default function PurchaseOrderToSupplier({ onCreate, onEdit }) {
             justifyContent: 'center',
             alignItems: 'center',
             mt: '48px',
-            width: '60%'
+            width: '90%', // เพิ่มความกว้างให้มากขึ้น
+            gap: '20px' // เพิ่มระยะห่างระหว่าง elements
           }}
         >
-          <Typography sx={{ fontSize: '16px', fontWeight: '600', mr: '24px' }}>
+          <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>
             Search
           </Typography>
           <TextField
@@ -456,7 +581,7 @@ export default function PurchaseOrderToSupplier({ onCreate, onEdit }) {
               '& .MuiOutlinedInput-input': {
                 padding: '8.5px 14px',
               },
-              width: '40%'
+              width: '35%' // ปรับความกว้างของช่อง search
             }}
             InputProps={{
               startAdornment: (
@@ -466,6 +591,32 @@ export default function PurchaseOrderToSupplier({ onCreate, onEdit }) {
               ),
             }}
           />
+          <Box sx={{ width: '200px' }}> {/* กำหนดความกว้างคงที่สำหรับ DatePicker */}
+            <DatePicker
+              selected={filterDate}
+              onChange={handleDateChange}
+              dateFormat="dd/MM/yyyy"
+              placeholderText="Filter by date"
+              customInput={<CustomInput />}
+              popperClassName="custom-popper"
+            />
+          </Box>
+          <Button
+            onClick={clearFilters}
+            variant="outlined"
+            sx={{
+              height: '38px',
+              width: '120px', // กำหนดความกว้างคงที่
+              borderColor: '#754C27',
+              color: '#754C27',
+              '&:hover': {
+                borderColor: '#5d3a1f',
+                backgroundColor: 'rgba(117, 76, 39, 0.04)'
+              }
+            }}
+          >
+            Clear
+          </Button>
         </Box>
         <Box sx={{ width: '100%', mt: '24px' }}>
           <Button
@@ -555,11 +706,11 @@ export default function PurchaseOrderToSupplier({ onCreate, onEdit }) {
             </TableBody>
           </Table>
         </TableContainer>
-        <Stack spacing={2} sx={{ mt: '8px' }}>
+        <Stack spacing={2} sx={{ mt: 2, display: 'flex', alignItems: 'center' }}>
           <Pagination
-            count={count || 0}  // ถ้า count เป็น undefined ให้ใช้ 0
-            page={page || 1}    // ถ้า page เป็น undefined ให้ใช้ 1
-            onChange={handleChange}
+            count={count}
+            page={page}
+            onChange={handlePageChange}
             shape="rounded"
             showFirstButton
             showLastButton
