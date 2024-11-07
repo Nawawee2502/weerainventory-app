@@ -347,6 +347,51 @@ export default function ProductRecord() {
 
 
 
+    const handleGetLastCode = async () => {
+        try {
+            const response = await dispatch(lastProductCode({ test: "" })).unwrap();
+            const selectedTypeCode = formik.values.typeproduct_code;
+
+            if (!selectedTypeCode) {
+                return; // ถ้ายังไม่ได้เลือก typeproduct ให้ return ออกไป
+            }
+
+            let nextRunningNumber = "001"; // เริ่มต้นที่ 001 สำหรับ typeproduct ใหม่
+
+            if (response.data && response.data.length > 0) {
+                // กรองเฉพาะ product ที่มี typeproduct_code เดียวกับที่เลือก
+                const productsWithSameType = response.data.filter(
+                    product => product.product_code.startsWith(selectedTypeCode)
+                );
+
+                if (productsWithSameType.length > 0) {
+                    // หาเลข running number สูงสุดของ typeproduct นี้
+                    const maxRunningNumber = Math.max(
+                        ...productsWithSameType.map(product =>
+                            parseInt(product.product_code.slice(-3))
+                        )
+                    );
+                    // เพิ่มค่าและแปลงเป็น format 3 หลัก
+                    nextRunningNumber = (maxRunningNumber + 1).toString().padStart(3, '0');
+                }
+            }
+
+            // สร้าง product_code ใหม่โดยรวม typeproduct_code กับ running number
+            const newProductCode = selectedTypeCode + nextRunningNumber;
+            formik.setFieldValue('product_code', newProductCode);
+
+        } catch (err) {
+            console.error("Error fetching last product code:", err);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Error generating product code',
+                timer: 3000,
+                showConfirmButton: false,
+            });
+        }
+    };
+
     const formik = useFormik({
         initialValues: {
             product_code: '',
@@ -357,117 +402,167 @@ export default function ProductRecord() {
             retail_unit_code: '',
             retail_unit_price: '',
             unit_conversion_factor: '',
-            tax1: '', // เพิ่ม tax1
+            tax1: '',
         },
         validate: (values) => {
             const errors = {};
-            if (!values.product_name) errors.product_name = 'product_name cannot be empty';
-            if (!values.typeproduct_code) errors.typeproduct_code = 'typeproduct_code cannot be empty';
-            if (!values.bulk_unit_code) errors.bulk_unit_code = 'bulk_unit_code cannot be empty';
-            if (!values.bulk_unit_price) errors.bulk_unit_price = 'bulk_unit_price cannot be empty';
-            if (!values.retail_unit_code) errors.retail_unit_code = 'retail_unit_code cannot be empty';
-            if (!values.retail_unit_price) errors.retail_unit_price = 'retail_unit_price cannot be empty';
-            if (!values.unit_conversion_factor) errors.unit_conversion_factor = 'unit_conversion_factor cannot be empty';
-            if (!values.tax1) errors.tax1 = 'Tax cannot be empty'; // เพิ่ม validation สำหรับ tax1
+
+            // Check required fields
+            if (!values.product_name) errors.product_name = 'Please enter product name';
+            if (!values.typeproduct_code) errors.typeproduct_code = 'Please select product type';
+            if (!values.bulk_unit_code) errors.bulk_unit_code = 'Please select large unit';
+            if (!values.bulk_unit_price) errors.bulk_unit_price = 'Please enter large unit price';
+            if (!values.retail_unit_code) errors.retail_unit_code = 'Please select small unit';
+            if (!values.retail_unit_price) errors.retail_unit_price = 'Please enter small unit price';
+            if (!values.unit_conversion_factor) errors.unit_conversion_factor = 'Please enter conversion quantity';
+            if (!values.tax1) errors.tax1 = 'Please select tax option';
+
+            // Validate numbers
+            if (values.bulk_unit_price && (isNaN(values.bulk_unit_price) || Number(values.bulk_unit_price) <= 0)) {
+                errors.bulk_unit_price = 'Large unit price must be greater than 0';
+            }
+            if (values.retail_unit_price && (isNaN(values.retail_unit_price) || Number(values.retail_unit_price) <= 0)) {
+                errors.retail_unit_price = 'Small unit price must be greater than 0';
+            }
+            if (values.unit_conversion_factor && (isNaN(values.unit_conversion_factor) || Number(values.unit_conversion_factor) <= 0)) {
+                errors.unit_conversion_factor = 'Conversion quantity must be greater than 0';
+            }
+
             return errors;
         },
-        onSubmit: (values) => {
-            dispatch(addProduct(values))
-                .unwrap()
-                .then((res) => {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Success',
-                        text: 'เพิ่มข้อมูลสำเร็จ',
-                        timer: 1000,
-                        timerProgressBar: true,
-                        showConfirmButton: false,
-                    });
-
-                    // Calculate which page the new item will be on
-                    dispatch(countProduct({ test: "" }))
-                        .unwrap()
-                        .then((countRes) => {
-                            const totalItems = countRes.data;
-                            const targetPage = Math.ceil(totalItems / itemsPerPage);
-
-                            // Reset form and refresh data with the new page
-                            formik.resetForm();
-                            refetchData(targetPage);
-                            handleGetLastCode();
-                            setOpenDrawer(false);
-                        });
-                })
-                .catch((err) => {
+        onSubmit: async (values, { setSubmitting }) => {
+            try {
+                // Check validation errors
+                const errors = await formik.validateForm(values);
+                
+                if (Object.keys(errors).length > 0) {
+                    const errorMessages = Object.values(errors).join('\n');
                     Swal.fire({
                         icon: 'error',
-                        title: 'Error',
-                        text: 'เกิดข้อผิดพลาดในการเพิ่มข้อมูล',
-                        timer: 3000,
-                        timerProgressBar: true,
-                        showConfirmButton: false,
+                        title: 'Please Check Your Information',
+                        html: errorMessages.replace(/\n/g, '<br>'),
+                        confirmButtonText: 'OK'
                     });
+                    return;
+                }
+
+                // Get latest code
+                const response = await dispatch(lastProductCode({ test: "" })).unwrap();
+                const selectedTypeCode = values.typeproduct_code;
+                let nextRunningNumber = "001";
+
+                if (response.data && response.data.length > 0) {
+                    // Filter products with same type code
+                    const productsWithSameType = response.data.filter(
+                        product => product.product_code.startsWith(selectedTypeCode)
+                    );
+
+                    if (productsWithSameType.length > 0) {
+                        const maxRunningNumber = Math.max(
+                            ...productsWithSameType.map(product =>
+                                parseInt(product.product_code.slice(-3))
+                            )
+                        );
+                        nextRunningNumber = (maxRunningNumber + 1).toString().padStart(3, '0');
+                    }
+                }
+
+                // Create product code and save
+                values.product_code = selectedTypeCode + nextRunningNumber;
+                await dispatch(addProduct(values)).unwrap();
+
+                // Show success message
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Success',
+                    text: 'Product added successfully',
+                    timer: 1500,
+                    showConfirmButton: false,
                 });
-        },
-    });
 
+                // Update data and close drawer
+                const countRes = await dispatch(countProduct({ test: "" })).unwrap();
+                const totalItems = countRes.data;
+                const targetPage = Math.ceil(totalItems / itemsPerPage);
 
-    const handleGetLastCode = () => {
-        let test = "";
-        dispatch(lastProductCode({ test }))
-            .unwrap()
-            .then((res) => {
-                let lastProductCode = "001";
+                formik.resetForm();
+                refetchData(targetPage);
+                handleGetLastCode();
+                setOpenDrawer(false);
 
-                if (res.data && res.data.length > 0) {
-                    // แยกเฉพาะตัวเลข 3 ตัวท้ายและแปลงเป็นตัวเลข
-                    const allNumbers = res.data
-                        .map(product => parseInt(product.product_code.slice(-3)))
-                        .sort((a, b) => a - b); // เรียงจากน้อยไปมาก
-
-                    let nextNumber = 1; // เริ่มจาก 1
-
-                    // หาช่องว่างของตัวเลข
-                    for (let i = 0; i < allNumbers.length; i++) {
-                        if (allNumbers[i] === nextNumber) {
-                            nextNumber++;
-                        } else if (allNumbers[i] > nextNumber) {
-                            break;
-                        }
-                    }
-
-                    // แปลงกลับเป็น string และเติม 0 ข้างหน้า
-                    lastProductCode = nextNumber.toString().padStart(3, '0');
-
-                    // ตรวจสอบว่าเกิน 999 หรือไม่
-                    if (nextNumber > 999) {
-                        throw new Error('Running number exceeded maximum value (999)');
-                    }
-                }
-
-                setGetLastProductCode(lastProductCode);
-
-                // ถ้ามี typeproduct_code แล้ว ให้สร้าง product_code เต็ม
-                if (formik.values.typeproduct_code) {
-                    const newProductCode = `${formik.values.typeproduct_code}${lastProductCode}`;
-                    formik.setFieldValue('product_code', newProductCode);
-                } else {
-                    formik.setFieldValue('product_code', lastProductCode);
-                }
-            })
-            .catch((err) => {
-                console.error(err.message);
-                // แสดง error message ถ้าต้องการ
+            } catch (err) {
+                console.error("Error adding product:", err);
                 Swal.fire({
                     icon: 'error',
                     title: 'Error',
-                    text: err.message || 'Error generating product code',
+                    text: 'Failed to save product. Please try again.',
                     timer: 3000,
-                    timerProgressBar: true,
                     showConfirmButton: false,
                 });
-            });
-    };
+            } finally {
+                setSubmitting(false);
+            }
+        }
+    });
+
+
+    // const handleGetLastCode = () => {
+    //     let test = "";
+    //     dispatch(lastProductCode({ test }))
+    //         .unwrap()
+    //         .then((res) => {
+    //             let lastProductCode = "001";
+
+    //             if (res.data && res.data.length > 0) {
+    //                 // แยกเฉพาะตัวเลข 3 ตัวท้ายและแปลงเป็นตัวเลข
+    //                 const allNumbers = res.data
+    //                     .map(product => parseInt(product.product_code.slice(-3)))
+    //                     .sort((a, b) => a - b); // เรียงจากน้อยไปมาก
+
+    //                 let nextNumber = 1; // เริ่มจาก 1
+
+    //                 // หาช่องว่างของตัวเลข
+    //                 for (let i = 0; i < allNumbers.length; i++) {
+    //                     if (allNumbers[i] === nextNumber) {
+    //                         nextNumber++;
+    //                     } else if (allNumbers[i] > nextNumber) {
+    //                         break;
+    //                     }
+    //                 }
+
+    //                 // แปลงกลับเป็น string และเติม 0 ข้างหน้า
+    //                 lastProductCode = nextNumber.toString().padStart(3, '0');
+
+    //                 // ตรวจสอบว่าเกิน 999 หรือไม่
+    //                 if (nextNumber > 999) {
+    //                     throw new Error('Running number exceeded maximum value (999)');
+    //                 }
+    //             }
+
+    //             setGetLastProductCode(lastProductCode);
+
+    //             // ถ้ามี typeproduct_code แล้ว ให้สร้าง product_code เต็ม
+    //             if (formik.values.typeproduct_code) {
+    //                 const newProductCode = `${formik.values.typeproduct_code}${lastProductCode}`;
+    //                 formik.setFieldValue('product_code', newProductCode);
+    //             } else {
+    //                 formik.setFieldValue('product_code', lastProductCode);
+    //             }
+    //         })
+    //         .catch((err) => {
+    //             console.error(err.message);
+    //             // แสดง error message ถ้าต้องการ
+    //             Swal.fire({
+    //                 icon: 'error',
+    //                 title: 'Error',
+    //                 text: err.message || 'Error generating product code',
+    //                 timer: 3000,
+    //                 timerProgressBar: true,
+    //                 showConfirmButton: false,
+    //             });
+    //         });
+    // };
+
 
     useEffect(() => {
         if (formik.values.typeproduct_code && getLastProductCode) {
@@ -773,7 +868,7 @@ export default function ProductRecord() {
                                 {...formik.getFieldProps("typeproduct_code")}
                                 {...errorHelper(formik, "typeproduct_code")}
                             /> */}
-                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
+                            {/* <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
                                 Product Id
                             </Typography>
                             <TextField
@@ -789,7 +884,7 @@ export default function ProductRecord() {
                                 {...formik.getFieldProps("product_code")}
                                 {...errorHelper(formik, "product_code")}
                                 value={formik.values.product_code}
-                            />
+                            /> */}
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
                                 Product Name
                             </Typography>

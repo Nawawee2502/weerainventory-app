@@ -308,8 +308,10 @@ export default function ComissaryKitchen() {
             .then((res) => {
                 let lastKitchenCode = "001";
 
+                // เปลี่ยนเงื่อนไขการตรวจสอบและการคำนวณ
                 if (res.data && res.data.kitchen_code) {
-                    lastKitchenCode = "" + (Number(res.data.kitchen_code) + 1);
+                    let nextCode = Number(res.data.kitchen_code) + 1;
+                    lastKitchenCode = "" + nextCode;
 
                     if (lastKitchenCode.length === 1) {
                         lastKitchenCode = "00" + lastKitchenCode;
@@ -392,43 +394,65 @@ export default function ComissaryKitchen() {
 
             return errors;
         },
-        onSubmit: (values) => {
-            dispatch(addKitchen(values))
-                .unwrap()
-                .then((res) => {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Success',
-                        text: 'เพิ่มข้อมูลสำเร็จ',
-                        timer: 1000,
-                        timerProgressBar: true,
-                        showConfirmButton: false,
-                    });
+        onSubmit: async (values) => {
+            try {
+                // ตรวจสอบ kitchen_code ล่าสุดอีกครั้งก่อนบันทึก
+                const latestCodeResponse = await dispatch(lastKitchenCode({ test: "" })).unwrap();
 
-                    // Calculate which page the new item will be on
-                    dispatch(countKitchen({ test: "" }))
-                        .unwrap()
-                        .then((countRes) => {
-                            const totalItems = countRes.data;
-                            const targetPage = Math.ceil(totalItems / itemsPerPage);
+                // ถ้าไม่มีข้อมูลเลย (เพิ่มครั้งแรก)
+                if (!latestCodeResponse.data || !latestCodeResponse.data.kitchen_code) {
+                    values.kitchen_code = "001";
+                } else {
+                    // ถ้ามีข้อมูลแล้ว ใช้ logic เดิมในการตรวจสอบและเพิ่มค่า
+                    let latestKitchenCode = latestCodeResponse.data.kitchen_code;
 
-                            // Reset form and refresh data with the new page
-                            formik.resetForm();
-                            refetchData(targetPage);
-                            handleGetLastCode();
-                            setOpenDrawer(false);
-                        });
-                })
-                .catch((err) => {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Error',
-                        text: 'เกิดข้อผิดพลาดในการเพิ่มข้อมูล',
-                        timer: 3000,
-                        timerProgressBar: true,
-                        showConfirmButton: false,
-                    });
+                    // ถ้า kitchen_code ที่จะใช้บันทึกน้อยกว่าหรือเท่ากับ code ล่าสุด
+                    // แสดงว่ามีการเพิ่มข้อมูลไปแล้ว ต้องใช้เลขถัดไป
+                    if (Number(values.kitchen_code) <= Number(latestKitchenCode)) {
+                        let newKitchenCode = "" + (Number(latestKitchenCode) + 1);
+                        if (newKitchenCode.length === 1) {
+                            newKitchenCode = "00" + newKitchenCode;
+                        } else if (newKitchenCode.length === 2) {
+                            newKitchenCode = "0" + newKitchenCode;
+                        }
+                        values.kitchen_code = newKitchenCode;
+                    }
+                }
+
+                // ทำการบันทึกด้วย code ใหม่
+                const response = await dispatch(addKitchen(values)).unwrap();
+
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Success',
+                    text: 'เพิ่มข้อมูลสำเร็จ',
+                    timer: 1000,
+                    timerProgressBar: true,
+                    showConfirmButton: false,
                 });
+
+                // Calculate which page the new item will be on
+                const countRes = await dispatch(countKitchen({ test: "" })).unwrap();
+                const totalItems = countRes.data;
+                const targetPage = Math.ceil(totalItems / itemsPerPage);
+
+                // Reset form and refresh data with the new page
+                formik.resetForm();
+                refetchData(targetPage);
+                handleGetLastCode();
+                setOpenDrawer(false);
+
+            } catch (err) {
+                console.error("Error adding kitchen:", err);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'เกิดข้อผิดพลาดในการเพิ่มข้อมูล',
+                    timer: 3000,
+                    timerProgressBar: true,
+                    showConfirmButton: false,
+                });
+            }
         }
     });
 

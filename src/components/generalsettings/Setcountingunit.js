@@ -373,43 +373,63 @@ export default function SetCountingUnit() {
 
             return errors;
         },
-        onSubmit: (values) => {
-            dispatch(addUnit(values))
-                .unwrap()
-                .then((res) => {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Success',
-                        text: 'เพิ่มข้อมูลสำเร็จ',
-                        timer: 1000,
-                        timerProgressBar: true,
-                        showConfirmButton: false,
-                    });
+        onSubmit: async (values) => {
+            try {
+                // ตรวจสอบ unit_code ล่าสุดอีกครั้งก่อนบันทึก
+                const latestCodeResponse = await dispatch(lastUnitCode({ test: "" })).unwrap();
 
-                    // Calculate which page the new item will be on
-                    dispatch(countUnit({ test: "" }))
-                        .unwrap()
-                        .then((countRes) => {
-                            const totalItems = countRes.data;
-                            const targetPage = Math.ceil(totalItems / itemsPerPage);
+                // ถ้าไม่มีข้อมูลเลย (เพิ่มครั้งแรก)
+                if (!latestCodeResponse.data || !latestCodeResponse.data.unit_code) {
+                    values.unit_code = "01";
+                } else {
+                    // ถ้ามีข้อมูลแล้ว ใช้ logic เดิมในการตรวจสอบและเพิ่มค่า
+                    let latestUnitCode = latestCodeResponse.data.unit_code;
 
-                            // Reset form and refresh data with the new page
-                            formik.resetForm();
-                            refetchData(targetPage);
-                            handleGetLastCode();
-                            setOpenDrawer(false);
-                        });
-                })
-                .catch((err) => {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Error',
-                        text: 'เกิดข้อผิดพลาดในการเพิ่มข้อมูล',
-                        timer: 3000,
-                        timerProgressBar: true,
-                        showConfirmButton: false,
-                    });
+                    // ถ้า unit_code ที่จะใช้บันทึกน้อยกว่าหรือเท่ากับ code ล่าสุด
+                    // แสดงว่ามีการเพิ่มข้อมูลไปแล้ว ต้องใช้เลขถัดไป
+                    if (Number(values.unit_code) <= Number(latestUnitCode)) {
+                        let newUnitCode = "" + (Number(latestUnitCode) + 1);
+                        if (newUnitCode.length === 1) {
+                            newUnitCode = "0" + newUnitCode;
+                        }
+                        values.unit_code = newUnitCode;
+                    }
+                }
+
+                // ทำการบันทึกด้วย code ใหม่
+                const response = await dispatch(addUnit(values)).unwrap();
+
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Success',
+                    text: 'เพิ่มข้อมูลสำเร็จ',
+                    timer: 1000,
+                    timerProgressBar: true,
+                    showConfirmButton: false,
                 });
+
+                // Calculate which page the new item will be on
+                const countRes = await dispatch(countUnit({ test: "" })).unwrap();
+                const totalItems = countRes.data;
+                const targetPage = Math.ceil(totalItems / itemsPerPage);
+
+                // Reset form and refresh data with the new page
+                formik.resetForm();
+                refetchData(targetPage);
+                handleGetLastCode();
+                setOpenDrawer(false);
+
+            } catch (err) {
+                console.error("Error adding unit:", err);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'เกิดข้อผิดพลาดในการเพิ่มข้อมูล',
+                    timer: 3000,
+                    timerProgressBar: true,
+                    showConfirmButton: false,
+                });
+            }
         }
     });
 

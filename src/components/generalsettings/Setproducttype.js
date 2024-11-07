@@ -384,43 +384,65 @@ export default function SetProductType() {
 
             return errors;
         },
-        onSubmit: (values) => {
-            dispatch(addTypeproduct(values))
-                .unwrap()
-                .then((res) => {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Success',
-                        text: 'เพิ่มข้อมูลสำเร็จ',
-                        timer: 1000,
-                        timerProgressBar: true,
-                        showConfirmButton: false,
-                    });
+        onSubmit: async (values) => {
+            try {
+                // ตรวจสอบ typeproduct_code ล่าสุดอีกครั้งก่อนบันทึก
+                const latestCodeResponse = await dispatch(lastTypeproductCode({ test: "" })).unwrap();
 
-                    // Calculate which page the new item will be on
-                    dispatch(countProduct({ test: "" }))
-                        .unwrap()
-                        .then((countRes) => {
-                            const totalItems = countRes.data;
-                            const targetPage = Math.ceil(totalItems / itemsPerPage);
+                // ถ้าไม่มีข้อมูลเลย (เพิ่มครั้งแรก)
+                if (!latestCodeResponse.data || !latestCodeResponse.data.typeproduct_code) {
+                    values.typeproduct_code = "001";
+                } else {
+                    // ถ้ามีข้อมูลแล้ว ใช้ logic เดิมในการตรวจสอบและเพิ่มค่า
+                    let latestCode = latestCodeResponse.data.typeproduct_code;
 
-                            // Reset form and refresh data with the new page
-                            formik.resetForm();
-                            refetchData(targetPage);
-                            handleGetLastCode();
-                            setOpenDrawer(false);
-                        });
-                })
-                .catch((err) => {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Error',
-                        text: 'เกิดข้อผิดพลาดในการเพิ่มข้อมูล',
-                        timer: 3000,
-                        timerProgressBar: true,
-                        showConfirmButton: false,
-                    });
+                    // ถ้า typeproduct_code ที่จะใช้บันทึกน้อยกว่าหรือเท่ากับ code ล่าสุด
+                    // แสดงว่ามีการเพิ่มข้อมูลไปแล้ว ต้องใช้เลขถัดไป
+                    if (Number(values.typeproduct_code) <= Number(latestCode)) {
+                        let newCode = "" + (Number(latestCode) + 1);
+                        if (newCode.length === 1) {
+                            newCode = "00" + newCode;
+                        } else if (newCode.length === 2) {
+                            newCode = "0" + newCode;
+                        }
+                        values.typeproduct_code = newCode;
+                    }
+                }
+
+                // ทำการบันทึกด้วย code ใหม่
+                const response = await dispatch(addTypeproduct(values)).unwrap();
+
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Success',
+                    text: 'เพิ่มข้อมูลสำเร็จ',
+                    timer: 1000,
+                    timerProgressBar: true,
+                    showConfirmButton: false,
                 });
+
+                // Calculate which page the new item will be on
+                const countRes = await dispatch(countProduct({ test: "" })).unwrap();
+                const totalItems = countRes.data;
+                const targetPage = Math.ceil(totalItems / itemsPerPage);
+
+                // Reset form and refresh data with the new page
+                formik.resetForm();
+                refetchData(targetPage);
+                handleGetLastCode();
+                setOpenDrawer(false);
+
+            } catch (err) {
+                console.error("Error adding product type:", err);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'เกิดข้อผิดพลาดในการเพิ่มข้อมูล',
+                    timer: 3000,
+                    timerProgressBar: true,
+                    showConfirmButton: false,
+                });
+            }
         }
     });
 

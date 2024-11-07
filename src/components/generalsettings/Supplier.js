@@ -389,43 +389,65 @@ export default function Supplier() {
 
             return errors;
         },
-        onSubmit: (values) => {
-            dispatch(addSupplier(values))
-                .unwrap()
-                .then((res) => {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Success',
-                        text: 'เพิ่มข้อมูลสำเร็จ',
-                        timer: 1000,
-                        timerProgressBar: true,
-                        showConfirmButton: false,
-                    });
+        onSubmit: async (values) => {
+            try {
+                // ตรวจสอบ supplier_code ล่าสุดอีกครั้งก่อนบันทึก
+                const latestCodeResponse = await dispatch(lastSupplierCode({ test: "" })).unwrap();
 
-                    // Calculate which page the new item will be on
-                    dispatch(countSupplier({ test: "" }))
-                        .unwrap()
-                        .then((countRes) => {
-                            const totalItems = countRes.data;
-                            const targetPage = Math.ceil(totalItems / itemsPerPage);
+                // ถ้าไม่มีข้อมูลเลย (เพิ่มครั้งแรก)
+                if (!latestCodeResponse.data || !latestCodeResponse.data.supplier_code) {
+                    values.supplier_code = "001";
+                } else {
+                    // ถ้ามีข้อมูลแล้ว ใช้ logic เดิมในการตรวจสอบและเพิ่มค่า
+                    let latestCode = latestCodeResponse.data.supplier_code;
 
-                            // Reset form and refresh data with the new page
-                            formik.resetForm();
-                            refetchData(targetPage);
-                            handleGetLastCode();
-                            setOpenDrawer(false);
-                        });
-                })
-                .catch((err) => {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Error',
-                        text: 'เกิดข้อผิดพลาดในการเพิ่มข้อมูล',
-                        timer: 3000,
-                        timerProgressBar: true,
-                        showConfirmButton: false,
-                    });
+                    // ถ้า supplier_code ที่จะใช้บันทึกน้อยกว่าหรือเท่ากับ code ล่าสุด
+                    // แสดงว่ามีการเพิ่มข้อมูลไปแล้ว ต้องใช้เลขถัดไป
+                    if (Number(values.supplier_code) <= Number(latestCode)) {
+                        let newCode = "" + (Number(latestCode) + 1);
+                        if (newCode.length === 1) {
+                            newCode = "00" + newCode;
+                        } else if (newCode.length === 2) {
+                            newCode = "0" + newCode;
+                        }
+                        values.supplier_code = newCode;
+                    }
+                }
+
+                // ทำการบันทึกด้วย code ใหม่
+                const response = await dispatch(addSupplier(values)).unwrap();
+
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Success',
+                    text: 'เพิ่มข้อมูลสำเร็จ',
+                    timer: 1000,
+                    timerProgressBar: true,
+                    showConfirmButton: false,
                 });
+
+                // Calculate which page the new item will be on
+                const countRes = await dispatch(countSupplier({ test: "" })).unwrap();
+                const totalItems = countRes.data;
+                const targetPage = Math.ceil(totalItems / itemsPerPage);
+
+                // Reset form and refresh data with the new page
+                formik.resetForm();
+                refetchData(targetPage);
+                handleGetLastCode();
+                setOpenDrawer(false);
+
+            } catch (err) {
+                console.error("Error adding supplier:", err);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'เกิดข้อผิดพลาดในการเพิ่มข้อมูล',
+                    timer: 3000,
+                    timerProgressBar: true,
+                    showConfirmButton: false,
+                });
+            }
         }
     });
 

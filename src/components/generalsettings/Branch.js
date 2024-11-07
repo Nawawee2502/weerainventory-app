@@ -373,62 +373,91 @@ export default function ProductRecord() {
             tel1: "",
         },
         validate: (values) => {
-            let errors = {};
+            const errors = {};
 
-            if (!values.branch_name) {
-                errors.branch_name = 'branch_name cannot be empty';
-            }
-            if (!values.addr1) {
-                errors.addr1 = 'addr1 cannot be empty';
-            }
-            if (!values.addr2) {
-                errors.addr2 = 'addr2 cannot be empty';
-            }
-            if (!values.tel1) {
-                errors.tel1 = 'tel1 cannot be empty';
+            // ตรวจสอบค่า null
+            if (!values.branch_name) errors.branch_name = 'Branch name cannot be empty';
+            if (!values.addr1) errors.addr1 = 'Address line 1 cannot be empty';
+            if (!values.addr2) errors.addr2 = 'Address line 2 cannot be empty';
+            if (!values.tel1) errors.tel1 = 'Phone number cannot be empty';
+
+            // ตรวจสอบให้เป็นตัวเลขและต้องมากกว่า 0 (หากต้องการ)
+            if (values.tel1 && (isNaN(values.tel1) || Number(values.tel1) <= 0)) {
+                errors.tel1 = 'Phone number must be a valid number greater than 0';
             }
 
             return errors;
         },
-        onSubmit: (values) => {
-            dispatch(addBranch(values))
-                .unwrap()
-                .then((res) => {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Success',
-                        text: 'เพิ่มข้อมูลสำเร็จ',
-                        timer: 1000,
-                        timerProgressBar: true,
-                        showConfirmButton: false,
-                    });
+        onSubmit: async (values, { setSubmitting, setErrors }) => {
+            // ตรวจสอบ error ด้วย validateForm ก่อน
+            const errors = await formik.validateForm(values);
 
-                    // Calculate which page the new item will be on
-                    dispatch(countBranch({ test: "" }))
-                        .unwrap()
-                        .then((countRes) => {
-                            const totalItems = countRes.data;
-                            const targetPage = Math.ceil(totalItems / itemsPerPage);
+            if (Object.keys(errors).length > 0) {
+                // บังคับให้แสดง error บนฟอร์ม
+                setErrors(errors);
 
-                            // Reset form and refresh data with the new page
-                            formik.resetForm();
-                            refetchData(targetPage);
-                            handleGetLastCode();
-                            setOpenDrawer(false);
-                        });
-                })
-                .catch((err) => {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Error',
-                        text: 'เกิดข้อผิดพลาดในการเพิ่มข้อมูล',
-                        timer: 3000,
-                        timerProgressBar: true,
-                        showConfirmButton: false,
-                    });
+                // แสดงข้อความแจ้งเตือนใน Swal
+                const errorMessages = Object.values(errors).join('<br>');
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Please Check Your Information',
+                    html: errorMessages,
+                    confirmButtonText: 'OK'
                 });
-        },
+                setSubmitting(false); // หยุดสถานะ loading ของปุ่ม
+                return;
+            }
+
+            try {
+                // ตรวจสอบ branch_code ล่าสุดอีกครั้งก่อนบันทึก
+                const latestCodeResponse = await dispatch(lastBranchCode({ test: "" })).unwrap();
+
+                if (!latestCodeResponse.data || !latestCodeResponse.data.branch_code) {
+                    values.branch_code = "001";
+                } else {
+                    let latestCode = latestCodeResponse.data.branch_code;
+                    if (Number(values.branch_code) <= Number(latestCode)) {
+                        let newCode = (Number(latestCode) + 1).toString().padStart(3, '0');
+                        values.branch_code = newCode;
+                    }
+                }
+
+                const response = await dispatch(addBranch(values)).unwrap();
+
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Success',
+                    text: 'เพิ่มข้อมูลสำเร็จ',
+                    timer: 1000,
+                    timerProgressBar: true,
+                    showConfirmButton: false,
+                });
+
+                const countRes = await dispatch(countBranch({ test: "" })).unwrap();
+                const totalItems = countRes.data;
+                const targetPage = Math.ceil(totalItems / itemsPerPage);
+
+                formik.resetForm();
+                refetchData(targetPage);
+                handleGetLastCode();
+                setOpenDrawer(false);
+
+            } catch (err) {
+                console.error("Error adding branch:", err);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'เกิดข้อผิดพลาดในการเพิ่มข้อมูล',
+                    timer: 3000,
+                    timerProgressBar: true,
+                    showConfirmButton: false,
+                });
+            } finally {
+                setSubmitting(false);
+            }
+        }
     });
+
 
     const handleCancelCreate = () => {
         formik.resetForm();
