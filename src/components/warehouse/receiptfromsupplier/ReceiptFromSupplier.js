@@ -1,0 +1,236 @@
+import { Box, Button, InputAdornment, TextField, Typography, tableCellClasses, TableContainer, Table, TableHead, TableRow, TableCell, TableBody, Paper, Checkbox } from '@mui/material';
+import React, { useState } from 'react';
+import AddCircleIcon from '@mui/icons-material/AddCircle';
+import SearchIcon from '@mui/icons-material/Search';
+import { styled } from '@mui/material/styles';
+import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+import DatePicker from 'react-datepicker';
+import "react-datepicker/dist/react-datepicker.css";
+import Stack from '@mui/material/Stack';
+import Pagination from '@mui/material/Pagination';
+
+// Custom DatePicker Input Component
+const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
+    <Box sx={{ position: 'relative', display: 'inline-block', width: '100%' }}>
+        <TextField
+            value={value}
+            onClick={onClick}
+            placeholder={placeholder}
+            ref={ref}
+            size="small"
+            sx={{
+                '& .MuiInputBase-root': {
+                    height: '38px',
+                    width: '100%',
+                    backgroundColor: '#fff',
+                },
+                '& .MuiOutlinedInput-input': {
+                    cursor: 'pointer',
+                    paddingRight: '40px',
+                }
+            }}
+            InputProps={{
+                readOnly: true,
+                endAdornment: (
+                    <InputAdornment position="start">
+                        <CalendarTodayIcon
+                            sx={{
+                                color: '#754C27',
+                                cursor: 'pointer'
+                            }}
+                        />
+                    </InputAdornment>
+                ),
+            }}
+        />
+    </Box>
+));
+
+const StyledTableCell = styled(TableCell)(({ theme }) => ({
+    [`&.${tableCellClasses.head}`]: {
+        backgroundColor: '#754C27',
+        color: theme.palette.common.white,
+    },
+    [`&.${tableCellClasses.body}`]: {
+        fontSize: '16px',
+    },
+}));
+
+const StyledTableRow = styled(TableRow)(({ theme }) => ({
+    '&:nth-of-type(odd)': {
+        backgroundColor: theme.palette.action.hover,
+    },
+    '&:last-child td, &:last-child th': {
+        border: 0,
+    },
+}));
+
+export default function ReceiptFromSupplier({ onCreate }) {
+    const [searchTerm, setSearchTerm] = useState("");
+    const [filterDate, setFilterDate] = useState(new Date());
+    const [selected, setSelected] = useState([]);
+    const [page, setPage] = useState(1);
+    const [count, setCount] = useState(1);
+
+    const handleSearchChange = (e) => {
+        setSearchTerm(e.target.value);
+    };
+
+    const handleDateChange = (date) => {
+        setFilterDate(date);
+    };
+
+    const clearFilters = () => {
+        setFilterDate(new Date());
+        setSearchTerm("");
+    };
+
+    const handleDeleteSelected = () => {
+        // Add delete functionality here
+    };
+
+    const handlePageChange = (event, value) => {
+        setPage(value);
+    };
+
+    return (
+        <Box sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <Button
+                onClick={() => {
+                    console.log("Create button clicked");
+                    onCreate();
+                }}
+                sx={{
+                    width: '209px',
+                    height: '70px',
+                    background: 'linear-gradient(180deg, #AD7A2C 0%, #754C27 100%)',
+                    borderRadius: '15px',
+                    boxShadow: '0px 4px 4px 0px #00000040',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    mt: '48px',
+                    '&:hover': {
+                        background: 'linear-gradient(180deg, #8C5D1E 0%, #5D3A1F 100%)',
+                    }
+                }}
+            >
+                <AddCircleIcon sx={{ fontSize: '42px', color: '#FFFFFF', mr: '12px' }} />
+                <Typography sx={{ fontSize: '24px', fontWeight: '600', color: '#FFFFFF' }}>
+                    Create
+                </Typography>
+            </Button>
+
+            <Box
+                sx={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    mt: '48px',
+                    width: '90%',
+                    gap: '20px'
+                }}
+            >
+                <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>
+                    Search
+                </Typography>
+                <TextField
+                    value={searchTerm}
+                    onChange={handleSearchChange}
+                    placeholder="Search"
+                    sx={{
+                        '& .MuiInputBase-root': {
+                            height: '38px',
+                            width: '100%'
+                        },
+                        '& .MuiOutlinedInput-input': {
+                            padding: '8.5px 14px',
+                        },
+                        width: '35%'
+                    }}
+                    InputProps={{
+                        startAdornment: (
+                            <InputAdornment position="start">
+                                <SearchIcon sx={{ color: '#5A607F' }} />
+                            </InputAdornment>
+                        ),
+                    }}
+                />
+                <Box sx={{ width: '200px' }}>
+                    <DatePicker
+                        selected={filterDate}
+                        onChange={handleDateChange}
+                        dateFormat="dd/MM/yyyy"
+                        placeholderText="Filter by date"
+                        customInput={<CustomInput />}
+                        popperClassName="custom-popper"
+                    />
+                </Box>
+                <Button
+                    onClick={clearFilters}
+                    variant="outlined"
+                    sx={{
+                        height: '38px',
+                        width: '120px',
+                        borderColor: '#754C27',
+                        color: '#754C27',
+                        '&:hover': {
+                            borderColor: '#5d3a1f',
+                            backgroundColor: 'rgba(117, 76, 39, 0.04)'
+                        }
+                    }}
+                >
+                    Clear
+                </Button>
+            </Box>
+
+            <Box sx={{ width: '100%', mt: '24px' }}>
+                <Button
+                    variant="contained"
+                    color="error"
+                    onClick={handleDeleteSelected}
+                    sx={{ mt: 2 }}
+                    disabled={selected.length === 0}
+                >
+                    Delete Selected ({selected.length})
+                </Button>
+            </Box>
+
+            <TableContainer component={Paper} sx={{ width: '100%', mt: '24px' }}>
+                <Table>
+                    <TableHead>
+                        <TableRow>
+                            <StyledTableCell padding="checkbox" align="center">
+                                <Checkbox sx={{ color: '#FFF' }} />
+                            </StyledTableCell>
+                            <StyledTableCell>No.</StyledTableCell>
+                            <StyledTableCell align="center">Ref.no</StyledTableCell>
+                            <StyledTableCell align="center">Date</StyledTableCell>
+                            <StyledTableCell align="center">Supplier</StyledTableCell>
+                            <StyledTableCell align="center">Branch</StyledTableCell>
+                            <StyledTableCell align="center">Amount</StyledTableCell>
+                            <StyledTableCell align="center">Username</StyledTableCell>
+                            <StyledTableCell width='1%' align="center"></StyledTableCell>
+                            <StyledTableCell width='1%' align="center"></StyledTableCell>
+                            <StyledTableCell width='1%' align="center"></StyledTableCell>
+                        </TableRow>
+                    </TableHead>
+                    <TableBody>
+                        {/* Table data will go here */}
+                    </TableBody>
+                </Table>
+            </TableContainer>
+
+            <Stack spacing={2} sx={{ mt: 2, display: 'flex', alignItems: 'center' }}>
+                <Pagination
+                    count={count}
+                    page={page}
+                    onChange={handlePageChange}
+                    shape="rounded"
+                    showFirstButton
+                    showLastButton
+                />
+            </Stack>
+        </Box>
+    );
+}

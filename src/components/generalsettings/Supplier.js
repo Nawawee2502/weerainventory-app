@@ -389,20 +389,31 @@ export default function Supplier() {
 
             return errors;
         },
-        onSubmit: async (values) => {
+        onSubmit: async (values, { setSubmitting }) => {
             try {
-                // ตรวจสอบ supplier_code ล่าสุดอีกครั้งก่อนบันทึก
+                // Check validation errors
+                const errors = await formik.validateForm(values);
+
+                if (Object.keys(errors).length > 0) {
+                    const errorMessages = Object.values(errors).join('\n');
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Please Check Your Information',
+                        html: errorMessages.replace(/\n/g, '<br>'),
+                        confirmButtonText: 'OK'
+                    });
+                    return;
+                }
+
+                // Get latest code
                 const latestCodeResponse = await dispatch(lastSupplierCode({ test: "" })).unwrap();
 
                 // ถ้าไม่มีข้อมูลเลย (เพิ่มครั้งแรก)
                 if (!latestCodeResponse.data || !latestCodeResponse.data.supplier_code) {
                     values.supplier_code = "001";
                 } else {
-                    // ถ้ามีข้อมูลแล้ว ใช้ logic เดิมในการตรวจสอบและเพิ่มค่า
                     let latestCode = latestCodeResponse.data.supplier_code;
 
-                    // ถ้า supplier_code ที่จะใช้บันทึกน้อยกว่าหรือเท่ากับ code ล่าสุด
-                    // แสดงว่ามีการเพิ่มข้อมูลไปแล้ว ต้องใช้เลขถัดไป
                     if (Number(values.supplier_code) <= Number(latestCode)) {
                         let newCode = "" + (Number(latestCode) + 1);
                         if (newCode.length === 1) {
@@ -414,15 +425,14 @@ export default function Supplier() {
                     }
                 }
 
-                // ทำการบันทึกด้วย code ใหม่
+                // Save with new code
                 const response = await dispatch(addSupplier(values)).unwrap();
 
                 Swal.fire({
                     icon: 'success',
                     title: 'Success',
                     text: 'เพิ่มข้อมูลสำเร็จ',
-                    timer: 1000,
-                    timerProgressBar: true,
+                    timer: 1500,
                     showConfirmButton: false,
                 });
 
@@ -431,7 +441,7 @@ export default function Supplier() {
                 const totalItems = countRes.data;
                 const targetPage = Math.ceil(totalItems / itemsPerPage);
 
-                // Reset form and refresh data with the new page
+                // Reset form and refresh data
                 formik.resetForm();
                 refetchData(targetPage);
                 handleGetLastCode();
@@ -442,11 +452,12 @@ export default function Supplier() {
                 Swal.fire({
                     icon: 'error',
                     title: 'Error',
-                    text: 'เกิดข้อผิดพลาดในการเพิ่มข้อมูล',
+                    text: 'Failed to save supplier. Please try again.',
                     timer: 3000,
-                    timerProgressBar: true,
                     showConfirmButton: false,
                 });
+            } finally {
+                setSubmitting(false);
             }
         }
     });
@@ -770,7 +781,9 @@ export default function Supplier() {
                             >
                                 Cancel
                             </Button>
-                            <Button variant='contained'
+                            <Button
+                                variant='contained'
+                                type="submit"  // เพิ่ม type="submit"
                                 onClick={formik.handleSubmit}
                                 sx={{
                                     width: '100px',
@@ -834,7 +847,7 @@ export default function Supplier() {
                         }}
                     >
                         <Typography sx={{ fontWeight: '600', fontSize: '14px' }} >
-                            Product Type
+                            Supplier
                         </Typography>
                     </Box>
                     <Box
@@ -853,7 +866,11 @@ export default function Supplier() {
                         }}>
 
                         <Box sx={{ width: '80%', mt: '24px' }}>
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
+                                Supplier Id
+                            </Typography>
                             <TextField
+                                disabled
                                 size="small"
                                 placeholder="Id"
                                 sx={{

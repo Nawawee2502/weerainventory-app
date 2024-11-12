@@ -858,9 +858,10 @@ export default function ComissaryKitchen() {
                         }}>
                         <Box sx={{ width: '80%', mt: '24px' }}>
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
-                                EDIT Comissary Id
+                                Comissary Id
                             </Typography>
                             <TextField
+                                disabled
                                 size="small"
                                 placeholder="Id"
                                 sx={{

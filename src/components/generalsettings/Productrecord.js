@@ -23,7 +23,7 @@ import { Alert, AlertTitle } from '@mui/material';
 import Pagination from '@mui/material/Pagination';
 import Stack from '@mui/material/Stack';
 import Swal from 'sweetalert2';
-import AddIcon from '@mui/icons-material/Add';
+import RefreshIcon from '@mui/icons-material/Refresh';
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
     [`&.${tableCellClasses.head}`]: {
@@ -58,23 +58,49 @@ export default function ProductRecord() {
     const [getLastProductCode, setGetLastProductCode] = useState([]);
     const [unit, setUnit] = useState([]);
     const [itemsPerPage] = useState(5);
+    const [selectedType, setSelectedType] = useState('all'); // Add new state for type filter
+
+    const handleTypeChange = (e) => {
+        setSelectedType(e.target.value);
+        setPage(1); // Reset to first page when changing type
+    };
 
     const handleSearchChange = (e) => {
         setSearchTerm(e.target.value);
     };
 
+
     useEffect(() => {
-        if (searchTerm) {
-            dispatch(searchProduct({ product_name: searchTerm }))
-                .unwrap()
-                .then((res) => {
-                    setProductAllTypeproduct(res.data); // เปลี่ยนเป็น setProductAllTypeproduct
-                })
-                .catch((err) => console.log(err.message));
+        if (searchTerm || selectedType !== 'all') {
+            let query = {};
+
+            if (searchTerm) {
+                query.product_name = searchTerm;
+            }
+
+            if (selectedType !== 'all') {
+                query.typeproduct_code = selectedType;
+            }
+
+            if (Object.keys(query).length > 0) {
+                dispatch(searchProduct(query))
+                    .unwrap()
+                    .then((res) => {
+                        const resultData = res.data.map((item, index) => ({
+                            ...item,
+                            id: index + 1
+                        }));
+                        setProductAllTypeproduct(resultData);
+                    })
+                    .catch((err) => {
+                        console.log(err.message);
+                        setProductAllTypeproduct([]); // Set empty array on error
+                    });
+            }
         } else {
-            refetchData();
+            refetchData(1);
         }
-    }, [searchTerm, dispatch]);
+    }, [searchTerm, selectedType, dispatch]);
 
     const handleChange = (event, value) => {
         setPage(value);
@@ -310,8 +336,11 @@ export default function ProductRecord() {
 
     const handleEdit = (row) => {
         setEditProduct(row);
+        // ตรวจสอบและแปลงค่า product_code ให้เป็น string
+        const productCode = Array.isArray(row.product_code) ? row.product_code[0] : row.product_code;
+
         formik.setValues({
-            product_code: row.product_code || '',
+            product_code: productCode,
             product_name: row.product_name || '',
             typeproduct_code: row.typeproduct_code || '',
             bulk_unit_code: row.bulk_unit_code || '',
@@ -319,27 +348,37 @@ export default function ProductRecord() {
             retail_unit_code: row.retail_unit_code || '',
             retail_unit_price: row.retail_unit_price || '',
             unit_conversion_factor: row.unit_conversion_factor || '',
-            tax1: row.tax1 || '', // เพิ่ม tax1
+            tax1: row.tax1 || '',
         });
         toggleEditDrawer(true)();
     };
 
     const handleSave = () => {
-        dispatch(updateProduct(formik.values))
+        // Make sure to include product_code in the update data
+        const updateData = {
+            ...formik.values,
+            product_code: editProduct?.product_code
+        };
+
+        dispatch(updateProduct(updateData))
             .unwrap()
             .then((res) => {
-                setAlert({ open: true, message: 'Updated success', severity: 'success' });
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Updated success',
+                    timer: 1500,
+                    showConfirmButton: false
+                });
                 refetchData();
                 toggleEditDrawer(false)();
-                setTimeout(() => {
-                    setAlert((prev) => ({ ...prev, open: false }));
-                }, 3000);
             })
             .catch((err) => {
-                setAlert({ open: true, message: 'Updated Error', severity: 'error' });
-                setTimeout(() => {
-                    setAlert((prev) => ({ ...prev, open: false }));
-                }, 3000);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Updated Error',
+                    timer: 1500,
+                    showConfirmButton: false
+                });
             });
     };
 
@@ -434,7 +473,7 @@ export default function ProductRecord() {
             try {
                 // Check validation errors
                 const errors = await formik.validateForm(values);
-                
+
                 if (Object.keys(errors).length > 0) {
                     const errorMessages = Object.values(errors).join('\n');
                     Swal.fire({
@@ -573,7 +612,7 @@ export default function ProductRecord() {
 
     const fetchUnitData = () => {
         let offset = 0;
-        let limit = 5;
+        let limit = 999999;
         dispatch(unitAll({ offset, limit }))
             .unwrap()
             .then((res) => {
@@ -603,6 +642,16 @@ export default function ProductRecord() {
         setOpenEditDrawer(false);
     };
 
+    const handleRefresh = () => {
+        refetchData(1);
+        setSearchTerm("");
+        setSelectedType('all'); // Reset type filter
+    };
+
+
+
+
+
     return (
         <>
             <Box
@@ -615,27 +664,46 @@ export default function ProductRecord() {
                     justifyContent: 'center',
                 }}
             >
-                <Button
-                    onClick={toggleDrawer(true)}
-                    sx={{
-                        width: '209px',
-                        height: '70px',
-                        background: 'linear-gradient(180deg, #AD7A2C 0%, #754C27 100%)',
-                        borderRadius: '15px',
-                        boxShadow: '0px 4px 4px 0px #00000040',
-                        display: 'flex',
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        '&:hover': {
-                            background: 'linear-gradient(180deg, #8C5D1E 0%, #5D3A1F 100%)',
-                        }
-                    }}
-                >
-                    <AddCircleIcon sx={{ fontSize: '42px', color: '#FFFFFF', mr: '12px' }} />
-                    <Typography sx={{ fontSize: '24px', fontWeight: '600', color: '#FFFFFF' }}>
-                        Create
-                    </Typography>
-                </Button>
+                <Box sx={{ display: 'flex', flexDirection: 'row' }} >
+                    <Button
+                        onClick={toggleDrawer(true)}
+                        sx={{
+                            width: '209px',
+                            height: '70px',
+                            background: 'linear-gradient(180deg, #AD7A2C 0%, #754C27 100%)',
+                            borderRadius: '15px',
+                            boxShadow: '0px 4px 4px 0px #00000040',
+                            display: 'flex',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            '&:hover': {
+                                background: 'linear-gradient(180deg, #8C5D1E 0%, #5D3A1F 100%)',
+                            }
+                        }}
+                    >
+                        <AddCircleIcon sx={{ fontSize: '42px', color: '#FFFFFF', mr: '12px' }} />
+                        <Typography sx={{ fontSize: '24px', fontWeight: '600', color: '#FFFFFF' }}>
+                            Create
+                        </Typography>
+                    </Button>
+                    <IconButton
+                        onClick={handleRefresh}
+                        sx={{
+                            width: '70px',
+                            height: '70px',
+                            background: 'linear-gradient(180deg, #AD7A2C 0%, #754C27 100%)',
+                            borderRadius: '15px',
+                            boxShadow: '0px 4px 4px 0px #00000040',
+                            '&:hover': {
+                                background: 'linear-gradient(180deg, #8C5D1E 0%, #5D3A1F 100%)',
+                            },
+                            ml: '24px'
+                        }}
+                    >
+                        <RefreshIcon sx={{ fontSize: '32px', color: '#FFFFFF' }} />
+                    </IconButton>
+                </Box>
+
                 <Box
                     sx={{
                         display: 'flex',
@@ -670,6 +738,25 @@ export default function ProductRecord() {
                             ),
                         }}
                     />
+                    <FormControl sx={{ minWidth: 200 }}>
+                        <Select
+                            value={selectedType}
+                            onChange={handleTypeChange}
+                            size="small"
+                            sx={{
+                                height: '38px',
+                                bgcolor: 'white',
+                                ml: '24px'
+                            }}
+                        >
+                            <MenuItem value="all">All Type Products</MenuItem>
+                            {typeproducts.map((type) => (
+                                <MenuItem key={type.typeproduct_code} value={type.typeproduct_code}>
+                                    {type.typeproduct_name}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
                 </Box>
                 <Box sx={{ width: '90%', mt: '24px' }}>
                     <Button
@@ -1152,9 +1239,7 @@ export default function ProductRecord() {
                             </Typography>
                             <TextField
                                 size="small"
-                                // placeholder={getLastTypeproductCode}
                                 disabled
-
                                 sx={{
                                     mt: '8px',
                                     width: '100%',
@@ -1162,9 +1247,7 @@ export default function ProductRecord() {
                                         borderRadius: '10px',
                                     },
                                 }}
-                                {...formik.getFieldProps("product_code")}
-                                {...errorHelper(formik, "product_code")}
-                                value={formik.values.product_code}
+                                value={editProduct?.product_code || ''} // เปลี่ยนจาก formik.values.product_code เป็น editProduct?.product_code
                             />
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
                                 Product Name
@@ -1206,19 +1289,31 @@ export default function ProductRecord() {
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
                                 Large unit
                             </Typography>
-                            <TextField
-                                size="small"
-                                placeholder="Large unit"
-                                sx={{
-                                    mt: '8px',
+                            <select
+                                name="bulk_unit_code"
+                                style={{
                                     width: '100%',
-                                    '& .MuiOutlinedInput-root': {
-                                        borderRadius: '10px',
-                                    },
+                                    borderRadius: '10px',
+                                    padding: '8px',
+                                    marginTop: '8px',
+                                    border: '1px solid #ccc',
+                                    outline: 'none',
+                                    height: '40px'
                                 }}
                                 {...formik.getFieldProps("bulk_unit_code")}
                                 {...errorHelper(formik, "bulk_unit_code")}
-                            />
+                            >
+                                <option value="" disabled>Select Large Unit</option>
+                                {unit.map((item) => (
+                                    <option
+                                        key={item.unit_code}
+                                        value={item.unit_code}
+                                        selected={item.unit_code === formik.values.bulk_unit_code}
+                                    >
+                                        {item.unit_name}
+                                    </option>
+                                ))}
+                            </select>
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
                                 Large unit price
                             </Typography>
@@ -1238,19 +1333,31 @@ export default function ProductRecord() {
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
                                 Small unit
                             </Typography>
-                            <TextField
-                                size="small"
-                                placeholder="Small unit"
-                                sx={{
-                                    mt: '8px',
+                            <select
+                                name="retail_unit_code"
+                                style={{
                                     width: '100%',
-                                    '& .MuiOutlinedInput-root': {
-                                        borderRadius: '10px',
-                                    },
+                                    borderRadius: '10px',
+                                    padding: '8px',
+                                    marginTop: '8px',
+                                    border: '1px solid #ccc',
+                                    outline: 'none',
+                                    height: '40px'
                                 }}
                                 {...formik.getFieldProps("retail_unit_code")}
                                 {...errorHelper(formik, "retail_unit_code")}
-                            />
+                            >
+                                <option value="" disabled>Select Small Unit</option>
+                                {unit.map((item) => (
+                                    <option
+                                        key={item.unit_code}
+                                        value={item.unit_code}
+                                        selected={item.unit_code === formik.values.retail_unit_code}
+                                    >
+                                        {item.unit_name}
+                                    </option>
+                                ))}
+                            </select>
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
                                 Small unit price
                             </Typography>

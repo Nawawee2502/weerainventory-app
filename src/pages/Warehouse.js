@@ -9,8 +9,6 @@ import BarChartIcon from '@mui/icons-material/BarChart';
 import Button from '@mui/material/Button';
 import { AppProvider } from '@toolpad/core/AppProvider';
 import { DashboardLayout } from '@toolpad/core/DashboardLayout';
-import ReceiptFromSupplier from '../components/warehouse/Receiptfromsupplier'
-import ReceiptFromKitchen from '../components/warehouse/Receiptfromkitchen';
 import { useNavigate } from "react-router-dom";
 import HomePurchaseOrderToSupplier from '../components/warehouse/purchaseordertosupplier/HomePurchaseOrdertoSupplier';
 import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined';
@@ -21,6 +19,8 @@ import HouseSidingOutlinedIcon from '@mui/icons-material/HouseSidingOutlined';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import CircleIcon from '@mui/icons-material/Circle';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import ReceiptFromSupplier from '../components/warehouse/receiptfromsupplier/ReceiptFromSupplier';
+import HomeReceiptFromSupplier from '../components/warehouse/receiptfromsupplier/HomeReceiptFromSupplier';
 
 const NAVIGATION = [
     {
@@ -182,9 +182,9 @@ function Warehouse(props) {
             case '/purchase-order-to-supplier':
                 return <HomePurchaseOrderToSupplier />;
             case '/receipt-from-supplier':
-                return <ReceiptFromSupplier />;
-            case '/receipt-from-kitchen':
-                return <ReceiptFromKitchen />;
+                return <HomeReceiptFromSupplier />;
+            // case '/receipt-from-kitchen':
+            //     return <ReceiptFromKitchen />;
             default:
                 return <HomePurchaseOrderToSupplier />;
         }

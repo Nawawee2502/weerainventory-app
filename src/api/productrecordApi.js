@@ -116,12 +116,9 @@ export const countProduct = createAsyncThunk(
 
 export const searchProduct = createAsyncThunk(
   "productproduct/search",
-  async ({ product_name }, { dispatch }) => {
+  async (searchParams, { dispatch }) => {
     try {
-      const res = await axios.post(BASE_URL + "/api/searchproductname", {
-        product_name,
-      });
-      console.log(res.data);
+      const res = await axios.post(BASE_URL + "/api/searchproduct", searchParams);
       return res.data;
     } catch (error) {
       console.error(error.message);

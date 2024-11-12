@@ -45,6 +45,8 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
   const [subtotal, setSubtotal] = useState(0);
   const [tax, setTax] = useState(0);
   const [total, setTotal] = useState(0);
+  const [searchResults, setSearchResults] = useState([]);
+  const [showDropdown, setShowDropdown] = useState(false);
 
   // const userData = useSelector((state) => state.authentication.userData);
   // console.log("userData", userData)
@@ -56,49 +58,142 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
 
   let whProduct = [];
 
+  // const handleSearchChange = (e) => {
+  //   console.log("e.key");
+  //   console.log(e.key);
+  //   if (e.key === 'Enter') {
+  //     searchWh();
+  //   } else {
+  //     setSearchTerm(e.target.value)
+  //   }
+  //   return true;
+  // };
+
   const handleSearchChange = (e) => {
-    console.log("e.key");
-    console.log(e.key);
+    const value = e.target.value;
+    setSearchTerm(value);
+  
     if (e.key === 'Enter') {
       searchWh();
+      setShowDropdown(false);
+    } else if (value.length > 0) {
+      // ค้นหาสินค้าเมื่อพิมพ์
+      dispatch(searchProductName({ product_name: value }))
+        .unwrap()
+        .then((res) => {
+          if (res.data) {
+            // เรียงลำดับผลลัพธ์โดยให้ exact match อยู่บนสุด
+            const sortedResults = [...res.data].sort((a, b) => {
+              const aExact = a.product_name.toLowerCase() === value.toLowerCase();
+              const bExact = b.product_name.toLowerCase() === value.toLowerCase();
+              if (aExact && !bExact) return -1;
+              if (!aExact && bExact) return 1;
+              
+              // ถ้าไม่มี exact match ให้เรียงตามความยาวชื่อจากสั้นไปยาว
+              return a.product_name.length - b.product_name.length;
+            });
+            
+            setSearchResults(sortedResults);
+            setShowDropdown(true);
+          }
+        })
+        .catch((err) => console.log(err.message));
     } else {
-      setSearchTerm(e.target.value)
+      setSearchResults([]);
+      setShowDropdown(false);
     }
-    return true;
   };
+
+  // แก้ไขฟังก์ชัน handleProductSelect
+  const handleProductSelect = (product) => {
+    setSearchTerm(product.product_name);
+    setShowDropdown(false);
+    
+    dispatch(searchProductName({ product_name: product.product_name }))
+      .unwrap()
+      .then((res) => {
+        if (res.data && res.data.length > 0) {
+          // หาสินค้าที่ตรงกับที่เลือกจาก dropdown
+          const selectedProduct = res.data.find(
+            p => p.product_code === product.product_code
+          ) || res.data[0];
+  
+          whProduct = products;
+          whProduct.push(selectedProduct);
+  
+          const initialQuantity = 1;
+          const unitCode = selectedProduct.productUnit1.unit_code;
+          const total = calculateTotal(initialQuantity, unitCode, selectedProduct);
+  
+          setProducts(whProduct);
+          setQuantities((prevQuantities) => ({
+            ...prevQuantities,
+            [selectedProduct.product_code]: initialQuantity,
+          }));
+          setUnits((prevUnits) => ({
+            ...prevUnits,
+            [selectedProduct.product_code]: unitCode,
+          }));
+          setTotals((prevTotals) => ({
+            ...prevTotals,
+            [selectedProduct.product_code]: total,
+          }));
+  
+          setSearchTerm('');
+        }
+      })
+      .catch((err) => console.log(err.message));
+  };
+
+  useEffect(() => {
+    return () => {
+      setSearchResults([]);
+      setShowDropdown(false);
+    };
+  }, []);
 
   const searchWh = () => {
     dispatch(searchProductName({ product_name: searchTerm }))
       .unwrap()
       .then((res) => {
-        whProduct = products;
-        whProduct.push(res.data[0]);
-
-        // กำหนดค่า quantity เริ่มต้นเป็น 1
-        const initialQuantity = 1;
-
-        // กำหนดค่า unit เริ่มต้นเป็น unit1 ของสินค้า
-        const unitCode = res.data[0].productUnit1.unit_code;
-
-        // คำนวณ total เริ่มต้น
-        const total = calculateTotal(initialQuantity, unitCode, res.data[0]);
-
-        // อัปเดต state ของ products, quantity, unit และ total
-        setProducts(whProduct);
-        setQuantities((prevQuantities) => ({
-          ...prevQuantities,
-          [res.data[0].product_code]: initialQuantity,
-        }));
-        setUnits((prevUnits) => ({
-          ...prevUnits,
-          [res.data[0].product_code]: unitCode,
-        }));
-        setTotals((prevTotals) => ({
-          ...prevTotals,
-          [res.data[0].product_code]: total,
-        }));
-
-        setSearchTerm(''); // รีเซ็ตค่า search term
+        if (res.data && res.data.length > 0) {
+          // หาสินค้าที่ชื่อตรงกับ searchTerm พอดี (exact match)
+          const exactMatch = res.data.find(
+            product => product.product_name.toLowerCase() === searchTerm.toLowerCase()
+          );
+  
+          // ถ้าเจอ exact match ใช้ตัวนั้น ถ้าไม่เจอใช้ตัวแรกของผลลัพธ์
+          const selectedProduct = exactMatch || res.data[0];
+  
+          whProduct = products;
+          whProduct.push(selectedProduct);
+  
+          // กำหนดค่า quantity เริ่มต้นเป็น 1
+          const initialQuantity = 1;
+  
+          // กำหนดค่า unit เริ่มต้นเป็น unit1 ของสินค้า
+          const unitCode = selectedProduct.productUnit1.unit_code;
+  
+          // คำนวณ total เริ่มต้น
+          const total = calculateTotal(initialQuantity, unitCode, selectedProduct);
+  
+          // อัปเดต state ของ products, quantity, unit และ total
+          setProducts(whProduct);
+          setQuantities((prevQuantities) => ({
+            ...prevQuantities,
+            [selectedProduct.product_code]: initialQuantity,
+          }));
+          setUnits((prevUnits) => ({
+            ...prevUnits,
+            [selectedProduct.product_code]: unitCode,
+          }));
+          setTotals((prevTotals) => ({
+            ...prevTotals,
+            [selectedProduct.product_code]: total,
+          }));
+  
+          setSearchTerm(''); // รีเซ็ตค่า search term
+        }
       })
       .catch((err) => console.log(err.message));
   };
@@ -575,32 +670,76 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
               <Typography sx={{ ml: 'auto' }}>
                 Product Search
               </Typography>
-              <TextField
-                value={searchTerm}
-                onKeyUp={handleSearchChange}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                // onChange={handleSearchChange}
-                placeholder="Search"
-                sx={{
-
-                  '& .MuiInputBase-root': {
-                    height: '30px',
+              <Box sx={{ position: 'relative', width: '50%', ml: '12px' }}>
+                <TextField
+                  value={searchTerm}
+                  onKeyUp={(e) => {
+                    if (e.key === 'Enter') {
+                      searchWh();
+                      setShowDropdown(false);
+                    }
+                  }}
+                  onChange={handleSearchChange}
+                  placeholder="Search"
+                  sx={{
+                    '& .MuiInputBase-root': {
+                      height: '30px',
+                      width: '100%'
+                    },
+                    '& .MuiOutlinedInput-input': {
+                      padding: '8.5px 14px',
+                    },
                     width: '100%'
-                  },
-                  '& .MuiOutlinedInput-input': {
-                    padding: '8.5px 14px',
-                  },
-                  width: '50%',
-                  ml: '12px'
-                }}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon sx={{ color: '#5A607F' }} />
-                    </InputAdornment>
-                  ),
-                }}
-              />
+                  }}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon sx={{ color: '#5A607F' }} />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+
+                {showDropdown && searchResults.length > 0 && (
+                  <Box
+                    sx={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      right: 0,
+                      backgroundColor: 'white',
+                      boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                      borderRadius: '4px',
+                      zIndex: 1000,
+                      maxHeight: '200px',
+                      overflowY: 'auto',
+                      mt: '4px'
+                    }}
+                  >
+                    {searchResults.map((product) => (
+                      <Box
+                        key={product.product_code}
+                        onClick={() => handleProductSelect(product)}
+                        sx={{
+                          p: 1.5,
+                          cursor: 'pointer',
+                          '&:hover': {
+                            backgroundColor: '#f5f5f5'
+                          },
+                          borderBottom: '1px solid #eee'
+                        }}
+                      >
+                        <Typography sx={{ fontSize: '14px', fontWeight: '600' }}>
+                          {product.product_name}
+                        </Typography>
+                        {/* <Typography sx={{ fontSize: '12px', color: 'text.secondary' }}>
+                          Code: {product.product_code}
+                        </Typography> */}
+                      </Box>
+                    ))}
+                  </Box>
+                )}
+              </Box>
               <Button sx={{ ml: 'auto', bgcolor: '#E2EDFB', borderRadius: '6px', width: '105px' }}>
                 Clear All
               </Button>
@@ -684,7 +823,7 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
                           <IconButton
                             onClick={() => handleDeleteWhProduct(productCode)}
                             size="small"
-                          > 
+                          >
                             <CancelIcon />
                           </IconButton>
                         </td>
