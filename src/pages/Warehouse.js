@@ -19,8 +19,11 @@ import HouseSidingOutlinedIcon from '@mui/icons-material/HouseSidingOutlined';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import CircleIcon from '@mui/icons-material/Circle';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import ReceiptFromSupplier from '../components/warehouse/receiptfromsupplier/ReceiptFromSupplier';
 import HomeReceiptFromSupplier from '../components/warehouse/receiptfromsupplier/HomeReceiptFromSupplier';
+import HomeReceiptFromKitchen from '../components/warehouse/receiptfromkitchen/HomeReceiptFromKitchen';
+import HomeDispatchToKitchen from '../components/warehouse/dispatchtokitchen/HomeDispatchToKitchen';
+import HomeDispatchToBranch from '../components/warehouse/dispatchtobranch/HomeDispatchToBranch';
+import HomeStockAdjustment from '../components/warehouse/stockadjustment/HomeStockAdjustMent';
 
 const NAVIGATION = [
     {
@@ -98,18 +101,11 @@ const NAVIGATION = [
                 title: 'Monthly Stock Balance',
                 icon: <CircleIcon fontSize='small' />,
             },
-
         ],
-
     },
 ];
 
-
 const demoTheme = createTheme({
-    //   cssVariables: {
-    //     colorSchemeSelector: 'data-toolpad-color-scheme',
-    //   },
-    //   colorSchemes: { light: true, dark: true },
     breakpoints: {
         values: {
             xs: 0,
@@ -119,16 +115,51 @@ const demoTheme = createTheme({
             xl: 1536,
         },
     },
+    components: {
+        MuiAppBar: {
+            styleOverrides: {
+                root: {
+                    '& .MuiToolbar-root': {
+                        justifyContent: 'space-between',
+                        '& .MuiTypography-root': {
+                            position: 'absolute',
+                            left: '50%',
+                            transform: 'translateX(-50%)',
+                            fontWeight: 'bold',
+                            color: 'black',
+                        },
+                    },
+                },
+            },
+        },
+    },
 });
 
 function Warehouse(props) {
     const { window } = props;
-
-    const [pathname, setPathname] = React.useState('/dashboard');
+    const [pathname, setPathname] = React.useState('/purchase-order-to-supplier');
+    const [currentTitle, setCurrentTitle] = React.useState('Purchase Order to Supplier');
     let navigate = useNavigate();
 
     const handleDashboard = () => {
         navigate('/dashboard');
+        setCurrentTitle('Dashboard');
+    };
+
+    const findMenuTitle = (path) => {
+        const segment = path.substring(1);
+
+        const mainMenu = NAVIGATION.find(item => item.segment === segment);
+        if (mainMenu) return mainMenu.title;
+
+        for (const menu of NAVIGATION) {
+            if (menu.children) {
+                const subMenu = menu.children.find(item => item.segment === segment);
+                if (subMenu) return subMenu.title;
+            }
+        }
+
+        return 'Purchase Order to Supplier'; // เปลี่ยน default return
     };
 
     function SidebarFooter({ mini }) {
@@ -146,7 +177,10 @@ function Warehouse(props) {
                 <Button
                     variant="text"
                     startIcon={!mini && <ArrowBackIcon />}
-                    onClick={() => navigate('/dashboard')}
+                    onClick={() => {
+                        navigate('/dashboard');
+                        setCurrentTitle('Dashboard');
+                    }}
                     sx={{
                         minWidth: 0,
                         p: mini ? 1 : 2,
@@ -170,26 +204,33 @@ function Warehouse(props) {
         return {
             pathname,
             searchParams: new URLSearchParams(),
-            navigate: (path) => setPathname(String(path)),
+            navigate: (path) => {
+                setPathname(String(path));
+                setCurrentTitle(findMenuTitle(String(path)));
+            },
         };
     }, [pathname]);
 
     const demoWindow = window !== undefined ? window() : undefined;
 
-    // Render different components based on the current pathname
     const renderContent = () => {
         switch (pathname) {
             case '/purchase-order-to-supplier':
                 return <HomePurchaseOrderToSupplier />;
             case '/receipt-from-supplier':
                 return <HomeReceiptFromSupplier />;
-            // case '/receipt-from-kitchen':
-            //     return <ReceiptFromKitchen />;
+            case '/receipt-from-kitchen':
+                return <HomeReceiptFromKitchen />;
+            case '/dispatch-to-kitchen':
+                return <HomeDispatchToKitchen />;
+            case '/dispatch-to-branch':
+                return <HomeDispatchToBranch />;
+            case '/stock-adjustment':
+                return <HomeStockAdjustment />;
             default:
                 return <HomePurchaseOrderToSupplier />;
         }
     };
-
 
     return (
         <AppProvider
@@ -222,7 +263,7 @@ function Warehouse(props) {
                         </Box>
                     </>
                 ),
-                title: '',
+                title: currentTitle,
             }}
         >
             <DashboardLayout
@@ -236,10 +277,6 @@ function Warehouse(props) {
 }
 
 Warehouse.propTypes = {
-    /**
-     * Injected by the documentation to work in an iframe.
-     * Remove this when copying and pasting into your project.
-     */
     window: PropTypes.func,
 };
 

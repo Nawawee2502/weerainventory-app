@@ -62,7 +62,7 @@ export default function ProductRecord() {
 
     const handleTypeChange = (e) => {
         setSelectedType(e.target.value);
-        setPage(1); // Reset to first page when changing type
+        setPage(1); // รีเซ็ตกลับไปหน้าแรกเมื่อเปลี่ยน type
     };
 
     const handleSearchChange = (e) => {
@@ -71,7 +71,7 @@ export default function ProductRecord() {
 
 
     useEffect(() => {
-        if (searchTerm || selectedType !== 'all') {
+        const fetchFilteredData = async () => {
             let query = {};
 
             if (searchTerm) {
@@ -82,42 +82,42 @@ export default function ProductRecord() {
                 query.typeproduct_code = selectedType;
             }
 
-            if (Object.keys(query).length > 0) {
-                dispatch(searchProduct(query))
-                    .unwrap()
-                    .then((res) => {
-                        const resultData = res.data.map((item, index) => ({
+            try {
+                if (Object.keys(query).length > 0) {
+                    // ถ้ามีการค้นหาหรือกรอง
+                    const response = await dispatch(searchProduct(query)).unwrap();
+                    const totalItems = response.data.length;
+                    const totalPages = Math.ceil(totalItems / itemsPerPage);
+                    setCount(totalPages);
+
+                    // คำนวณข้อมูลสำหรับหน้าปัจจุบัน
+                    const startIndex = (page - 1) * itemsPerPage;
+                    const endIndex = startIndex + itemsPerPage;
+                    const paginatedData = response.data
+                        .slice(startIndex, endIndex)
+                        .map((item, index) => ({
                             ...item,
-                            id: index + 1
+                            id: startIndex + index + 1
                         }));
-                        setProductAllTypeproduct(resultData);
-                    })
-                    .catch((err) => {
-                        console.log(err.message);
-                        setProductAllTypeproduct([]); // Set empty array on error
-                    });
+
+                    setProductAllTypeproduct(paginatedData);
+                } else {
+                    // ถ้าไม่มีการค้นหาหรือกรอง ใช้การดึงข้อมูลปกติ
+                    refetchData(page);
+                }
+            } catch (err) {
+                console.error(err);
+                setProductAllTypeproduct([]);
+                setCount(0);
             }
-        } else {
-            refetchData(1);
-        }
-    }, [searchTerm, selectedType, dispatch]);
+        };
+
+        fetchFilteredData();
+    }, [searchTerm, selectedType, page, dispatch, itemsPerPage]);
+
 
     const handleChange = (event, value) => {
         setPage(value);
-        let page = value - 1;
-        let offset = page * 5;
-        let limit = 5;
-
-        dispatch(productAlltypeproduct({ offset, limit }))
-            .unwrap()
-            .then((res) => {
-                let resultData = res.data;
-                for (let indexArray = 0; indexArray < resultData.length; indexArray++) {
-                    resultData[indexArray].id = offset + indexArray + 1;
-                }
-                setProductAllTypeproduct(resultData);
-            })
-            .catch((err) => err.message);
     };
 
     const refetchData = (targetPage = 1) => {
@@ -643,14 +643,11 @@ export default function ProductRecord() {
     };
 
     const handleRefresh = () => {
-        refetchData(1);
         setSearchTerm("");
-        setSelectedType('all'); // Reset type filter
+        setSelectedType('all');
+        setPage(1);
+        refetchData(1);
     };
-
-
-
-
 
     return (
         <>

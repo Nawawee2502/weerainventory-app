@@ -47,6 +47,11 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
   const [total, setTotal] = useState(0);
   const [searchResults, setSearchResults] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [taxableAmount, setTaxableAmount] = useState(0);
+  const [nonTaxableAmount, setNonTaxableAmount] = useState(0);
+  const TAX_RATE = 0.07;
+  const [lastMonth, setLastMonth] = useState('');
+  const [lastYear, setLastYear] = useState('');
 
   // const userData = useSelector((state) => state.authentication.userData);
   // console.log("userData", userData)
@@ -69,10 +74,11 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
   //   return true;
   // };
 
+
   const handleSearchChange = (e) => {
     const value = e.target.value;
     setSearchTerm(value);
-  
+
     if (e.key === 'Enter') {
       searchWh();
       setShowDropdown(false);
@@ -88,11 +94,11 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
               const bExact = b.product_name.toLowerCase() === value.toLowerCase();
               if (aExact && !bExact) return -1;
               if (!aExact && bExact) return 1;
-              
+
               // ถ้าไม่มี exact match ให้เรียงตามความยาวชื่อจากสั้นไปยาว
               return a.product_name.length - b.product_name.length;
             });
-            
+
             setSearchResults(sortedResults);
             setShowDropdown(true);
           }
@@ -108,7 +114,7 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
   const handleProductSelect = (product) => {
     setSearchTerm(product.product_name);
     setShowDropdown(false);
-    
+
     dispatch(searchProductName({ product_name: product.product_name }))
       .unwrap()
       .then((res) => {
@@ -117,14 +123,14 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
           const selectedProduct = res.data.find(
             p => p.product_code === product.product_code
           ) || res.data[0];
-  
+
           whProduct = products;
           whProduct.push(selectedProduct);
-  
+
           const initialQuantity = 1;
           const unitCode = selectedProduct.productUnit1.unit_code;
           const total = calculateTotal(initialQuantity, unitCode, selectedProduct);
-  
+
           setProducts(whProduct);
           setQuantities((prevQuantities) => ({
             ...prevQuantities,
@@ -138,7 +144,7 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
             ...prevTotals,
             [selectedProduct.product_code]: total,
           }));
-  
+
           setSearchTerm('');
         }
       })
@@ -161,22 +167,22 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
           const exactMatch = res.data.find(
             product => product.product_name.toLowerCase() === searchTerm.toLowerCase()
           );
-  
+
           // ถ้าเจอ exact match ใช้ตัวนั้น ถ้าไม่เจอใช้ตัวแรกของผลลัพธ์
           const selectedProduct = exactMatch || res.data[0];
-  
+
           whProduct = products;
           whProduct.push(selectedProduct);
-  
+
           // กำหนดค่า quantity เริ่มต้นเป็น 1
           const initialQuantity = 1;
-  
+
           // กำหนดค่า unit เริ่มต้นเป็น unit1 ของสินค้า
           const unitCode = selectedProduct.productUnit1.unit_code;
-  
+
           // คำนวณ total เริ่มต้น
           const total = calculateTotal(initialQuantity, unitCode, selectedProduct);
-  
+
           // อัปเดต state ของ products, quantity, unit และ total
           setProducts(whProduct);
           setQuantities((prevQuantities) => ({
@@ -191,7 +197,7 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
             ...prevTotals,
             [selectedProduct.product_code]: total,
           }));
-  
+
           setSearchTerm(''); // รีเซ็ตค่า search term
         }
       })
@@ -275,28 +281,44 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
   };
 
   const calculateOrderTotals = () => {
-    const orderSubtotal = products.reduce((sum, product) => {
+    let taxable = 0;
+    let nonTaxable = 0;
+
+    products.forEach(product => {
       const productCode = product.product_code;
       const quantity = quantities[productCode] || 1;
       const unitCode = units[productCode] || product.productUnit1.unit_code;
       const unitPrice = unitCode === product.productUnit1.unit_code
         ? product.bulk_unit_price
         : product.retail_unit_price;
-      return sum + (quantity * unitPrice);
-    }, 0);
+      const amount = quantity * unitPrice;
 
-    const orderTax = orderSubtotal * 0.12;
-    const orderTotal = orderSubtotal + orderTax;
+      if (product.tax1 === 'Y') {
+        // For taxable items, add tax to the amount
+        taxable += amount * (1 + TAX_RATE);
+      } else {
+        // For non-taxable items, just add the amount
+        nonTaxable += amount;
+      }
+    });
 
-    setSubtotal(orderSubtotal);
-    setTax(orderTax);
-    setTotal(orderTotal);
+    setTaxableAmount(taxable);
+    setNonTaxableAmount(nonTaxable);
+    setTotal(taxable + nonTaxable);
   };
 
   useEffect(() => {
     let offset = 0;
     let limit = 5;
     let test = 10;
+
+    // เซ็ตค่าเริ่มต้นของเดือนและปีจากวันที่ปัจจุบัน
+    const currentDate = new Date();
+    const currentMonth = (currentDate.getMonth() + 1).toString().padStart(2, '0');
+    const currentYear = currentDate.getFullYear().toString().slice(-2);
+    setLastMonth(currentMonth);
+    setLastYear(currentYear);
+
     dispatch(wh_posAlljoindt({ offset, limit }))
       .unwrap()
       .then((res) => {
@@ -346,32 +368,40 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
   const handleGetLastRefNo = (selectedDate) => {
     const year = selectedDate.getFullYear().toString().slice(-2); // Last 2 digits of year
     const month = (selectedDate.getMonth() + 1).toString().padStart(2, '0'); // Month in MM format
-
     const baseRefNo = `WPOS${year}${month}`; // Base refno with the selected year and month
 
-    // Fetch last refno from the database (เลขลำดับล่าสุด ไม่ต้องสนใจปี/เดือน)
     dispatch(refno({ test: 10 }))
       .unwrap()
       .then((res) => {
         let lastRefNo = res.data;
 
         if (lastRefNo && typeof lastRefNo === 'object') {
-          lastRefNo = lastRefNo.refno || ''; // ตรวจสอบว่ามีค่า refno ใน object หรือไม่
+          lastRefNo = lastRefNo.refno || '';
         }
 
         let newRefNo;
 
-        // Extract only the number part from the last refno (ลำดับตัวเลขอย่างเดียว)
-        if (lastRefNo) {
-          const lastNumber = parseInt(lastRefNo.slice(-3)); // Get last 3 digits (the sequence number)
-          const increment = lastNumber + 1; // Increment the number
-          newRefNo = `${baseRefNo}${increment.toString().padStart(3, '0')}`; // Create new refno
+        // ดึงปีและเดือนจาก lastRefNo
+        const lastRefYear = lastRefNo ? lastRefNo.substring(4, 6) : '';
+        const lastRefMonth = lastRefNo ? lastRefNo.substring(6, 8) : '';
+
+        // ตรวจสอบว่าเป็นเดือนหรือปีใหม่หรือไม่
+        if (lastRefYear !== year || lastRefMonth !== month) {
+          // ถ้าเป็นเดือนใหม่หรือปีใหม่ ให้เริ่มจาก 001
+          newRefNo = `${baseRefNo}001`;
         } else {
-          newRefNo = `${baseRefNo}001`; // Default if no refno exists
+          // ถ้าเป็นเดือนและปีเดียวกัน ให้เพิ่มเลขต่อ
+          const lastNumber = parseInt(lastRefNo.slice(-3));
+          const increment = lastNumber + 1;
+          newRefNo = `${baseRefNo}${increment.toString().padStart(3, '0')}`;
         }
 
-        setLastRefNo(newRefNo); // Set the new refno
+        setLastRefNo(newRefNo);
         console.log("Generated refno:", newRefNo);
+
+        // อัพเดทค่าเดือนและปีล่าสุด
+        setLastMonth(month);
+        setLastYear(year);
       })
       .catch((err) => console.log(err.message));
   };
@@ -433,8 +463,8 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
       rdate: day + '/' + month + '/' + year,
       supplier_code: saveSupplier,
       branch_code: saveBranch,
-      taxable: 1,
-      nontaxable: 1,
+      taxable: taxableAmount,
+      nontaxable: nonTaxableAmount,
       trdate: year + month + day,
       monthh: month,
       myear: year,
@@ -446,12 +476,15 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
       const productCode = product.product_code;
       const quantity = quantities[productCode] || 1;
       const unitCode = units[productCode] || product.productUnit1.unit_code;
-
       const unitPrice = unitCode === product.productUnit1.unit_code
         ? product.bulk_unit_price
         : product.retail_unit_price;
-
       const amount = quantity * unitPrice;
+
+      // Calculate final amount based on tax status
+      const finalAmount = product.tax1 === 'Y'
+        ? amount * (1 + TAX_RATE)
+        : amount;
 
       return {
         refno: headerData.refno,
@@ -459,8 +492,8 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
         qty: quantity.toString(),
         unit_code: unitCode,
         uprice: unitPrice.toString(),
-        tax1: '1',
-        amt: amount.toString()
+        tax1: product.tax1,
+        amt: finalAmount.toString()
       };
     });
 
@@ -468,8 +501,8 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
       headerData: headerData,
       productArrayData: tmpProduct,
       footerData: {
-        subtotal: subtotal,
-        tax: tax,
+        taxable: taxableAmount,
+        nontaxable: nonTaxableAmount,
         total: total,
       },
     };
@@ -838,13 +871,13 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
               <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
                 <Typography sx={{ color: '#FFFFFF' }}>Taxable</Typography>
                 <Typography sx={{ color: '#FFFFFF', ml: 'auto' }}>
-                  ${subtotal.toFixed(2)}
+                  ${taxableAmount.toFixed(2)}
                 </Typography>
               </Box>
               <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', mt: '8px' }}>
                 <Typography sx={{ color: '#FFFFFF' }}>Non-taxable</Typography>
                 <Typography sx={{ color: '#FFFFFF', ml: 'auto' }}>
-                  ${tax.toFixed(2)}
+                  ${nonTaxableAmount.toFixed(2)}
                 </Typography>
               </Box>
               <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', mt: '8px' }}>

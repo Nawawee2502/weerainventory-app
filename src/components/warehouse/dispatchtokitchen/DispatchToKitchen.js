@@ -65,7 +65,7 @@ const StyledTableRow = styled(TableRow)(({ theme }) => ({
     },
 }));
 
-export default function ReceiptFromSupplier({ onCreate }) {
+export default function DispatchToKitchen({ onCreate }) {
     const [searchTerm, setSearchTerm] = useState("");
     const [filterDate, setFilterDate] = useState(new Date());
     const [selected, setSelected] = useState([]);
@@ -207,8 +207,7 @@ export default function ReceiptFromSupplier({ onCreate }) {
                             <StyledTableCell width='1%'>No.</StyledTableCell>
                             <StyledTableCell align="center">Ref.no</StyledTableCell>
                             <StyledTableCell align="center">Date</StyledTableCell>
-                            <StyledTableCell align="center">Supplier</StyledTableCell>
-                            <StyledTableCell align="center">Restaurant</StyledTableCell>
+                            <StyledTableCell align="center">Kitchen</StyledTableCell>
                             <StyledTableCell align="center">Total Due</StyledTableCell>
                             <StyledTableCell align="center">Username</StyledTableCell>
                             <StyledTableCell width='1%' align="center"></StyledTableCell>

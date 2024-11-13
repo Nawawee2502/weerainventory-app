@@ -8,7 +8,7 @@ import 'react-datepicker/dist/react-datepicker.css';
 
 export default function CreateReceiptFromSupplier({ onBack }) {
   const [startDate, setStartDate] = useState(new Date());
-  
+
   return (
     <Box sx={{ width: '100%' }}>
       <Button
@@ -157,17 +157,19 @@ export default function CreateReceiptFromSupplier({ onBack }) {
                 <thead>
                   <tr>
                     <th style={{ padding: '4px', fontSize: '14px', width: '1%', color: '#754C27', fontWeight: '800' }}>No.</th>
-                    <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '15%', color: '#754C27', fontWeight: '800' }}>Product code</th>
-                    <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '15%', color: '#754C27', fontWeight: '800' }}>Product name</th>
-                    <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Quantity</th>
-                    <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '10%', color: '#754C27', fontWeight: '800' }}>Unit</th>
-                    <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Unit Price</th>
+                    <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '10%', color: '#754C27', fontWeight: '800' }}>Product code</th>
+                    <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '10%', color: '#754C27', fontWeight: '800' }}>Product name</th>
+                    <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Expiry date</th>
                     <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Tax</th>
+                    <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800', width:'10%' }}>Instance saving</th>
+                    <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Temperature</th>
+                    <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Unit</th>
+                    <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Unit Price</th>
                     <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Total</th>
                     <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '1%', color: '#754C27', fontWeight: '800' }}></th>
                   </tr>
                   <tr>
-                    <td colSpan="9">
+                    <td colSpan="10">
                       <Divider sx={{ width: '100%', color: '#C6C6C6', border: '1px solid #C6C6C6' }} />
                     </td>
                   </tr>
@@ -179,21 +181,66 @@ export default function CreateReceiptFromSupplier({ onBack }) {
             </Box>
 
             <Box sx={{ width: '100%', height: 'auto', bgcolor: '#EAB86C', borderRadius: '10px', p: '18px' }}>
-              <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-                <Typography sx={{ color: '#FFFFFF' }}>Taxable</Typography>
-                <Typography sx={{ color: '#FFFFFF', ml: 'auto' }}>
-                  $0.00
-                </Typography>
+              {/* Main content container */}
+              <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', height: '100%' }}>
+                {/* Left section */}
+                <Box sx={{
+                  display: 'flex',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  width: '48%',
+                  mr: 'auto',
+                  justifyContent: 'space-between'
+                }}>
+                  <Box>
+                    <Typography sx={{ color: '#FFFFFF' }}>Taxable</Typography>
+                    <Typography sx={{ color: '#FFFFFF' }}>Non-Taxable</Typography>
+                    <Typography sx={{ color: '#FFFFFF' }}>Total</Typography>
+                  </Box>
+                  <Box>
+                    <Typography sx={{ color: '#FFFFFF' }}>$0.00</Typography>
+                    <Typography sx={{ color: '#FFFFFF' }}>$0.00</Typography>
+                    <Typography sx={{ color: '#FFFFFF' }}>$0.00</Typography>
+                  </Box>
+                </Box>
+
+                {/* Vertical Divider */}
+                <Divider
+                  orientation="vertical"
+                  flexItem
+                  sx={{
+                    borderColor: '#754C27',
+                    borderRightWidth: 1,
+                    height: 'auto',
+                  }}
+                />
+
+                {/* Right section */}
+                <Box sx={{
+                  display: 'flex',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  width: '48%',
+                  ml: 'auto',
+                  justifyContent: 'space-between'
+                }}>
+                  <Box>
+                    <Typography sx={{ color: '#FFFFFF' }}>Instance Saving</Typography>
+                    <Typography sx={{ color: '#FFFFFF' }}>Delivery Surcharge</Typography>
+                    <Typography sx={{ color: '#FFFFFF' }}>Sale Tax</Typography>
+                  </Box>
+                  <Box>
+                    <Typography sx={{ color: '#FFFFFF' }}>$0.00</Typography>
+                    <Typography sx={{ color: '#FFFFFF' }}>$0.00</Typography>
+                    <Typography sx={{ color: '#FFFFFF' }}>$0.00</Typography>
+                  </Box>
+                </Box>
               </Box>
-              <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', mt: '8px' }}>
-                <Typography sx={{ color: '#FFFFFF' }}>Non-taxable</Typography>
-                <Typography sx={{ color: '#FFFFFF', ml: 'auto' }}>
-                  $0.00
-                </Typography>
-              </Box>
+
+              {/* Total section */}
               <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', mt: '8px' }}>
                 <Typography sx={{ color: '#FFFFFF', fontSize: '30px', fontWeight: '600' }}>
-                  Total
+                  Total due
                 </Typography>
                 <Typography sx={{ color: '#FFFFFF', ml: 'auto', fontSize: '30px', fontWeight: '600' }}>
                   $0.00
