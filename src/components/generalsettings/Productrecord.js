@@ -50,19 +50,50 @@ export default function ProductRecord() {
     const dispatch = useDispatch();
     const [alert, setAlert] = useState({ open: false, message: '', severity: 'success' });
     const [product, setProduct] = useState([]);
-    const [productAllTypeproduct, setProductAllTypeproduct] = useState([]);
     const [typeproducts, setTypeproducts] = useState([]);
-    const [page, setPage] = useState(0);
-    const [count, setCount] = useState();
     const [searchTerm, setSearchTerm] = useState("");
     const [getLastProductCode, setGetLastProductCode] = useState([]);
     const [unit, setUnit] = useState([]);
+    const [page, setPage] = useState(1);
     const [itemsPerPage] = useState(5);
-    const [selectedType, setSelectedType] = useState('all'); // Add new state for type filter
+    const [count, setCount] = useState(0);
+    const [productAllTypeproduct, setProductAllTypeproduct] = useState([]);
+    const [selectedTypeProduct, setSelectedTypeProduct] = useState("");
 
-    const handleTypeChange = (e) => {
-        setSelectedType(e.target.value);
-        setPage(1); // รีเซ็ตกลับไปหน้าแรกเมื่อเปลี่ยน type
+
+
+    const handleTypeChange = async (event) => {
+        const newTypeProduct = event.target.value;
+        setSelectedTypeProduct(newTypeProduct);
+        setPage(1);
+
+        try {
+            // โหลดข้อมูลใหม่ตาม type ที่เลือก
+            const [productResponse, countResponse] = await Promise.all([
+                dispatch(productAlltypeproduct({
+                    typeproduct_code: newTypeProduct || null,
+                    offset: 0,
+                    limit: itemsPerPage
+                })).unwrap(),
+                dispatch(countProduct({
+                    typeproduct_code: newTypeProduct || null
+                })).unwrap()
+            ]);
+
+            // อัพเดทข้อมูลในตาราง
+            if (productResponse.data) {
+                const productsWithIds = productResponse.data.map((item, index) => ({
+                    ...item,
+                    id: index + 1
+                }));
+                setProductAllTypeproduct(productsWithIds);
+            }
+
+            // อัพเดทจำนวนหน้า
+            setCount(Math.ceil(countResponse.data / itemsPerPage));
+        } catch (error) {
+            console.error("Error fetching products by type:", error);
+        }
     };
 
     const handleSearchChange = (e) => {
@@ -71,125 +102,166 @@ export default function ProductRecord() {
 
 
     useEffect(() => {
-        const fetchFilteredData = async () => {
-            let query = {};
-
-            if (searchTerm) {
-                query.product_name = searchTerm;
-            }
-
-            if (selectedType !== 'all') {
-                query.typeproduct_code = selectedType;
-            }
-
+        const loadData = async () => {
             try {
-                if (Object.keys(query).length > 0) {
-                    // ถ้ามีการค้นหาหรือกรอง
-                    const response = await dispatch(searchProduct(query)).unwrap();
-                    const totalItems = response.data.length;
-                    const totalPages = Math.ceil(totalItems / itemsPerPage);
-                    setCount(totalPages);
+                // โหลด Product Types
+                const typeResponse = await dispatch(fetchAllTypeproducts({})).unwrap();
+                setTypeproducts(typeResponse.data);
 
-                    // คำนวณข้อมูลสำหรับหน้าปัจจุบัน
-                    const startIndex = (page - 1) * itemsPerPage;
-                    const endIndex = startIndex + itemsPerPage;
-                    const paginatedData = response.data
-                        .slice(startIndex, endIndex)
-                        .map((item, index) => ({
-                            ...item,
-                            id: startIndex + index + 1
-                        }));
+                // โหลด Units
+                await fetchUnitData();
 
-                    setProductAllTypeproduct(paginatedData);
-                } else {
-                    // ถ้าไม่มีการค้นหาหรือกรอง ใช้การดึงข้อมูลปกติ
-                    refetchData(page);
+                // คำนวณ offset และ limit
+                const offset = (page - 1) * itemsPerPage;
+                const limit = itemsPerPage;
+
+                // โหลดข้อมูลสินค้าและนับจำนวน
+                const [productResponse, countResponse] = await Promise.all([
+                    dispatch(productAlltypeproduct({
+                        typeproduct_code: selectedTypeProduct,
+                        offset,
+                        limit
+                    })).unwrap(),
+                    dispatch(countProduct({
+                        typeproduct_code: selectedTypeProduct
+                    })).unwrap()
+                ]);
+
+                if (productResponse.data) {
+                    const productsWithIds = productResponse.data.map((item, index) => ({
+                        ...item,
+                        id: offset + index + 1
+                    }));
+                    setProductAllTypeproduct(productsWithIds);
                 }
-            } catch (err) {
-                console.error(err);
-                setProductAllTypeproduct([]);
-                setCount(0);
+
+                // อัพเดทจำนวนหน้า
+                if (countResponse.data) {
+                    setCount(Math.ceil(countResponse.data / itemsPerPage));
+                }
+
+            } catch (error) {
+                console.error("Error loading data:", error);
             }
         };
 
-        fetchFilteredData();
-    }, [searchTerm, selectedType, page, dispatch, itemsPerPage]);
+        loadData();
+    }, [dispatch, page, selectedTypeProduct, itemsPerPage]);
+
+    // useEffect(() => {
+    //     const loadData = async () => {
+    //         try {
+    //             const offset = (page - 1) * itemsPerPage;
+    //             const limit = itemsPerPage;
+
+    //             let response;
+    //             if (selectedTypeProduct) {
+    //                 response = await dispatch(productAlltypeproduct({
+    //                     typeproduct_code: selectedTypeProduct,
+    //                     offset,
+    //                     limit
+    //                 })).unwrap();
+    //             } else {
+    //                 response = await dispatch(productAlltypeproduct({ offset, limit })).unwrap();
+    //             }
+
+    //             const productsWithIds = response.data.map((item, index) => ({
+    //                 ...item,
+    //                 id: offset + index + 1
+    //             }));
+    //             setProductAllTypeproduct(productsWithIds);
+
+    //             // อัพเดทจำนวนหน้า
+    //             const countResponse = await dispatch(countProduct({ test: "" })).unwrap();
+    //             setCount(Math.ceil(countResponse.data / itemsPerPage));
+    //         } catch (error) {
+    //             console.error("Error loading data:", error);
+    //         }
+    //     };
+
+    //     loadData();
+    // }, [page, selectedTypeProduct, dispatch, itemsPerPage]);
 
 
     const handleChange = (event, value) => {
         setPage(value);
     };
 
-    const refetchData = (targetPage = 1) => {
-        const offset = (targetPage - 1) * itemsPerPage;
-        const limit = itemsPerPage;
+    // แก้ไขฟังก์ชัน refetch data
+    const refetchData = async (targetPage = 1) => {
+        try {
+            const offset = (targetPage - 1) * itemsPerPage;
+            const limit = itemsPerPage;
 
-        // เรียก API เพื่อดึงข้อมูลสินค้า
-        dispatch(productAlltypeproduct({ offset, limit }))
-            .unwrap()
-            .then((res) => {
-                let resultData = res.data;
-                for (let indexArray = 0; indexArray < resultData.length; indexArray++) {
-                    resultData[indexArray].id = offset + indexArray + 1;
-                }
-                setProductAllTypeproduct(resultData);
+            // เรียก API พร้อมกันทั้งการดึงข้อมูลและการนับจำนวน
+            const [productResponse, countResponse] = await Promise.all([
+                dispatch(productAlltypeproduct({
+                    typeproduct_code: selectedTypeProduct || null,
+                    offset,
+                    limit
+                })).unwrap(),
+                dispatch(countProduct({
+                    typeproduct_code: selectedTypeProduct || null
+                })).unwrap()
+            ]);
 
-                // หลังจากได้ข้อมูลสินค้าแล้ว ดึงจำนวนรายการทั้งหมด
-                dispatch(countProduct({ test: "" }))
-                    .unwrap()
-                    .then((countRes) => {
-                        const totalItems = countRes.data;
-                        const totalPages = Math.ceil(totalItems / itemsPerPage);
-                        setCount(totalPages);
-                        setPage(targetPage);
-                    })
-                    .catch((err) => console.log(err.message));
-            })
-            .catch((err) => console.log(err.message));
+            if (productResponse.data) {
+                const productsWithIds = productResponse.data.map((item, index) => ({
+                    ...item,
+                    id: offset + index + 1
+                }));
+                setProductAllTypeproduct(productsWithIds);
+            }
+
+            setCount(Math.ceil(countResponse.data / itemsPerPage));
+            setPage(targetPage);
+        } catch (error) {
+            console.error("Error refetching data:", error);
+        }
     };
 
-    useEffect(() => {
-        refetchData(1);
-        fetchUnitData();
-        fetchTypeproducts();
-        let offset = 0;
-        let limit = 5;
-        let test = 10;
+    // useEffect(() => {
+    //     refetchData(1);
+    //     fetchUnitData();
+    //     fetchTypeproducts();
+    //     let offset = 0;
+    //     let limit = 5;
+    //     let test = 10;
 
-        dispatch(productAlltypeproduct({ offset, limit }))
-            .unwrap()
-            .then((res) => {
-                let resultData = res.data;
-                for (let indexArray = 0; indexArray < resultData.length; indexArray++) {
-                    resultData[indexArray].id = indexArray + 1;
-                }
-                setProductAllTypeproduct(resultData);
-            })
-            .catch((err) => err.message);
+    //     dispatch(productAlltypeproduct({ offset, limit }))
+    //         .unwrap()
+    //         .then((res) => {
+    //             let resultData = res.data;
+    //             for (let indexArray = 0; indexArray < resultData.length; indexArray++) {
+    //                 resultData[indexArray].id = indexArray + 1;
+    //             }
+    //             setProductAllTypeproduct(resultData);
+    //         })
+    //         .catch((err) => err.message);
 
-        dispatch(lastProductCode({ test }))
-            .unwrap()
-            .then((res) => {
-                setGetLastProductCode(res.data);
-                console.log(res.data)
-            })
-            .catch((err) => err.message);
+    //     dispatch(lastProductCode({ test }))
+    //         .unwrap()
+    //         .then((res) => {
+    //             setGetLastProductCode(res.data);
+    //             console.log(res.data)
+    //         })
+    //         .catch((err) => err.message);
 
-        dispatch(countProduct({ test }))
-            .unwrap()
-            .then((res) => {
-                console.log(res.data);
-                let resData = res.data;
-                let countPaging = Math.floor(resData / 5);
-                let modPaging = resData % 5;
-                if (modPaging > 0) {
-                    countPaging++
-                }
-                console.log(countPaging, modPaging);
-                setCount(countPaging);
-            })
-            .catch((err) => err.message);
-    }, [dispatch]);
+    //     dispatch(countProduct({ test }))
+    //         .unwrap()
+    //         .then((res) => {
+    //             console.log(res.data);
+    //             let resData = res.data;
+    //             let countPaging = Math.floor(resData / 5);
+    //             let modPaging = resData % 5;
+    //             if (modPaging > 0) {
+    //                 countPaging++
+    //             }
+    //             console.log(countPaging, modPaging);
+    //             setCount(countPaging);
+    //         })
+    //         .catch((err) => err.message);
+    // }, [dispatch]);
 
     const handleCheckboxChange = (event, product_code) => {
         if (event.target.checked) {
@@ -603,12 +675,12 @@ export default function ProductRecord() {
     // };
 
 
-    useEffect(() => {
-        if (formik.values.typeproduct_code && getLastProductCode) {
-            const newProductCode = `${formik.values.typeproduct_code}${getLastProductCode}`;
-            formik.setFieldValue('product_code', newProductCode);
-        }
-    }, [formik.values.typeproduct_code, getLastProductCode]);
+    // useEffect(() => {
+    //     if (formik.values.typeproduct_code && getLastProductCode) {
+    //         const newProductCode = `${formik.values.typeproduct_code}${getLastProductCode}`;
+    //         formik.setFieldValue('product_code', newProductCode);
+    //     }
+    // }, [formik.values.typeproduct_code, getLastProductCode]);
 
     const fetchUnitData = () => {
         let offset = 0;
@@ -644,7 +716,7 @@ export default function ProductRecord() {
 
     const handleRefresh = () => {
         setSearchTerm("");
-        setSelectedType('all');
+        setSelectedTypeProduct("");
         setPage(1);
         refetchData(1);
     };
@@ -737,8 +809,9 @@ export default function ProductRecord() {
                     />
                     <FormControl sx={{ minWidth: 200 }}>
                         <Select
-                            value={selectedType}
+                            value={selectedTypeProduct}
                             onChange={handleTypeChange}
+                            displayEmpty // เพิ่ม prop นี้
                             size="small"
                             sx={{
                                 height: '38px',
@@ -746,7 +819,7 @@ export default function ProductRecord() {
                                 ml: '24px'
                             }}
                         >
-                            <MenuItem value="all">All Type Products</MenuItem>
+                            <MenuItem value="">All Types</MenuItem>
                             {typeproducts.map((type) => (
                                 <MenuItem key={type.typeproduct_code} value={type.typeproduct_code}>
                                     {type.typeproduct_name}

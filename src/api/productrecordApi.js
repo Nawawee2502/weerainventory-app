@@ -84,9 +84,10 @@ export const productAll = createAsyncThunk(
 
 export const productAlltypeproduct = createAsyncThunk(
   "product/readWithTypeProduct",
-  async ({ offset = 0, limit = 5 }, { dispatch }) => {
+  async ({ typeproduct_code, offset = 0, limit = 5 }, { dispatch }) => {
     try {
       const res = await axios.post(BASE_URL + "/api/productalltypeproduct", {
+        typeproduct_code,
         offset,
         limit
       });
@@ -101,14 +102,12 @@ export const productAlltypeproduct = createAsyncThunk(
 
 export const countProduct = createAsyncThunk(
   "product/count",
-  async ({ test }, { dispatch }) => {
+  async ({ typeproduct_code = null }, { dispatch }) => {
     try {
-      console.log("____TETS____");
-      const res = await axios.post(BASE_URL + "/api/countproduct", { test: test });
-      console.log(res.data);
+      const res = await axios.post(BASE_URL + "/api/countproduct", { typeproduct_code });
       return res.data;
     } catch (error) {
-      console.error(error.message);
+      console.error("Count product error:", error.response?.data || error.message);
       throw error;
     }
   }

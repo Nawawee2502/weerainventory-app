@@ -24,6 +24,14 @@ import HomeReceiptFromKitchen from '../components/warehouse/receiptfromkitchen/H
 import HomeDispatchToKitchen from '../components/warehouse/dispatchtokitchen/HomeDispatchToKitchen';
 import HomeDispatchToBranch from '../components/warehouse/dispatchtobranch/HomeDispatchToBranch';
 import HomeStockAdjustment from '../components/warehouse/stockadjustment/HomeStockAdjustMent';
+import ReportPurchaseordertosupplier from '../components/warehouse/reportwarehouse/Reportpurchaseordertosupplier';
+import ReportReceiptFromSupplier from '../components/warehouse/reportwarehouse/ReportReceiptfromsupplier';
+import ReportReceiptFromKitchen from '../components/warehouse/reportwarehouse/ReportReceiptFromKitchen';
+import ReportDispatchToKitchen from '../components/warehouse/reportwarehouse/ReportDispatchToKitchen';
+import ReportDispatchToBranch from '../components/warehouse/reportwarehouse/ReportDispatchToBranch';
+import ReportStockAdjustment from '../components/warehouse/reportwarehouse/ReportStockAdjustment';
+import ReportMonthlyStockCard from '../components/warehouse/reportwarehouse/ReportMonthlyStockCard';
+import ReportMonthlyStockBalance from '../components/warehouse/reportwarehouse/ReportMonthlyStockBalance';
 
 const NAVIGATION = [
     {
@@ -227,6 +235,22 @@ function Warehouse(props) {
                 return <HomeDispatchToBranch />;
             case '/stock-adjustment':
                 return <HomeStockAdjustment />;
+            case '/reports/purchase-order-to-supplier':
+                return <ReportPurchaseordertosupplier />;
+            case '/reports/receipt-from-supplier':
+                return <ReportReceiptFromSupplier />;
+            case '/reports/receipt-from-kitchen':
+                return <ReportReceiptFromKitchen />;
+            case '/reports/dispatch-to-kitchen':
+                return <ReportDispatchToKitchen />;
+            case '/reports/dispatch-to-branch':
+                return <ReportDispatchToBranch />;
+            case '/reports/stock-adjustment':
+                return <ReportStockAdjustment />;
+            case '/reports/monthly-stock-card':
+                return <ReportMonthlyStockCard />
+            case '/reports/monthly-stock-balance':
+                return <ReportMonthlyStockBalance />;
             default:
                 return <HomePurchaseOrderToSupplier />;
         }
