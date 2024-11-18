@@ -6,41 +6,42 @@ import 'react-datepicker/dist/react-datepicker.css';
 import { Checkbox, Switch, Divider } from '@mui/material';
 import { wh_posAlljoindt } from '../../../api/warehouse/wh_posApi';
 import { useDispatch } from 'react-redux';
+import { exportToExcelWhPos } from './ExportExcelPurchaseordertosupplier';
 
 export default function ReportPurchaseordertosupplier() {
     const [startDate, setStartDate] = useState(new Date());
     const [whposData, setWhposData] = useState([]);
+    const [excludePrice, setExcludePrice] = useState(false);
     const dispatch = useDispatch();
 
     useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const res = await dispatch(wh_posAlljoindt({ offset: 0, limit: 10 })).unwrap();
-                if (res.result && Array.isArray(res.data)) {
-                    const flattenedData = res.data.flatMap(order =>
-                        order.wh_posdts.map(detail => ({
-                            id: order.refno,
-                            date: order.rdate,
-                            refno: order.refno,
-                            supplier_code: order.supplier_code,
-                            branch_code: order.branch_code,
-                            product_code: detail.product_code,
-                            quantity: detail.qty,
-                            unit_price: detail.uprice,
-                            unit_code: detail.unit_code,
-                            amount: detail.amt,
-                            total: order.total,
-                            user_code: order.user_code
-                        }))
-                    );
-                    setWhposData(flattenedData);
-                }
-            } catch (err) {
-                console.error("Error fetching data:", err);
-            }
-        };
+        dispatch(wh_posAlljoindt({ offset: 0, limit: 10000 }))
+            .unwrap()
+            .then(res => {
+                const flattenedData = res.data.flatMap(order =>
+                    order.wh_posdts.map(detail => ({
+                        date: order.rdate,
+                        refno: order.refno,
+                        supplier_code: order.tbl_supplier?.supplier_name,
+                        branch_code: order.tbl_branch?.branch_name,
+                        product_code: detail.product_code,
+                        product_name: detail.tbl_product?.product_name,
+                        quantity: detail.qty,
+                        unit_price: detail.uprice,
+                        unit_code: detail.tbl_unit?.unit_name,
+                        amount: detail.amt,
+                        total: order.total,
+                        user_code: order.user?.username
+                    }))
+                );
 
-        fetchData();
+                setWhposData(flattenedData);
+                console.log("Flattened Data:", flattenedData);
+            })
+            .catch(err => {
+                console.error("Error fetching data:", err);
+            });
+
     }, [dispatch]);
 
     return (
@@ -277,13 +278,17 @@ export default function ReportPurchaseordertosupplier() {
                         </Box>
                         <Box sx={{ display: 'flex', gap: 2, flexDirection: 'column' }}>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <Switch />
+                                <Switch
+                                    checked={excludePrice}
+                                    onChange={(e) => setExcludePrice(e.target.checked)}
+                                />
                                 <Typography sx={{ fontWeight: '500', color: '#7E84A3' }}>
                                     Exclude price in file
                                 </Typography>
                             </Box>
                             <Box>
                                 <Button
+                                    onClick={() => exportToExcelWhPos(whposData, excludePrice)}
                                     variant="outlined"
                                     sx={{
                                         color: '#754C27',
@@ -351,7 +356,7 @@ export default function ReportPurchaseordertosupplier() {
                                         <td style={{ padding: '12px 16px' }}>{row.supplier_code}</td>
                                         <td style={{ padding: '12px 16px' }}>{row.branch_code}</td>
                                         <td style={{ padding: '12px 16px' }}>{row.product_code}</td>
-                                        <td style={{ padding: '12px 16px' }}>{''}</td>
+                                        <td style={{ padding: '12px 16px' }}>{row.product_name}</td> {/* เพิ่มชื่อสินค้า */}
                                         <td style={{ padding: '12px 16px' }}>{row.quantity}</td>
                                         <td style={{ padding: '12px 16px' }}>{row.unit_price}</td>
                                         <td style={{ padding: '12px 16px' }}>{row.unit_code}</td>

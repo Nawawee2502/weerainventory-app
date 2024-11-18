@@ -513,7 +513,7 @@ export default function ProductRecord() {
             retail_unit_code: '',
             retail_unit_price: '',
             unit_conversion_factor: '',
-            tax1: '',
+            tax1: 'N',
         },
         validate: (values) => {
             const errors = {};
@@ -563,7 +563,6 @@ export default function ProductRecord() {
                 let nextRunningNumber = "001";
 
                 if (response.data && response.data.length > 0) {
-                    // Filter products with same type code
                     const productsWithSameType = response.data.filter(
                         product => product.product_code.startsWith(selectedTypeCode)
                     );
@@ -591,14 +590,33 @@ export default function ProductRecord() {
                     showConfirmButton: false,
                 });
 
-                // Update data and close drawer
-                const countRes = await dispatch(countProduct({ test: "" })).unwrap();
-                const totalItems = countRes.data;
-                const targetPage = Math.ceil(totalItems / itemsPerPage);
+                // Update data with current type selection
+                const [productResponse, countResponse] = await Promise.all([
+                    dispatch(productAlltypeproduct({
+                        typeproduct_code: selectedTypeProduct || null, // ใช้ค่า type ที่เลือกอยู่ปัจจุบัน
+                        offset: (page - 1) * itemsPerPage,
+                        limit: itemsPerPage
+                    })).unwrap(),
+                    dispatch(countProduct({
+                        typeproduct_code: selectedTypeProduct || null // ใช้ค่า type ที่เลือกอยู่ปัจจุบัน
+                    })).unwrap()
+                ]);
+
+                // อัพเดทข้อมูลในตาราง
+                if (productResponse.data) {
+                    const productsWithIds = productResponse.data.map((item, index) => ({
+                        ...item,
+                        id: ((page - 1) * itemsPerPage) + index + 1
+                    }));
+                    setProductAllTypeproduct(productsWithIds);
+                }
+
+                // อัพเดทจำนวนหน้า
+                if (countResponse.data) {
+                    setCount(Math.ceil(countResponse.data / itemsPerPage));
+                }
 
                 formik.resetForm();
-                refetchData(targetPage);
-                handleGetLastCode();
                 setOpenDrawer(false);
 
             } catch (err) {
@@ -1075,9 +1093,8 @@ export default function ProductRecord() {
                                 {...formik.getFieldProps("tax1")}
                                 {...errorHelper(formik, "tax1")}
                             >
-                                <option value="" disabled>Select Tax Option</option>
-                                <option value="Y">Yes</option>
                                 <option value="N">No</option>
+                                <option value="Y">Yes</option>
                             </select>
                             <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
                                 Large unit

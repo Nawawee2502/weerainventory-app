@@ -23,6 +23,7 @@
     "bcryptjs": "^2.4.3",
     "dayjs": "^1.11.13",
     "dayjs-plugin-utc": "^0.1.2",
+    "exceljs": "^4.4.0",
     "file-saver": "^2.0.5",
     "focus-formik-error": "^1.1.0",
     "formik": "^2.2.9",
