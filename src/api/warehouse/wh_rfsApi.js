@@ -3,16 +3,19 @@ import { createAsyncThunk } from "@reduxjs/toolkit";
 
 const BASE_URL = `${process.env.REACT_APP_URL_API}`;
 
-// wh_rfs API functions
 export const addWh_rfs = createAsyncThunk(
     "wh_rfs/add",
     async (req, { dispatch }) => {
         try {
+            console.log("API APP");
+            console.log(req);
             const res = await axios.post(BASE_URL + "/api/addWh_rfs", {
                 headerData: req.headerData,
                 productArrayData: req.productArrayData,
                 footerData: req.footerData,
             });
+            console.log("API APP");
+            console.log(res.data);
             return res.data;
         } catch (error) {
             console.error(error.message);
@@ -50,6 +53,23 @@ export const updateWh_rfs = createAsyncThunk(
     }
 );
 
+export const Wh_rfsByRefno = createAsyncThunk(
+    "wh_rfs/read",
+    async (refno, { dispatch }) => {
+        try {
+            console.log("REFNO", refno)
+            const res = await axios.post(BASE_URL + "/api/wh_rfsbyrefno", {
+                refno,
+            });
+            console.log(res.data);
+            return res.data;
+        } catch (error) {
+            console.error(error.message);
+            throw error;
+        }
+    }
+);
+
 export const deleteWh_rfs = createAsyncThunk(
     "wh_rfs/delete",
     async ({ refno }, { dispatch }) => {
@@ -57,6 +77,7 @@ export const deleteWh_rfs = createAsyncThunk(
             const res = await axios.post(BASE_URL + "/api/deleteWh_rfs", {
                 refno,
             });
+            console.log(res.data);
             return res.data;
         } catch (error) {
             console.error(error.message);
@@ -65,32 +86,23 @@ export const deleteWh_rfs = createAsyncThunk(
     }
 );
 
-export const Wh_rfsAllrdate = createAsyncThunk(
-    "wh_rfs/readByDate",
-    async ({ rdate1, rdate2, supplier_name, branch_name }, { dispatch }) => {
+export const wh_rfsAlljoindt = createAsyncThunk(
+    "wh_rfs/read",
+    async ({ offset = 0, limit = 5, rdate1, rdate2, supplier_code, branch_code, product_code }, { dispatch }) => {
         try {
-            const res = await axios.post(BASE_URL + "/api/Wh_rfsAllrdate", {
-                rdate1,
-                rdate2,
-                supplier_name,
-                branch_name
-            });
-            return res.data;
-        } catch (error) {
-            console.error(error.message);
-            throw error;
-        }
-    }
-);
-
-export const Wh_rfsAlljoindt = createAsyncThunk(
-    "wh_rfs/readAll",
-    async ({ offset = 0, limit = 5 }, { dispatch }) => {
-        try {
-            const res = await axios.post(BASE_URL + "/api/Wh_rfsAlljoindt", {
+            const payload = {
                 offset,
                 limit
-            });
+            };
+
+            // เพิ่มค่าในตัวแปรที่จะส่งเฉพาะเมื่อมีค่า
+            if (rdate1) payload.rdate1 = rdate1;
+            if (rdate2) payload.rdate2 = rdate2;
+            if (supplier_code) payload.supplier_code = supplier_code;
+            if (branch_code) payload.branch_code = branch_code;
+            if (product_code) payload.product_code = product_code;
+
+            const res = await axios.post(BASE_URL + "/api/wh_rfsAlljoindt", payload);
             return res.data;
         } catch (error) {
             console.error(error.message);
@@ -99,26 +111,14 @@ export const Wh_rfsAlljoindt = createAsyncThunk(
     }
 );
 
-export const Wh_rfsByRefno = createAsyncThunk(
-    "wh_rfs/readByRefno",
-    async (refno, { dispatch }) => {
+export const wh_rfsAllrdate = createAsyncThunk(
+    "wh_rfs/read",
+    async ({ refno }, { dispatch }) => {
         try {
-            const res = await axios.post(BASE_URL + "/api/Wh_rfsByRefno", {
+            const res = await axios.post(BASE_URL + "/api/Wh_rfsAllrdate", {
                 refno,
             });
-            return res.data;
-        } catch (error) {
-            console.error(error.message);
-            throw error;
-        }
-    }
-);
-
-export const countWh_rfs = createAsyncThunk(
-    "wh_rfs/count",
-    async (_, { dispatch }) => {
-        try {
-            const res = await axios.post(BASE_URL + "/api/countWh_rfs");
+            console.log(res.data);
             return res.data;
         } catch (error) {
             console.error(error.message);
@@ -128,11 +128,26 @@ export const countWh_rfs = createAsyncThunk(
 );
 
 export const refno = createAsyncThunk(
-    "branch/refno",
+    "wh_rfs/code",
     async ({ test }, { dispatch }) => {
         try {
-            const res = await axios.post(BASE_URL + "/api/Wh_rfsrefno");
-            console.log("Last refno:", res.data);
+            const res = await axios.post(BASE_URL + "/api/Wh_rfsrefno", { test: test });
+            console.log(res.data);
+            return res.data;
+        } catch (error) {
+            console.error(error.message);
+            throw error;
+        }
+    }
+);
+
+export const countwh_rfs = createAsyncThunk(
+    "wh_rfs/count",
+    async ({ test }, { dispatch }) => {
+        try {
+            console.log("____TEST____");
+            const res = await axios.post(BASE_URL + "/api/countWh_rfs", { test: test });
+            console.log(res.data);
             return res.data;
         } catch (error) {
             console.error(error.message);

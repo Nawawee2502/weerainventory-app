@@ -1024,11 +1024,13 @@ export default function ProductRecord() {
                                 {...errorHelper(formik, "typeproduct_code")}
                             >
                                 <option value="" disabled>Select Type Product</option>
-                                {typeproducts.map((item) => (
-                                    <option key={item.typeproduct_code} value={item.typeproduct_code}>
-                                        {item.typeproduct_name}
-                                    </option>
-                                ))}
+                                {typeproducts
+                                    .sort((a, b) => a.typeproduct_name.localeCompare(b.typeproduct_name))
+                                    .map((item) => (
+                                        <option key={item.typeproduct_code} value={item.typeproduct_code}>
+                                            {item.typeproduct_name}
+                                        </option>
+                                    ))}
                             </select>
                             {/* <TextField
                                 size="small"
