@@ -7,17 +7,144 @@ import { Checkbox, Switch, Divider } from '@mui/material';
 import { wh_posAlljoindt } from '../../../api/warehouse/wh_posApi';
 import { useDispatch } from 'react-redux';
 import { exportToExcelWhPos } from './ExportExcelPurchaseordertosupplier';
+import { supplierAll } from '../../../api/supplierApi';
+import { branchAll } from '../../../api/branchApi';
 
 export default function ReportPurchaseordertosupplier() {
-    const [startDate, setStartDate] = useState(new Date());
     const [whposData, setWhposData] = useState([]);
     const [excludePrice, setExcludePrice] = useState(false);
+    const [startDate, setStartDate] = useState(null);
+    const [endDate, setEndDate] = useState(null);
+    const [selectedSupplier, setSelectedSupplier] = useState('');
+    const [selectedBranch, setSelectedBranch] = useState('');
+    const [selectedProduct, setSelectedProduct] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const [suppliers, setSuppliers] = useState([]);
+    const [branches, setBranches] = useState([]);
+    const [searchProduct, setSearchProduct] = useState('');
     const dispatch = useDispatch();
 
     useEffect(() => {
-        dispatch(wh_posAlljoindt({ offset: 0, limit: 10000 }))
+        handleSearch();
+    }, []);
+
+    const formatDate = (date) => {
+        if (!date) return null;
+        return `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
+    };
+
+    // ฟังก์ชันเรียกข้อมูล
+    const fetchData = async (params) => {
+        try {
+            const response = await dispatch(wh_posAlljoindt(params)).unwrap();
+            console.log("API Response:", response);
+
+            if (response.data) {
+                const flattenedData = response.data.flatMap(order =>
+                    order.wh_posdts.map(detail => ({
+                        date: order.rdate,
+                        refno: order.refno,
+                        supplier_code: order.tbl_supplier?.supplier_name,
+                        branch_code: order.tbl_branch?.branch_name,
+                        product_code: detail.product_code,
+                        product_name: detail.tbl_product?.product_name,
+                        quantity: detail.qty,
+                        unit_price: detail.uprice,
+                        unit_code: detail.tbl_unit?.unit_name,
+                        amount: detail.amt,
+                        total: order.total,
+                        user_code: order.user?.username
+                    }))
+                );
+                setWhposData(flattenedData);
+            } else {
+                setWhposData([]);
+            }
+        } catch (error) {
+            console.error("Error fetching data:", error);
+            setWhposData([]);
+        }
+    };
+
+    // useEffect สำหรับโหลดข้อมูลครั้งแรก
+    useEffect(() => {
+        fetchData({
+            offset: 0,
+            limit: 10000
+        });
+        dispatch(supplierAll({ offset: 0, limit: 1000 }))
             .unwrap()
             .then(res => {
+                setSuppliers(res.data);
+            })
+            .catch(err => console.error("Error fetching suppliers:", err));
+
+        // ดึงข้อมูล branch
+        dispatch(branchAll({ offset: 0, limit: 1000 }))
+            .unwrap()
+            .then(res => {
+                setBranches(res.data);
+            })
+            .catch(err => console.error("Error fetching branches:", err));
+    }, []);
+
+    const handleDateChange = (type, date) => {
+        if (type === 'start') {
+            setStartDate(date);
+            if (date && endDate) {
+                const params = {
+                    offset: 0,
+                    limit: 10000,
+                    rdate1: formatDate(date),
+                    rdate2: formatDate(endDate)
+                };
+                console.log("Search with params:", params);
+                fetchData(params);
+            }
+        } else {
+            setEndDate(date);
+            if (startDate && date) {
+                const params = {
+                    offset: 0,
+                    limit: 10000,
+                    rdate1: formatDate(startDate),
+                    rdate2: formatDate(date)
+                };
+                console.log("Search with params:", params);
+                fetchData(params);
+            }
+        }
+    };
+
+    const handleSearch = (productSearch = searchProduct) => {
+        let params = {
+            offset: 0,
+            limit: 10000
+        };
+
+        if (startDate && endDate) {
+            params.rdate1 = formatDate(startDate);
+            params.rdate2 = formatDate(endDate);
+        }
+
+        if (selectedSupplier) params.supplier_code = selectedSupplier;
+        if (selectedBranch) params.branch_code = selectedBranch;
+        if (selectedProduct) params.product_code = selectedProduct;
+        if (productSearch) params.product_code = productSearch;
+
+        fetchData(params);
+
+
+        dispatch(wh_posAlljoindt(params))
+            .unwrap()
+            .then(res => {
+
+                if (!res.data) {
+                    console.log('No data in response');
+                    setWhposData([]);
+                    return;
+                }
+
                 const flattenedData = res.data.flatMap(order =>
                     order.wh_posdts.map(detail => ({
                         date: order.rdate,
@@ -35,14 +162,13 @@ export default function ReportPurchaseordertosupplier() {
                     }))
                 );
 
+                console.log('Flattened Data:', flattenedData); 
                 setWhposData(flattenedData);
-                console.log("Flattened Data:", flattenedData);
             })
             .catch(err => {
                 console.error("Error fetching data:", err);
             });
-
-    }, [dispatch]);
+    };
 
     return (
         <Box sx={{
@@ -82,8 +208,13 @@ export default function ReportPurchaseordertosupplier() {
                                 </Typography>
                                 <DatePicker
                                     selected={startDate}
-                                    onChange={(date) => setStartDate(date)}
+                                    onChange={(date) => handleDateChange('start', date)}
+                                    selectsStart
+                                    startDate={startDate}
+                                    endDate={endDate}
                                     dateFormat="dd/MM/yyyy"
+                                    isClearable
+                                    placeholderText="Select start date"
                                     customInput={
                                         <TextField
                                             size="small"
@@ -107,9 +238,15 @@ export default function ReportPurchaseordertosupplier() {
                                     To Date
                                 </Typography>
                                 <DatePicker
-                                    selected={startDate}
-                                    onChange={(date) => setStartDate(date)}
+                                    selected={endDate}
+                                    onChange={(date) => handleDateChange('end', date)}
+                                    selectsEnd
+                                    startDate={startDate}
+                                    endDate={endDate}
+                                    minDate={startDate}
                                     dateFormat="dd/MM/yyyy"
+                                    isClearable
+                                    placeholderText="Select end date"
                                     customInput={
                                         <TextField
                                             size="small"
@@ -134,6 +271,11 @@ export default function ReportPurchaseordertosupplier() {
                                 </Typography>
                                 <Box
                                     component="select"
+                                    value={selectedSupplier}
+                                    onChange={(e) => {
+                                        setSelectedSupplier(e.target.value);
+                                        handleSearch(); 
+                                    }}
                                     sx={{
                                         mt: '8px',
                                         width: '100%',
@@ -153,6 +295,11 @@ export default function ReportPurchaseordertosupplier() {
                                     id="supplier"
                                 >
                                     <option value="">Select a supplier</option>
+                                    {suppliers.map(supplier => (
+                                        <option key={supplier.supplier_code} value={supplier.supplier_code}>
+                                            {supplier.supplier_name}
+                                        </option>
+                                    ))}
                                 </Box>
                             </Grid2>
                             <Grid2 item size={{ xs: 12, md: 6 }}>
@@ -161,6 +308,11 @@ export default function ReportPurchaseordertosupplier() {
                                 </Typography>
                                 <Box
                                     component="select"
+                                    value={selectedBranch}
+                                    onChange={(e) => {
+                                        setSelectedBranch(e.target.value);
+                                        handleSearch();  // เรียก search ทันทีเมื่อเลือก branch
+                                    }}
                                     sx={{
                                         mt: '8px',
                                         width: '100%',
@@ -179,8 +331,14 @@ export default function ReportPurchaseordertosupplier() {
                                     }}
                                     id="Branch"
                                 >
-                                    <option value="">Select a Branch</option>
+                                    <option value="">Select a branch</option>
+                                    {branches.map(branch => (
+                                        <option key={branch.branch_code} value={branch.branch_code}>
+                                            {branch.branch_name}
+                                        </option>
+                                    ))}
                                 </Box>
+
                             </Grid2>
                             <Grid2 item size={{ xs: 12, md: 12 }}>
                                 <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
@@ -190,7 +348,20 @@ export default function ReportPurchaseordertosupplier() {
                                     <TextField
                                         size="small"
                                         fullWidth
-                                        placeholder="Search..."
+                                        value={searchProduct}
+                                        onChange={(e) => {
+                                            setSearchProduct(e.target.value);
+                                            if (e.target.value === '') {
+                                                // ถ้าลบค่าออกจนหมด ให้ search ใหม่
+                                                handleSearch('');
+                                            }
+                                        }}
+                                        onKeyPress={(e) => {
+                                            if (e.key === 'Enter') {
+                                                handleSearch(searchProduct);
+                                            }
+                                        }}
+                                        placeholder="Search product name..."
                                         sx={{
                                             '& .MuiOutlinedInput-root': {
                                                 borderRadius: '10px',
@@ -199,6 +370,7 @@ export default function ReportPurchaseordertosupplier() {
                                     />
                                     <Button
                                         variant="contained"
+                                        onClick={() => handleSearch(searchProduct)}
                                         sx={{
                                             bgcolor: '#754C27',
                                             color: 'white',
@@ -370,6 +542,6 @@ export default function ReportPurchaseordertosupplier() {
                     </Box>
                 </Box>
             </Box>
-        </Box>
+        </Box >
     );
 }
