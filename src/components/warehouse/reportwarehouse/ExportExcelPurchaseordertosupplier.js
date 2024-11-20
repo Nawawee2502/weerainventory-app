@@ -1,139 +1,165 @@
 import * as ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 
-export const exportToExcelWhPos = async (data, excludePrice = false) => {
+export const exportToExcelWhPos = async (data, excludePrice = false, startDate, endDate) => {
     const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('Purchase Orders');
+    const worksheet = workbook.addWorksheet('Purchase Orders', {
+        views: [{
+            showGridLines: false
+        }],
+        pageSetup: {
+            paperSize: 9,
+            orientation: 'portrait',
+            fitToPage: true,
+            fitToWidth: 1,
+            fitToHeight: 0,
+            margins: {
+                left: 0.7,
+                right: 0.7,
+                top: 0.75,
+                bottom: 0.75,
+                header: 0.3,
+                footer: 0.3
+            }
+        }
+    });
 
-    // Set column headers
+    // Set fixed start column
+    const startColumn = 4; // เริ่มที่คอลัมน์ D
+
+    // Set headers
     const headers = [
         'No.',
         'Date',
         'Ref.no',
         'Supplier',
         'Branch',
-        'ID',
         'Product Name',
         'Quantity',
         'Unit',
     ];
 
-    // Add price-related headers if not excluded
     if (!excludePrice) {
         headers.push('Unit Price', 'Total');
     }
-    headers.push('Username');
 
-    // Border styles
-    const borderStyle = {
-        top: { style: 'thin', color: { argb: '754C27' } },
-        left: { style: 'thin', color: { argb: '754C27' } },
-        bottom: { style: 'thin', color: { argb: '754C27' } },
-        right: { style: 'thin', color: { argb: '754C27' } }
+    // Calculate end column
+    const endColumn = startColumn + headers.length - 1;
+
+    // Convert to Excel column letters
+    const startCol = String.fromCharCode(64 + startColumn); // D
+    const endCol = String.fromCharCode(64 + endColumn);
+
+    // Add padding columns with specific width
+    for (let i = 1; i < startColumn; i++) {
+        worksheet.getColumn(i).width = 4;
+    }
+
+    // Define column widths
+    const columnWidths = {
+        'No.': 8,
+        'Date': 15,
+        'Ref.no': 15,
+        'Supplier': 25,
+        'Branch': 25,
+        'Product Name': 20,
+        'Quantity': 10,
+        'Unit': 8,
+        'Unit Price': 12,
+        'Total': 12
     };
 
-    const thickBorderStyle = {
-        top: { style: 'medium', color: { argb: '754C27' } },
-        left: { style: 'medium', color: { argb: '754C27' } },
-        bottom: { style: 'medium', color: { argb: '754C27' } },
-        right: { style: 'medium', color: { argb: '754C27' } }
+    const formatDate = (date) => {
+        if (!date) return "____________";
+        return new Date(date).toLocaleDateString();
     };
 
-    // Style for headers
-    const headerStyle = {
-        font: { bold: true, color: { argb: '754C27' } },
-        fill: {
-            type: 'pattern',
-            pattern: 'solid',
-            fgColor: { argb: 'FFEAB86C' }
-        },
-        alignment: { horizontal: 'center', vertical: 'middle' },
-        border: thickBorderStyle
-    };
+    // Add headers with proper centering
+    const headerRows = [
+        { text: 'Weera Group Inventory', font: { bold: true, size: 14 } },
+        { text: `Print Date: ${new Date().toLocaleDateString()} Time: ${new Date().toLocaleTimeString()}`, font: { size: 11 } },
+        { text: `Date From: ${formatDate(startDate)} Date To: ${formatDate(endDate)}`, font: { size: 11 } },
+        { text: 'Purchase Order to Supplier', font: { bold: true, size: 12 } }
+    ];
 
-    // Add title
-    worksheet.insertRow(1, ['Purchase Order to Supplier']);
-    const titleRow = worksheet.getRow(1);
-    titleRow.font = { bold: true, size: 16, color: { argb: '754C27' } };
-    titleRow.alignment = { horizontal: 'center', vertical: 'middle' };
-    worksheet.mergeCells('A1:' + String.fromCharCode(65 + headers.length - 1) + '1');
-    
-    // Add headers
-    worksheet.addRow(headers);
-    const headerRow = worksheet.getRow(2);
-    headerRow.eachCell(cell => {
-        cell.style = headerStyle;
-        cell.border = thickBorderStyle;
+    // Add header rows
+    headerRows.forEach((header, idx) => {
+        const row = worksheet.addRow([]);
+        row.getCell(startColumn).value = header.text;
+        worksheet.mergeCells(`${startCol}${idx + 1}:${endCol}${idx + 1}`);
+        row.getCell(startColumn).font = header.font;
+        row.getCell(startColumn).alignment = { horizontal: 'center', vertical: 'middle' };
+    });
+
+    // Add column headers
+    const headerRow = worksheet.addRow([]);
+    headers.forEach((header, index) => {
+        const cell = headerRow.getCell(startColumn + index);
+        cell.value = header;
+        cell.font = { bold: true };
+        cell.border = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' }
+        };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
     });
 
     // Add data
     data.forEach((item, index) => {
-        const row = [
+        const rowData = [
             index + 1,
             item.date,
             item.refno,
             item.supplier_code,
             item.branch_code,
-            item.product_code,
             item.product_name,
             item.quantity,
             item.unit_code,
         ];
 
         if (!excludePrice) {
-            row.push(
-                item.unit_price,
-                item.total
-            );
+            rowData.push(item.unit_price, item.total);
         }
-        row.push(item.user_code);
 
-        worksheet.addRow(row);
-    });
-
-    // Style the data rows
-    const dataStyle = {
-        alignment: { horizontal: 'left', vertical: 'middle' },
-        font: { color: { argb: '000000' } },
-        border: borderStyle
-    };
-
-    // Apply styles to data rows
-    for (let i = 3; i <= data.length + 2; i++) {
-        const row = worksheet.getRow(i);
-        row.height = 25;
-        row.eachCell(cell => {
-            cell.style = dataStyle;
-            cell.border = borderStyle;
+        const row = worksheet.addRow([]);
+        rowData.forEach((value, colIndex) => {
+            const cell = row.getCell(startColumn + colIndex);
+            cell.value = value;
+            cell.border = {
+                top: { style: 'thin' },
+                left: { style: 'thin' },
+                bottom: { style: 'thin' },
+                right: { style: 'thin' }
+            };
+            const header = headers[colIndex];
+            cell.alignment = {
+                vertical: 'middle',
+                horizontal: ['No.', 'Quantity', 'Unit Price', 'Total'].includes(header) ? 'right' : 'left'
+            };
         });
-
-        // ถ้าเป็นแถวสุดท้าย ใช้เส้นล่างแบบหนา
-        if (i === data.length + 2) {
-            row.eachCell(cell => {
-                cell.border = {
-                    ...borderStyle,
-                    bottom: { style: 'medium', color: { argb: '754C27' } }
-                };
-            });
-        }
-    }
+    });
 
     // Set column widths
-    worksheet.columns.forEach((column, index) => {
-        if (index === 6) { // Product Name
-            column.width = 25;
-        } else if (index === 3 || index === 4) { // Supplier, Branch
-            column.width = 20;
-        } else {
-            column.width = 15;
-        }
-        column.alignment = { wrapText: true };
+    headers.forEach((header, index) => {
+        const column = worksheet.getColumn(startColumn + index);
+        column.width = columnWidths[header];
     });
 
-    // Generate Excel file
+    // Add empty column at the end for right padding
+    const endPaddingColumn = worksheet.getColumn(endColumn + 1);
+    endPaddingColumn.width = 4;
+
+    // Set print area
+    worksheet.pageSetup.printArea = `${startCol}1:${endCol}${data.length + 5}`;
+
+    // Set row heights
+    worksheet.eachRow((row) => {
+        row.height = 18;
+    });
+
     const buffer = await workbook.xlsx.writeBuffer();
     const fileName = `purchase_orders_${new Date().toISOString().split('T')[0]}.xlsx`;
-    
-    // Save file
     saveAs(new Blob([buffer]), fileName);
 };

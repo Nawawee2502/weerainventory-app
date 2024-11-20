@@ -9,6 +9,8 @@ import { useDispatch } from 'react-redux';
 import { exportToExcelWhPos } from './ExportExcelPurchaseordertosupplier';
 import { supplierAll } from '../../../api/supplierApi';
 import { branchAll } from '../../../api/branchApi';
+import { exportToPdfWhPos } from './ExportPdfPurchaseordertosupplier';
+
 
 export default function ReportPurchaseordertosupplier() {
     const [whposData, setWhposData] = useState([]);
@@ -162,7 +164,7 @@ export default function ReportPurchaseordertosupplier() {
                     }))
                 );
 
-                console.log('Flattened Data:', flattenedData); 
+                console.log('Flattened Data:', flattenedData);
                 setWhposData(flattenedData);
             })
             .catch(err => {
@@ -227,7 +229,9 @@ export default function ReportPurchaseordertosupplier() {
                                                 },
                                                 '& .MuiOutlinedInput-root': {
                                                     borderRadius: '10px',
+                                                    bgcolor: 'white'
                                                 },
+
                                             }}
                                         />
                                     }
@@ -259,7 +263,9 @@ export default function ReportPurchaseordertosupplier() {
                                                 },
                                                 '& .MuiOutlinedInput-root': {
                                                     borderRadius: '10px',
+                                                    bgcolor: 'white'
                                                 },
+
                                             }}
                                         />
                                     }
@@ -274,7 +280,7 @@ export default function ReportPurchaseordertosupplier() {
                                     value={selectedSupplier}
                                     onChange={(e) => {
                                         setSelectedSupplier(e.target.value);
-                                        handleSearch(); 
+                                        handleSearch();
                                     }}
                                     sx={{
                                         mt: '8px',
@@ -365,6 +371,7 @@ export default function ReportPurchaseordertosupplier() {
                                         sx={{
                                             '& .MuiOutlinedInput-root': {
                                                 borderRadius: '10px',
+                                                bgcolor: 'white'
                                             },
                                         }}
                                     />
@@ -460,7 +467,7 @@ export default function ReportPurchaseordertosupplier() {
                             </Box>
                             <Box>
                                 <Button
-                                    onClick={() => exportToExcelWhPos(whposData, excludePrice)}
+                                    onClick={() => exportToExcelWhPos(whposData, excludePrice, startDate, endDate)}
                                     variant="outlined"
                                     sx={{
                                         color: '#754C27',
@@ -473,6 +480,7 @@ export default function ReportPurchaseordertosupplier() {
                                     Export (Excel)
                                 </Button>
                                 <Button
+                                    onClick={() => exportToPdfWhPos(whposData, excludePrice, startDate, endDate)}
                                     variant="outlined"
                                     sx={{
                                         color: '#754C27',
