@@ -104,7 +104,7 @@ function CreateReceiptFromSupplier({ onBack }) {
     setQuantities(prev => ({ ...prev, [product.product_code]: 1 }));
     setUnits(prev => ({ ...prev, [product.product_code]: product.productUnit1.unit_code }));
     setExpiryDates(prev => ({ ...prev, [product.product_code]: new Date() }));
-    setTemperatures(prev => ({ ...prev, [product.product_code]: '' }));
+    setTemperatures(prev => ({ ...prev, [product.product_code]: '38' }));
     updateTotals();
     setSearchTerm('');
     setShowDropdown(false);
@@ -414,17 +414,35 @@ function CreateReceiptFromSupplier({ onBack }) {
 
   return (
     <Box sx={{ width: '100%' }}>
-      <Button onClick={onBack} startIcon={<ArrowBackIcon />} sx={{ mb: 2 }}>
+      <Button
+        onClick={onBack}
+        startIcon={<ArrowBackIcon />}
+        sx={{ mb: 2 }}
+      >
         Back to Receipt From Supplier
       </Button>
-      <Box sx={{ width: '100%', mt: '10px' }}>
+      <Box sx={{
+        width: '100%',
+        mt: '10px',
+        flexDirection: 'column'
+      }}>
         <Box sx={{
-          display: 'flex', justifyContent: 'center', flexDirection: 'column',
-          border: '1px solid #E4E4E4', borderRadius: '10px', bgcolor: '#FFFFFF', p: '16px', mb: '50px'
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          flexDirection: 'column',
+          border: '1px solid #E4E4E4',
+          borderRadius: '10px',
+          bgcolor: '#FFFFFF',
+          height: '100%',
+          p: '16px',
+          position: 'relative',
+          zIndex: 2,
+          mb: '50px'
         }}>
-          <Box sx={{ width: '90%', mt: '24px', mx: 'auto' }}>
+          <Box sx={{ width: '90%', mt: '24px' }}>
             <Grid2 container spacing={2}>
-              <Grid2 item xs={12} md={6}>
+              <Grid2 item size={{ xs: 12, md: 6 }}>
                 <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
                   Ref.no
                 </Typography>
@@ -432,10 +450,18 @@ function CreateReceiptFromSupplier({ onBack }) {
                   value={lastRefNo}
                   disabled
                   size="small"
-                  sx={{ mt: 1, width: '100%' }}
+                  placeholder='Ref.no'
+                  sx={{
+                    mt: '8px',
+                    width: '100%',
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: '10px',
+                      fontWeight: '700'
+                    },
+                  }}
                 />
               </Grid2>
-              <Grid2 item xs={12} md={6}>
+              <Grid2 item size={{ xs: 12, md: 6 }}>
                 <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
                   Date
                 </Typography>
@@ -446,86 +472,175 @@ function CreateReceiptFromSupplier({ onBack }) {
                     handleGetLastRefNo(date);
                   }}
                   dateFormat="dd/MM/yyyy"
-                  customInput={<TextField size="small" sx={{ mt: 1, width: '100%' }} />}
+                  customInput={
+                    <TextField
+                      size="small"
+                      fullWidth
+                      sx={{
+                        mt: '8px',
+                        width: '80%',
+                        '& .MuiInputBase-root': {
+                          width: '100%',
+                        },
+                        '& .MuiOutlinedInput-root': {
+                          borderRadius: '10px',
+                        },
+                      }}
+                    />
+                  }
                 />
               </Grid2>
-              <Grid2 item xs={12} md={6}>
+              <Grid2 item size={{ xs: 12, md: 6 }}>
                 <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
                   Supplier
                 </Typography>
-                <select
+                <Box
+                  component="select"
                   value={saveSupplier}
                   onChange={(e) => setSaveSupplier(e.target.value)}
-                  style={{ width: '100%', height: '40px', marginTop: '8px', padding: '0 8px' }}
+                  sx={{
+                    mt: '8px',
+                    width: '100%',
+                    height: '40px',
+                    borderRadius: '10px',
+                    padding: '0 14px',
+                    border: '1px solid rgba(0, 0, 0, 0.23)',
+                    fontSize: '16px',
+                    '&:focus': {
+                      outline: 'none',
+                      borderColor: '#754C27',
+                    },
+                    '& option': {
+                      fontSize: '16px',
+                    },
+                  }}
                 >
-                  <option value="">Select Supplier</option>
-                  {supplier.map(s => (
+                  <option value="">Select a supplier</option>
+                  {supplier.map((s) => (
                     <option key={s.supplier_code} value={s.supplier_code}>
                       {s.supplier_name}
                     </option>
                   ))}
-                </select>
+                </Box>
               </Grid2>
-              <Grid2 item xs={12} md={6}>
+              <Grid2 item size={{ xs: 12, md: 6 }}>
                 <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
                   Branch
                 </Typography>
-                <select
+                <Box
+                  component="select"
                   value={saveBranch}
                   onChange={(e) => setSaveBranch(e.target.value)}
-                  style={{ width: '100%', height: '40px', marginTop: '8px', padding: '0 8px' }}
+                  sx={{
+                    mt: '8px',
+                    width: '100%',
+                    height: '40px',
+                    borderRadius: '10px',
+                    padding: '0 14px',
+                    border: '1px solid rgba(0, 0, 0, 0.23)',
+                    fontSize: '16px',
+                    '&:focus': {
+                      outline: 'none',
+                      borderColor: '#754C27',
+                    },
+                    '& option': {
+                      fontSize: '16px',
+                    },
+                  }}
                 >
-                  <option value="">Select Branch</option>
-                  {branch.map(b => (
+                  <option value="">Select a branch</option>
+                  {branch.map((b) => (
                     <option key={b.branch_code} value={b.branch_code}>
                       {b.branch_name}
                     </option>
                   ))}
-                </select>
+                </Box>
               </Grid2>
             </Grid2>
 
             <Divider sx={{ my: 3 }} />
 
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'row', width: '100%', p: '24px 0px' }}>
               <Typography sx={{ fontSize: '20px', fontWeight: '600' }}>
                 Current Order
               </Typography>
-              <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center' }}>
-                <Typography>Product Search</Typography>
+              <Typography sx={{ ml: 'auto' }}>
+                Product Search
+              </Typography>
+              <Box sx={{ position: 'relative', width: '50%', ml: '12px' }}>
                 <TextField
                   value={searchTerm}
                   onChange={handleSearchChange}
-                  placeholder="Search products..."
+                  placeholder="Search"
                   size="small"
-                  sx={{ ml: 1, width: '300px' }}
+                  sx={{
+                    '& .MuiInputBase-root': {
+                      height: '30px',
+                      width: '100%'
+                    },
+                    '& .MuiOutlinedInput-input': {
+                      padding: '8.5px 14px',
+                    },
+                    width: '100%'
+                  }}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <SearchIcon />
+                        <SearchIcon sx={{ color: '#5A607F' }} />
                       </InputAdornment>
                     ),
                   }}
                 />
+
+                {showDropdown && searchResults.length > 0 && (
+                  <Box
+                    sx={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      right: 0,
+                      backgroundColor: 'white',
+                      boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                      borderRadius: '4px',
+                      zIndex: 1000,
+                      maxHeight: '200px',
+                      overflowY: 'auto',
+                      mt: '4px'
+                    }}
+                  >
+                    {searchResults.map((product) => (
+                      <Box
+                        key={product.product_code}
+                        onClick={() => handleProductSelect(product)}
+                        sx={{
+                          p: 1.5,
+                          cursor: 'pointer',
+                          '&:hover': {
+                            backgroundColor: '#f5f5f5'
+                          },
+                          borderBottom: '1px solid #eee'
+                        }}
+                      >
+                        <Typography sx={{ fontSize: '14px', fontWeight: '600' }}>
+                          {product.product_name}
+                        </Typography>
+                      </Box>
+                    ))}
+                  </Box>
+                )}
               </Box>
-              <Button onClick={resetForm} sx={{ ml: 2, bgcolor: '#E2EDFB' }}>
+              <Button
+                onClick={resetForm}
+                sx={{
+                  ml: 'auto',
+                  bgcolor: '#E2EDFB',
+                  borderRadius: '6px',
+                  width: '105px'
+                }}
+              >
                 Clear All
               </Button>
             </Box>
-
-            {showDropdown && searchResults.length > 0 && (
-              <Box sx={{
-                position: 'absolute', bgcolor: 'white', boxShadow: 3,
-                maxHeight: '200px', overflowY: 'auto', width: '300px', zIndex: 1
-              }}>
-                {searchResults.map(product => (
-                  <Box key={product.product_code} onClick={() => handleProductSelect(product)}
-                    sx={{ p: 1, '&:hover': { bgcolor: '#f5f5f5' }, cursor: 'pointer' }}>
-                    <Typography>{product.product_name}</Typography>
-                  </Box>
-                ))}
-              </Box>
-            )}
 
             <table style={{ width: '100%', marginTop: '24px' }}>
               <thead>

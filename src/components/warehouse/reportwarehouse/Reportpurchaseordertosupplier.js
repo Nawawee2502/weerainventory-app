@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { createRoot } from 'react-dom/client';
 import { useState, useEffect } from 'react';
 import { Box, Typography, TextField, Grid2, Button } from '@mui/material';
 import DatePicker from 'react-datepicker';
@@ -10,13 +11,14 @@ import { exportToExcelWhPos } from './ExportExcelPurchaseordertosupplier';
 import { supplierAll } from '../../../api/supplierApi';
 import { branchAll } from '../../../api/branchApi';
 import { exportToPdfWhPos } from './ExportPdfPurchaseordertosupplier';
-
+import PrintLayout from './PrintPreviewWhPos';
 
 export default function ReportPurchaseordertosupplier() {
+    const today = new Date();
     const [whposData, setWhposData] = useState([]);
     const [excludePrice, setExcludePrice] = useState(false);
-    const [startDate, setStartDate] = useState(null);
-    const [endDate, setEndDate] = useState(null);
+    const [startDate, setStartDate] = useState(today);
+    const [endDate, setEndDate] = useState(today);
     const [selectedSupplier, setSelectedSupplier] = useState('');
     const [selectedBranch, setSelectedBranch] = useState('');
     const [selectedProduct, setSelectedProduct] = useState('');
@@ -25,6 +27,16 @@ export default function ReportPurchaseordertosupplier() {
     const [branches, setBranches] = useState([]);
     const [searchProduct, setSearchProduct] = useState('');
     const dispatch = useDispatch();
+
+
+    const formatDisplayDate = (date) => {
+        if (!date) return "";
+        return date.toLocaleDateString('th-TH', {
+            day: '2-digit',
+            month: '2-digit',
+            year: '2-digit'
+        });
+    };
 
     useEffect(() => {
         handleSearch();
@@ -70,10 +82,18 @@ export default function ReportPurchaseordertosupplier() {
 
     // useEffect สำหรับโหลดข้อมูลครั้งแรก
     useEffect(() => {
-        fetchData({
+        // สร้าง params ด้วยวันที่ปัจจุบัน
+        const params = {
             offset: 0,
-            limit: 10000
-        });
+            limit: 10000,
+            rdate1: formatDate(today),  // เพิ่มวันที่เริ่มต้น
+            rdate2: formatDate(today)   // เพิ่มวันที่สิ้นสุด
+        };
+
+        // เรียก API ด้วย params ที่มีวันที่
+        fetchData(params);
+
+        // โหลดข้อมูล suppliers
         dispatch(supplierAll({ offset: 0, limit: 1000 }))
             .unwrap()
             .then(res => {
@@ -81,7 +101,7 @@ export default function ReportPurchaseordertosupplier() {
             })
             .catch(err => console.error("Error fetching suppliers:", err));
 
-        // ดึงข้อมูล branch
+        // โหลดข้อมูล branches
         dispatch(branchAll({ offset: 0, limit: 1000 }))
             .unwrap()
             .then(res => {
@@ -170,6 +190,48 @@ export default function ReportPurchaseordertosupplier() {
             .catch(err => {
                 console.error("Error fetching data:", err);
             });
+    };
+
+    const handlePrint = () => {
+        const printWindow = window.open('', '_blank');
+        const printDoc = printWindow.document;
+
+        printDoc.write(`
+          <html>
+            <head>
+              <title>Purchase Order to Supplier</title>
+              <style>
+                @media print {
+                  body { margin: 0; }
+                  @page { size: landscape; }
+                }
+                /* เพิ่ม CSS สำหรับ print */
+                table { page-break-inside: auto; }
+                tr { page-break-inside: avoid; page-break-after: auto; }
+                thead { display: table-header-group; }
+                tfoot { display: table-footer-group; }
+              </style>
+            </head>
+            <body>
+              <div id="print-content"></div>
+            </body>
+          </html>
+        `);
+
+        const root = createRoot(printDoc.getElementById('print-content'));
+        root.render(
+            <PrintLayout
+                data={whposData}
+                excludePrice={excludePrice}
+                startDate={startDate}
+                endDate={endDate}
+            />
+        );
+
+        printWindow.setTimeout(() => {
+            printWindow.print();
+            printWindow.close();
+        }, 1000); // เพิ่มเวลารอเป็น 1 วินาที
     };
 
     return (
@@ -445,13 +507,15 @@ export default function ReportPurchaseordertosupplier() {
                             </Box>
                             <Box sx={{ ml: '8px' }}>
                                 <Typography>
-                                    23/08/2567 - 25/08/2567
+                                    {startDate && endDate
+                                        ? `${formatDisplayDate(startDate)} - ${formatDisplayDate(endDate)}`
+                                        : "Not specified"}
                                 </Typography>
                                 <Typography>
-                                    Eleanor Pena
+                                    {suppliers.find(s => s.supplier_code === selectedSupplier)?.supplier_name || "Not selected"}
                                 </Typography>
                                 <Typography>
-                                    Weera Thai
+                                    {branches.find(b => b.branch_code === selectedBranch)?.branch_name || "Not selected"}
                                 </Typography>
                             </Box>
                         </Box>
@@ -467,7 +531,7 @@ export default function ReportPurchaseordertosupplier() {
                             </Box>
                             <Box>
                                 <Button
-                                    onClick={() => exportToExcelWhPos(whposData, excludePrice, startDate, endDate)}
+                                    onClick={handlePrint}
                                     variant="outlined"
                                     sx={{
                                         color: '#754C27',
@@ -477,7 +541,21 @@ export default function ReportPurchaseordertosupplier() {
                                         }
                                     }}
                                 >
-                                    Export (Excel)
+                                    Print
+                                </Button>
+                                <Button
+                                    onClick={() => exportToExcelWhPos(whposData, excludePrice, startDate, endDate)}
+                                    variant="outlined"
+                                    sx={{
+                                        color: '#754C27',
+                                        borderColor: '#754C27',
+                                        '&:hover': {
+                                            borderColor: '#5c3c1f',
+                                        },
+                                        ml: '24px'
+                                    }}
+                                >
+                                    Excel
                                 </Button>
                                 <Button
                                     onClick={() => exportToPdfWhPos(whposData, excludePrice, startDate, endDate)}
@@ -509,14 +587,12 @@ export default function ReportPurchaseordertosupplier() {
                                     <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Ref.no</th>
                                     <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Supplier</th>
                                     <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Branch</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>ID</th>
                                     <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Product Name</th>
                                     <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Quantity</th>
                                     <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Unit Price</th>
                                     <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Unit</th>
                                     <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Amount</th>
                                     <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Total</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Username</th>
                                 </tr>
                                 <tr>
                                     <td colSpan="15">
@@ -535,14 +611,12 @@ export default function ReportPurchaseordertosupplier() {
                                         <td style={{ padding: '12px 16px' }}>{row.refno}</td>
                                         <td style={{ padding: '12px 16px' }}>{row.supplier_code}</td>
                                         <td style={{ padding: '12px 16px' }}>{row.branch_code}</td>
-                                        <td style={{ padding: '12px 16px' }}>{row.product_code}</td>
-                                        <td style={{ padding: '12px 16px' }}>{row.product_name}</td> {/* เพิ่มชื่อสินค้า */}
+                                        <td style={{ padding: '12px 16px' }}>{row.product_name}</td>
                                         <td style={{ padding: '12px 16px' }}>{row.quantity}</td>
                                         <td style={{ padding: '12px 16px' }}>{row.unit_price}</td>
                                         <td style={{ padding: '12px 16px' }}>{row.unit_code}</td>
                                         <td style={{ padding: '12px 16px' }}>{row.amount}</td>
                                         <td style={{ padding: '12px 16px' }}>{row.total}</td>
-                                        <td style={{ padding: '12px 16px' }}>{row.user_code}</td>
                                     </tr>
                                 ))}
                             </tbody>
