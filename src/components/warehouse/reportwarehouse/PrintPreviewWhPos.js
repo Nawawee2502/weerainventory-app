@@ -11,13 +11,21 @@ const PrintLayout = ({ data, excludePrice = false, startDate, endDate }) => {
       padding: '2rem',
     },
     header: {
+      position: 'relative',
       textAlign: 'center',
-      marginBottom: '1.5rem',
+      marginBottom: '1rem',
     },
     title: {
       fontSize: '1.5rem',
       fontWeight: 'bold',
       marginBottom: '0.5rem',
+    },
+    dateInfo: {
+      position: 'absolute',
+      right: 0,
+      top: 0,
+      fontSize: '0.7rem',
+      textAlign: 'right',
     },
     subtitle: {
       fontSize: '0.875rem',
@@ -55,12 +63,10 @@ const PrintLayout = ({ data, excludePrice = false, startDate, endDate }) => {
     <div style={styles.container}>
       <div style={styles.header}>
         <h1 style={styles.title}>Weera Group Inventory</h1>
-        <p style={styles.subtitle}>
-          Print Date: {new Date().toLocaleDateString()} Time: {new Date().toLocaleTimeString()}
-        </p>
-        <p style={styles.subtitle}>
-          Date From: {formatDate(startDate)} Date To: {formatDate(endDate)}
-        </p>
+        <div style={styles.dateInfo}>
+          <p>Print Date: {new Date().toLocaleDateString()} Time: {new Date().toLocaleTimeString()}</p>
+          <p>Date From: {formatDate(startDate)} Date To: {formatDate(endDate)}</p>
+        </div>
         <h2 style={styles.title}>Purchase Order to Supplier</h2>
       </div>
 
@@ -71,7 +77,7 @@ const PrintLayout = ({ data, excludePrice = false, startDate, endDate }) => {
             <th style={{ ...styles.th, ...styles.centerText, width: '100px' }}>Date</th>
             <th style={{ ...styles.th, ...styles.leftText, width: '120px' }}>Ref.no</th>
             <th style={{ ...styles.th, ...styles.leftText, width: '150px' }}>Supplier</th>
-            <th style={{ ...styles.th, ...styles.leftText, width: '120px' }}>Branch</th>
+            <th style={{ ...styles.th, ...styles.leftText, width: '120px' }}>Restaurant</th>
             <th style={{ ...styles.th, ...styles.leftText, width: '150px' }}>Product Name</th>
             <th style={{ ...styles.th, ...styles.rightText, width: '80px' }}>Quantity</th>
             <th style={{ ...styles.th, ...styles.centerText, width: '80px' }}>Unit</th>
@@ -96,13 +102,37 @@ const PrintLayout = ({ data, excludePrice = false, startDate, endDate }) => {
               <td style={{ ...styles.td, ...styles.centerText }}>{row.unit_code}</td>
               {!excludePrice && (
                 <>
-                  <td style={{ ...styles.td, ...styles.rightText }}>{row.unit_price}</td>
-                  <td style={{ ...styles.td, ...styles.rightText }}>{row.total}</td>
+                  <td style={{ ...styles.td, ...styles.rightText }}>
+                    {Number(row.unit_price).toFixed(2)}
+                  </td>
+                  <td style={{ ...styles.td, ...styles.rightText }}>
+                    {Number(row.total).toFixed(2)}
+                  </td>
                 </>
               )}
             </tr>
           ))}
         </tbody>
+        <tfoot>
+          <tr>
+            <td style={{ ...styles.td, ...styles.centerText }}></td>
+            <td style={{ ...styles.td, ...styles.centerText }}></td>
+            <td style={{ ...styles.td, ...styles.leftText }}></td>
+            <td style={{ ...styles.td, ...styles.leftText }}></td>
+            <td style={{ ...styles.td, ...styles.leftText }}></td>
+            <td style={{ ...styles.td, ...styles.leftText, fontWeight: 'bold' }}></td>
+            <td style={{ ...styles.td, ...styles.rightText }}></td>
+            <td style={{ ...styles.td, ...styles.centerText }}></td>
+            {!excludePrice && (
+              <>
+                <td style={{ ...styles.td, ...styles.rightText }}></td>
+                <td style={{ ...styles.td, ...styles.rightText, fontWeight: 'bold' }}>
+                  {Number(data.reduce((sum, row) => sum + Number(row.total), 0)).toFixed(2)}
+                </td>
+              </>
+            )}
+          </tr>
+        </tfoot>
       </table>
     </div>
   );

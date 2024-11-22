@@ -525,7 +525,7 @@ function CreateReceiptFromSupplier({ onBack }) {
               </Grid2>
               <Grid2 item size={{ xs: 12, md: 6 }}>
                 <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
-                  Branch
+                  Restaurant
                 </Typography>
                 <Box
                   component="select"
@@ -548,7 +548,7 @@ function CreateReceiptFromSupplier({ onBack }) {
                     },
                   }}
                 >
-                  <option value="">Select a branch</option>
+                  <option value="">Select a Restaurant</option>
                   {branch.map((b) => (
                     <option key={b.branch_code} value={b.branch_code}>
                       {b.branch_name}

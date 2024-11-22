@@ -193,6 +193,9 @@ export default function PurchaseOrderToSupplier({ onCreate, onEdit }) {
 
         const res = await dispatch(wh_posAlljoindt({ offset, limit })).unwrap();
 
+        console.log("WH_POS DATA : ", res.data);
+
+
         // กรองข้อมูลตามวันที่
         let filteredData = res.data;
         const formattedFilterDate = formatDate(filterDate);
@@ -205,6 +208,7 @@ export default function PurchaseOrderToSupplier({ onCreate, onEdit }) {
         }));
 
         setWhpos(resultData);
+
 
         // อัพเดทจำนวนหน้า
         const countRes = await dispatch(countwh_pos({ test: "" })).unwrap();
@@ -317,6 +321,7 @@ export default function PurchaseOrderToSupplier({ onCreate, onEdit }) {
           id: offset + index + 1
         }));
         setWhpos(resultData);
+        console.log("WH_POS DATA : ", resultData);
       }
 
       // นับจำนวนข้อมูลทั้งหมด
@@ -483,18 +488,41 @@ export default function PurchaseOrderToSupplier({ onCreate, onEdit }) {
   const [total, setTotal] = useState(0);
   const [originalProducts, setOriginalProducts] = useState([]);
 
-
-
   const PrintPurchaseOrderPDF = async (refno) => {
     try {
       dispatch(Wh_posByRefno(refno))
         .unwrap()
         .then(async (res) => {
-          const pdfContent = await generatePDF(refno, res.data);
-          if (pdfContent) {
-            const asBlob = await pdf(pdfContent).toBlob();
-            const url = URL.createObjectURL(asBlob);
-            window.open(url, '_blank');
+          const currentRow = whpos.find(row => row.refno === refno);
+          if (currentRow) {
+            // ใส่ข้อมูล relationship หลักจากตาราง
+            let mappedData = {
+              ...res.data,
+              tbl_supplier: currentRow.tbl_supplier,
+              tbl_branch: currentRow.tbl_branch,
+              user: currentRow.user,
+              // แก้ไขข้อมูล wh_posdts ให้มี unit_name
+              wh_posdts: currentRow.wh_posdts.map(item => ({
+                ...item,
+                tbl_unit: {
+                  unit_code: item.unit_code,
+                  unit_name: item.tbl_unit?.unit_name || item.unit_code
+                },
+                tbl_product: {
+                  product_code: item.product_code,
+                  product_name: item.tbl_product?.product_name || 'Product Description'
+                }
+              }))
+            };
+
+            console.log("Mapped Data for PDF:", mappedData); // For debugging
+
+            const pdfContent = await generatePDF(refno, mappedData);
+            if (pdfContent) {
+              const asBlob = await pdf(pdfContent).toBlob();
+              const url = URL.createObjectURL(asBlob);
+              window.open(url, '_blank');
+            }
           }
         })
         .catch((err) => {
@@ -645,7 +673,7 @@ export default function PurchaseOrderToSupplier({ onCreate, onEdit }) {
                 <StyledTableCell align="center">Ref.no</StyledTableCell>
                 <StyledTableCell align="center">Date</StyledTableCell>
                 <StyledTableCell align="center">Supplier</StyledTableCell>
-                <StyledTableCell align="center">Branch</StyledTableCell>
+                <StyledTableCell align="center">Restaurant</StyledTableCell>
                 <StyledTableCell align="center">Amount</StyledTableCell>
                 <StyledTableCell align="center">Username</StyledTableCell>
                 <StyledTableCell width='1%' align="center"></StyledTableCell>
@@ -655,7 +683,7 @@ export default function PurchaseOrderToSupplier({ onCreate, onEdit }) {
             </TableHead>
             <TableBody>
               {whpos.map((row) => (
-                <StyledTableRow key={row.branch_code}>
+                <StyledTableRow key={row.refno}>
                   <StyledTableCell padding="checkbox" align="center">
                     <Checkbox
                       checked={selected.includes(row.branch_code)}
@@ -663,19 +691,32 @@ export default function PurchaseOrderToSupplier({ onCreate, onEdit }) {
                     />
                   </StyledTableCell>
                   <StyledTableCell component="th" scope="row">
-                    {row.id} {/* Row ID */}
+                    {row.id}
                   </StyledTableCell>
-                  <StyledTableCell align="center">{row.refno} {/* Reference Number */}</StyledTableCell>
-                  <StyledTableCell align="center">{row.rdate} {/* Request Date */}</StyledTableCell>
-                  <StyledTableCell align="center">{row.supplier_code} {/* Supplier Code */}</StyledTableCell>
-                  <StyledTableCell align="center">{row.branch_code} {/* Branch Code */}</StyledTableCell>
-                  <StyledTableCell align="center">{row.total} {/* Total Amount */}</StyledTableCell>
-                  <StyledTableCell align="center">{row.user_code} {/* User Code */}</StyledTableCell>
+                  <StyledTableCell align="center">{row.refno}</StyledTableCell>
+                  <StyledTableCell align="center">{row.rdate}</StyledTableCell>
+                  <StyledTableCell align="center">
+                    {row.tbl_supplier?.supplier_name || row.supplier_code}
+                  </StyledTableCell>
+                  <StyledTableCell align="center">
+                    {row.tbl_branch?.branch_name || row.branch_code}
+                  </StyledTableCell>
+                  <StyledTableCell align="center">
+                    {typeof row.total === 'number'
+                      ? row.total.toLocaleString('en-US', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                      })
+                      : row.total}
+                  </StyledTableCell>
+                  <StyledTableCell align="center">
+                    {row.user?.username || row.user_code}
+                  </StyledTableCell>
                   <StyledTableCell align="center">
                     <IconButton
                       color="primary"
                       size="md"
-                      onClick={() => onEdit(row.refno)} // เรียกใช้ onEdit prop พร้อมส่ง refno
+                      onClick={() => onEdit(row.refno)}
                       sx={{ border: '1px solid #AD7A2C', borderRadius: '7px' }}
                     >
                       <EditIcon sx={{ color: '#AD7A2C' }} />
@@ -685,7 +726,7 @@ export default function PurchaseOrderToSupplier({ onCreate, onEdit }) {
                     <IconButton
                       color="danger"
                       size="md"
-                      onClick={() => handleDelete(row.refno)}  // เปลี่ยนจาก branch_code เป็น refno
+                      onClick={() => handleDelete(row.refno)}
                       sx={{ border: '1px solid #F62626', borderRadius: '7px' }}
                     >
                       <DeleteIcon sx={{ color: '#F62626' }} />
@@ -695,7 +736,7 @@ export default function PurchaseOrderToSupplier({ onCreate, onEdit }) {
                     <IconButton
                       color="danger"
                       size="md"
-                      onClick={() => PrintPurchaseOrderPDF(row.refno)} // Handle print functionality
+                      onClick={() => PrintPurchaseOrderPDF(row.refno)}
                       sx={{ border: '1px solid #5686E1', borderRadius: '7px' }}
                     >
                       <PrintIcon sx={{ color: '#5686E1' }} />

@@ -9,12 +9,26 @@ const styles = StyleSheet.create({
     },
     header: {
         marginBottom: 20,
+        position: 'relative',
     },
     headerText: {
         textAlign: 'center',
         fontSize: 18,
         marginBottom: 5,
         fontWeight: 'bold',
+    },
+    dateInfo: {  // style ใหม่สำหรับส่วนวันที่
+        position: 'absolute',
+        right: 0,
+        top: 0,
+        fontSize: 8,
+        textAlign: 'right',
+    },
+    titleText: {
+        textAlign: 'center',
+        fontSize: 18,
+        fontWeight: 'bold',
+        marginTop: 10,
     },
     subHeaderText: {
         textAlign: 'center',
@@ -102,7 +116,7 @@ const PurchaseOrderPDF = ({ data, excludePrice = false, startDate, endDate }) =>
         { title: 'Date', style: styles.cellDate },
         { title: 'Ref.no', style: styles.cellRef },
         { title: 'Supplier', style: styles.cellSupplier },
-        { title: 'Branch', style: styles.cellBranch },
+        { title: 'Restaurant', style: styles.cellBranch },
         { title: 'Product Name', style: styles.cellProduct },
         { title: 'Quantity', style: styles.cellQuantity },
         { title: 'Unit', style: styles.cellUnit },
@@ -126,13 +140,11 @@ const PurchaseOrderPDF = ({ data, excludePrice = false, startDate, endDate }) =>
                 {/* Header Section */}
                 <View style={styles.header}>
                     <Text style={styles.headerText}>Weera Group Inventory</Text>
-                    <Text style={styles.subHeaderText}>
-                        Print Date: {new Date().toLocaleDateString()} Time: {new Date().toLocaleTimeString()}
-                    </Text>
-                    <Text style={styles.subHeaderText}>
-                        Date From: {formatDate(startDate)} Date To: {formatDate(endDate)}
-                    </Text>
-                    <Text style={styles.headerText}>Purchase Order to Supplier</Text>
+                    <View style={styles.dateInfo}>
+                        <Text>Print Date: {new Date().toLocaleDateString()} Time: {new Date().toLocaleTimeString()}</Text>
+                        <Text>Date From: {formatDate(startDate)} Date To: {formatDate(endDate)}</Text>
+                    </View>
+                    <Text style={styles.titleText}>Purchase Order to Supplier</Text>
                 </View>
 
                 {/* Table Header */}
@@ -155,12 +167,35 @@ const PurchaseOrderPDF = ({ data, excludePrice = false, startDate, endDate }) =>
                         <Text style={styles.cellUnit}>{row.unit_code}</Text>
                         {!excludePrice && (
                             <>
-                                <Text style={styles.cellPrice}>{row.unit_price}</Text>
-                                <Text style={styles.cellTotal}>{row.total}</Text>
+                                <Text style={styles.cellPrice}>
+                                    {Number(row.unit_price).toFixed(2)}
+                                </Text>
+                                <Text style={styles.cellTotal}>
+                                    {Number(row.total).toFixed(2)}
+                                </Text>
                             </>
                         )}
                     </View>
                 ))}
+
+                <View style={styles.tableRow}>
+                    <Text style={styles.cellNo}></Text>
+                    <Text style={styles.cellDate}></Text>
+                    <Text style={styles.cellRef}></Text>
+                    <Text style={styles.cellSupplier}></Text>
+                    <Text style={styles.cellBranch}></Text>
+                    <Text style={{ ...styles.cellProduct, fontWeight: 'bold' }}></Text>
+                    <Text style={styles.cellQuantity}></Text>
+                    <Text style={styles.cellUnit}></Text>
+                    {!excludePrice && (
+                        <>
+                            <Text style={styles.cellPrice}></Text>
+                            <Text style={{ ...styles.cellTotal, fontWeight: 'bold' }}>
+                                {Number(data.reduce((sum, item) => sum + Number(item.total), 0)).toFixed(2)}
+                            </Text>
+                        </>
+                    )}
+                </View>
             </Page>
         </Document>
     );

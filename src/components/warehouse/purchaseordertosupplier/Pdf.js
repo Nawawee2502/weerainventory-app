@@ -37,8 +37,13 @@ const styles = StyleSheet.create({
   },
 });
 
+// Format number to 2 decimal places
+const formatNumber = (number) => {
+  return Number(number).toFixed(2);
+};
+
 // Main PDF Component
-export const PurchaseOrderPDF = ({ supplier, refNo, date, branch, productArray, total }) => (
+export const PurchaseOrderPDF = ({ supplier, supplierName, refNo, date, branch, branchName, productArray, total, username }) => (
   <Document>
     <Page style={styles.page}>
       {/* Header */}
@@ -51,12 +56,13 @@ export const PurchaseOrderPDF = ({ supplier, refNo, date, branch, productArray, 
       {/* Supplier Info */}
       <View style={{ flexDirection: 'row', marginVertical: 10 }}>
         <View style={{ flex: 1 }}>
-          <Text>Supplier: {supplier}</Text>
-          <Text>Branch: {branch}</Text>
+          <Text>Supplier: {supplierName}</Text>
+          <Text>Branch: {branchName}</Text>
         </View>
         <View style={{ flex: 1 }}>
           <Text>Ref No.: {refNo}</Text>
           <Text>Date: {date}</Text>
+          <Text>Created By: {username}</Text>
         </View>
       </View>
 
@@ -65,8 +71,8 @@ export const PurchaseOrderPDF = ({ supplier, refNo, date, branch, productArray, 
         <Text style={[styles.cell, { flex: 0.5 }]}>Item</Text>
         <Text style={styles.cell}>Description</Text>
         <Text style={styles.cell}>QTY</Text>
-        <Text style={styles.cell}>UPrice</Text>
         <Text style={styles.cell}>Unit</Text>
+        <Text style={styles.cell}>UPrice</Text>
         <Text style={styles.cell}>Amount</Text>
       </View>
 
@@ -74,17 +80,17 @@ export const PurchaseOrderPDF = ({ supplier, refNo, date, branch, productArray, 
       {productArray.map((item, index) => (
         <View style={styles.row} key={index}>
           <Text style={[styles.cell, { flex: 0.5 }]}>{index + 1}</Text>
-          <Text style={styles.cell}>Product Description</Text>
-          <Text style={styles.cell}>{item.qty}</Text>
-          <Text style={styles.cell}>{item.unit_code}</Text>
-          <Text style={styles.cell}>{item.uprice}</Text>
-          <Text style={styles.cell}>{item.amt}</Text>
+          <Text style={styles.cell}>{item.tbl_product?.product_name || 'Product Description'}</Text>
+          <Text style={styles.cell}>{formatNumber(item.qty)}</Text>
+          <Text style={styles.cell}>{item.tbl_unit?.unit_name || item.unit_code}</Text>
+          <Text style={styles.cell}>{formatNumber(item.uprice)}</Text>
+          <Text style={styles.cell}>{formatNumber(item.amt)}</Text>
         </View>
       ))}
 
       {/* Grand Total */}
       <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 10 }}>
-        <Text>Grand Total: {total}</Text>
+        <Text>Grand Total: {formatNumber(total)}</Text>
       </View>
 
       {/* Footer */}
@@ -110,17 +116,27 @@ export const PurchaseOrderPDF = ({ supplier, refNo, date, branch, productArray, 
 // Helper function to generate PDF
 export const generatePDF = async (refno, data) => {
   if (!data) return null;
-  
+
+  console.log("Data for PDF:", data); // For debugging
+
+  // ดึงข้อมูลชื่อแทนรหัส
   const pdfContent = (
-    <PurchaseOrderPDF 
+    <PurchaseOrderPDF
       supplier={data.supplier_code}
+      supplierName={data.tbl_supplier?.supplier_name || data.supplier_code}
       refNo={data.refno}
       date={data.rdate}
       branch={data.branch_code}
-      productArray={data.wh_posdts}
+      branchName={data.tbl_branch?.branch_name || data.branch_code}
+      productArray={data.wh_posdts.map(item => ({
+        ...item,
+        tbl_unit: item.tbl_unit || { unit_name: item.unit_code },
+        tbl_product: item.tbl_product || { product_name: 'Product Description' }
+      }))}
       total={data.total}
+      username={data.user?.username || data.user_code}
     />
   );
-  
+
   return pdfContent;
 };

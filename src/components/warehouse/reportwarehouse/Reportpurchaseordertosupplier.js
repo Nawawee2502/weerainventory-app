@@ -31,11 +31,10 @@ export default function ReportPurchaseordertosupplier() {
 
     const formatDisplayDate = (date) => {
         if (!date) return "";
-        return date.toLocaleDateString('th-TH', {
-            day: '2-digit',
-            month: '2-digit',
-            year: '2-digit'
-        });
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${day}/${month}/${year}`;
     };
 
     useEffect(() => {
@@ -372,7 +371,7 @@ export default function ReportPurchaseordertosupplier() {
                             </Grid2>
                             <Grid2 item size={{ xs: 12, md: 6 }}>
                                 <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
-                                    Branch
+                                    Restaurant
                                 </Typography>
                                 <Box
                                     component="select"
@@ -399,7 +398,7 @@ export default function ReportPurchaseordertosupplier() {
                                     }}
                                     id="Branch"
                                 >
-                                    <option value="">Select a branch</option>
+                                    <option value="">Select a Restaurant</option>
                                     {branches.map(branch => (
                                         <option key={branch.branch_code} value={branch.branch_code}>
                                             {branch.branch_name}
@@ -502,7 +501,7 @@ export default function ReportPurchaseordertosupplier() {
                                     Supplier
                                 </Typography>
                                 <Typography sx={{ fontWeight: '700', color: '#AD7A2C' }}>
-                                    Shop
+                                    Restaurant
                                 </Typography>
                             </Box>
                             <Box sx={{ ml: '8px' }}>
@@ -613,10 +612,10 @@ export default function ReportPurchaseordertosupplier() {
                                         <td style={{ padding: '12px 16px' }}>{row.branch_code}</td>
                                         <td style={{ padding: '12px 16px' }}>{row.product_name}</td>
                                         <td style={{ padding: '12px 16px' }}>{row.quantity}</td>
-                                        <td style={{ padding: '12px 16px' }}>{row.unit_price}</td>
+                                        <td style={{ padding: '12px 16px' }}>{Number(row.unit_price).toFixed(2)}</td>
                                         <td style={{ padding: '12px 16px' }}>{row.unit_code}</td>
-                                        <td style={{ padding: '12px 16px' }}>{row.amount}</td>
-                                        <td style={{ padding: '12px 16px' }}>{row.total}</td>
+                                        <td style={{ padding: '12px 16px' }}>{Number(row.amount).toFixed(2)}</td>
+                                        <td style={{ padding: '12px 16px' }}>{Number(row.total).toFixed(2)}</td>
                                     </tr>
                                 ))}
                             </tbody>

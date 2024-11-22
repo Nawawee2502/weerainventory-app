@@ -662,7 +662,7 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
               </Grid2>
               <Grid2 item size={{ xs: 12, md: 6 }}>
                 <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
-                  Branch
+                  Restaurant
                 </Typography>
                 <Box
                   onChange={(e) => setSaveBranch(e.target.value)}
@@ -685,7 +685,7 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
                   }}
                   id="branch"
                 >
-                  <option value="">Select a branch</option>
+                  <option value="">Select a Restaurant</option>
                   {branch.map((branchItem) => (
                     <option key={branchItem.branch_code} value={branchItem.branch_code}>
                       {branchItem.branch_name}

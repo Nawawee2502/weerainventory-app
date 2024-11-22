@@ -33,7 +33,7 @@ export const exportToExcelWhPos = async (data, excludePrice = false, startDate, 
         'Date',
         'Ref.no',
         'Supplier',
-        'Branch',
+        'Restaurant',
         'Product Name',
         'Quantity',
         'Unit',
@@ -61,7 +61,7 @@ export const exportToExcelWhPos = async (data, excludePrice = false, startDate, 
         'Date': 15,
         'Ref.no': 15,
         'Supplier': 25,
-        'Branch': 25,
+        'Restaurant': 25,
         'Product Name': 20,
         'Quantity': 10,
         'Unit': 8,
@@ -106,7 +106,7 @@ export const exportToExcelWhPos = async (data, excludePrice = false, startDate, 
         cell.alignment = { horizontal: 'center', vertical: 'middle' };
     });
 
-    // Add data
+    // ในส่วนของการ Add data
     data.forEach((item, index) => {
         const rowData = [
             index + 1,
@@ -120,25 +120,76 @@ export const exportToExcelWhPos = async (data, excludePrice = false, startDate, 
         ];
 
         if (!excludePrice) {
-            rowData.push(item.unit_price, item.total);
+            rowData.push(
+                Number(item.unit_price).toFixed(2),
+                Number(item.total).toFixed(2)
+            );
         }
 
         const row = worksheet.addRow([]);
         rowData.forEach((value, colIndex) => {
             const cell = row.getCell(startColumn + colIndex);
             cell.value = value;
+
+            // กำหนด format สำหรับคอลัมน์ที่เป็นตัวเลข
+            const header = headers[colIndex];
+            if (['Unit Price', 'Total'].includes(header)) {
+                cell.numFmt = '#,##0.00';
+            }
+
             cell.border = {
                 top: { style: 'thin' },
                 left: { style: 'thin' },
                 bottom: { style: 'thin' },
                 right: { style: 'thin' }
             };
-            const header = headers[colIndex];
+
+            // แก้ไขการจัดตำแหน่งตามประเภทของข้อมูล
             cell.alignment = {
                 vertical: 'middle',
-                horizontal: ['No.', 'Quantity', 'Unit Price', 'Total'].includes(header) ? 'right' : 'left'
+                horizontal: (() => {
+                    switch (header) {
+                        case 'No.':
+                        case 'Date':
+                        case 'Unit':
+                            return 'center';
+                        case 'Quantity':
+                        case 'Unit Price':
+                        case 'Total':
+                            return 'right';
+                        default:
+                            return 'left';
+                    }
+                })()
             };
         });
+    });
+
+    const totalSum = data.reduce((sum, item) => sum + Number(item.total), 0);
+
+    const summaryRow = worksheet.addRow([]);
+    headers.forEach((header, index) => {
+        const cell = summaryRow.getCell(startColumn + index);
+        if (header === 'Total') {
+            cell.value = Number(totalSum).toFixed(2);
+            cell.font = { bold: true };
+            cell.numFmt = '#,##0.00';
+        } else if (header === 'Product Name') {
+            cell.value = 'Total';
+            cell.font = { bold: true };
+        } else {
+            cell.value = '';
+        }
+        cell.border = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' }
+        };
+        cell.alignment = {
+            vertical: 'middle',
+            horizontal: header === 'Total' ? 'right' : 'left'
+        };
     });
 
     // Set column widths

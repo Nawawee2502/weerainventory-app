@@ -303,7 +303,7 @@ function EditPurchaseOrderToSupplier({ onBack, editRefno }) {
         ? product.bulk_unit_price
         : product.retail_unit_price).toString(),
       amt: totals[product.product_code].toString(),
-      isNewProduct: product.isNewProduct 
+      isNewProduct: product.isNewProduct
     }));
 
     // เตรียมข้อมูลสินค้าที่ถูกลบ
@@ -486,7 +486,7 @@ function EditPurchaseOrderToSupplier({ onBack, editRefno }) {
               </Grid2>
               <Grid2 item size={{ xs: 12, md: 6 }}>
                 <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
-                  Branch
+                  Restaurant
                 </Typography>
                 <Box
                   value={saveBranch}
@@ -509,7 +509,7 @@ function EditPurchaseOrderToSupplier({ onBack, editRefno }) {
                     },
                   }}
                 >
-                  <option value="">Select a branch</option>
+                  <option value="">Select a Restaurant</option>
                   {branch.map((item) => (
                     <option key={item.branch_code} value={item.branch_code}>
                       {item.branch_name}

@@ -312,7 +312,7 @@ export default function ReceiptFromSupplier({ onCreate, onEdit }) {
                             <StyledTableCell align="center">Ref.no</StyledTableCell>
                             <StyledTableCell align="center">Date</StyledTableCell>
                             <StyledTableCell align="center">Supplier</StyledTableCell>
-                            <StyledTableCell align="center">Branch</StyledTableCell>
+                            <StyledTableCell align="center">Restaurant</StyledTableCell>
                             <StyledTableCell align="center">Total Due</StyledTableCell>
                             <StyledTableCell align="center">Username</StyledTableCell>
                             <StyledTableCell width='1%' align="center"></StyledTableCell>
