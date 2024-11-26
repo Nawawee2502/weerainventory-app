@@ -152,10 +152,13 @@ export const wh_posAllrdate = createAsyncThunk(
 
 export const refno = createAsyncThunk(
     "branch/code",
-    async ({ test }, { dispatch }) => {
+    async ({ test, month, year }, { dispatch }) => {
         try {
-            const res = await axios.post(BASE_URL + "/api/refno", { test: test });
-            console.log(res.data);
+            const res = await axios.post(BASE_URL + "/api/refno", {
+                test: test,
+                month: month,
+                year: year
+            });
             return res.data;
         } catch (error) {
             console.error(error.message);

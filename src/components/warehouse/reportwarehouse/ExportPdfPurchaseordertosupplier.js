@@ -32,8 +32,8 @@ const styles = StyleSheet.create({
     },
     subHeaderText: {
         textAlign: 'center',
-        fontSize: 12,
-        marginBottom: 5,
+        fontSize: 8,
+        marginTop: 10
     },
     dateSection: {
         flexDirection: 'row',
@@ -109,8 +109,38 @@ const styles = StyleSheet.create({
     }
 });
 
+const groupDataByRefno = (data) => {
+    let lastRefno = null;
+    return data.map(item => {
+        const isFirstInGroup = item.refno !== lastRefno;
+        lastRefno = item.refno;
+        return {
+            ...item,
+            date: isFirstInGroup ? item.date : '',
+            refno: isFirstInGroup ? item.refno : '',
+            supplier_code: isFirstInGroup ? item.supplier_code : '',
+            branch_code: isFirstInGroup ? item.branch_code : '',
+            total: isFirstInGroup ? item.total : ''
+        };
+    });
+};
+
 // PDF Document Component
 const PurchaseOrderPDF = ({ data, excludePrice = false, startDate, endDate }) => {
+
+    const groupedData = groupDataByRefno(data);
+
+    const uniqueTotals = new Set();
+    data.forEach(item => {
+        if (item.total) {
+            uniqueTotals.add(item.refno + '-' + item.total);
+        }
+    });
+
+    const totalSum = Array.from(uniqueTotals)
+        .map(item => Number(item.split('-')[1]))
+        .reduce((sum, total) => sum + total, 0);
+
     const headers = [
         { title: 'No.', style: styles.cellNo },
         { title: 'Date', style: styles.cellDate },
@@ -142,9 +172,9 @@ const PurchaseOrderPDF = ({ data, excludePrice = false, startDate, endDate }) =>
                     <Text style={styles.headerText}>Weera Group Inventory</Text>
                     <View style={styles.dateInfo}>
                         <Text>Print Date: {new Date().toLocaleDateString()} Time: {new Date().toLocaleTimeString()}</Text>
-                        <Text>Date From: {formatDate(startDate)} Date To: {formatDate(endDate)}</Text>
                     </View>
                     <Text style={styles.titleText}>Purchase Order to Supplier</Text>
+                    <Text style={styles.subHeaderText}>Date From: {formatDate(startDate)} Date To: {formatDate(endDate)}</Text>
                 </View>
 
                 {/* Table Header */}
@@ -155,7 +185,7 @@ const PurchaseOrderPDF = ({ data, excludePrice = false, startDate, endDate }) =>
                 </View>
 
                 {/* Table Body */}
-                {data.map((row, index) => (
+                {groupedData.map((row, index) => (
                     <View key={index} style={styles.tableRow}>
                         <Text style={styles.cellNo}>{index + 1}</Text>
                         <Text style={styles.cellDate}>{row.date}</Text>
@@ -171,7 +201,7 @@ const PurchaseOrderPDF = ({ data, excludePrice = false, startDate, endDate }) =>
                                     {Number(row.unit_price).toFixed(2)}
                                 </Text>
                                 <Text style={styles.cellTotal}>
-                                    {Number(row.total).toFixed(2)}
+                                    {row.total ? Number(row.total).toFixed(2) : ''}
                                 </Text>
                             </>
                         )}
@@ -191,7 +221,7 @@ const PurchaseOrderPDF = ({ data, excludePrice = false, startDate, endDate }) =>
                         <>
                             <Text style={styles.cellPrice}></Text>
                             <Text style={{ ...styles.cellTotal, fontWeight: 'bold' }}>
-                                {Number(data.reduce((sum, item) => sum + Number(item.total), 0)).toFixed(2)}
+                                {totalSum.toFixed(2)}
                             </Text>
                         </>
                     )}

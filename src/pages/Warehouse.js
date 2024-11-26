@@ -32,8 +32,14 @@ import ReportDispatchToBranch from '../components/warehouse/reportwarehouse/Repo
 import ReportStockAdjustment from '../components/warehouse/reportwarehouse/ReportStockAdjustment';
 import ReportMonthlyStockCard from '../components/warehouse/reportwarehouse/ReportMonthlyStockCard';
 import ReportMonthlyStockBalance from '../components/warehouse/reportwarehouse/ReportMonthlyStockBalance';
+import BeginningInventory from '../components/warehouse/beginninginventory/BeginningInventory';
 
 const NAVIGATION = [
+    {
+        segment: 'beginning-inventory',
+        title: 'Beginning Inventory',
+        icon: <ReceiptLongOutlinedIcon />,
+    },
     {
         segment: 'purchase-order-to-supplier',
         title: 'Purchase Order to Supplier',
@@ -145,8 +151,8 @@ const demoTheme = createTheme({
 
 function Warehouse(props) {
     const { window } = props;
-    const [pathname, setPathname] = React.useState('/purchase-order-to-supplier');
-    const [currentTitle, setCurrentTitle] = React.useState('Purchase Order to Supplier');
+    const [pathname, setPathname] = React.useState('/beginning-inventory');
+    const [currentTitle, setCurrentTitle] = React.useState('Beginning Inventory');
     let navigate = useNavigate();
 
     const handleDashboard = () => {
@@ -167,7 +173,7 @@ function Warehouse(props) {
             }
         }
 
-        return 'Purchase Order to Supplier'; // เปลี่ยน default return
+        return 'Beginning Inventory'; // เปลี่ยน default return
     };
 
     function SidebarFooter({ mini }) {
@@ -223,6 +229,8 @@ function Warehouse(props) {
 
     const renderContent = () => {
         switch (pathname) {
+            case '/beginning-inventory':
+                return <BeginningInventory />;
             case '/purchase-order-to-supplier':
                 return <HomePurchaseOrderToSupplier />;
             case '/receipt-from-supplier':
@@ -252,7 +260,7 @@ function Warehouse(props) {
             case '/reports/monthly-stock-balance':
                 return <ReportMonthlyStockBalance />;
             default:
-                return <HomePurchaseOrderToSupplier />;
+                return <BeginningInventory />;
         }
     };
 

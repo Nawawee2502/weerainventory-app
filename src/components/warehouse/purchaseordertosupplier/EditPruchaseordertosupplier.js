@@ -29,32 +29,61 @@ function EditPurchaseOrderToSupplier({ onBack, editRefno }) {
   const [tax, setTax] = useState(0);
   const [total, setTotal] = useState(0);
   const [originalProducts, setOriginalProducts] = useState([]);
+  const [taxableAmount, setTaxableAmount] = useState(0);
+  const [nonTaxableAmount, setNonTaxableAmount] = useState(0);
+  const TAX_RATE = 0.07;
+  const [unitPrices, setUnitPrices] = useState({});
 
-  const calculateTotal = (quantity, unitCode, product) => {
-    const unitPrice = unitCode === product.productUnit1.unit_code
-      ? product.bulk_unit_price
-      : product.retail_unit_price;
+  const calculateTotal = (quantity, unitCode, product, customUnitPrice) => {
+    const unitPrice = customUnitPrice ?? unitPrices[product.product_code] ??
+      (unitCode === product.productUnit1.unit_code
+        ? product.bulk_unit_price
+        : product.retail_unit_price);
     return quantity * unitPrice;
   };
 
   const calculateOrderTotals = () => {
-    const orderSubtotal = products.reduce((sum, product) => {
+    let taxable = 0;
+    let nonTaxable = 0;
+
+    products.forEach(product => {
       const productCode = product.product_code;
       const quantity = quantities[productCode] || 1;
       const unitCode = units[productCode] || product.productUnit1.unit_code;
-      const unitPrice = unitCode === product.productUnit1.unit_code
-        ? product.bulk_unit_price
-        : product.retail_unit_price;
-      return sum + (quantity * unitPrice);
-    }, 0);
+      const unitPrice = unitPrices[productCode] ??
+        (unitCode === product.productUnit1.unit_code
+          ? product.bulk_unit_price
+          : product.retail_unit_price);
+      const amount = quantity * unitPrice;
 
-    const orderTax = orderSubtotal * 0.12;
-    const orderTotal = orderSubtotal + orderTax;
+      if (product.tax1 === 'Y') {
+        taxable += amount * (1 + TAX_RATE);
+      } else {
+        nonTaxable += amount;
+      }
+    });
 
-    setSubtotal(orderSubtotal);
-    setTax(orderTax);
-    setTotal(orderTotal);
+    setTaxableAmount(taxable);
+    setNonTaxableAmount(nonTaxable);
+    setTotal(taxable + nonTaxable);
   };
+
+  useEffect(() => {
+    if (products.length > 0) {
+      calculateOrderTotals(); // เรียก calculateOrderTotals เมื่อมีการเปลี่ยนแปลง products
+    } else {
+      // Reset totals เมื่อไม่มีสินค้าในรายการ
+      setSubtotal(0);
+      setTax(0);
+      setTotal(0);
+    }
+  }, [products, quantities, units]);
+
+  useEffect(() => {
+    // คำนวณ total amount ใหม่เมื่อค่า totals เปลี่ยนแปลง
+    const newTotal = Object.values(totals).reduce((sum, value) => sum + value, 0);
+    setTotal(newTotal);
+  }, [totals]);
 
   // useEffect สำหรับโหลดข้อมูลครั้งแรก
   useEffect(() => {
@@ -70,7 +99,7 @@ function EditPurchaseOrderToSupplier({ onBack, editRefno }) {
         setSaveSupplier(res.data.supplier_code);
         setSaveBranch(res.data.branch_code);
 
-        // แปลงข้อมูล products
+        const initialUnitPrices = {};
         const orderProducts = res.data.wh_posdts.map(item => ({
           product_code: item.product_code,
           product_name: item.tbl_product.product_name,
@@ -82,31 +111,31 @@ function EditPurchaseOrderToSupplier({ onBack, editRefno }) {
           unit_code: item.unit_code,
           uprice: item.uprice,
           amt: item.amt,
-          isNewProduct: false // เพิ่ม flag สำหรับสินค้าเดิม
+          isNewProduct: false
         }));
 
-        // เซ็ต products และเก็บข้อมูลต้นฉบับ
+        orderProducts.forEach(item => {
+          initialUnitPrices[item.product_code] = parseFloat(item.uprice);
+        });
+
+        setUnitPrices(initialUnitPrices);
         setProducts(orderProducts);
         setOriginalProducts(orderProducts);
 
-        // สร้าง objects สำหรับเก็บค่าต่างๆ
         const initialQuantities = {};
         const initialUnits = {};
         const initialTotals = {};
 
-        // เก็บค่าเริ่มต้นของแต่ละ product
         orderProducts.forEach(item => {
           initialQuantities[item.product_code] = parseInt(item.qty);
           initialUnits[item.product_code] = item.unit_code;
           initialTotals[item.product_code] = parseFloat(item.amt);
         });
 
-        // เซ็ตค่าต่างๆ
         setQuantities(initialQuantities);
         setUnits(initialUnits);
         setTotals(initialTotals);
 
-        // เซ็ตยอดรวมเริ่มต้น
         setSubtotal(parseFloat(res.data.total));
         setTax(parseFloat(res.data.total) * 0.12);
         setTotal(parseFloat(res.data.total) * 1.12);
@@ -204,6 +233,43 @@ function EditPurchaseOrderToSupplier({ onBack, editRefno }) {
       .catch((err) => console.log(err.message));
   };
 
+  const handleUnitPriceChange = (productCode, newPrice) => {
+    if (newPrice >= 0) {
+      setUnitPrices(prev => ({
+        ...prev,
+        [productCode]: parseFloat(newPrice)
+      }));
+
+      const quantity = quantities[productCode] || 1;
+      const unitCode = units[productCode];
+      const product = products.find(p => p.product_code === productCode);
+
+      const total = calculateTotal(quantity, unitCode, product, newPrice);
+      setTotals(prev => ({
+        ...prev,
+        [productCode]: total
+      }));
+
+      calculateOrderTotals();
+    } else {
+      const quantity = quantities[productCode] || 1;
+      const unitCode = units[productCode];
+      const product = products.find(p => p.product_code === productCode); // เพิ่มบรรทัดนี้
+      const defaultUnitPrice = unitCode === product.productUnit1.unit_code
+        ? product.bulk_unit_price
+        : product.retail_unit_price;
+
+      const total = calculateTotal(quantity, unitCode, product, defaultUnitPrice);
+      setTotals(prev => ({
+        ...prev,
+        [productCode]: total
+      }));
+
+      calculateOrderTotals();
+    }
+  };
+
+
   const handleQuantityChange = (productCode, newQuantity) => {
     if (newQuantity >= 1) {
       setQuantities(prev => ({
@@ -220,26 +286,35 @@ function EditPurchaseOrderToSupplier({ onBack, editRefno }) {
         [productCode]: total
       }));
 
-      setTimeout(calculateOrderTotals, 0);
+      calculateOrderTotals(); // คำนวณรวมทั้งหมดทันที
     }
   };
 
   const handleUnitChange = (productCode, newUnitCode) => {
     setUnits(prev => ({
       ...prev,
-      [productCode]: newUnitCode
+      [productCode]: newUnitCode,
+    }));
+
+    const product = products.find(p => p.product_code === productCode);
+    const defaultUnitPrice = newUnitCode === product.productUnit1.unit_code
+      ? product.bulk_unit_price
+      : product.retail_unit_price;
+
+    setUnitPrices(prev => ({
+      ...prev,
+      [productCode]: defaultUnitPrice
     }));
 
     const quantity = quantities[productCode] || 1;
-    const product = products.find(p => p.product_code === productCode);
-    const total = calculateTotal(quantity, newUnitCode, product);
+    const total = calculateTotal(quantity, newUnitCode, product, defaultUnitPrice);
 
     setTotals(prev => ({
       ...prev,
       [productCode]: total
     }));
 
-    setTimeout(calculateOrderTotals, 0);
+    calculateOrderTotals(); // คำนวณรวมทั้งหมดทันที  
   };
 
   const handleDeleteProduct = (productCode) => {
@@ -290,6 +365,8 @@ function EditPurchaseOrderToSupplier({ onBack, editRefno }) {
       monthh: month,
       supplier_code: saveSupplier,
       branch_code: saveBranch,
+      taxable: taxableAmount.toString(),
+      nontaxable: nonTaxableAmount.toString(),
       total: total.toString()
     };
 
@@ -582,6 +659,7 @@ function EditPurchaseOrderToSupplier({ onBack, editRefno }) {
                     <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Quantity</th>
                     <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '10%', color: '#754C27', fontWeight: '800' }}>Unit</th>
                     <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Unit Price</th>
+                    <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Tax</th>
                     <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Total</th>
                     <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '1%', color: '#754C27', fontWeight: '800' }}></th>
                   </tr>
@@ -634,10 +712,25 @@ function EditPurchaseOrderToSupplier({ onBack, editRefno }) {
                           </select>
                         </td>
                         <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
-                          {currentUnitPrice.toFixed(2)}
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={unitPrices[productCode] ?? currentUnitPrice}
+                            onChange={(e) => handleUnitPriceChange(productCode, parseFloat(e.target.value))}
+                            style={{
+                              width: '80px',
+                              textAlign: 'center',
+                              fontWeight: '600',
+                              padding: '4px'
+                            }}
+                          />
                         </td>
                         <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
-                          {currentTotal}
+                          {product.tax1 === 'Y' ? 'Yes' : product.tax1 === 'N' ? 'No' : product.tax1}
+                        </td>
+                        <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                          ${totals[productCode].toFixed(2)}
                         </td>
                         <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
                           <IconButton
@@ -656,15 +749,15 @@ function EditPurchaseOrderToSupplier({ onBack, editRefno }) {
 
             <Box sx={{ width: '100%', height: 'auto', bgcolor: '#EAB86C', borderRadius: '10px', p: '18px' }}>
               <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-                <Typography sx={{ color: '#FFFFFF' }}>Subtotal</Typography>
+                <Typography sx={{ color: '#FFFFFF' }}>Taxable</Typography>
                 <Typography sx={{ color: '#FFFFFF', ml: 'auto' }}>
-                  ${subtotal.toFixed(2)}
+                  ${taxableAmount.toFixed(2)}
                 </Typography>
               </Box>
               <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', mt: '8px' }}>
-                <Typography sx={{ color: '#FFFFFF' }}>Tax(12%)</Typography>
+                <Typography sx={{ color: '#FFFFFF' }}>Non-taxable</Typography>
                 <Typography sx={{ color: '#FFFFFF', ml: 'auto' }}>
-                  ${tax.toFixed(2)}
+                  ${nonTaxableAmount.toFixed(2)}
                 </Typography>
               </Box>
               <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', mt: '8px' }}>

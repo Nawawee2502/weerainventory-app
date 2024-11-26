@@ -12,6 +12,7 @@ import { supplierAll } from '../../../api/supplierApi';
 import { branchAll } from '../../../api/branchApi';
 import { exportToPdfWhPos } from './ExportPdfPurchaseordertosupplier';
 import PrintLayout from './PrintPreviewWhPos';
+import Swal from 'sweetalert2';
 
 export default function ReportPurchaseordertosupplier() {
     const today = new Date();
@@ -192,13 +193,22 @@ export default function ReportPurchaseordertosupplier() {
     };
 
     const handlePrint = () => {
+        if (whposData.length === 0) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'No Data',
+                text: 'There is no data to print',
+                confirmButtonColor: '#754C27'
+            });
+            return;
+        }
+
         const printWindow = window.open('', '_blank');
         const printDoc = printWindow.document;
 
         printDoc.write(`
           <html>
             <head>
-              <title>Purchase Order to Supplier</title>
               <style>
                 @media print {
                   body { margin: 0; }
@@ -209,10 +219,44 @@ export default function ReportPurchaseordertosupplier() {
                 tr { page-break-inside: avoid; page-break-after: auto; }
                 thead { display: table-header-group; }
                 tfoot { display: table-footer-group; }
+                @media print {
+                  @page { margin: 0; }
+                  body { margin: 0; }
+                  
+                  /* สไตล์สำหรับเลขหน้า */
+                  .page-number {
+                    position: fixed;
+                    bottom: 10px;
+                    right: 10px;
+                    font-size: 12px;
+                  }
+                }
+                body {
+                  -webkit-print-color-adjust: exact !important;
+                  print-color-adjust: exact !important;
+                }
+                
+                /* สไตล์สำหรับ wrapper ที่จะมีเลขหน้า */
+                .page-container {
+                  position: relative;
+                  min-height: 100vh;
+                }
               </style>
+              <script>
+                window.onload = function() {
+                  // เพิ่มเลขหน้าให้กับทุกหน้า
+                  let pages = document.querySelectorAll('.page-number');
+                  pages.forEach((page, index) => {
+                    page.textContent = (index + 1).toString();
+                  });
+                }
+              </script>
             </head>
             <body>
-              <div id="print-content"></div>
+              <div class="page-container">
+                <div id="print-content"></div>
+                <div class="page-number">1</div>
+              </div>
             </body>
           </html>
         `);
@@ -230,7 +274,33 @@ export default function ReportPurchaseordertosupplier() {
         printWindow.setTimeout(() => {
             printWindow.print();
             printWindow.close();
-        }, 1000); // เพิ่มเวลารอเป็น 1 วินาที
+        }, 1000);
+    };
+
+    const handleExportExcel = () => {
+        if (whposData.length === 0) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'No Data',
+                text: 'There is no data to export to Excel',
+                confirmButtonColor: '#754C27'
+            });
+            return;
+        }
+        exportToExcelWhPos(whposData, excludePrice, startDate, endDate);
+    };
+
+    const handleExportPdf = () => {
+        if (whposData.length === 0) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'No Data',
+                text: 'There is no data to export to PDF',
+                confirmButtonColor: '#754C27'
+            });
+            return;
+        }
+        exportToPdfWhPos(whposData, excludePrice, startDate, endDate);
     };
 
     return (
@@ -543,7 +613,7 @@ export default function ReportPurchaseordertosupplier() {
                                     Print
                                 </Button>
                                 <Button
-                                    onClick={() => exportToExcelWhPos(whposData, excludePrice, startDate, endDate)}
+                                    onClick={handleExportExcel}
                                     variant="outlined"
                                     sx={{
                                         color: '#754C27',
@@ -557,7 +627,7 @@ export default function ReportPurchaseordertosupplier() {
                                     Excel
                                 </Button>
                                 <Button
-                                    onClick={() => exportToPdfWhPos(whposData, excludePrice, startDate, endDate)}
+                                    onClick={handleExportPdf}
                                     variant="outlined"
                                     sx={{
                                         color: '#754C27',

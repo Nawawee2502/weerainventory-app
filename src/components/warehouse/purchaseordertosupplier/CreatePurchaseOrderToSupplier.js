@@ -52,6 +52,7 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
   const TAX_RATE = 0.07;
   const [lastMonth, setLastMonth] = useState('');
   const [lastYear, setLastYear] = useState('');
+  const [unitPrices, setUnitPrices] = useState({});
 
   // const userData = useSelector((state) => state.authentication.userData);
   // console.log("userData", userData)
@@ -74,6 +75,11 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
   //   return true;
   // };
 
+  useEffect(() => {
+    // คำนวณ total ใหม่เมื่อค่า totals เปลี่ยนแปลง
+    const newTotal = Object.values(totals).reduce((sum, value) => sum + value, 0);
+    setTotal(newTotal);
+  }, [totals]);
 
   const handleSearchChange = (e) => {
     const value = e.target.value;
@@ -119,7 +125,6 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
       .unwrap()
       .then((res) => {
         if (res.data && res.data.length > 0) {
-          // หาสินค้าที่ตรงกับที่เลือกจาก dropdown
           const selectedProduct = res.data.find(
             p => p.product_code === product.product_code
           ) || res.data[0];
@@ -129,19 +134,28 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
 
           const initialQuantity = 1;
           const unitCode = selectedProduct.productUnit1.unit_code;
-          const total = calculateTotal(initialQuantity, unitCode, selectedProduct);
+          // Set initial unit price based on unit
+          const initialUnitPrice = selectedProduct.productUnit1.unit_code === unitCode
+            ? selectedProduct.bulk_unit_price
+            : selectedProduct.retail_unit_price;
 
           setProducts(whProduct);
-          setQuantities((prevQuantities) => ({
-            ...prevQuantities,
+          setQuantities(prev => ({
+            ...prev,
             [selectedProduct.product_code]: initialQuantity,
           }));
-          setUnits((prevUnits) => ({
-            ...prevUnits,
+          setUnits(prev => ({
+            ...prev,
             [selectedProduct.product_code]: unitCode,
           }));
-          setTotals((prevTotals) => ({
-            ...prevTotals,
+          setUnitPrices(prev => ({
+            ...prev,
+            [selectedProduct.product_code]: initialUnitPrice,
+          }));
+
+          const total = calculateTotal(initialQuantity, unitCode, selectedProduct, initialUnitPrice);
+          setTotals(prev => ({
+            ...prev,
             [selectedProduct.product_code]: total,
           }));
 
@@ -249,62 +263,98 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
 
 
   const handleUnitChange = (productCode, newUnitCode) => {
-    setUnits((prevUnits) => ({
-      ...prevUnits,
+    setUnits(prev => ({
+      ...prev,
       [productCode]: newUnitCode,
     }));
 
-    const quantity = quantities[productCode] || 1;
-    updateTotal(productCode, quantity, newUnitCode);
+    const product = products.find(p => p.product_code === productCode);
+    const defaultUnitPrice = newUnitCode === product.productUnit1.unit_code
+      ? product.bulk_unit_price
+      : product.retail_unit_price;
 
-    // Calculate totals after unit change
+    setUnitPrices(prev => ({
+      ...prev,
+      [productCode]: defaultUnitPrice
+    }));
+
+    const quantity = quantities[productCode] || 1;
+    const total = calculateTotal(quantity, newUnitCode, product, defaultUnitPrice);
+
+    setTotals(prev => ({
+      ...prev,
+      [productCode]: total
+    }));
+
     setTimeout(calculateOrderTotals, 0);
   };
 
-  const updateTotal = (productCode, quantity, unitCode) => {
-    const product = products.find((p) => p.product_code === productCode);
-    const unitPrice = unitCode === product.productUnit1.unit_code
-      ? product.bulk_unit_price
-      : product.retail_unit_price;
-    const newTotal = quantity * unitPrice;
-
-    setTotals((prevTotals) => ({
-      ...prevTotals,
-      [productCode]: newTotal,
-    }));
-  };
-  const calculateTotal = (quantity, unitCode, product) => {
-    const unitPrice = unitCode === product.productUnit1.unit_code
-      ? product.bulk_unit_price
-      : product.retail_unit_price;
+  const calculateTotal = (quantity, unitCode, product, customUnitPrice) => {
+    const unitPrice = customUnitPrice ?? unitPrices[product.product_code] ??
+      (unitCode === product.productUnit1.unit_code
+        ? product.bulk_unit_price
+        : product.retail_unit_price);
     return quantity * unitPrice;
   };
+
+  const handleUnitPriceChange = (productCode, newPrice) => {
+    if (newPrice >= 0) {
+      setUnitPrices(prev => ({
+        ...prev,
+        [productCode]: parseFloat(newPrice)
+      }));
+  
+      const quantity = quantities[productCode] || 1;
+      const unitCode = units[productCode];
+      const product = products.find(p => p.product_code === productCode);
+  
+      const total = calculateTotal(quantity, unitCode, product, newPrice);
+      setTotals(prev => ({
+        ...prev,
+        [productCode]: total
+      }));
+  
+      // คำนวณ total ใหม่ทันทีเมื่อ unit price เปลี่ยนแปลง
+      const newTotal = Object.values({
+        ...totals,
+        [productCode]: total
+      }).reduce((sum, value) => sum + value, 0);
+      setTotal(newTotal);
+  
+      // เรียกใช้ฟังก์ชัน calculateOrderTotals เพื่อคำนวณ taxableAmount และ nonTaxableAmount
+      calculateOrderTotals();
+    }
+  };
+
+
 
   const calculateOrderTotals = () => {
     let taxable = 0;
     let nonTaxable = 0;
-
+  
     products.forEach(product => {
       const productCode = product.product_code;
       const quantity = quantities[productCode] || 1;
       const unitCode = units[productCode] || product.productUnit1.unit_code;
-      const unitPrice = unitCode === product.productUnit1.unit_code
-        ? product.bulk_unit_price
-        : product.retail_unit_price;
+      const unitPrice = unitPrices[productCode] ??
+        (unitCode === product.productUnit1.unit_code
+          ? product.bulk_unit_price
+          : product.retail_unit_price);
       const amount = quantity * unitPrice;
-
+  
       if (product.tax1 === 'Y') {
-        // For taxable items, add tax to the amount
         taxable += amount * (1 + TAX_RATE);
       } else {
-        // For non-taxable items, just add the amount
         nonTaxable += amount;
       }
     });
-
+  
     setTaxableAmount(taxable);
     setNonTaxableAmount(nonTaxable);
-    setTotal(taxable + nonTaxable);
+  
+    // คำนวณ total โดยใช้ค่า taxable และ nonTaxable
+    const newTotal = taxable + nonTaxable;
+    setTotal(newTotal);
   };
 
   useEffect(() => {
@@ -318,6 +368,7 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
     const currentYear = currentDate.getFullYear().toString().slice(-2);
     setLastMonth(currentMonth);
     setLastYear(currentYear);
+    handleGetLastRefNo(currentDate);
 
     dispatch(wh_posAlljoindt({ offset, limit }))
       .unwrap()
@@ -333,18 +384,6 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
 
       })
       .catch((err) => err.message);
-
-    dispatch(refno({ test }))
-      .unwrap()
-      .then((res) => {
-        setLastRefNo(res.data);
-        console.log("last refno", res.data)
-        if (startDate) {
-          handleGetLastRefNo(startDate);
-        }
-      })
-      .catch((err) => err.message);
-
 
     dispatch(branchAll({ offset, limit }))
       .unwrap()
@@ -365,49 +404,48 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
 
   }, [dispatch]);
 
-  const handleGetLastRefNo = (selectedDate) => {
-    const year = selectedDate.getFullYear().toString().slice(-2); // Last 2 digits of year
-    const month = (selectedDate.getMonth() + 1).toString().padStart(2, '0'); // Month in MM format
-    const baseRefNo = `WPOS${year}${month}`; // Base refno with the selected year and month
+  const handleGetLastRefNo = async (selectedDate) => {
+    try {
+      // ดึงเลข refno ล่าสุด
+      const res = await dispatch(refno({ test: 10 })).unwrap();
 
-    dispatch(refno({ test: 10 }))
-      .unwrap()
-      .then((res) => {
-        let lastRefNo = res.data;
+      // ดึงเดือนและปีที่เลือก
+      const year = selectedDate.getFullYear().toString().slice(-2);
+      const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
 
-        if (lastRefNo && typeof lastRefNo === 'object') {
-          lastRefNo = lastRefNo.refno || '';
-        }
-
-        let newRefNo;
-
-        // ดึงปีและเดือนจาก lastRefNo
-        const lastRefYear = lastRefNo ? lastRefNo.substring(4, 6) : '';
-        const lastRefMonth = lastRefNo ? lastRefNo.substring(6, 8) : '';
-
-        // ตรวจสอบว่าเป็นเดือนหรือปีใหม่หรือไม่
-        if (lastRefYear !== year || lastRefMonth !== month) {
-          // ถ้าเป็นเดือนใหม่หรือปีใหม่ ให้เริ่มจาก 001
-          newRefNo = `${baseRefNo}001`;
-        } else {
-          // ถ้าเป็นเดือนและปีเดียวกัน ให้เพิ่มเลขต่อ
-          const lastNumber = parseInt(lastRefNo.slice(-3));
-          const increment = lastNumber + 1;
-          newRefNo = `${baseRefNo}${increment.toString().padStart(3, '0')}`;
-        }
-
+      // ถ้าไม่มี refno เลย หรือได้ค่าว่าง
+      if (!res.data || !res.data.refno) {
+        const newRefNo = `WPOS${year}${month}001`;
         setLastRefNo(newRefNo);
-        console.log("Generated refno:", newRefNo);
+        return;
+      }
 
-        // อัพเดทค่าเดือนและปีล่าสุด
-        setLastMonth(month);
-        setLastYear(year);
-      })
-      .catch((err) => console.log(err.message));
+      const lastRefNo = res.data.refno;
+      const lastRefMonth = lastRefNo.substring(6, 8);
+      const lastRefYear = lastRefNo.substring(4, 6);
+
+      // ถ้าเป็นเดือนใหม่หรือปีใหม่
+      if (lastRefMonth !== month || lastRefYear !== year) {
+        const newRefNo = `WPOS${year}${month}001`;
+        setLastRefNo(newRefNo);
+        return;
+      }
+
+      // ถ้าเป็นเดือนเดียวกัน เพิ่มเลขต่อ
+      const lastNumber = parseInt(lastRefNo.slice(-3));
+      const newNumber = lastNumber + 1;
+      const newRefNo = `WPOS${year}${month}${String(newNumber).padStart(3, '0')}`;
+      setLastRefNo(newRefNo);
+
+      setLastMonth(month);
+      setLastYear(year);
+
+    } catch (err) {
+      console.error("Error generating refno:", err);
+    }
   };
 
-  const resetForm = () => {
-    // รีเซ็ตข้อมูลทั้งหมด
+  const resetForm = async () => {
     setProducts([]);
     setQuantities({});
     setUnits({});
@@ -418,21 +456,12 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
     setSaveSupplier('');
     setSaveBranch('');
 
-    // ดึง refno ใหม่
-    const test = 10;
-    dispatch(refno({ test }))
-      .unwrap()
-      .then((res) => {
-        setLastRefNo(res.data);
-        if (startDate) {
-          handleGetLastRefNo(startDate);
-        }
-      })
-      .catch((err) => console.log(err.message));
+    // เรียก handleGetLastRefNo โดยตรง
+    await handleGetLastRefNo(startDate);
   };
 
-  const handleSaveWhposdt = () => {
-    // ตรวจสอบว่ามีการเลือก supplier และ branch หรือไม่
+  const handleSaveWhposdt = async () => {
+    // Validation checks
     if (!saveSupplier || !saveBranch) {
       Swal.fire({
         icon: 'warning',
@@ -443,7 +472,6 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
       return;
     }
 
-    // ตรวจสอบว่ามีสินค้าในรายการหรือไม่
     if (products.length === 0) {
       Swal.fire({
         icon: 'warning',
@@ -454,92 +482,118 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
       return;
     }
 
-    const day = String(startDate.getDate()).padStart(2, '0');
-    const month = String(startDate.getMonth() + 1).padStart(2, '0');
-    const year = startDate.getFullYear();
+    try {
+      // Show loading
+      Swal.fire({
+        title: 'Saving order...',
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
 
-    const headerData = {
-      refno: lastRefNo,
-      rdate: day + '/' + month + '/' + year,
-      supplier_code: saveSupplier,
-      branch_code: saveBranch,
-      taxable: taxableAmount,
-      nontaxable: nonTaxableAmount,
-      trdate: year + month + day,
-      monthh: month,
-      myear: year,
-      user_code: userData2.user_code
-    }
+      // Get latest refno again right before saving to ensure it's current
+      const refnoResponse = await dispatch(refno({ test: 10 })).unwrap();
+      const currentDate = startDate;
+      const year = currentDate.getFullYear().toString().slice(-2);
+      const month = String(currentDate.getMonth() + 1).padStart(2, '0');
 
-    // Create array of products with updated values
-    const tmpProduct = products.map(product => {
-      const productCode = product.product_code;
-      const quantity = quantities[productCode] || 1;
-      const unitCode = units[productCode] || product.productUnit1.unit_code;
-      const unitPrice = unitCode === product.productUnit1.unit_code
-        ? product.bulk_unit_price
-        : product.retail_unit_price;
-      const amount = quantity * unitPrice;
+      let newRefNo;
+      if (!refnoResponse.data || !refnoResponse.data.refno) {
+        newRefNo = `WPOS${year}${month}001`;
+      } else {
+        const lastRefNo = refnoResponse.data.refno;
+        const lastRefMonth = lastRefNo.substring(6, 8);
+        const lastRefYear = lastRefNo.substring(4, 6);
 
-      // Calculate final amount based on tax status
-      const finalAmount = product.tax1 === 'Y'
-        ? amount * (1 + TAX_RATE)
-        : amount;
+        if (lastRefMonth !== month || lastRefYear !== year) {
+          newRefNo = `WPOS${year}${month}001`;
+        } else {
+          const lastNumber = parseInt(lastRefNo.slice(-3));
+          const newNumber = lastNumber + 1;
+          newRefNo = `WPOS${year}${month}${String(newNumber).padStart(3, '0')}`;
+        }
+      }
 
-      return {
-        refno: headerData.refno,
-        product_code: productCode,
-        qty: quantity.toString(),
-        unit_code: unitCode,
-        uprice: unitPrice.toString(),
-        tax1: product.tax1,
-        amt: finalAmount.toString()
-      };
-    });
+      const day = String(currentDate.getDate()).padStart(2, '0');
 
-    const orderData = {
-      headerData: headerData,
-      productArrayData: tmpProduct,
-      footerData: {
+      const headerData = {
+        refno: newRefNo, // Use the newly generated refno
+        rdate: `${day}/${month}/${currentDate.getFullYear()}`,
+        supplier_code: saveSupplier,
+        branch_code: saveBranch,
         taxable: taxableAmount,
         nontaxable: nonTaxableAmount,
-        total: total,
-      },
-    };
+        trdate: `${currentDate.getFullYear()}${month}${day}`,
+        monthh: month,
+        myear: currentDate.getFullYear(),
+        user_code: userData2.user_code
+      };
 
-    // แสดง loading ระหว่างบันทึกข้อมูล
-    Swal.fire({
-      title: 'Saving order...',
-      allowOutsideClick: false,
-      didOpen: () => {
-        Swal.showLoading();
-      }
-    });
+      // Create array of products with updated values
+      const tmpProduct = products.map(product => {
+        const productCode = product.product_code;
+        const quantity = quantities[productCode] || 1;
+        const unitCode = units[productCode] || product.productUnit1.unit_code;
+        const unitPrice = unitPrices[productCode] ??
+          (unitCode === product.productUnit1.unit_code
+            ? product.bulk_unit_price
+            : product.retail_unit_price);
+        const amount = quantity * unitPrice;
+        const finalAmount = product.tax1 === 'Y'
+          ? amount * (1 + TAX_RATE)
+          : amount;
 
-    dispatch(addWh_pos(orderData))
-      .unwrap()
-      .then((res) => {
-        // ปิด loading และแสดงข้อความสำเร็จ
-        Swal.fire({
-          icon: 'success',
-          title: 'Create order successfully',
-          text: `Reference No: ${lastRefNo}`,
-          showConfirmButton: false,
-          timer: 1500
-        }).then(() => {
-          // รีเซ็ตฟอร์มหลังจากบันทึกสำเร็จ
-          resetForm();
-        });
-      })
-      .catch((err) => {
-        // กรณีเกิดข้อผิดพลาด
-        Swal.fire({
-          icon: 'error',
-          title: 'Error saving order',
-          text: err.message,
-          confirmButtonText: 'OK'
-        });
+        return {
+          refno: headerData.refno,
+          product_code: productCode,
+          qty: quantity.toString(),
+          unit_code: unitCode,
+          uprice: unitPrice.toString(),
+          tax1: product.tax1,
+          amt: finalAmount.toString()
+        };
       });
+
+      const orderData = {
+        headerData: headerData,
+        productArrayData: tmpProduct,
+        footerData: {
+          taxable: taxableAmount,
+          nontaxable: nonTaxableAmount,
+          total: total,
+        },
+      };
+
+      // Save the order
+      const result = await dispatch(addWh_pos(orderData)).unwrap();
+
+      // Show success message
+      await Swal.fire({
+        icon: 'success',
+        title: 'Create order successfully',
+        text: `Reference No: ${newRefNo}`,
+        showConfirmButton: false,
+        timer: 1500
+      });
+
+      // Reset form
+      resetForm();
+
+    } catch (error) {
+      // Handle specific error cases
+      let errorMessage = 'Error saving order';
+      if (error.name === 'SequelizeUniqueConstraintError') {
+        errorMessage = 'A duplicate order number was generated. Please try again.';
+      }
+
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: errorMessage,
+        confirmButtonText: 'OK'
+      });
+    }
   };
 
 
@@ -806,9 +860,12 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
                     const productCode = product.product_code;
                     const currentUnit = units[productCode] || product.productUnit1.unit_code;
                     const currentQuantity = quantities[productCode] || 1;
-                    const currentUnitPrice = currentUnit === product.productUnit1.unit_code
-                      ? product.bulk_unit_price
-                      : product.retail_unit_price;
+                    // ใช้ unitPrices ที่แก้ไขแล้ว
+                    const currentUnitPrice = unitPrices[productCode] ??
+                      (currentUnit === product.productUnit1.unit_code
+                        ? product.bulk_unit_price
+                        : product.retail_unit_price);
+                    // คำนวณ total ใหม่จาก unitPrice ที่แก้ไข
                     const currentTotal = (currentQuantity * currentUnitPrice).toFixed(2);
 
                     return (
@@ -844,7 +901,19 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
                           </select>
                         </td>
                         <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
-                          {currentUnitPrice.toFixed(2)}
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={unitPrices[productCode] ?? currentUnitPrice}
+                            onChange={(e) => handleUnitPriceChange(productCode, parseFloat(e.target.value))}
+                            style={{
+                              width: '80px',
+                              textAlign: 'center',
+                              fontWeight: '600',
+                              padding: '4px'
+                            }}
+                          />
                         </td>
                         <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
                           {product.tax1 === 'Y' ? 'Yes' : product.tax1 === 'N' ? 'No' : product.tax1}

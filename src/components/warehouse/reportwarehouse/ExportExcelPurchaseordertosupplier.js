@@ -1,6 +1,22 @@
 import * as ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 
+const groupDataByRefno = (data) => {
+    let lastRefno = null;
+    return data.map(item => {
+        const isFirstInGroup = item.refno !== lastRefno;
+        lastRefno = item.refno;
+        return {
+            ...item,
+            date: isFirstInGroup ? item.date : '',
+            refno: isFirstInGroup ? item.refno : '',
+            supplier_code: isFirstInGroup ? item.supplier_code : '',
+            branch_code: isFirstInGroup ? item.branch_code : '',
+            total: isFirstInGroup ? item.total : ''
+        };
+    });
+};
+
 export const exportToExcelWhPos = async (data, excludePrice = false, startDate, endDate) => {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Purchase Orders', {
@@ -9,7 +25,7 @@ export const exportToExcelWhPos = async (data, excludePrice = false, startDate, 
         }],
         pageSetup: {
             paperSize: 9,
-            orientation: 'portrait',
+            orientation: 'landscape',
             fitToPage: true,
             fitToWidth: 1,
             fitToHeight: 0,
@@ -24,8 +40,7 @@ export const exportToExcelWhPos = async (data, excludePrice = false, startDate, 
         }
     });
 
-    // Set fixed start column
-    const startColumn = 4; // เริ่มที่คอลัมน์ D
+    const groupedData = groupDataByRefno(data);
 
     // Set headers
     const headers = [
@@ -41,18 +56,6 @@ export const exportToExcelWhPos = async (data, excludePrice = false, startDate, 
 
     if (!excludePrice) {
         headers.push('Unit Price', 'Total');
-    }
-
-    // Calculate end column
-    const endColumn = startColumn + headers.length - 1;
-
-    // Convert to Excel column letters
-    const startCol = String.fromCharCode(64 + startColumn); // D
-    const endCol = String.fromCharCode(64 + endColumn);
-
-    // Add padding columns with specific width
-    for (let i = 1; i < startColumn; i++) {
-        worksheet.getColumn(i).width = 4;
     }
 
     // Define column widths
@@ -76,26 +79,39 @@ export const exportToExcelWhPos = async (data, excludePrice = false, startDate, 
 
     // Add headers with proper centering
     const headerRows = [
-        { text: 'Weera Group Inventory', font: { bold: true, size: 14 } },
-        { text: `Print Date: ${new Date().toLocaleDateString()} Time: ${new Date().toLocaleTimeString()}`, font: { size: 11 } },
-        { text: `Date From: ${formatDate(startDate)} Date To: ${formatDate(endDate)}`, font: { size: 11 } },
-        { text: 'Purchase Order to Supplier', font: { bold: true, size: 12 } }
+        {
+            text: 'Weera Group Inventory',
+            font: { bold: true, size: 14 }
+        },
+        {
+            text: `Print Date: ${new Date().toLocaleDateString()} Time: ${new Date().toLocaleTimeString()}`,
+            font: { size: 11 }
+        },
+        {
+            text: `Date From: ${formatDate(startDate)} Date To: ${formatDate(endDate)}`,
+            font: { size: 11 }
+        },
+        {
+            text: 'Purchase Order to Supplier',
+            font: { bold: true, size: 12 }
+        }
     ];
 
     // Add header rows
     headerRows.forEach((header, idx) => {
-        const row = worksheet.addRow([]);
-        row.getCell(startColumn).value = header.text;
-        worksheet.mergeCells(`${startCol}${idx + 1}:${endCol}${idx + 1}`);
-        row.getCell(startColumn).font = header.font;
-        row.getCell(startColumn).alignment = { horizontal: 'center', vertical: 'middle' };
+        const row = worksheet.addRow(['']);
+        row.getCell(1).value = header.text;
+        worksheet.mergeCells(`A${idx + 1}:${String.fromCharCode(64 + headers.length)}${idx + 1}`);
+        row.getCell(1).font = header.font;
+        row.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
     });
 
+    // Add empty row
+    worksheet.addRow([]);
+
     // Add column headers
-    const headerRow = worksheet.addRow([]);
-    headers.forEach((header, index) => {
-        const cell = headerRow.getCell(startColumn + index);
-        cell.value = header;
+    const headerRow = worksheet.addRow(headers);
+    headerRow.eachCell((cell) => {
         cell.font = { bold: true };
         cell.border = {
             top: { style: 'thin' },
@@ -106,8 +122,8 @@ export const exportToExcelWhPos = async (data, excludePrice = false, startDate, 
         cell.alignment = { horizontal: 'center', vertical: 'middle' };
     });
 
-    // ในส่วนของการ Add data
-    data.forEach((item, index) => {
+    // Add data rows
+    groupedData.forEach((item, index) => {
         const rowData = [
             index + 1,
             item.date,
@@ -121,22 +137,21 @@ export const exportToExcelWhPos = async (data, excludePrice = false, startDate, 
 
         if (!excludePrice) {
             rowData.push(
-                Number(item.unit_price).toFixed(2),
-                Number(item.total).toFixed(2)
+                item.unit_price ? Number(item.unit_price).toFixed(2) : '',
+                item.total ? Number(item.total).toFixed(2) : ''
             );
         }
 
-        const row = worksheet.addRow([]);
-        rowData.forEach((value, colIndex) => {
-            const cell = row.getCell(startColumn + colIndex);
-            cell.value = value;
-
-            // กำหนด format สำหรับคอลัมน์ที่เป็นตัวเลข
-            const header = headers[colIndex];
-            if (['Unit Price', 'Total'].includes(header)) {
+        const row = worksheet.addRow(rowData);
+        row.eachCell((cell, colNumber) => {
+            const header = headers[colNumber - 1];
+            
+            // Format numbers
+            if (['Unit Price', 'Total'].includes(header) && cell.value) {
                 cell.numFmt = '#,##0.00';
             }
 
+            // Add borders
             cell.border = {
                 top: { style: 'thin' },
                 left: { style: 'thin' },
@@ -144,7 +159,7 @@ export const exportToExcelWhPos = async (data, excludePrice = false, startDate, 
                 right: { style: 'thin' }
             };
 
-            // แก้ไขการจัดตำแหน่งตามประเภทของข้อมูล
+            // Set alignment
             cell.alignment = {
                 vertical: 'middle',
                 horizontal: (() => {
@@ -165,27 +180,40 @@ export const exportToExcelWhPos = async (data, excludePrice = false, startDate, 
         });
     });
 
-    const totalSum = data.reduce((sum, item) => sum + Number(item.total), 0);
+    // Calculate total
+    const uniqueTotals = new Set();
+    data.forEach(item => {
+        if (item.total) {
+            uniqueTotals.add(item.refno + '-' + item.total);
+        }
+    });
 
-    const summaryRow = worksheet.addRow([]);
-    headers.forEach((header, index) => {
-        const cell = summaryRow.getCell(startColumn + index);
+    const totalSum = Array.from(uniqueTotals)
+        .map(item => Number(item.split('-')[1]))
+        .reduce((sum, total) => sum + total, 0);
+
+    // Add total row
+    const summaryRowData = headers.map(header => {
+        if (header === 'Total') return totalSum.toFixed(2);
+        return '';
+    });
+
+    const summaryRow = worksheet.addRow(summaryRowData);
+    summaryRow.eachCell((cell, colNumber) => {
+        const header = headers[colNumber - 1];
+        
         if (header === 'Total') {
-            cell.value = Number(totalSum).toFixed(2);
             cell.font = { bold: true };
             cell.numFmt = '#,##0.00';
-        } else if (header === 'Product Name') {
-            cell.value = 'Total';
-            cell.font = { bold: true };
-        } else {
-            cell.value = '';
         }
+
         cell.border = {
             top: { style: 'thin' },
             left: { style: 'thin' },
             bottom: { style: 'thin' },
             right: { style: 'thin' }
         };
+
         cell.alignment = {
             vertical: 'middle',
             horizontal: header === 'Total' ? 'right' : 'left'
@@ -194,16 +222,9 @@ export const exportToExcelWhPos = async (data, excludePrice = false, startDate, 
 
     // Set column widths
     headers.forEach((header, index) => {
-        const column = worksheet.getColumn(startColumn + index);
+        const column = worksheet.getColumn(index + 1);
         column.width = columnWidths[header];
     });
-
-    // Add empty column at the end for right padding
-    const endPaddingColumn = worksheet.getColumn(endColumn + 1);
-    endPaddingColumn.width = 4;
-
-    // Set print area
-    worksheet.pageSetup.printArea = `${startCol}1:${endCol}${data.length + 5}`;
 
     // Set row heights
     worksheet.eachRow((row) => {

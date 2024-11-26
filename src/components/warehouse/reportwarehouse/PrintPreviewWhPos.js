@@ -1,5 +1,21 @@
 import React from 'react';
 
+const groupDataByRefno = (data) => {
+    let lastRefno = null;
+    return data.map(item => {
+        const isFirstInGroup = item.refno !== lastRefno;
+        lastRefno = item.refno;
+        return {
+            ...item,
+            date: isFirstInGroup ? item.date : '',
+            refno: isFirstInGroup ? item.refno : '',
+            supplier_code: isFirstInGroup ? item.supplier_code : '',
+            branch_code: isFirstInGroup ? item.branch_code : '',
+            total: isFirstInGroup ? item.total : ''
+        };
+    });
+};
+
 const PrintLayout = ({ data, excludePrice = false, startDate, endDate }) => {
   const formatDate = (date) => {
     if (!date) return "____________";
@@ -12,24 +28,31 @@ const PrintLayout = ({ data, excludePrice = false, startDate, endDate }) => {
     },
     header: {
       position: 'relative',
-      textAlign: 'center',
-      marginBottom: '1rem',
+      marginBottom: '20px',
     },
-    title: {
-      fontSize: '1.5rem',
+    headerText: {
+      textAlign: 'center',
+      fontSize: '18px',
+      marginBottom: '5px',
       fontWeight: 'bold',
-      marginBottom: '0.5rem',
+    },
+    titleText: {
+      textAlign: 'center',
+      fontSize: '18px',
+      fontWeight: 'bold',
+      marginTop: '10px',
+    },
+    subHeaderText: {
+      textAlign: 'center',
+      fontSize: '11px',
+      marginTop: '10px'
     },
     dateInfo: {
       position: 'absolute',
       right: 0,
       top: 0,
-      fontSize: '0.7rem',
+      fontSize: '11px',
       textAlign: 'right',
-    },
-    subtitle: {
-      fontSize: '0.875rem',
-      marginBottom: '0.25rem',
     },
     table: {
       width: '100%',
@@ -59,15 +82,30 @@ const PrintLayout = ({ data, excludePrice = false, startDate, endDate }) => {
     }
   };
 
+  // Group data
+  const groupedData = groupDataByRefno(data);
+
+  // Calculate total
+  const uniqueTotals = new Set();
+  data.forEach(item => {
+      if (item.total) {
+          uniqueTotals.add(item.refno + '-' + item.total);
+      }
+  });
+
+  const totalSum = Array.from(uniqueTotals)
+      .map(item => Number(item.split('-')[1]))
+      .reduce((sum, total) => sum + total, 0);
+
   return (
     <div style={styles.container}>
       <div style={styles.header}>
-        <h1 style={styles.title}>Weera Group Inventory</h1>
+        <div style={styles.headerText}>Weera Group Inventory</div>
         <div style={styles.dateInfo}>
-          <p>Print Date: {new Date().toLocaleDateString()} Time: {new Date().toLocaleTimeString()}</p>
-          <p>Date From: {formatDate(startDate)} Date To: {formatDate(endDate)}</p>
+          <div>Print Date: {new Date().toLocaleDateString()} Time: {new Date().toLocaleTimeString()}</div>
         </div>
-        <h2 style={styles.title}>Purchase Order to Supplier</h2>
+        <div style={styles.titleText}>Purchase Order to Supplier</div>
+        <div style={styles.subHeaderText}>Date From: {formatDate(startDate)} Date To: {formatDate(endDate)}</div>
       </div>
 
       <table style={styles.table}>
@@ -90,7 +128,7 @@ const PrintLayout = ({ data, excludePrice = false, startDate, endDate }) => {
           </tr>
         </thead>
         <tbody>
-          {data.map((row, index) => (
+          {groupedData.map((row, index) => (
             <tr key={index}>
               <td style={{ ...styles.td, ...styles.centerText }}>{index + 1}</td>
               <td style={{ ...styles.td, ...styles.centerText }}>{row.date}</td>
@@ -103,10 +141,10 @@ const PrintLayout = ({ data, excludePrice = false, startDate, endDate }) => {
               {!excludePrice && (
                 <>
                   <td style={{ ...styles.td, ...styles.rightText }}>
-                    {Number(row.unit_price).toFixed(2)}
+                    {row.unit_price ? Number(row.unit_price).toFixed(2) : ''}
                   </td>
                   <td style={{ ...styles.td, ...styles.rightText }}>
-                    {Number(row.total).toFixed(2)}
+                    {row.total ? Number(row.total).toFixed(2) : ''}
                   </td>
                 </>
               )}
@@ -120,14 +158,14 @@ const PrintLayout = ({ data, excludePrice = false, startDate, endDate }) => {
             <td style={{ ...styles.td, ...styles.leftText }}></td>
             <td style={{ ...styles.td, ...styles.leftText }}></td>
             <td style={{ ...styles.td, ...styles.leftText }}></td>
-            <td style={{ ...styles.td, ...styles.leftText, fontWeight: 'bold' }}></td>
+            <td style={{ ...styles.td, ...styles.leftText }}></td>
             <td style={{ ...styles.td, ...styles.rightText }}></td>
             <td style={{ ...styles.td, ...styles.centerText }}></td>
             {!excludePrice && (
               <>
                 <td style={{ ...styles.td, ...styles.rightText }}></td>
                 <td style={{ ...styles.td, ...styles.rightText, fontWeight: 'bold' }}>
-                  {Number(data.reduce((sum, row) => sum + Number(row.total), 0)).toFixed(2)}
+                  {totalSum.toFixed(2)}
                 </td>
               </>
             )}
