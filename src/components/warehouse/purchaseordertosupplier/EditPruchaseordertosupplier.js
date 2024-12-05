@@ -233,102 +233,187 @@ function EditPurchaseOrderToSupplier({ onBack, editRefno }) {
       .catch((err) => console.log(err.message));
   };
 
-  const handleUnitPriceChange = (productCode, newPrice) => {
-    if (newPrice >= 0) {
-      setUnitPrices(prev => ({
-        ...prev,
-        [productCode]: parseFloat(newPrice)
-      }));
+  const handleUnitPriceChange = (productCode, value) => {
+    if (value >= 0) {
+      const newPrice = parseFloat(value);
+      const newUnitPrices = {
+        ...unitPrices,
+        [productCode]: newPrice
+      };
 
-      const quantity = quantities[productCode] || 1;
-      const unitCode = units[productCode];
-      const product = products.find(p => p.product_code === productCode);
+      // คำนวณค่าทั้งหมดใหม่
+      let newTaxable = 0;
+      let newNonTaxable = 0;
+      const newTotals = { ...totals };
 
-      const total = calculateTotal(quantity, unitCode, product, newPrice);
-      setTotals(prev => ({
-        ...prev,
-        [productCode]: total
-      }));
+      products.forEach(product => {
+        const currentCode = product.product_code;
+        const quantity = quantities[currentCode] || 1;
+        const unitCode = units[currentCode] || product.productUnit1.unit_code;
+        const currentPrice = currentCode === productCode ?
+          newPrice :
+          (newUnitPrices[currentCode] ??
+            (unitCode === product.productUnit1.unit_code ?
+              product.bulk_unit_price :
+              product.retail_unit_price));
 
-      calculateOrderTotals();
-    } else {
-      const quantity = quantities[productCode] || 1;
-      const unitCode = units[productCode];
-      const product = products.find(p => p.product_code === productCode); // เพิ่มบรรทัดนี้
-      const defaultUnitPrice = unitCode === product.productUnit1.unit_code
-        ? product.bulk_unit_price
-        : product.retail_unit_price;
+        const amount = quantity * currentPrice;
+        newTotals[currentCode] = amount;
 
-      const total = calculateTotal(quantity, unitCode, product, defaultUnitPrice);
-      setTotals(prev => ({
-        ...prev,
-        [productCode]: total
-      }));
+        if (product.tax1 === 'Y') {
+          newTaxable += amount * (1 + TAX_RATE);
+        } else {
+          newNonTaxable += amount;
+        }
+      });
 
-      calculateOrderTotals();
+      // อัพเดททุก state พร้อมกัน
+      setUnitPrices(newUnitPrices);
+      setTotals(newTotals);
+      setTaxableAmount(newTaxable);
+      setNonTaxableAmount(newNonTaxable);
+      setTotal(newTaxable + newNonTaxable);
     }
   };
 
-
+  // แก้ไขฟังก์ชัน handleQuantityChange
   const handleQuantityChange = (productCode, newQuantity) => {
     if (newQuantity >= 1) {
-      setQuantities(prev => ({
-        ...prev,
+      const newQuantities = {
+        ...quantities,
         [productCode]: parseInt(newQuantity)
-      }));
+      };
 
-      const product = products.find(p => p.product_code === productCode);
-      const unitCode = units[productCode] || product.productUnit1.unit_code;
-      const total = calculateTotal(newQuantity, unitCode, product);
+      let newTaxable = 0;
+      let newNonTaxable = 0;
+      const newTotals = { ...totals };
 
-      setTotals(prev => ({
-        ...prev,
-        [productCode]: total
-      }));
+      products.forEach(product => {
+        const currentCode = product.product_code;
+        const currentQuantity = currentCode === productCode ?
+          newQuantity :
+          (newQuantities[currentCode] || 1);
+        const unitCode = units[currentCode] || product.productUnit1.unit_code;
+        const currentPrice = unitPrices[currentCode] ??
+          (unitCode === product.productUnit1.unit_code ?
+            product.bulk_unit_price :
+            product.retail_unit_price);
 
-      calculateOrderTotals(); // คำนวณรวมทั้งหมดทันที
+        const amount = currentQuantity * currentPrice;
+        newTotals[currentCode] = amount;
+
+        if (product.tax1 === 'Y') {
+          newTaxable += amount * (1 + TAX_RATE);
+        } else {
+          newNonTaxable += amount;
+        }
+      });
+
+      // อัพเดททุก state พร้อมกัน
+      setQuantities(newQuantities);
+      setTotals(newTotals);
+      setTaxableAmount(newTaxable);
+      setNonTaxableAmount(newNonTaxable);
+      setTotal(newTaxable + newNonTaxable);
     }
   };
 
+  // แก้ไขฟังก์ชัน handleUnitChange
   const handleUnitChange = (productCode, newUnitCode) => {
-    setUnits(prev => ({
-      ...prev,
-      [productCode]: newUnitCode,
-    }));
-
     const product = products.find(p => p.product_code === productCode);
     const defaultUnitPrice = newUnitCode === product.productUnit1.unit_code
       ? product.bulk_unit_price
       : product.retail_unit_price;
 
-    setUnitPrices(prev => ({
-      ...prev,
+    const newUnits = {
+      ...units,
+      [productCode]: newUnitCode
+    };
+
+    const newUnitPrices = {
+      ...unitPrices,
       [productCode]: defaultUnitPrice
-    }));
+    };
 
-    const quantity = quantities[productCode] || 1;
-    const total = calculateTotal(quantity, newUnitCode, product, defaultUnitPrice);
+    let newTaxable = 0;
+    let newNonTaxable = 0;
+    const newTotals = { ...totals };
 
-    setTotals(prev => ({
-      ...prev,
-      [productCode]: total
-    }));
+    products.forEach(prod => {
+      const currentCode = prod.product_code;
+      const quantity = quantities[currentCode] || 1;
+      const currentUnitCode = currentCode === productCode ?
+        newUnitCode :
+        (units[currentCode] || prod.productUnit1.unit_code);
+      const currentPrice = currentCode === productCode ?
+        defaultUnitPrice :
+        (unitPrices[currentCode] ??
+          (currentUnitCode === prod.productUnit1.unit_code ?
+            prod.bulk_unit_price :
+            prod.retail_unit_price));
 
-    calculateOrderTotals(); // คำนวณรวมทั้งหมดทันที  
+      const amount = quantity * currentPrice;
+      newTotals[currentCode] = amount;
+
+      if (prod.tax1 === 'Y') {
+        newTaxable += amount * (1 + TAX_RATE);
+      } else {
+        newNonTaxable += amount;
+      }
+    });
+
+    // อัพเดททุก state พร้อมกัน
+    setUnits(newUnits);
+    setUnitPrices(newUnitPrices);
+    setTotals(newTotals);
+    setTaxableAmount(newTaxable);
+    setNonTaxableAmount(newNonTaxable);
+    setTotal(newTaxable + newNonTaxable);
   };
 
   const handleDeleteProduct = (productCode) => {
-    setProducts(prev => prev.filter(p => p.product_code !== productCode));
+    const newProducts = products.filter(p => p.product_code !== productCode);
     const newQuantities = { ...quantities };
     const newUnits = { ...units };
     const newTotals = { ...totals };
+    const newUnitPrices = { ...unitPrices };
+
     delete newQuantities[productCode];
     delete newUnits[productCode];
     delete newTotals[productCode];
+    delete newUnitPrices[productCode];
+
+    let newTaxable = 0;
+    let newNonTaxable = 0;
+
+    newProducts.forEach(product => {
+      const currentCode = product.product_code;
+      const quantity = newQuantities[currentCode] || 1;
+      const unitCode = newUnits[currentCode] || product.productUnit1.unit_code;
+      const currentPrice = newUnitPrices[currentCode] ??
+        (unitCode === product.productUnit1.unit_code ?
+          product.bulk_unit_price :
+          product.retail_unit_price);
+
+      const amount = quantity * currentPrice;
+      newTotals[currentCode] = amount;
+
+      if (product.tax1 === 'Y') {
+        newTaxable += amount * (1 + TAX_RATE);
+      } else {
+        newNonTaxable += amount;
+      }
+    });
+
+    // อัพเดททุก state พร้อมกัน
+    setProducts(newProducts);
     setQuantities(newQuantities);
     setUnits(newUnits);
+    setUnitPrices(newUnitPrices);
     setTotals(newTotals);
-    setTimeout(calculateOrderTotals, 0);
+    setTaxableAmount(newTaxable);
+    setNonTaxableAmount(newNonTaxable);
+    setTotal(newTaxable + newNonTaxable);
   };
 
   const handleUpdateOrder = async () => {

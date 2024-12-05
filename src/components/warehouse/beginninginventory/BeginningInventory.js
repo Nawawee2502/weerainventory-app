@@ -1,7 +1,19 @@
-import { Box, Button, InputAdornment, TextField, Typography, Drawer, IconButton } from '@mui/material';
+import {
+    Box,
+    Button,
+    InputAdornment,
+    TextField,
+    Typography,
+    Drawer,
+    IconButton,
+    Stack,
+    Pagination
+} from '@mui/material';
 import React, { useState, useEffect } from 'react';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
 import SearchIcon from '@mui/icons-material/Search';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { styled } from '@mui/material/styles';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
@@ -15,9 +27,52 @@ import 'react-datepicker/dist/react-datepicker.css';
 import { useDispatch } from "react-redux";
 import { searchProductName } from '../../../api/productrecordApi';
 import { unitAll } from '../../../api/productunitApi';
-import { addWh_stockcard } from '../../../api/warehouse/wh_stockcard';
+import {
+    addWh_stockcard,
+    queryWh_stockcard,
+    countWh_stockcard,
+    updateWh_stockcard,
+    deleteWh_stockcard
+} from '../../../api/warehouse/wh_stockcard';
 import { useFormik } from 'formik';
 import Swal from 'sweetalert2';
+import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+
+const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
+    <Box sx={{ position: 'relative', display: 'inline-block', width: '100%' }}>
+        <TextField
+            value={value}
+            onClick={onClick}
+            placeholder={placeholder || "MM/DD/YYYY"}
+            ref={ref}
+            size="small"
+            sx={{
+                '& .MuiInputBase-root': {
+                    height: '38px',
+                    width: '100%',
+                    backgroundColor: '#fff',
+                },
+                '& .MuiOutlinedInput-input': {
+                    cursor: 'pointer',
+                    paddingRight: '40px',
+                }
+            }}
+            InputProps={{
+                readOnly: true,
+                endAdornment: (
+                    <InputAdornment position="end">
+                        <CalendarTodayIcon
+                            sx={{
+                                color: '#754C27',
+                                cursor: 'pointer'
+                            }}
+                        />
+                    </InputAdornment>
+                ),
+            }}
+        />
+    </Box>
+));
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
     [`&.${tableCellClasses.head}`]: {
@@ -38,28 +93,88 @@ const StyledTableRow = styled(TableRow)(({ theme }) => ({
     },
 }));
 
+const convertToLasVegasTime = (date) => {
+    if (!date) return new Date();
+
+    // สร้างวันที่ใหม่โดยตั้งเวลาเป็น 00:00:00
+    const newDate = new Date(date);
+    newDate.setHours(0, 0, 0, 0);
+
+    // แปลงเป็น Pacific Time
+    const pacificTime = new Date(newDate.toLocaleString('en-US', {
+        timeZone: 'America/Los_Angeles',
+    }));
+
+    return pacificTime;
+};
+
 export default function BeginningInventory() {
     const dispatch = useDispatch();
     const [openDrawer, setOpenDrawer] = useState(false);
-    const [startDate, setStartDate] = useState(new Date());
     const [searchTerm, setSearchTerm] = useState('');
     const [searchResults, setSearchResults] = useState([]);
     const [showDropdown, setShowDropdown] = useState(false);
     const [units, setUnits] = useState([]);
+    const [stockcards, setStockcards] = useState([]);
     const [selectedProduct, setSelectedProduct] = useState(null);
+    const [page, setPage] = useState(1);
+    const [count, setCount] = useState(0);
+    const [itemsPerPage] = useState(5);
+    const [productSearchTerm, setProductSearchTerm] = useState('');  // สำหรับ search ใน create form
+    const [tableSearchTerm, setTableSearchTerm] = useState('');
+    const [filterDate, setFilterDate] = useState(() => convertToLasVegasTime(new Date()));
+
+
+
+
+    const handleProductSearch = (e) => {
+        const value = e.target.value;
+        setProductSearchTerm(value);
+
+        if (value.length > 0) {
+            dispatch(searchProductName({ product_name: value }))
+                .unwrap()
+                .then((res) => {
+                    if (res.data) {
+                        const sortedResults = [...res.data].sort((a, b) => {
+                            const aExact = a.product_name.toLowerCase() === value.toLowerCase();
+                            const bExact = b.product_name.toLowerCase() === value.toLowerCase();
+                            if (aExact && !bExact) return -1;
+                            if (!aExact && bExact) return 1;
+                            return a.product_name.length - b.product_name.length;
+                        });
+                        setSearchResults(sortedResults);
+                        setShowDropdown(true);
+                    }
+                })
+                .catch((err) => console.log(err.message));
+        } else {
+            setSearchResults([]);
+            setShowDropdown(false);
+        }
+    };
+
+    const handleTableSearch = (e) => {
+        setTableSearchTerm(e.target.value);
+        setPage(1);
+    };
 
     const formik = useFormik({
         initialValues: {
-            date: new Date(),
+            date: convertToLasVegasTime(new Date()),
             product_code: '',
             product_name: '',
             unit_code: '',
             amount: '',
             unit_price: '',
+            // Add these fields for update functionality
+            isEditing: false,
+            refno: '',
+            myear: '',
+            monthh: ''
         },
         validate: values => {
             const errors = {};
-
             if (!values.product_code) {
                 errors.product_code = 'Product is required';
             }
@@ -72,7 +187,6 @@ export default function BeginningInventory() {
             if (!values.unit_price || values.unit_price <= 0) {
                 errors.unit_price = 'Unit price must be greater than 0';
             }
-
             return errors;
         },
         onSubmit: (values) => {
@@ -81,12 +195,12 @@ export default function BeginningInventory() {
             const day = values.date.getDate().toString().padStart(2, '0');
 
             const stockcardData = {
-                myear: year,
-                monthh: month,
+                myear: values.isEditing ? values.myear : year,
+                monthh: values.isEditing ? values.monthh : month,
                 product_code: values.product_code,
                 unit_code: values.unit_code,
-                refno: 'BEG',
-                rdate: values.date.toLocaleDateString('en-GB'),
+                refno: values.isEditing ? values.refno : 'BEG',
+                rdate: `${month}/${day}/${year}`,
                 trdate: `${year}${month}${day}`,
                 beg1: Number(values.amount),
                 in1: 0,
@@ -99,25 +213,29 @@ export default function BeginningInventory() {
                 upd1_amt: 0
             };
 
-            Swal.fire({
-                title: 'Saving...',
-                allowOutsideClick: false,
-                didOpen: () => Swal.showLoading()
-            });
+            // Log payload ก่อนส่ง request
+            console.log("Submitting Data:", stockcardData);
 
-            dispatch(addWh_stockcard(stockcardData))
+            const action = values.isEditing ? updateWh_stockcard : addWh_stockcard;
+
+            dispatch(action(stockcardData))
                 .unwrap()
-                .then(() => {
+                .then((response) => {
+                    // Log response
+                    console.log("API Response:", response);
+
                     Swal.fire({
                         icon: 'success',
-                        title: 'Saved successfully',
+                        title: values.isEditing ? 'Updated successfully' : 'Saved successfully',
                         showConfirmButton: false,
                         timer: 1500
                     });
                     setOpenDrawer(false);
                     resetForm();
+                    loadData(page);
                 })
                 .catch((err) => {
+                    console.error("Error:", err);
                     Swal.fire({
                         icon: 'error',
                         title: 'Error',
@@ -166,14 +284,25 @@ export default function BeginningInventory() {
     };
 
     const handleProductSelect = (product) => {
+        const isEditing = formik.values.isEditing;
+        const currentValues = { ...formik.values };
+
         setSelectedProduct(product);
-        formik.setFieldValue('product_code', product.product_code);
-        formik.setFieldValue('product_name', product.product_name);
-        formik.setFieldValue('unit_code', product.productUnit2.unit_code);
-        formik.setFieldValue('unit_price', product.retail_unit_price);
-        setSearchTerm(product.product_name);
+
+        formik.setValues({
+            ...currentValues,
+            product_code: product.product_code,
+            product_name: product.product_name,
+            unit_code: product.productUnit2.unit_code,
+            unit_price: product.retail_unit_price,
+            isEditing: isEditing,
+        });
+
+        setProductSearchTerm(product.product_name);
         setShowDropdown(false);
     };
+
+
 
     const toggleDrawer = (open) => () => {
         setOpenDrawer(open);
@@ -184,9 +313,12 @@ export default function BeginningInventory() {
 
     const resetForm = () => {
         formik.resetForm();
-        setSearchTerm('');
+        formik.setFieldValue('isEditing', false); // Reset the editing state
+        formik.setFieldValue('refno', '');
+        formik.setFieldValue('myear', '');
+        formik.setFieldValue('monthh', '');
+        setProductSearchTerm('');
         setSelectedProduct(null);
-        setStartDate(new Date());
     };
 
     const calculateTotal = () => {
@@ -195,9 +327,185 @@ export default function BeginningInventory() {
         return (amount * unitPrice).toFixed(2);
     };
 
+    const formatDate = (date) => {
+        if (!date) return "";
+
+        // ใช้วันที่ที่ได้รับโดยตรง ไม่ต้องแปลง timezone อีก
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const year = date.getFullYear();
+
+        return `${month}/${day}/${year}`;
+    };
+
+    const loadData = async (pageNumber = 1) => {
+        try {
+            const offset = (pageNumber - 1) * itemsPerPage;
+            const formattedDate = filterDate ? formatDate(filterDate) : null;
+
+            const [res, countRes] = await Promise.all([
+                dispatch(queryWh_stockcard({
+                    offset,
+                    limit: itemsPerPage,
+                    rdate: formattedDate,        // ส่งวันที่
+                    product_name: tableSearchTerm // ส่ง search term
+                })).unwrap(),
+                dispatch(countWh_stockcard({
+                    rdate: formattedDate,        // ส่งวันที่
+                    product_name: tableSearchTerm // ส่ง search term
+                })).unwrap()
+            ]);
+
+            if (res.result && Array.isArray(res.data)) {
+                const resultData = res.data.map((item, index) => ({
+                    ...item,
+                    id: offset + index + 1
+                }));
+                setStockcards(resultData);
+            }
+
+            if (countRes.result) {
+                const totalPages = Math.ceil(countRes.data / itemsPerPage);
+                setCount(totalPages);
+            }
+        } catch (error) {
+            console.error("Error loading data:", error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error loading data',
+                text: error.message || 'An unknown error occurred'
+            });
+        }
+    };
+
+    useEffect(() => {
+        loadData(page);
+    }, [filterDate, tableSearchTerm, page]);
+
+
+
+    const handleDateChange = (date) => {
+        if (!date) return;
+
+        // แปลงวันที่เป็น Pacific Time
+        const vegasDate = convertToLasVegasTime(date);
+        setFilterDate(vegasDate);
+        setPage(1);
+    };
+
+    const handleFilterSearch = (e) => {
+        setSearchTerm(e.target.value);
+        setPage(1);
+    };
+
+    // const handleSearchChange = (e) => {
+    //     setSearchTerm(e.target.value);
+    //     setPage(1);
+    // };
+
+    const clearFilters = () => {
+        setTableSearchTerm('');
+        const vegasDate = convertToLasVegasTime(new Date());
+        setFilterDate(vegasDate);
+        setPage(1);
+        loadData(1);
+    };
+
+    const handlePageChange = (event, value) => {
+        setPage(value);
+        loadData(value);
+    };
+
+    const handleEdit = (row) => {
+        console.log("Edit Row Data:", row); // Log ข้อมูลที่ได้รับ
+
+        const productData = {
+            product_code: row.product_code,
+            product_name: row.tbl_product?.product_name || '',
+            productUnit2: {
+                unit_code: row.unit_code
+            },
+            retail_unit_price: row.uprice
+        };
+
+        // แก้ไขการแปลงวันที่
+        const [month, day, year] = row.rdate.split('/');
+        const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+        date.setHours(0, 0, 0, 0);
+
+        const formValues = {
+            date: date,
+            product_code: row.product_code,
+            product_name: row.tbl_product?.product_name || '',
+            unit_code: row.unit_code,
+            amount: row.beg1,
+            unit_price: row.uprice,
+            isEditing: true,
+            refno: row.refno,
+            myear: row.myear,
+            monthh: row.monthh
+        };
+
+        console.log("Setting Form Values:", formValues); // Log ค่าที่จะ set
+
+        formik.setValues(formValues);
+        setProductSearchTerm(row.tbl_product?.product_name || '');
+        setSelectedProduct(productData);
+        setOpenDrawer(true);
+    };
+    const handleDelete = (row) => {
+        Swal.fire({
+            title: 'Are you sure?',
+            text: "You won't be able to revert this!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#754C27',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Yes, delete it!'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                dispatch(deleteWh_stockcard({
+                    refno: row.refno,
+                    myear: row.myear,
+                    monthh: row.monthh,
+                    product_code: row.product_code // เพิ่ม product_code
+                }))
+                    .unwrap()
+                    .then(() => {
+                        Swal.fire(
+                            'Deleted!',
+                            'Record has been deleted.',
+                            'success'
+                        );
+                        loadData(page);
+                    })
+                    .catch((err) => {
+                        Swal.fire(
+                            'Error!',
+                            err.message || 'Failed to delete record.',
+                            'error'
+                        );
+                    });
+            }
+        });
+    };
+
+
+
+
+
     return (
         <>
-            <Box sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', p: '48px' }}>
+            <Box
+                sx={{
+                    width: '100%',
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    // p: '48px'
+                }}
+            >
                 <Button onClick={toggleDrawer(true)} sx={{
                     width: '209px', height: '70px',
                     background: 'linear-gradient(180deg, #AD7A2C 0%, #754C27 100%)',
@@ -208,7 +516,8 @@ export default function BeginningInventory() {
                     alignItems: 'center',
                     '&:hover': {
                         background: 'linear-gradient(180deg, #8C5D1E 0%, #5D3A1F 100%)',
-                    }
+                    },
+                    mt: '80px'
                 }}>
                     <AddCircleIcon sx={{ fontSize: '42px', color: '#FFFFFF', mr: '12px' }} />
                     <Typography sx={{ fontSize: '24px', fontWeight: '600', color: '#FFFFFF' }}>
@@ -216,16 +525,32 @@ export default function BeginningInventory() {
                     </Typography>
                 </Button>
 
-                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mt: '48px', width: '60%' }}>
-                    <Typography sx={{ fontSize: '16px', fontWeight: '600', mr: '24px' }}>
-                        Beginning Inventory Search
+                <Box
+                    sx={{
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        mt: '48px',
+                        width: '90%',
+                        gap: '20px'
+                    }}
+                >
+                    <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>
+                        Search
                     </Typography>
                     <TextField
-                        placeholder="Search"
+                        value={tableSearchTerm}
+                        onChange={handleTableSearch}
+                        placeholder="Search stockcard"
                         sx={{
-                            '& .MuiInputBase-root': { height: '38px', width: '100%' },
-                            '& .MuiOutlinedInput-input': { padding: '8.5px 14px' },
-                            width: '40%'
+                            '& .MuiInputBase-root': {
+                                height: '38px',
+                                width: '100%'
+                            },
+                            '& .MuiOutlinedInput-input': {
+                                padding: '8.5px 14px',
+                            },
+                            width: '35%'
                         }}
                         InputProps={{
                             startAdornment: (
@@ -235,27 +560,104 @@ export default function BeginningInventory() {
                             ),
                         }}
                     />
+                    <Box sx={{ width: '200px' }}>
+                        <DatePicker
+                            selected={filterDate}
+                            onChange={handleDateChange}
+                            dateFormat="MM/dd/yyyy"
+                            placeholderText="MM/DD/YYYY"
+                            customInput={<CustomInput />}
+                        />
+                    </Box>
+                    <Button
+                        onClick={clearFilters}
+                        variant="outlined"
+                        sx={{
+                            height: '38px',
+                            width: '120px',
+                            borderColor: '#754C27',
+                            color: '#754C27',
+                            '&:hover': {
+                                borderColor: '#5d3a1f',
+                                backgroundColor: 'rgba(117, 76, 39, 0.04)'
+                            }
+                        }}
+                    >
+                        Clear
+                    </Button>
                 </Box>
 
-                <TableContainer component={Paper} sx={{ width: '60%', mt: '24px' }}>
+                {/* Table */}
+                <TableContainer component={Paper} sx={{ width: '80%', mt: '24px' }}>
                     <Table aria-label="customized table">
                         <TableHead>
                             <TableRow>
                                 <StyledTableCell width='1%'>No.</StyledTableCell>
-                                <StyledTableCell align="center">Product Code</StyledTableCell>
+                                <StyledTableCell align="center">Ref no</StyledTableCell>
                                 <StyledTableCell align="center">Product Name</StyledTableCell>
                                 <StyledTableCell align="center">Amount</StyledTableCell>
                                 <StyledTableCell align="center">Unit Price</StyledTableCell>
                                 <StyledTableCell align="center">Total</StyledTableCell>
-                                <StyledTableCell width='1%' align="center"></StyledTableCell>
-                                <StyledTableCell width='1%' align="center"></StyledTableCell>
+                                <StyledTableCell width='1%' align="center">Edit</StyledTableCell>
+                                <StyledTableCell width='1%' align="center">Delete</StyledTableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {/* Table data */}
+                            {stockcards.map((row) => (
+                                <StyledTableRow key={row.id}>
+                                    <StyledTableCell>{row.id}</StyledTableCell>
+                                    <StyledTableCell align="center">{row.refno}</StyledTableCell>
+                                    <StyledTableCell align="center">
+                                        {row.tbl_product?.product_name || row.product_code}
+                                    </StyledTableCell>
+                                    <StyledTableCell align="center">{row.beg1}</StyledTableCell>
+                                    <StyledTableCell align="center">
+                                        {row.uprice?.toLocaleString('en-US', {
+                                            minimumFractionDigits: 2,
+                                            maximumFractionDigits: 2
+                                        })}
+                                    </StyledTableCell>
+                                    <StyledTableCell align="center">
+                                        {row.beg1_amt?.toLocaleString('en-US', {
+                                            minimumFractionDigits: 2,
+                                            maximumFractionDigits: 2
+                                        })}
+                                    </StyledTableCell>
+                                    <StyledTableCell align="center">
+                                        <IconButton
+                                            color="primary"
+                                            onClick={() => handleEdit(row)}
+                                            sx={{ border: '1px solid #AD7A2C', borderRadius: '7px' }}
+                                        >
+                                            <EditIcon sx={{ color: '#AD7A2C' }} />
+                                        </IconButton>
+                                    </StyledTableCell>
+                                    <StyledTableCell align="center">
+                                        <IconButton
+                                            color="error"
+                                            onClick={() => handleDelete(row)}
+                                            sx={{ border: '1px solid #F62626', borderRadius: '7px' }}
+                                        >
+                                            <DeleteIcon sx={{ color: '#F62626' }} />
+                                        </IconButton>
+                                    </StyledTableCell>
+                                </StyledTableRow>
+                            ))}
                         </TableBody>
                     </Table>
                 </TableContainer>
+
+                {/* Pagination */}
+                <Stack spacing={2} sx={{ mt: 2, display: 'flex', alignItems: 'center' }}>
+                    <Pagination
+                        count={count}
+                        page={page}
+                        onChange={handlePageChange}
+                        shape="rounded"
+                        showFirstButton
+                        showLastButton
+                    />
+                </Stack>
             </Box>
 
             <Drawer
@@ -319,20 +721,13 @@ export default function BeginningInventory() {
                                 </Typography>
                                 <DatePicker
                                     selected={formik.values.date}
-                                    onChange={(date) => formik.setFieldValue('date', date)}
-                                    dateFormat="dd/MM/yyyy"
-                                    customInput={
-                                        <TextField
-                                            size="small"
-                                            sx={{
-                                                mt: '8px',
-                                                width: '100%',
-                                                '& .MuiOutlinedInput-root': {
-                                                    borderRadius: '10px',
-                                                },
-                                            }}
-                                        />
-                                    }
+                                    onChange={(date) => {
+                                        const vegasDate = convertToLasVegasTime(date);
+                                        formik.setFieldValue('date', vegasDate);
+                                    }}
+                                    dateFormat="MM/dd/yyyy"
+                                    placeholderText="MM/DD/YYYY"
+                                    customInput={<CustomInput />}
                                 />
 
                                 <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
@@ -341,8 +736,8 @@ export default function BeginningInventory() {
                                 <Box sx={{ position: 'relative', width: '100%' }}>
                                     <TextField
                                         size="small"
-                                        value={searchTerm}
-                                        onChange={handleSearchChange}
+                                        value={productSearchTerm}
+                                        onChange={handleProductSearch}
                                         placeholder="Search Product"
                                         error={formik.touched.product_code && Boolean(formik.errors.product_code)}
                                         helperText={formik.touched.product_code && formik.errors.product_code}
@@ -419,17 +814,12 @@ export default function BeginningInventory() {
                                     }}
                                 >
                                     <option value="">Unit</option>
-                                    {selectedProduct && (
-                                        <option value={selectedProduct.productUnit2.unit_code}>
-                                            {selectedProduct.productUnit2.unit_name}
+                                    {formik.values.unit_code && (
+                                        <option value={formik.values.unit_code}>
+                                            {units.find(u => u.unit_code === formik.values.unit_code)?.unit_name || formik.values.unit_code}
                                         </option>
                                     )}
                                 </Box>
-                                {formik.touched.unit_code && formik.errors.unit_code && (
-                                    <Typography color="error" variant="caption" sx={{ ml: 1 }}>
-                                        {formik.errors.unit_code}
-                                    </Typography>
-                                )}
 
                                 <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
                                     Amount

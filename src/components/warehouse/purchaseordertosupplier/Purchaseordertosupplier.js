@@ -182,42 +182,42 @@ export default function PurchaseOrderToSupplier({ onCreate, onEdit }) {
     refetchData(value);
   };
 
-  useEffect(() => {
+useEffect(() => {
     const fetchData = async () => {
       try {
-        // ตรวจสอบให้แน่ใจว่า page ไม่น้อยกว่า 1
         const currentPage = Math.max(1, page);
-        // คำนวณ offset โดยป้องกันไม่ให้ติดลบ
         const offset = Math.max(0, (currentPage - 1) * itemsPerPage);
         const limit = itemsPerPage;
 
-        const res = await dispatch(wh_posAlljoindt({ offset, limit })).unwrap();
+        // Format the date for API
+        const formattedDate = filterDate ? formatDate(filterDate) : null;
 
-        console.log("WH_POS DATA : ", res.data);
+        // ดึงข้อมูลและจำนวนรายการทั้งหมดพร้อมกัน
+        const [dataRes, countRes] = await Promise.all([
+          dispatch(wh_posAlljoindt({ 
+            offset, 
+            limit,
+            rdate: formattedDate
+          })).unwrap(),
+          dispatch(countwh_pos({ 
+            rdate: formattedDate 
+          })).unwrap()
+        ]);
 
-
-        // กรองข้อมูลตามวันที่
-        let filteredData = res.data;
-        const formattedFilterDate = formatDate(filterDate);
-        filteredData = res.data.filter(item => item.rdate === formattedFilterDate);
-
-        // กำหนด id ใหม่สำหรับข้อมูลที่กรองแล้ว
-        const resultData = filteredData.map((item, index) => ({
+        // จัดการข้อมูลตาราง
+        const resultData = dataRes.data.map((item, index) => ({
           ...item,
           id: offset + index + 1
         }));
-
         setWhpos(resultData);
 
-
-        // อัพเดทจำนวนหน้า
-        const countRes = await dispatch(countwh_pos({ test: "" })).unwrap();
+        // อัพเดท pagination ตามจำนวนข้อมูลที่กรองแล้ว
         if (countRes.result) {
-          const totalItems = filteredData.length;
+          const totalItems = countRes.data;
           const totalPages = Math.ceil(totalItems / itemsPerPage);
           setCount(totalPages);
 
-          // ตรวจสอบว่าหน้าปัจจุบันไม่เกินจำนวนหน้าทั้งหมด
+          // ถ้าหน้าปัจจุบันเกินจำนวนหน้าทั้งหมด ให้กลับไปหน้าสุดท้าย
           if (currentPage > totalPages) {
             setPage(Math.max(1, totalPages));
           }
@@ -237,7 +237,7 @@ export default function PurchaseOrderToSupplier({ onCreate, onEdit }) {
 
   const handleDateChange = (date) => {
     setFilterDate(date);
-    setPage(1); // รีเซ็ตกลับไปหน้าแรกเมื่อเปลี่ยนวันที่
+    setPage(1); // Reset to first page when changing date
   };
 
   const clearFilters = () => {

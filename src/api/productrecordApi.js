@@ -84,10 +84,11 @@ export const productAll = createAsyncThunk(
 
 export const productAlltypeproduct = createAsyncThunk(
   "product/readWithTypeProduct",
-  async ({ typeproduct_code, offset = 0, limit = 5 }, { dispatch }) => {
+  async ({ typeproduct_code, product_name, offset = 0, limit = 5 }, { dispatch }) => {
     try {
       const res = await axios.post(BASE_URL + "/api/productalltypeproduct", {
         typeproduct_code,
+        product_name, // เพิ่ม product_name
         offset,
         limit
       });
@@ -99,12 +100,14 @@ export const productAlltypeproduct = createAsyncThunk(
   }
 );
 
-
 export const countProduct = createAsyncThunk(
   "product/count",
-  async ({ typeproduct_code = null }, { dispatch }) => {
+  async ({ typeproduct_code = null, product_name = null }, { dispatch }) => { // เพิ่ม product_name
     try {
-      const res = await axios.post(BASE_URL + "/api/countproduct", { typeproduct_code });
+      const res = await axios.post(BASE_URL + "/api/countproduct", {
+        typeproduct_code,
+        product_name // เพิ่ม product_name
+      });
       return res.data;
     } catch (error) {
       console.error("Count product error:", error.response?.data || error.message);

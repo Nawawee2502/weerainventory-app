@@ -96,8 +96,42 @@ export default function ProductRecord() {
         }
     };
 
-    const handleSearchChange = (e) => {
-        setSearchTerm(e.target.value);
+    const handleSearchChange = async (e) => {
+        const value = e.target.value;
+        setSearchTerm(value);
+        setPage(1); // Reset page when searching
+
+        try {
+            // ดีเลย์การค้นหาเพื่อลดการเรียก API บ่อยเกินไป
+            const delayDebounceFn = setTimeout(async () => {
+                const [productResponse, countResponse] = await Promise.all([
+                    dispatch(productAlltypeproduct({
+                        typeproduct_code: selectedTypeProduct || null,
+                        product_name: value, // ส่งค่า search term
+                        offset: 0,
+                        limit: itemsPerPage
+                    })).unwrap(),
+                    dispatch(countProduct({
+                        typeproduct_code: selectedTypeProduct || null,
+                        product_name: value // ส่งค่า search term
+                    })).unwrap()
+                ]);
+
+                if (productResponse.data) {
+                    const productsWithIds = productResponse.data.map((item, index) => ({
+                        ...item,
+                        id: index + 1
+                    }));
+                    setProductAllTypeproduct(productsWithIds);
+                }
+
+                setCount(Math.ceil(countResponse.data / itemsPerPage));
+            }, 300); // ดีเลย์ 300ms
+
+            return () => clearTimeout(delayDebounceFn);
+        } catch (error) {
+            console.error("Error searching products:", error);
+        }
     };
 
 
@@ -118,12 +152,14 @@ export default function ProductRecord() {
                 // โหลดข้อมูลสินค้าและนับจำนวน
                 const [productResponse, countResponse] = await Promise.all([
                     dispatch(productAlltypeproduct({
-                        typeproduct_code: selectedTypeProduct,
+                        typeproduct_code: selectedTypeProduct || null,
+                        product_name: searchTerm || null, // Add search term
                         offset,
                         limit
                     })).unwrap(),
                     dispatch(countProduct({
-                        typeproduct_code: selectedTypeProduct
+                        typeproduct_code: selectedTypeProduct || null,
+                        product_name: searchTerm || null // Add search term
                     })).unwrap()
                 ]);
 
@@ -135,7 +171,6 @@ export default function ProductRecord() {
                     setProductAllTypeproduct(productsWithIds);
                 }
 
-                // อัพเดทจำนวนหน้า
                 if (countResponse.data) {
                     setCount(Math.ceil(countResponse.data / itemsPerPage));
                 }
@@ -146,7 +181,7 @@ export default function ProductRecord() {
         };
 
         loadData();
-    }, [dispatch, page, selectedTypeProduct, itemsPerPage]);
+    }, [dispatch, page, selectedTypeProduct, searchTerm, itemsPerPage]); // Add searchTerm to dependencies
 
     // useEffect(() => {
     //     const loadData = async () => {
@@ -187,21 +222,21 @@ export default function ProductRecord() {
         setPage(value);
     };
 
-    // แก้ไขฟังก์ชัน refetch data
     const refetchData = async (targetPage = 1) => {
         try {
             const offset = (targetPage - 1) * itemsPerPage;
             const limit = itemsPerPage;
 
-            // เรียก API พร้อมกันทั้งการดึงข้อมูลและการนับจำนวน
             const [productResponse, countResponse] = await Promise.all([
                 dispatch(productAlltypeproduct({
                     typeproduct_code: selectedTypeProduct || null,
+                    product_name: searchTerm || null, // Add search term
                     offset,
                     limit
                 })).unwrap(),
                 dispatch(countProduct({
-                    typeproduct_code: selectedTypeProduct || null
+                    typeproduct_code: selectedTypeProduct || null,
+                    product_name: searchTerm || null // Add search term
                 })).unwrap()
             ]);
 

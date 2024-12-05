@@ -281,26 +281,23 @@ export default function ReportMonthlyStockCard() {
                         <table style={{ width: '100%', marginTop: '24px' }}>
                             <thead>
                                 <tr>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left' }}>
-                                        <Checkbox />
-                                    </th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color:'#754C27' }}>No.</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color:'#754C27' }}>Date</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color:'#754C27' }}>Ref.no</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color:'#754C27' }}>Supplier</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color:'#754C27' }}>Branch</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color:'#754C27' }}>ID</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color:'#754C27' }}>Product Name</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color:'#754C27' }}>Quantity</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color:'#754C27' }}>Unit Price</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color:'#754C27' }}>Unit</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color:'#754C27' }}>Amount</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color:'#754C27' }}>Total</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color:'#754C27' }}>Username</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>No.</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Date</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Ref.no</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Beg</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>In</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Out</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Update</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Unit Price</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Beg</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>In</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Out</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Update</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Total</th>
                                 </tr>
                                 <tr>
-                                    <td colSpan="15">
-                                        <Divider sx={{ width: '100%', color: '#754C27', border: '1px solid #754C27' }} />
+                                    <td colSpan="13">
+                                        <Divider style={{ width: '100%', color: '#754C27', border: '1px solid #754C27' }} />
                                     </td>
                                 </tr>
                             </thead>

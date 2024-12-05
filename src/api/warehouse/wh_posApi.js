@@ -111,7 +111,7 @@ export const deleteWh_pos = createAsyncThunk(
 
 export const wh_posAlljoindt = createAsyncThunk(
     "branch/read",
-    async ({ offset = 0, limit = 5, rdate1, rdate2, supplier_code, branch_code, product_code }, { dispatch }) => {
+    async ({ offset = 0, limit = 5, rdate, rdate1, rdate2, supplier_code, branch_code, product_code }, { dispatch }) => {
         try {
             const payload = {
                 offset,
@@ -119,6 +119,7 @@ export const wh_posAlljoindt = createAsyncThunk(
             };
 
             // เพิ่มค่าในตัวแปรที่จะส่งเฉพาะเมื่อมีค่า
+            if (rdate) payload.rdate = rdate;
             if (rdate1) payload.rdate1 = rdate1;
             if (rdate2) payload.rdate2 = rdate2;
             if (supplier_code) payload.supplier_code = supplier_code;
@@ -169,11 +170,11 @@ export const refno = createAsyncThunk(
 
 export const countwh_pos = createAsyncThunk(
     "whpos/count",
-    async ({ test }, { dispatch }) => {
+    async ({ rdate }, { dispatch }) => {
         try {
-            console.log("____TETS____");
-            const res = await axios.post(BASE_URL + "/api/countwh_pos", { test: test });
-            console.log(res.data);
+            const res = await axios.post(BASE_URL + "/api/countwh_pos", {
+                rdate: rdate
+            });
             return res.data;
         } catch (error) {
             console.error(error.message);

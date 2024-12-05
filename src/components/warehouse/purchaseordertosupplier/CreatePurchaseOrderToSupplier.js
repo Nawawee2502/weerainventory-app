@@ -220,44 +220,130 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
 
 
   const handleDeleteWhProduct = (product_code) => {
-    whProduct = products;
-    whProduct = whProduct.filter((item) => item.product_code != product_code);
-    setProducts(whProduct);
+    // Filter out the deleted product
+    const updatedProducts = products.filter((item) => item.product_code !== product_code);
+    setProducts(updatedProducts);
 
-    // Calculate totals after deleting product
-    setTimeout(() => calculateOrderTotals(), 0);
+    // Remove the deleted product from all related states
+    const newQuantities = { ...quantities };
+    const newUnits = { ...units };
+    const newUnitPrices = { ...unitPrices };
+    const newTotals = { ...totals };
+
+    delete newQuantities[product_code];
+    delete newUnits[product_code];
+    delete newUnitPrices[product_code];
+    delete newTotals[product_code];
+
+    setQuantities(newQuantities);
+    setUnits(newUnits);
+    setUnitPrices(newUnitPrices);
+    setTotals(newTotals);
+
+    // Calculate new taxable and non-taxable amounts
+    let newTaxable = 0;
+    let newNonTaxable = 0;
+
+    updatedProducts.forEach(product => {
+      const currentProductCode = product.product_code;
+      const quantity = newQuantities[currentProductCode] || 1;
+      const unit = newUnits[currentProductCode] || product.productUnit1.unit_code;
+      const unitPrice = newUnitPrices[currentProductCode] ??
+        (unit === product.productUnit1.unit_code
+          ? product.bulk_unit_price
+          : product.retail_unit_price);
+      const amount = quantity * unitPrice;
+
+      if (product.tax1 === 'Y') {
+        newTaxable += amount * (1 + TAX_RATE);
+      } else {
+        newNonTaxable += amount;
+      }
+    });
+
+    // Update the states immediately
+    setTaxableAmount(newTaxable);
+    setNonTaxableAmount(newNonTaxable);
+    setTotal(newTaxable + newNonTaxable);
   };
 
   useEffect(() => {
     if (products.length > 0) {
-      calculateOrderTotals();
-    } else {
-      // Reset totals when no products
-      setSubtotal(0);
-      setTax(0);
-      setTotal(0);
+      let newTaxable = 0;
+      let newNonTaxable = 0;
+
+      products.forEach(product => {
+        const productCode = product.product_code;
+        const quantity = quantities[productCode] || 1;
+        const unitCode = units[productCode] || product.productUnit1.unit_code;
+        const unitPrice = unitPrices[productCode] ??
+          (unitCode === product.productUnit1.unit_code
+            ? product.bulk_unit_price
+            : product.retail_unit_price);
+        const amount = quantity * unitPrice;
+
+        if (product.tax1 === 'Y') {
+          newTaxable += amount * (1 + TAX_RATE);
+        } else {
+          newNonTaxable += amount;
+        }
+      });
+
+      setTaxableAmount(newTaxable);
+      setNonTaxableAmount(newNonTaxable);
+      setTotal(newTaxable + newNonTaxable);
     }
-  }, [products, quantities, units]);
+  }, [products, quantities, units, unitPrices]);
 
 
   const handleQuantityChange = (product_code, newQuantity) => {
     if (newQuantity >= 1) {
-      setQuantities((prevQuantities) => ({
-        ...prevQuantities,
-        [product_code]: parseInt(newQuantity),
-      }));
+      const newQuantities = {
+        ...quantities,
+        [product_code]: parseInt(newQuantity)
+      };
+      setQuantities(newQuantities);
 
       const selectedProduct = products.find((product) => product.product_code === product_code);
       const unit = units[product_code] || selectedProduct.productUnit1.unit_code;
-      const total = calculateTotal(newQuantity, unit, selectedProduct);
+      const unitPrice = unitPrices[product_code] ??
+        (unit === selectedProduct.productUnit1.unit_code
+          ? selectedProduct.bulk_unit_price
+          : selectedProduct.retail_unit_price);
+      const total = newQuantity * unitPrice;
 
-      setTotals((prevTotals) => ({
-        ...prevTotals,
-        [product_code]: total,
-      }));
+      const newTotals = {
+        ...totals,
+        [product_code]: total
+      };
+      setTotals(newTotals);
 
-      // Calculate totals after quantity change
-      setTimeout(calculateOrderTotals, 0);
+      // Calculate new taxable and non-taxable amounts
+      let newTaxable = 0;
+      let newNonTaxable = 0;
+
+      products.forEach(product => {
+        const currentProductCode = product.product_code;
+        const currentQuantity = currentProductCode === product_code ?
+          newQuantity :
+          (quantities[currentProductCode] || 1);
+        const currentUnit = units[currentProductCode] || product.productUnit1.unit_code;
+        const currentUnitPrice = unitPrices[currentProductCode] ??
+          (currentUnit === product.productUnit1.unit_code
+            ? product.bulk_unit_price
+            : product.retail_unit_price);
+        const amount = currentQuantity * currentUnitPrice;
+
+        if (product.tax1 === 'Y') {
+          newTaxable += amount * (1 + TAX_RATE);
+        } else {
+          newNonTaxable += amount;
+        }
+      });
+
+      setTaxableAmount(newTaxable);
+      setNonTaxableAmount(newNonTaxable);
+      setTotal(newTaxable + newNonTaxable);
     }
   };
 
@@ -297,32 +383,69 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
     return quantity * unitPrice;
   };
 
-  const handleUnitPriceChange = (productCode, newPrice) => {
-    if (newPrice >= 0) {
-      setUnitPrices(prev => ({
-        ...prev,
-        [productCode]: parseFloat(newPrice)
-      }));
-  
+  const formatNumber = (number) => {
+    return number.toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+  };
+
+  const handleUnitPriceChange = (productCode, value) => {
+    // Remove commas from input value
+    const cleanValue = value.toString().replace(/,/g, '');
+    const newPrice = parseFloat(cleanValue);
+
+    if (!isNaN(newPrice) && newPrice >= 0) {
+      // Update unit prices
+      const newUnitPrices = {
+        ...unitPrices,
+        [productCode]: newPrice
+      };
+      setUnitPrices(newUnitPrices);
+
+      // Calculate new totals for this product
       const quantity = quantities[productCode] || 1;
       const unitCode = units[productCode];
       const product = products.find(p => p.product_code === productCode);
-  
       const total = calculateTotal(quantity, unitCode, product, newPrice);
-      setTotals(prev => ({
-        ...prev,
-        [productCode]: total
-      }));
-  
-      // คำนวณ total ใหม่ทันทีเมื่อ unit price เปลี่ยนแปลง
-      const newTotal = Object.values({
+
+      // Update totals state
+      const newTotals = {
         ...totals,
         [productCode]: total
-      }).reduce((sum, value) => sum + value, 0);
-      setTotal(newTotal);
-  
-      // เรียกใช้ฟังก์ชัน calculateOrderTotals เพื่อคำนวณ taxableAmount และ nonTaxableAmount
-      calculateOrderTotals();
+      };
+      setTotals(newTotals);
+
+      // Calculate new taxable and non-taxable amounts
+      let newTaxable = 0;
+      let newNonTaxable = 0;
+
+      products.forEach(prod => {
+        const currentProductCode = prod.product_code;
+        const currentQuantity = quantities[currentProductCode] || 1;
+        const currentUnitCode = units[currentProductCode] || prod.productUnit1.unit_code;
+        const currentUnitPrice = currentProductCode === productCode ?
+          newPrice : // Use new price for current product
+          (unitPrices[currentProductCode] ??
+            (currentUnitCode === prod.productUnit1.unit_code ?
+              prod.bulk_unit_price :
+              prod.retail_unit_price));
+
+        const amount = currentQuantity * currentUnitPrice;
+
+        if (prod.tax1 === 'Y') {
+          newTaxable += amount * (1 + TAX_RATE);
+        } else {
+          newNonTaxable += amount;
+        }
+      });
+
+      // Update taxable and non-taxable amounts
+      setTaxableAmount(newTaxable);
+      setNonTaxableAmount(newNonTaxable);
+
+      // Update total
+      setTotal(newTaxable + newNonTaxable);
     }
   };
 
@@ -331,7 +454,7 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
   const calculateOrderTotals = () => {
     let taxable = 0;
     let nonTaxable = 0;
-  
+
     products.forEach(product => {
       const productCode = product.product_code;
       const quantity = quantities[productCode] || 1;
@@ -341,17 +464,17 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
           ? product.bulk_unit_price
           : product.retail_unit_price);
       const amount = quantity * unitPrice;
-  
+
       if (product.tax1 === 'Y') {
         taxable += amount * (1 + TAX_RATE);
       } else {
         nonTaxable += amount;
       }
     });
-  
+
     setTaxableAmount(taxable);
     setNonTaxableAmount(nonTaxable);
-  
+
     // คำนวณ total โดยใช้ค่า taxable และ nonTaxable
     const newTotal = taxable + nonTaxable;
     setTotal(newTotal);
@@ -860,13 +983,12 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
                     const productCode = product.product_code;
                     const currentUnit = units[productCode] || product.productUnit1.unit_code;
                     const currentQuantity = quantities[productCode] || 1;
-                    // ใช้ unitPrices ที่แก้ไขแล้ว
                     const currentUnitPrice = unitPrices[productCode] ??
                       (currentUnit === product.productUnit1.unit_code
                         ? product.bulk_unit_price
                         : product.retail_unit_price);
-                    // คำนวณ total ใหม่จาก unitPrice ที่แก้ไข
                     const currentTotal = (currentQuantity * currentUnitPrice).toFixed(2);
+
 
                     return (
                       <tr key={productCode}>
@@ -903,13 +1025,13 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
                         <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
                           <input
                             type="number"
-                            min="0"
-                            step="0.01"
+                            min="1"
+                            step="1"
                             value={unitPrices[productCode] ?? currentUnitPrice}
-                            onChange={(e) => handleUnitPriceChange(productCode, parseFloat(e.target.value))}
+                            onChange={(e) => handleUnitPriceChange(productCode, e.target.value)}
                             style={{
                               width: '80px',
-                              textAlign: 'center',
+                              textAlign: 'right',
                               fontWeight: '600',
                               padding: '4px'
                             }}
