@@ -375,13 +375,42 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
     setTimeout(calculateOrderTotals, 0);
   };
 
+  // Add/update these functions
   const calculateTotal = (quantity, unitCode, product, customUnitPrice) => {
     const unitPrice = customUnitPrice ?? unitPrices[product.product_code] ??
       (unitCode === product.productUnit1.unit_code
         ? product.bulk_unit_price
         : product.retail_unit_price);
-    return quantity * unitPrice;
+    const amount = quantity * unitPrice;
+    return product.tax1 === 'Y' ? amount * (1 + TAX_RATE) : amount;
   };
+
+  useEffect(() => {
+    let newTaxable = 0;
+    let newNonTaxable = 0;
+
+    products.forEach(product => {
+      const productCode = product.product_code;
+      const quantity = quantities[productCode] || 1;
+      const unitCode = units[productCode] || product.productUnit1.unit_code;
+      const unitPrice = unitPrices[productCode] ??
+        (unitCode === product.productUnit1.unit_code
+          ? product.bulk_unit_price
+          : product.retail_unit_price);
+      const amount = quantity * unitPrice;
+
+      if (product.tax1 === 'Y') {
+        newTaxable += amount;
+        setTaxableAmount(newTaxable);
+      } else {
+        newNonTaxable += amount;
+        setNonTaxableAmount(newNonTaxable);
+      }
+    });
+
+    const newTotal = (newTaxable * (1 + TAX_RATE)) + newNonTaxable;
+    setTotal(newTotal);
+  }, [products, quantities, units, unitPrices]);
 
   const formatNumber = (number) => {
     return number.toLocaleString('en-US', {
