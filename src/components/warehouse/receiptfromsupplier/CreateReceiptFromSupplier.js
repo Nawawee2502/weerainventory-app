@@ -412,6 +412,8 @@ function CreateReceiptFromSupplier({ onBack }) {
     setTotalDue(newTotalDue);
   };
 
+  
+
   return (
     <Box sx={{ width: '100%' }}>
       <Button

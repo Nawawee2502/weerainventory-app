@@ -48,19 +48,18 @@ const StyledTableRow = styled(TableRow)(({ theme }) => ({
 export default function ProductRecord() {
     const [selected, setSelected] = useState([]);
     const dispatch = useDispatch();
-    const [alert, setAlert] = useState({ open: false, message: '', severity: 'success' });
     const [product, setProduct] = useState([]);
     const [typeproducts, setTypeproducts] = useState([]);
     const [searchTerm, setSearchTerm] = useState("");
-    const [getLastProductCode, setGetLastProductCode] = useState([]);
     const [unit, setUnit] = useState([]);
     const [page, setPage] = useState(1);
     const [itemsPerPage] = useState(5);
     const [count, setCount] = useState(0);
     const [productAllTypeproduct, setProductAllTypeproduct] = useState([]);
     const [selectedTypeProduct, setSelectedTypeProduct] = useState("");
-
-
+    const [openDrawer, setOpenDrawer] = useState(false);
+    const [openEditDrawer, setOpenEditDrawer] = useState(false);
+    const [editProduct, setEditProduct] = useState(null);
 
     const handleTypeChange = async (event) => {
         const newTypeProduct = event.target.value;
@@ -134,7 +133,6 @@ export default function ProductRecord() {
         }
     };
 
-
     useEffect(() => {
         const loadData = async () => {
             try {
@@ -183,41 +181,6 @@ export default function ProductRecord() {
         loadData();
     }, [dispatch, page, selectedTypeProduct, searchTerm, itemsPerPage]); // Add searchTerm to dependencies
 
-    // useEffect(() => {
-    //     const loadData = async () => {
-    //         try {
-    //             const offset = (page - 1) * itemsPerPage;
-    //             const limit = itemsPerPage;
-
-    //             let response;
-    //             if (selectedTypeProduct) {
-    //                 response = await dispatch(productAlltypeproduct({
-    //                     typeproduct_code: selectedTypeProduct,
-    //                     offset,
-    //                     limit
-    //                 })).unwrap();
-    //             } else {
-    //                 response = await dispatch(productAlltypeproduct({ offset, limit })).unwrap();
-    //             }
-
-    //             const productsWithIds = response.data.map((item, index) => ({
-    //                 ...item,
-    //                 id: offset + index + 1
-    //             }));
-    //             setProductAllTypeproduct(productsWithIds);
-
-    //             // อัพเดทจำนวนหน้า
-    //             const countResponse = await dispatch(countProduct({ test: "" })).unwrap();
-    //             setCount(Math.ceil(countResponse.data / itemsPerPage));
-    //         } catch (error) {
-    //             console.error("Error loading data:", error);
-    //         }
-    //     };
-
-    //     loadData();
-    // }, [page, selectedTypeProduct, dispatch, itemsPerPage]);
-
-
     const handleChange = (event, value) => {
         setPage(value);
     };
@@ -255,49 +218,6 @@ export default function ProductRecord() {
         }
     };
 
-    // useEffect(() => {
-    //     refetchData(1);
-    //     fetchUnitData();
-    //     fetchTypeproducts();
-    //     let offset = 0;
-    //     let limit = 5;
-    //     let test = 10;
-
-    //     dispatch(productAlltypeproduct({ offset, limit }))
-    //         .unwrap()
-    //         .then((res) => {
-    //             let resultData = res.data;
-    //             for (let indexArray = 0; indexArray < resultData.length; indexArray++) {
-    //                 resultData[indexArray].id = indexArray + 1;
-    //             }
-    //             setProductAllTypeproduct(resultData);
-    //         })
-    //         .catch((err) => err.message);
-
-    //     dispatch(lastProductCode({ test }))
-    //         .unwrap()
-    //         .then((res) => {
-    //             setGetLastProductCode(res.data);
-    //             console.log(res.data)
-    //         })
-    //         .catch((err) => err.message);
-
-    //     dispatch(countProduct({ test }))
-    //         .unwrap()
-    //         .then((res) => {
-    //             console.log(res.data);
-    //             let resData = res.data;
-    //             let countPaging = Math.floor(resData / 5);
-    //             let modPaging = resData % 5;
-    //             if (modPaging > 0) {
-    //                 countPaging++
-    //             }
-    //             console.log(countPaging, modPaging);
-    //             setCount(countPaging);
-    //         })
-    //         .catch((err) => err.message);
-    // }, [dispatch]);
-
     const handleCheckboxChange = (event, product_code) => {
         if (event.target.checked) {
             setSelected([...selected, product_code]);
@@ -314,8 +234,6 @@ export default function ProductRecord() {
             setSelected([]);
         }
     };
-
-
 
     const handleDelete = (product_code) => {
         Swal.fire({
@@ -373,7 +291,6 @@ export default function ProductRecord() {
         });
     };
 
-
     const handleDeleteSelected = () => {
         Swal.fire({
             title: 'Are you sure you want to delete the selected products?',
@@ -425,21 +342,14 @@ export default function ProductRecord() {
         });
     };
 
-
-    const [openDrawer, setOpenDrawer] = useState(false);
-    const [openEditDrawer, setOpenEditDrawer] = useState(false);
-
     const toggleDrawer = (openDrawer) => () => {
         setOpenDrawer(openDrawer);
         handleGetLastCode();
     };
 
-
     const toggleEditDrawer = (openEditDrawer) => () => {
         setOpenEditDrawer(openEditDrawer);
     };
-
-    const [editProduct, setEditProduct] = useState(null);
 
     const handleEdit = (row) => {
         setEditProduct(row);
@@ -488,10 +398,6 @@ export default function ProductRecord() {
                 });
             });
     };
-
-    const [previewUrl, setPreviewUrl] = useState(null);
-
-
 
     const handleGetLastCode = async () => {
         try {
@@ -669,72 +575,6 @@ export default function ProductRecord() {
         }
     });
 
-
-    // const handleGetLastCode = () => {
-    //     let test = "";
-    //     dispatch(lastProductCode({ test }))
-    //         .unwrap()
-    //         .then((res) => {
-    //             let lastProductCode = "001";
-
-    //             if (res.data && res.data.length > 0) {
-    //                 // แยกเฉพาะตัวเลข 3 ตัวท้ายและแปลงเป็นตัวเลข
-    //                 const allNumbers = res.data
-    //                     .map(product => parseInt(product.product_code.slice(-3)))
-    //                     .sort((a, b) => a - b); // เรียงจากน้อยไปมาก
-
-    //                 let nextNumber = 1; // เริ่มจาก 1
-
-    //                 // หาช่องว่างของตัวเลข
-    //                 for (let i = 0; i < allNumbers.length; i++) {
-    //                     if (allNumbers[i] === nextNumber) {
-    //                         nextNumber++;
-    //                     } else if (allNumbers[i] > nextNumber) {
-    //                         break;
-    //                     }
-    //                 }
-
-    //                 // แปลงกลับเป็น string และเติม 0 ข้างหน้า
-    //                 lastProductCode = nextNumber.toString().padStart(3, '0');
-
-    //                 // ตรวจสอบว่าเกิน 999 หรือไม่
-    //                 if (nextNumber > 999) {
-    //                     throw new Error('Running number exceeded maximum value (999)');
-    //                 }
-    //             }
-
-    //             setGetLastProductCode(lastProductCode);
-
-    //             // ถ้ามี typeproduct_code แล้ว ให้สร้าง product_code เต็ม
-    //             if (formik.values.typeproduct_code) {
-    //                 const newProductCode = `${formik.values.typeproduct_code}${lastProductCode}`;
-    //                 formik.setFieldValue('product_code', newProductCode);
-    //             } else {
-    //                 formik.setFieldValue('product_code', lastProductCode);
-    //             }
-    //         })
-    //         .catch((err) => {
-    //             console.error(err.message);
-    //             // แสดง error message ถ้าต้องการ
-    //             Swal.fire({
-    //                 icon: 'error',
-    //                 title: 'Error',
-    //                 text: err.message || 'Error generating product code',
-    //                 timer: 3000,
-    //                 timerProgressBar: true,
-    //                 showConfirmButton: false,
-    //             });
-    //         });
-    // };
-
-
-    // useEffect(() => {
-    //     if (formik.values.typeproduct_code && getLastProductCode) {
-    //         const newProductCode = `${formik.values.typeproduct_code}${getLastProductCode}`;
-    //         formik.setFieldValue('product_code', newProductCode);
-    //     }
-    // }, [formik.values.typeproduct_code, getLastProductCode]);
-
     const fetchUnitData = () => {
         let offset = 0;
         let limit = 999999;
@@ -745,17 +585,6 @@ export default function ProductRecord() {
             })
             .catch((err) => console.log(err.message));
     };
-
-    const fetchTypeproducts = () => {
-        let offset = 0;
-        let limit = 999999;
-        dispatch(fetchAllTypeproducts({}))
-            .unwrap()
-            .then((res) => {
-                setTypeproducts(res.data);
-            })
-            .catch((err) => console.log(err.message));
-    }
 
     const handleCancelCreate = () => {
         formik.resetForm();

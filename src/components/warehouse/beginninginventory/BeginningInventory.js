@@ -124,9 +124,6 @@ export default function BeginningInventory() {
     const [tableSearchTerm, setTableSearchTerm] = useState('');
     const [filterDate, setFilterDate] = useState(() => convertToLasVegasTime(new Date()));
 
-
-
-
     const handleProductSearch = (e) => {
         const value = e.target.value;
         setProductSearchTerm(value);
@@ -489,10 +486,6 @@ export default function BeginningInventory() {
             }
         });
     };
-
-
-
-
 
     return (
         <>
