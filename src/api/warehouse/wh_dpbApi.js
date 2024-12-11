@@ -55,13 +55,25 @@ export const Wh_dpbByRefno = createAsyncThunk(
     }
 );
 
-export const Wh_dpbAlljoindt = createAsyncThunk(
+export const wh_dpbAlljoindt = createAsyncThunk(
     "wh_dpb/read",
-    async (filters, { dispatch }) => {
+    async ({ offset = 0, limit = 5, rdate1, rdate2, branch_code, product_code }, { dispatch }) => {
         try {
-            const res = await axios.post(BASE_URL + "/api/wh_dpbAlljoindt", filters);
+            const payload = {
+                offset,
+                limit
+            };
+
+            // Add optional parameters if they exist
+            if (rdate1) payload.rdate1 = rdate1;
+            if (rdate2) payload.rdate2 = rdate2;
+            if (branch_code) payload.branch_code = branch_code;
+            if (product_code) payload.product_code = product_code;
+
+            const res = await axios.post(BASE_URL + "/api/wh_dpbAlljoindt", payload);
             return res.data;
         } catch (error) {
+            console.error(error.message);
             throw error;
         }
     }

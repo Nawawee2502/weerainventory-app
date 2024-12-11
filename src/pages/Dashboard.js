@@ -78,6 +78,10 @@ export default function Dashboard() {
         navigate('/warehouse');
     };
 
+    const handleRestaurant = () => {
+        navigate('/restaurant');
+    };
+
     const handleProfileMenuOpen = (event) => {
         setAnchorEl(event.currentTarget);
     };
@@ -234,7 +238,7 @@ export default function Dashboard() {
                     overflowX: 'hidden',
                 }}>
                 <Button
-                    // onClick={}
+                    onClick={handleRestaurant}
                     sx={{
                         width: '150px',
                         height: '130px',

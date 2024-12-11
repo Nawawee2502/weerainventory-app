@@ -19,70 +19,87 @@ import HouseSidingOutlinedIcon from '@mui/icons-material/HouseSidingOutlined';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import CircleIcon from '@mui/icons-material/Circle';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import HomeReceiptFromSupplier from '../components/warehouse/receiptfromsupplier/HomeReceiptFromSupplier';
-import HomeReceiptFromKitchen from '../components/warehouse/receiptfromkitchen/HomeReceiptFromKitchen';
-import HomeDispatchToKitchen from '../components/warehouse/dispatchtokitchen/HomeDispatchToKitchen';
-import HomeDispatchToBranch from '../components/warehouse/dispatchtobranch/HomeDispatchToBranch';
-import HomeStockAdjustment from '../components/warehouse/stockadjustment/HomeStockAdjustMent';
-import ReportPurchaseordertosupplier from '../components/warehouse/reportwarehouse/Reportpurchaseordertosupplier';
-import ReportReceiptFromSupplier from '../components/warehouse/reportwarehouse/ReportReceiptfromsupplier';
-import ReportReceiptFromKitchen from '../components/warehouse/reportwarehouse/ReportReceiptFromKitchen';
-import ReportDispatchToKitchen from '../components/warehouse/reportwarehouse/ReportDispatchToKitchen';
-import ReportDispatchToBranch from '../components/warehouse/reportwarehouse/ReportDispatchToBranch';
-import ReportStockAdjustment from '../components/warehouse/reportwarehouse/ReportStockAdjustment';
-import ReportMonthlyStockCard from '../components/warehouse/reportwarehouse/ReportMonthlyStockCard';
-import ReportMonthlyStockBalance from '../components/warehouse/reportwarehouse/ReportMonthlyStockBalance';
+import WarehouseIcon from '@mui/icons-material/Warehouse';
+import RequestQuoteIcon from '@mui/icons-material/RequestQuote';
+import ListAltIcon from '@mui/icons-material/ListAlt';
+import MoveToInboxIcon from '@mui/icons-material/MoveToInbox';
+
+
+
+
+import HomeSetMinimumStock from '../components/restaurant/setminimumstock/HomeSetMinimumStock';
+import HomeStockAdjustment from '../components/restaurant/stockadjustment/HomeStockAdjustMent';
+import HomePurchaseOrdertoWarehouse from '../components/restaurant/purchaseordertowarehouse/HomePurchaseOrdertoWarehouse';
+import HomeReceiptFromSupplier from '../components/restaurant/receiptfromsupplier/HomeReceiptFromSupplier';
+import HomeReceiptFromWarehouse from '../components/restaurant/receiptfromwarehouse/HomeReceiptFromWarehouse';
+import HomeReceiptFromKitchen from '../components/restaurant/receiptfromkitchen/HomeReceiptFromKitchen';
+import HomeGoodsRequisition from '../components/restaurant/goodsrequisition/HomeGoodsRequisition';
+import ReportStockAdjustMent from '../components/restaurant/report/ReportStockAdjustMent';
+import ReportPurchaseOrderToWarehouse from '../components/restaurant/report/ReportPurchaseOrderToWarehouse';
+import ReportReceiptFromWarehouse from '../components/restaurant/report/ReportReceiptFromWarehouse';
+import ReportReceiptFromKitchen from '../components/restaurant/report/ReportReceiptFromKitchen';
+import ReportReceiptFromSupplier from '../components/restaurant/report/ReportReceiptFromSupplier';
+import ReportGoodsRequisition from '../components/restaurant/report/ReportGoodsRequisition';
+import ReportMonthlyStockCard from '../components/restaurant/report/ReportMonthlyStockCard';
+import ReportMonthlyStockBalance from '../components/restaurant/report/ReportMonthlyStockBalance';
+
+
 import BeginningInventory from '../components/warehouse/beginninginventory/BeginningInventory';
 
 const NAVIGATION = [
     {
-        segment: 'beginning-inventory',
-        title: 'Warehouse Beginning Inventory',
+        segment: 'set-minimum-stock',
+        title: 'Set Minimum Stock',
         icon: <ReceiptLongOutlinedIcon />,
-    },
-    {
-        segment: 'purchase-order-to-supplier',
-        title: 'Warehouse Purchase Order to Supplier',
-        icon: <ReceiptLongOutlinedIcon />,
-    },
-    {
-        segment: 'receipt-from-supplier',
-        title: 'Warehouse Receipt From Supplier',
-        icon: <ReceiptOutlinedIcon />,
-    },
-    {
-        segment: 'receipt-from-kitchen',
-        title: 'Warehouse Receipt From Kitchen',
-        icon: <LocalShippingOutlinedIcon />,
-    },
-    {
-        segment: 'dispatch-to-kitchen',
-        title: 'Warehouse Dispatch to Kitchen',
-        icon: <CountertopsOutlinedIcon />,
-    },
-    {
-        segment: 'dispatch-to-branch',
-        title: 'Warehouse Dispatch to Branch',
-        icon: <HouseSidingOutlinedIcon />,
     },
     {
         segment: 'stock-adjustment',
-        title: 'Warehouse Stock Adjustment',
+        title: 'Stock Adjustment',
         icon: <Inventory2OutlinedIcon />,
     },
     {
+        segment: 'purchase-order-to-warehouse',
+        title: 'Purchase Order to Warehouse',
+        icon: <ListAltIcon />,
+    },
+    {
+        segment: 'receipt-from-warehouse',
+        title: 'Receipt From Warehouse',
+        icon: <MoveToInboxIcon />,
+    },
+    {
+        segment: 'receipt-from-kitchen',
+        title: 'Receipt From Kitchen',
+        icon: <LocalShippingOutlinedIcon />,
+    },
+    {
+        segment: 'receipt-from-supplier',
+        title: 'Receipt From Supplier',
+        icon: <ReceiptOutlinedIcon />,
+    },
+    {
+        segment: 'goods-requisition',
+        title: 'Goods Requisition',
+        icon: <RequestQuoteIcon />,
+    },
+    {
         segment: 'reports',
-        title: 'Warehouse Reports',
+        title: 'Reports',
         icon: <BarChartIcon />,
         children: [
             {
-                segment: 'purchase-order-to-supplier',
-                title: 'Purchase Order to Supplier',
+                segment: 'stock-adjustmen',
+                title: 'Stock Adjustment',
                 icon: <CircleIcon fontSize='small' />,
             },
             {
-                segment: 'receipt-from-supplier',
-                title: 'Receipt From Supplier',
+                segment: 'purchase-order-to-warehouse',
+                title: 'Purchase Order to Warehouse',
+                icon: <CircleIcon fontSize='small' />,
+            },
+            {
+                segment: 'receipt-from-warehouse',
+                title: 'Receipt From Warehouse',
                 icon: <CircleIcon fontSize='small' />,
             },
             {
@@ -91,18 +108,13 @@ const NAVIGATION = [
                 icon: <CircleIcon fontSize='small' />,
             },
             {
-                segment: 'dispatch-to-kitchen',
-                title: 'Dispatch to Kitchen',
+                segment: 'receipt-from-supplier',
+                title: 'Receipt From Supplie',
                 icon: <CircleIcon fontSize='small' />,
             },
             {
-                segment: 'dispatch-to-branch',
-                title: 'Dispatch to Branch',
-                icon: <CircleIcon fontSize='small' />,
-            },
-            {
-                segment: 'stock-adjustment',
-                title: 'Stock Adjustment',
+                segment: 'goods-requisition',
+                title: 'Goods Requisition',
                 icon: <CircleIcon fontSize='small' />,
             },
             {
@@ -149,10 +161,10 @@ const demoTheme = createTheme({
     },
 });
 
-function Warehouse(props) {
+function Restaurant(props) {
     const { window } = props;
-    const [pathname, setPathname] = React.useState('/beginning-inventory');
-    const [currentTitle, setCurrentTitle] = React.useState('Beginning Inventory');
+    const [pathname, setPathname] = React.useState('/set-minimum-stock');
+    const [currentTitle, setCurrentTitle] = React.useState('Set Minimum Stock');
     let navigate = useNavigate();
 
     const handleDashboard = () => {
@@ -229,32 +241,32 @@ function Warehouse(props) {
 
     const renderContent = () => {
         switch (pathname) {
-            case '/beginning-inventory':
-                return <BeginningInventory />;
-            case '/purchase-order-to-supplier':
-                return <HomePurchaseOrderToSupplier />;
-            case '/receipt-from-supplier':
-                return <HomeReceiptFromSupplier />;
-            case '/receipt-from-kitchen':
-                return <HomeReceiptFromKitchen />;
-            case '/dispatch-to-kitchen':
-                return <HomeDispatchToKitchen />;
-            case '/dispatch-to-branch':
-                return <HomeDispatchToBranch />;
+            case '/set-minimum-stock':
+                return <HomeSetMinimumStock />;
             case '/stock-adjustment':
                 return <HomeStockAdjustment />;
-            case '/reports/purchase-order-to-supplier':
-                return <ReportPurchaseordertosupplier />;
-            case '/reports/receipt-from-supplier':
-                return <ReportReceiptFromSupplier />;
+            case '/purchase-order-to-warehouse':
+                return <HomePurchaseOrdertoWarehouse />;
+            case '/receipt-from-warehouse':
+                return <HomeReceiptFromWarehouse />;
+            case '/receipt-from-kitchen':
+                return <HomeReceiptFromKitchen />;
+            case '/receipt-from-supplier':
+                return <HomeReceiptFromSupplier />;
+            case '/goods-requisition':
+                return <HomeGoodsRequisition />;
+            case '/reports/stock-adjustmen':
+                return <ReportStockAdjustMent />;
+            case '/reports/purchase-order-to-warehouse':
+                return <ReportPurchaseOrderToWarehouse />;
+            case '/reports/receipt-from-warehouse':
+                return <ReportReceiptFromWarehouse />;
             case '/reports/receipt-from-kitchen':
                 return <ReportReceiptFromKitchen />;
-            case '/reports/dispatch-to-kitchen':
-                return <ReportDispatchToKitchen />;
-            case '/reports/dispatch-to-branch':
-                return <ReportDispatchToBranch />;
-            case '/reports/stock-adjustment':
-                return <ReportStockAdjustment />;
+            case '/reports/receipt-from-supplier':
+                return <ReportReceiptFromSupplier />;
+            case '/reports/goods-requisition':
+                return <ReportGoodsRequisition />;
             case '/reports/monthly-stock-card':
                 return <ReportMonthlyStockCard />
             case '/reports/monthly-stock-balance':
@@ -308,8 +320,16 @@ function Warehouse(props) {
     );
 }
 
-Warehouse.propTypes = {
+Restaurant.propTypes = {
     window: PropTypes.func,
 };
 
-export default Warehouse;
+export default Restaurant;
+
+
+
+
+
+
+
+

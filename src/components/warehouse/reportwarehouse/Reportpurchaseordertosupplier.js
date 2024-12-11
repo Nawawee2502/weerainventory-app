@@ -648,9 +648,6 @@ export default function ReportPurchaseordertosupplier() {
                         <table style={{ width: '100%', marginTop: '24px' }}>
                             <thead>
                                 <tr>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left' }}>
-                                        <Checkbox />
-                                    </th>
                                     <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>No.</th>
                                     <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Date</th>
                                     <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Ref.no</th>
@@ -672,9 +669,6 @@ export default function ReportPurchaseordertosupplier() {
                             <tbody>
                                 {whposData.map((row, index) => (
                                     <tr key={`${row.refno}-${row.product_code}`}>
-                                        <td style={{ padding: '12px 16px' }}>
-                                            <Checkbox />
-                                        </td>
                                         <td style={{ padding: '12px 16px' }}>{index + 1}</td>
                                         <td style={{ padding: '12px 16px' }}>{row.date}</td>
                                         <td style={{ padding: '12px 16px' }}>{row.refno}</td>

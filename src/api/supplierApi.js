@@ -1,12 +1,11 @@
 import axios from "axios";
 import { createAsyncThunk } from "@reduxjs/toolkit";
 
-
 const BASE_URL = `${process.env.REACT_APP_URL_API}`;
 
 export const addSupplier = createAsyncThunk(
   "supplier/add",
-  async ({ supplier_code, supplier_name, addr1, addr2, tel1 }, { dispatch }) => {
+  async ({ supplier_code, supplier_name, addr1, addr2, tel1, contact_name, payment1 }, { dispatch }) => {
     try {
       const res = await axios.post(BASE_URL + "/api/addsupplier", {
         supplier_code,
@@ -14,6 +13,8 @@ export const addSupplier = createAsyncThunk(
         addr1,
         addr2,
         tel1,
+        contact_name,
+        payment1,
       });
       console.log(res.data);
       return res.data;
@@ -26,7 +27,7 @@ export const addSupplier = createAsyncThunk(
 
 export const updateSupplier = createAsyncThunk(
   "supplier/update",
-  async ({ supplier_code, supplier_name, addr1, addr2, tel1 }, { dispatch }) => {
+  async ({ supplier_code, supplier_name, addr1, addr2, tel1, contact_name, payment1 }, { dispatch }) => {
     try {
       const res = await axios.post(BASE_URL + "/api/updatesupplier", {
         supplier_code,
@@ -34,6 +35,8 @@ export const updateSupplier = createAsyncThunk(
         addr1,
         addr2,
         tel1,
+        contact_name,
+        payment1,
       });
       console.log(res.data);
       return res.data;
@@ -43,7 +46,6 @@ export const updateSupplier = createAsyncThunk(
     }
   }
 );
-
 
 export const deleteSupplier = createAsyncThunk(
   "supplier/delete",
@@ -60,7 +62,6 @@ export const deleteSupplier = createAsyncThunk(
     }
   }
 );
-
 
 export const supplierAll = createAsyncThunk(
   "supplier/read",
@@ -109,7 +110,7 @@ export const searchSupplier = createAsyncThunk(
 
 export const lastSupplierCode = createAsyncThunk(
   "supplier/code",
-  async ( { test },{ dispatch }) => {
+  async ({ test }, { dispatch }) => {
     try {
       const res = await axios.post(BASE_URL + "/api/suppliercode", { test: test });
       console.log(res.data);

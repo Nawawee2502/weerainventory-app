@@ -5,6 +5,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import VisibilityIcon from '@mui/icons-material/Visibility';
+import PrintIcon from '@mui/icons-material/Print';
 import { styled } from '@mui/material/styles';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import DatePicker from 'react-datepicker';
@@ -313,7 +314,7 @@ export default function ReceiptFromKitchen({ onCreate }) {
                 </Button>
             </Box>
 
-            <TableContainer component={Paper} sx={{ width: '90%', mt: '24px' }}>
+            <TableContainer component={Paper} sx={{ width: '100%', mt: '24px' }}>
                 <Table sx={{}} aria-label="customized table">
                     <TableHead>
                         <TableRow>
@@ -363,21 +364,27 @@ export default function ReceiptFromKitchen({ onCreate }) {
                                         <StyledTableCell align="center">{row.total.toFixed(2)}</StyledTableCell>
                                         <StyledTableCell align="center">{row.user?.username}</StyledTableCell>
                                         <StyledTableCell align="center">
-                                            <IconButton color="info">
-                                                <VisibilityIcon />
-                                            </IconButton>
-                                        </StyledTableCell>
-                                        <StyledTableCell align="center">
-                                            <IconButton color="primary">
-                                                <EditIcon />
+                                            <IconButton
+                                                onClick={() => {/* Add edit functionality later */}}
+                                                sx={{ border: '1px solid #AD7A2C', borderRadius: '7px' }}
+                                            >
+                                                <EditIcon sx={{ color: '#AD7A2C' }} />
                                             </IconButton>
                                         </StyledTableCell>
                                         <StyledTableCell align="center">
                                             <IconButton
-                                                color="error"
                                                 onClick={() => handleDelete(row.refno)}
+                                                sx={{ border: '1px solid #F62626', borderRadius: '7px' }}
                                             >
-                                                <DeleteIcon />
+                                                <DeleteIcon sx={{ color: '#F62626' }} />
+                                            </IconButton>
+                                        </StyledTableCell>
+                                        <StyledTableCell align="center">
+                                            <IconButton
+                                                onClick={() => {/* Add print functionality later */}}
+                                                sx={{ border: '1px solid #5686E1', borderRadius: '7px' }}
+                                            >
+                                                <PrintIcon sx={{ color: '#5686E1' }} />
                                             </IconButton>
                                         </StyledTableCell>
                                     </StyledTableRow>

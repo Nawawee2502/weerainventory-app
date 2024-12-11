@@ -48,9 +48,7 @@ export const Wh_dpkByRefno = createAsyncThunk(
     "wh_dpk/read",
     async (refno, { dispatch }) => {
         try {
-            const res = await axios.post(BASE_URL + "/api/wh_dpkbyrefno", {
-                refno,
-            });
+            const res = await axios.post(BASE_URL + "/api/wh_dpkbyrefno", { refno });
             return res.data;
         } catch (error) {
             console.error(error.message);
@@ -63,9 +61,7 @@ export const deleteWh_dpk = createAsyncThunk(
     "wh_dpk/delete",
     async ({ refno }, { dispatch }) => {
         try {
-            const res = await axios.post(BASE_URL + "/api/deleteWh_dpk", {
-                refno,
-            });
+            const res = await axios.post(BASE_URL + "/api/deleteWh_dpk", { refno });
             return res.data;
         } catch (error) {
             console.error(error.message);
@@ -76,35 +72,19 @@ export const deleteWh_dpk = createAsyncThunk(
 
 export const wh_dpkAlljoindt = createAsyncThunk(
     "wh_dpk/read",
-    async ({ offset = 0, limit = 5, rdate, rdate1, rdate2, kitchen_code, product_code }, { dispatch }) => {
+    async ({ offset = 0, limit = 5, rdate1, rdate2, kitchen_code, product_code }, { dispatch }) => {
         try {
             const payload = {
                 offset,
                 limit
             };
 
-            if (rdate) payload.rdate = rdate;
             if (rdate1) payload.rdate1 = rdate1;
             if (rdate2) payload.rdate2 = rdate2;
             if (kitchen_code) payload.kitchen_code = kitchen_code;
             if (product_code) payload.product_code = product_code;
 
             const res = await axios.post(BASE_URL + "/api/wh_dpkAlljoindt", payload);
-            return res.data;
-        } catch (error) {
-            console.error(error.message);
-            throw error;
-        }
-    }
-);
-
-export const wh_dpkAllrdate = createAsyncThunk(
-    "wh_dpk/read",
-    async ({ refno }, { dispatch }) => {
-        try {
-            const res = await axios.post(BASE_URL + "/api/Wh_dpkAllrdate", {
-                refno,
-            });
             return res.data;
         } catch (error) {
             console.error(error.message);

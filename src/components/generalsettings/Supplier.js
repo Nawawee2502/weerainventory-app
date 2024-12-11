@@ -340,6 +340,8 @@ export default function Supplier() {
             addr1: row.addr1,
             addr2: row.addr2,
             tel1: row.tel1,
+            contact_name: row.contact_name,
+            payment1: row.payment1,
         });
         toggleEditDrawer(true)();
     };
@@ -370,6 +372,8 @@ export default function Supplier() {
             addr1: "",
             addr2: "",
             tel1: "",
+            contact_name: "", // New field
+            payment1: "",    // New field
         },
         validate: (values) => {
             let errors = {};
@@ -385,6 +389,12 @@ export default function Supplier() {
             }
             if (!values.tel1) {
                 errors.tel1 = 'tel1 cannot be empty';
+            }
+            if (!values.contact_name) {
+                errors.contact_name = 'Contact name cannot be empty';
+            }
+            if (!values.payment1) {
+                errors.payment1 = 'Payment cannot be empty';
             }
 
             return errors;
@@ -568,6 +578,8 @@ export default function Supplier() {
                                 <StyledTableCell align="center">Supplier Name</StyledTableCell>
                                 <StyledTableCell align="center">Address</StyledTableCell>
                                 <StyledTableCell align="center">Telephone</StyledTableCell>
+                                <StyledTableCell align="center">Contact Name</StyledTableCell>
+                                <StyledTableCell align="center">Payment</StyledTableCell>
                                 <StyledTableCell width='1%' align="center"></StyledTableCell>
                                 <StyledTableCell width='1%' align="center"></StyledTableCell>
 
@@ -589,6 +601,8 @@ export default function Supplier() {
                                     <StyledTableCell align="center">{row.supplier_name}</StyledTableCell>
                                     <StyledTableCell align="center">{row.addr1} {row.addr2}</StyledTableCell>
                                     <StyledTableCell align="center">{row.tel1}</StyledTableCell>
+                                    <StyledTableCell align="center">{row.contact_name}</StyledTableCell>
+                                    <StyledTableCell align="center">{row.payment1}</StyledTableCell>
                                     <StyledTableCell align="center">
                                         <IconButton
                                             color="primary"
@@ -767,6 +781,39 @@ export default function Supplier() {
                                 {...formik.getFieldProps("tel1")}
                                 {...errorHelper(formik, "tel1")}
                             />
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
+                                Contact Name
+                            </Typography>
+                            <TextField
+                                size="small"
+                                placeholder="Contact Name"
+                                sx={{
+                                    mt: '8px',
+                                    width: '100%',
+                                    '& .MuiOutlinedInput-root': {
+                                        borderRadius: '10px',
+                                    },
+                                }}
+                                {...formik.getFieldProps("contact_name")}
+                                {...errorHelper(formik, "contact_name")}
+                            />
+
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
+                                Payment
+                            </Typography>
+                            <TextField
+                                size="small"
+                                placeholder="Payment"
+                                sx={{
+                                    mt: '8px',
+                                    width: '100%',
+                                    '& .MuiOutlinedInput-root': {
+                                        borderRadius: '10px',
+                                    },
+                                }}
+                                {...formik.getFieldProps("payment1")}
+                                {...errorHelper(formik, "payment1")}
+                            />
                         </Box>
                         <Box sx={{ mt: '24px' }} >
                             <Button variant='contained'
@@ -943,6 +990,39 @@ export default function Supplier() {
                                 }}
                                 {...formik.getFieldProps("tel1")}
                                 {...errorHelper(formik, "tel1")}
+                            />
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
+                                Contact Name
+                            </Typography>
+                            <TextField
+                                size="small"
+                                placeholder="Contact Name"
+                                sx={{
+                                    mt: '8px',
+                                    width: '100%',
+                                    '& .MuiOutlinedInput-root': {
+                                        borderRadius: '10px',
+                                    },
+                                }}
+                                {...formik.getFieldProps("contact_name")}
+                                {...errorHelper(formik, "contact_name")}
+                            />
+
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
+                                Payment
+                            </Typography>
+                            <TextField
+                                size="small"
+                                placeholder="Payment"
+                                sx={{
+                                    mt: '8px',
+                                    width: '100%',
+                                    '& .MuiOutlinedInput-root': {
+                                        borderRadius: '10px',
+                                    },
+                                }}
+                                {...formik.getFieldProps("payment1")}
+                                {...errorHelper(formik, "payment1")}
                             />
                         </Box>
                         <Box sx={{ mt: '24px' }} >
