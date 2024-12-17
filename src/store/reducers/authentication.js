@@ -24,10 +24,15 @@ export const authenticationSlice = createSlice({
     getUserData: (state) => {
       return state.userData;
     },
+    logout: (state) => {
+      localStorage.removeItem('userData2');  // ลบ userData
+      state.token = '';  // ลบ token ใน redux
+      state.userData = '';  // ลบ userData ใน redux
+    }
   },
 });
 
-export const { addToken, removeToken, getToken, addUserData, getUserData } = authenticationSlice.actions;
+export const { addToken, removeToken, getToken, addUserData, getUserData, logout } = authenticationSlice.actions;
 
 export default authenticationSlice.reducer;
 

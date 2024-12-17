@@ -62,6 +62,25 @@ export default function Settings() {
     const [mobileMoreAnchorEl, setMobileMoreAnchorEl] = useState(null);
     let navigate = useNavigate();
 
+    const userData = JSON.parse(localStorage.getItem('userData2'));
+    const permissions = userData?.tbl_typeuserpermission || {};
+
+    const showGeneralSettings = permissions.menu_setgeneral === 'Y';
+    const showUserSettings = permissions.menu_setuser === 'Y';
+
+    if (!showGeneralSettings && !showUserSettings) {
+        return (
+            <Box sx={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                height: '100vh'
+            }}>
+                <Typography>You don't have permission to access settings.</Typography>
+            </Box>
+        );
+    }
+
     const handleGeneralSettings = () => {
         navigate('/generalsettings');
     };
@@ -265,55 +284,61 @@ export default function Settings() {
                         width: '100%',
                         mb: '24px'  // เพิ่มระยะห่างด้านล่าง
                     }}>
-                        <Button
-                            onClick={handleGeneralSettings}
-                            sx={{
-                                width: '413px',
-                                height: '333px',
-                                bgcolor: '#FFFFFF',
-                                boxShadow: '0px 4px 4px 0px #00000040',
-                                borderRadius: '10px',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                justifyContent: 'center',
-                                alignItems: 'center',
-                                '&:hover': {
-                                    bgcolor: '#F0F0F0',
-                                },
-                            }}>
-                            <Typography sx={{ fontSize: '16px', fontWeight: '700', color: '#1D2A3A' }}>
-                                General settings
-                            </Typography>
-                            <img
-                                style={{ width: '245px', height: '245px' }}
-                                src='/generalsetting.png'
-                            />
-                        </Button>
-                        <Button
-                            onClick={handleUserSettings}
-                            sx={{
-                                width: '413px',
-                                height: '333px',
-                                bgcolor: '#FFFFFF',
-                                boxShadow: '0px 4px 4px 0px #00000040',
-                                borderRadius: '10px',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                justifyContent: 'center',
-                                alignItems: 'center',
-                                ml: '24px',
-                                '&:hover': {
-                                    bgcolor: '#F0F0F0',
-                                },
-                            }}>
-                            <Typography sx={{ fontSize: '16px', fontWeight: '700', color: '#1D2A3A' }}>
-                                User settings
-                            </Typography>
-                            <img
-                                style={{ width: '245px', height: '245px' }}
-                                src='/usersetting.png'
-                            />
-                        </Button>
+                        {/* Conditional rendering for buttons */}
+                        {showGeneralSettings && (
+                            <Button
+                                onClick={handleGeneralSettings}
+                                sx={{
+                                    width: '413px',
+                                    height: '333px',
+                                    bgcolor: '#FFFFFF',
+                                    boxShadow: '0px 4px 4px 0px #00000040',
+                                    borderRadius: '10px',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    justifyContent: 'center',
+                                    alignItems: 'center',
+                                    '&:hover': {
+                                        bgcolor: '#F0F0F0',
+                                    },
+                                }}>
+                                <Typography sx={{ fontSize: '16px', fontWeight: '700', color: '#1D2A3A' }}>
+                                    General settings
+                                </Typography>
+                                <img
+                                    style={{ width: '245px', height: '245px' }}
+                                    src='/generalsetting.png'
+                                />
+                            </Button>
+                        )}
+
+                        {showUserSettings && (
+                            <Button
+                                onClick={handleUserSettings}
+                                sx={{
+                                    width: '413px',
+                                    height: '333px',
+                                    bgcolor: '#FFFFFF',
+                                    boxShadow: '0px 4px 4px 0px #00000040',
+                                    borderRadius: '10px',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    justifyContent: 'center',
+                                    alignItems: 'center',
+                                    ml: showGeneralSettings ? '24px' : '0px', // ปรับ margin ตามการแสดงปุ่ม
+                                    '&:hover': {
+                                        bgcolor: '#F0F0F0',
+                                    },
+                                }}>
+                                <Typography sx={{ fontSize: '16px', fontWeight: '700', color: '#1D2A3A' }}>
+                                    User settings
+                                </Typography>
+                                <img
+                                    style={{ width: '245px', height: '245px' }}
+                                    src='/usersetting.png'
+                                />
+                            </Button>
+                        )}
                     </Box>
 
                     <Box

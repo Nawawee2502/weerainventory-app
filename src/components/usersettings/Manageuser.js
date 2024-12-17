@@ -136,22 +136,6 @@ export default function ManageUser() {
         setTimeout(() => setAlert({ show: false, message: '', type: 'success' }), 3000);
     }
 
-    async function handleSubmit(values) {
-        try {
-            if (editMode) {
-                await dispatch(updateUser(values)).unwrap();
-                showAlert('User updated successfully');
-            } else {
-                await dispatch(register(values)).unwrap();
-                showAlert('User created successfully');
-            }
-            handleCloseDrawer();
-            fetchUsers();
-        } catch (error) {
-            showAlert(error.message || 'Operation failed', 'error');
-        }
-    }
-
     const handleSearchChange = async (e) => {
         setSearchTerm(e.target.value);
         try {
@@ -252,25 +236,24 @@ export default function ManageUser() {
     const handleGenerateUserCode = async () => {
         try {
             const response = await dispatch(getLastUserCode()).unwrap();
-            console.log('Last user code response:', response); // Debug log
+            console.log('Last user code response:', response);
 
-            let lastCode = '001';
-            if (response.result && response.data) {
-                // แปลงเป็นตัวเลขโดยตรง
-                const currentNumber = parseInt(response.data.user_code, 10);
-                const nextNumber = currentNumber + 1;
-
-                // Format ให้เป็น 3 หลักเสมอ
-                lastCode = nextNumber.toString().padStart(3, '0');
-
-                console.log('Current number:', currentNumber); // Debug log
-                console.log('Next number:', nextNumber); // Debug log
-                console.log('Formatted code:', lastCode); // Debug log
+            // ถ้าไม่มีข้อมูล หรือ response ไม่ถูกต้อง
+            if (!response || !response.result || !response.data) {
+                console.log('No last user code found, using default');
+                return '001';
             }
 
-            return lastCode;
+            if (response.data.user_code) {
+                const currentNumber = parseInt(response.data.user_code, 10);
+                const nextNumber = currentNumber + 1;
+                return nextNumber.toString().padStart(3, '0');
+            }
+
+            return '001'; // ค่าเริ่มต้น
         } catch (error) {
             console.error('Error generating user code:', error);
+            // ถ้าเกิด error ให้ใช้ค่าเริ่มต้น
             return '001';
         }
     };
@@ -328,7 +311,20 @@ export default function ManageUser() {
 
     const handleUpdate = async (values) => {
         try {
-            await dispatch(updateUser(values)).unwrap();
+            const updateData = {
+                user_code: values.user_code,
+                username: values.username,
+                email: values.email,
+                typeuser_code: values.typeuser_code,
+                line_uid: values.line_uid
+            };
+
+            // เพิ่ม password เฉพาะเมื่อมีการกรอกค่าใหม่
+            if (values.password) {
+                updateData.password = values.password;
+            }
+
+            await dispatch(updateUser(updateData)).unwrap();
 
             Swal.fire({
                 icon: 'success',

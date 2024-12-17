@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useMemo } from 'react';
 import PropTypes from 'prop-types';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -46,90 +47,7 @@ import ReportMonthlyStockBalance from '../components/restaurant/report/ReportMon
 
 import BeginningInventory from '../components/warehouse/beginninginventory/BeginningInventory';
 
-const NAVIGATION = [
-    {
-        segment: 'set-minimum-stock',
-        title: 'Set Minimum Stock',
-        icon: <ReceiptLongOutlinedIcon />,
-    },
-    {
-        segment: 'stock-adjustment',
-        title: 'Stock Adjustment',
-        icon: <Inventory2OutlinedIcon />,
-    },
-    {
-        segment: 'purchase-order-to-warehouse',
-        title: 'Purchase Order to Warehouse',
-        icon: <ListAltIcon />,
-    },
-    {
-        segment: 'receipt-from-warehouse',
-        title: 'Receipt From Warehouse',
-        icon: <MoveToInboxIcon />,
-    },
-    {
-        segment: 'receipt-from-kitchen',
-        title: 'Receipt From Kitchen',
-        icon: <LocalShippingOutlinedIcon />,
-    },
-    {
-        segment: 'receipt-from-supplier',
-        title: 'Receipt From Supplier',
-        icon: <ReceiptOutlinedIcon />,
-    },
-    {
-        segment: 'goods-requisition',
-        title: 'Goods Requisition',
-        icon: <RequestQuoteIcon />,
-    },
-    {
-        segment: 'reports',
-        title: 'Reports',
-        icon: <BarChartIcon />,
-        children: [
-            {
-                segment: 'stock-adjustmen',
-                title: 'Stock Adjustment',
-                icon: <CircleIcon fontSize='small' />,
-            },
-            {
-                segment: 'purchase-order-to-warehouse',
-                title: 'Purchase Order to Warehouse',
-                icon: <CircleIcon fontSize='small' />,
-            },
-            {
-                segment: 'receipt-from-warehouse',
-                title: 'Receipt From Warehouse',
-                icon: <CircleIcon fontSize='small' />,
-            },
-            {
-                segment: 'receipt-from-kitchen',
-                title: 'Receipt From Kitchen',
-                icon: <CircleIcon fontSize='small' />,
-            },
-            {
-                segment: 'receipt-from-supplier',
-                title: 'Receipt From Supplie',
-                icon: <CircleIcon fontSize='small' />,
-            },
-            {
-                segment: 'goods-requisition',
-                title: 'Goods Requisition',
-                icon: <CircleIcon fontSize='small' />,
-            },
-            {
-                segment: 'monthly-stock-card',
-                title: 'Monthly Stock Card',
-                icon: <CircleIcon fontSize='small' />,
-            },
-            {
-                segment: 'monthly-stock-balance',
-                title: 'Monthly Stock Balance',
-                icon: <CircleIcon fontSize='small' />,
-            },
-        ],
-    },
-];
+
 
 const demoTheme = createTheme({
     breakpoints: {
@@ -166,6 +84,129 @@ function Restaurant(props) {
     const [pathname, setPathname] = React.useState('/set-minimum-stock');
     const [currentTitle, setCurrentTitle] = React.useState('Set Minimum Stock');
     let navigate = useNavigate();
+
+    const NAVIGATION = React.useMemo(() => {
+        const userData = JSON.parse(localStorage.getItem('userData2'));
+        const permissions = userData?.tbl_typeuserpermission || {};
+
+        const menu = [];
+
+        // Set Minimum Stock
+        if (permissions.menu_setbr_minmum_stock === 'Y') {
+            menu.push({
+                segment: 'set-minimum-stock',
+                title: 'Set Minimum Stock',
+                icon: <ReceiptLongOutlinedIcon />,
+            });
+        }
+
+        // Stock Adjustment
+        if (permissions.menu_setbr_stock_adjustment === 'Y') {
+            menu.push({
+                segment: 'stock-adjustment',
+                title: 'Stock Adjustment',
+                icon: <Inventory2OutlinedIcon />,
+            });
+        }
+
+        // Purchase Order to Warehouse
+        if (permissions.menu_setbr_purchase_order_to_wh === 'Y') {
+            menu.push({
+                segment: 'purchase-order-to-warehouse',
+                title: 'Purchase Order to Warehouse',
+                icon: <ListAltIcon />,
+            });
+        }
+
+        // Receipt From Warehouse
+        if (permissions.menu_setbr_receipt_from_warehouse === 'Y') {
+            menu.push({
+                segment: 'receipt-from-warehouse',
+                title: 'Receipt From Warehouse',
+                icon: <MoveToInboxIcon />,
+            });
+        }
+
+        // Receipt From Kitchen
+        if (permissions.menu_setbr_receipt_from_kitchen === 'Y') {
+            menu.push({
+                segment: 'receipt-from-kitchen',
+                title: 'Receipt From Kitchen',
+                icon: <LocalShippingOutlinedIcon />,
+            });
+        }
+
+        // Receipt From Supplier
+        if (permissions.menu_setbr_receipt_from_supplier === 'Y') {
+            menu.push({
+                segment: 'receipt-from-supplier',
+                title: 'Receipt From Supplier',
+                icon: <ReceiptOutlinedIcon />,
+            });
+        }
+
+        // Goods Requisition
+        if (permissions.menu_setbr_goods_requisition === 'Y') {
+            menu.push({
+                segment: 'goods-requisition',
+                title: 'Goods Requisition',
+                icon: <RequestQuoteIcon />,
+            });
+        }
+
+        // Reports
+        if (permissions.menu_setbr_report === 'Y') {
+            menu.push({
+                segment: 'reports',
+                title: 'Reports',
+                icon: <BarChartIcon />,
+                children: [
+                    {
+                        segment: 'stock-adjustmen',
+                        title: 'Stock Adjustment',
+                        icon: <CircleIcon fontSize='small' />,
+                    },
+                    {
+                        segment: 'purchase-order-to-warehouse',
+                        title: 'Purchase Order to Warehouse',
+                        icon: <CircleIcon fontSize='small' />,
+                    },
+                    {
+                        segment: 'receipt-from-warehouse',
+                        title: 'Receipt From Warehouse',
+                        icon: <CircleIcon fontSize='small' />,
+                    },
+                    {
+                        segment: 'receipt-from-kitchen',
+                        title: 'Receipt From Kitchen',
+                        icon: <CircleIcon fontSize='small' />,
+                    },
+                    {
+                        segment: 'receipt-from-supplier',
+                        title: 'Receipt From Supplier',
+                        icon: <CircleIcon fontSize='small' />,
+                    },
+                    {
+                        segment: 'goods-requisition',
+                        title: 'Goods Requisition',
+                        icon: <CircleIcon fontSize='small' />,
+                    },
+                    {
+                        segment: 'monthly-stock-card',
+                        title: 'Monthly Stock Card',
+                        icon: <CircleIcon fontSize='small' />,
+                    },
+                    {
+                        segment: 'monthly-stock-balance',
+                        title: 'Monthly Stock Balance',
+                        icon: <CircleIcon fontSize='small' />,
+                    },
+                ],
+            });
+        }
+
+        return menu;
+    }, []);
 
     const handleDashboard = () => {
         navigate('/dashboard');
@@ -239,22 +280,8 @@ function Restaurant(props) {
 
     const demoWindow = window !== undefined ? window() : undefined;
 
-    const renderContent = () => {
-        switch (pathname) {
-            case '/set-minimum-stock':
-                return <HomeSetMinimumStock />;
-            case '/stock-adjustment':
-                return <HomeStockAdjustment />;
-            case '/purchase-order-to-warehouse':
-                return <HomePurchaseOrdertoWarehouse />;
-            case '/receipt-from-warehouse':
-                return <HomeReceiptFromWarehouse />;
-            case '/receipt-from-kitchen':
-                return <HomeReceiptFromKitchen />;
-            case '/receipt-from-supplier':
-                return <HomeReceiptFromSupplier />;
-            case '/goods-requisition':
-                return <HomeGoodsRequisition />;
+    const renderReportContent = (path) => {
+        switch (path) {
             case '/reports/stock-adjustmen':
                 return <ReportStockAdjustMent />;
             case '/reports/purchase-order-to-warehouse':
@@ -268,11 +295,44 @@ function Restaurant(props) {
             case '/reports/goods-requisition':
                 return <ReportGoodsRequisition />;
             case '/reports/monthly-stock-card':
-                return <ReportMonthlyStockCard />
+                return <ReportMonthlyStockCard />;
             case '/reports/monthly-stock-balance':
                 return <ReportMonthlyStockBalance />;
             default:
-                return <BeginningInventory />;
+                return null;
+        }
+    };
+
+    const renderContent = () => {
+        const userData = JSON.parse(localStorage.getItem('userData2'));
+        const permissions = userData?.tbl_typeuserpermission || {};
+
+        switch (pathname) {
+            case '/set-minimum-stock':
+                return permissions.menu_setbr_minmum_stock === 'Y' ? <HomeSetMinimumStock /> : null;
+            case '/stock-adjustment':
+                return permissions.menu_setbr_stock_adjustment === 'Y' ? <HomeStockAdjustment /> : null;
+            case '/purchase-order-to-warehouse':
+                return permissions.menu_setbr_purchase_order_to_wh === 'Y' ? <HomePurchaseOrdertoWarehouse /> : null;
+            case '/receipt-from-warehouse':
+                return permissions.menu_setbr_receipt_from_warehouse === 'Y' ? <HomeReceiptFromWarehouse /> : null;
+            case '/receipt-from-kitchen':
+                return permissions.menu_setbr_receipt_from_kitchen === 'Y' ? <HomeReceiptFromKitchen /> : null;
+            case '/receipt-from-supplier':
+                return permissions.menu_setbr_receipt_from_supplier === 'Y' ? <HomeReceiptFromSupplier /> : null;
+            case '/goods-requisition':
+                return permissions.menu_setbr_goods_requisition === 'Y' ? <HomeGoodsRequisition /> : null;
+            case '/reports/stock-adjustmen':
+            case '/reports/purchase-order-to-warehouse':
+            case '/reports/receipt-from-warehouse':
+            case '/reports/receipt-from-kitchen':
+            case '/reports/receipt-from-supplier':
+            case '/reports/goods-requisition':
+            case '/reports/monthly-stock-card':
+            case '/reports/monthly-stock-balance':
+                return permissions.menu_setbr_report === 'Y' ? renderReportContent(pathname) : null;
+            default:
+                return null;
         }
     };
 

@@ -10,7 +10,7 @@ import InputBase from '@mui/material/InputBase';
 import Badge from '@mui/material/Badge';
 import MenuItem from '@mui/material/MenuItem';
 import Menu from '@mui/material/Menu';
-import MenuIcon from '@mui/icons-material/Menu';
+import { useDispatch } from 'react-redux';
 import { useNavigate } from "react-router-dom";
 import SearchIcon from '@mui/icons-material/Search';
 import AccountCircle from '@mui/icons-material/AccountCircle';
@@ -18,6 +18,7 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import MoreIcon from '@mui/icons-material/MoreVert';
 import { Button, Grid, Grid2 } from '@mui/material';
+import { logout } from '../store/reducers/authentication';
 // import { useRouter } from 'next/router';
 
 const Search = styled('div')(({ theme }) => ({
@@ -66,9 +67,12 @@ export default function Dashboard() {
     const [anchorEl, setAnchorEl] = useState(null);
     const [mobileMoreAnchorEl, setMobileMoreAnchorEl] = useState(null);
     let navigate = useNavigate();
-
+    const dispatch = useDispatch();
     const isMenuOpen = Boolean(anchorEl);
     const isMobileMenuOpen = Boolean(mobileMoreAnchorEl);
+
+    const userData = JSON.parse(localStorage.getItem('userData2'));
+    const permissions = userData?.tbl_typeuserpermission || {};
 
     const handleSettings = () => {
         navigate('/settings');
@@ -102,6 +106,32 @@ export default function Dashboard() {
     const handleSettingsClick = () => {
         window.location.href = '/settings';
     };
+
+    const menuId = 'primary-search-account-menu';
+    const handleLogout = () => {
+        dispatch(logout());
+        navigate('/');
+    };
+
+    const renderMenu = (
+        <Menu
+            anchorEl={anchorEl}
+            anchorOrigin={{
+                vertical: 'bottom',
+                horizontal: 'right',
+            }}
+            id={menuId}
+            keepMounted
+            transformOrigin={{
+                vertical: 'top',
+                horizontal: 'right',
+            }}
+            open={isMenuOpen}
+            onClose={handleMenuClose}
+        >
+            <MenuItem onClick={handleLogout}>Logout</MenuItem>
+        </Menu>
+    );
 
     const mobileMenuId = 'primary-search-account-menu-mobile';
     const renderMobileMenu = (
@@ -237,74 +267,84 @@ export default function Dashboard() {
                     bgcolor: '#EDEDED',
                     overflowX: 'hidden',
                 }}>
-                <Button
-                    onClick={handleRestaurant}
-                    sx={{
-                        width: '150px',
-                        height: '130px',
-                        bgcolor: '#FFFFFF',
-                        boxShadow: '0px 4px 4px 0px #00000040',
-                        borderRadius: '10px',
-                        mt: '24px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                    }}>
-                    <img
-                        style={{ width: '81px', height: '81px' }}
-                        src='/shop.png'
-                    />
-                    <Typography sx={{ fontSize: '16px', fontWeight: '700', color: '#1D2A3A' }}>
-                        Restaurant
-                    </Typography>
-                </Button>
-                <Button
-                    onClick={handleWarehouse}
-                    sx={{
-                        width: '150px',
-                        height: '130px',
-                        bgcolor: '#FFFFFF',
-                        boxShadow: '0px 4px 4px 0px #00000040',
-                        borderRadius: '10px',
-                        mt: '24px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        ml: '24px',
-                    }}>
-                    <img
-                        style={{ width: '81px', height: '81px' }}
-                        src='/warehouse.png'
-                    />
-                    <Typography sx={{ fontSize: '16px', fontWeight: '700', color: '#1D2A3A' }}>
-                        Warehouse
-                    </Typography>
-                </Button>
-                <Button
-                    // onClick={}
-                    sx={{
-                        width: '150px',
-                        height: '130px',
-                        bgcolor: '#FFFFFF',
-                        boxShadow: '0px 4px 4px 0px #00000040',
-                        borderRadius: '10px',
-                        mt: '24px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        ml: '24px',
-                    }}>
-                    <img
-                        style={{ width: '81px', height: '81px' }}
-                        src='/room4,5.png'
-                    />
-                    <Typography sx={{ fontSize: '16px', fontWeight: '700', color: '#1D2A3A' }}>
-                        Room4,Room5
-                    </Typography>
-                </Button>
+                {/* Restaurant Button - แสดงเฉพาะเมื่อ menu_setbranch เป็น Y */}
+                {permissions.menu_setbranch === 'Y' && (
+                    <Button
+                        onClick={handleRestaurant}
+                        sx={{
+                            width: '150px',
+                            height: '130px',
+                            bgcolor: '#FFFFFF',
+                            boxShadow: '0px 4px 4px 0px #00000040',
+                            borderRadius: '10px',
+                            mt: '24px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                        }}>
+                        <img
+                            style={{ width: '81px', height: '81px' }}
+                            src='/shop.png'
+                        />
+                        <Typography sx={{ fontSize: '16px', fontWeight: '700', color: '#1D2A3A' }}>
+                            Restaurant
+                        </Typography>
+                    </Button>
+                )}
+
+                {/* Warehouse Button - แสดงเฉพาะเมื่อ menu_setwarehouse เป็น Y */}
+                {permissions.menu_setwarehouse === 'Y' && (
+                    <Button
+                        onClick={handleWarehouse}
+                        sx={{
+                            width: '150px',
+                            height: '130px',
+                            bgcolor: '#FFFFFF',
+                            boxShadow: '0px 4px 4px 0px #00000040',
+                            borderRadius: '10px',
+                            mt: '24px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            ml: '24px',
+                        }}>
+                        <img
+                            style={{ width: '81px', height: '81px' }}
+                            src='/warehouse.png'
+                        />
+                        <Typography sx={{ fontSize: '16px', fontWeight: '700', color: '#1D2A3A' }}>
+                            Warehouse
+                        </Typography>
+                    </Button>
+                )}
+
+                {/* Kitchen Button - แสดงเฉพาะเมื่อ menu_setkitchen เป็น Y */}
+                {permissions.menu_setkitchen === 'Y' && (
+                    <Button
+                        sx={{
+                            width: '150px',
+                            height: '130px',
+                            bgcolor: '#FFFFFF',
+                            boxShadow: '0px 4px 4px 0px #00000040',
+                            borderRadius: '10px',
+                            mt: '24px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            ml: '24px',
+                        }}>
+                        <img
+                            style={{ width: '81px', height: '81px' }}
+                            src='/room4,5.png'
+                        />
+                        <Typography sx={{ fontSize: '16px', fontWeight: '700', color: '#1D2A3A' }}>
+                            Kitchen
+                        </Typography>
+                    </Button>
+                )}
                 <Box
                     sx={{
                         width: '98%',
@@ -351,6 +391,7 @@ export default function Dashboard() {
                     </Box>
                 </Box>
             </Box>
+            {renderMenu}
         </div>
     )
 }

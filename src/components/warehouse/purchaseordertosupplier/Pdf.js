@@ -1,5 +1,12 @@
 import React from 'react';
-import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
+import { Document, Page, Text, View, StyleSheet, Font } from '@react-pdf/renderer';
+import code128 from '../../../assets/fonts/code128.ttf';
+
+// Register the Code128 font
+Font.register({
+  family: 'Code128',
+  src: code128
+});
 
 // Define styles for PDF
 const styles = StyleSheet.create({
@@ -24,6 +31,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#000',
     borderBottomStyle: 'solid',
     padding: 5,
+    alignItems: 'center',
   },
   cell: {
     flex: 1,
@@ -35,11 +43,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
+  barcode: {
+    fontFamily: 'Code128',
+    fontSize: 30,
+  },
+  barcodeContainer: {
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  barcodeText: {
+    fontSize: 8,
+    marginTop: 2,
+  }
 });
 
 // Format number to 2 decimal places
 const formatNumber = (number) => {
   return Number(number).toFixed(2);
+};
+
+// Function to encode text to Code128 format
+const encodeToCode128 = (text) => {
+  return String.fromCharCode(104) + text + String.fromCharCode(106);
 };
 
 // Main PDF Component
@@ -78,13 +103,23 @@ export const PurchaseOrderPDF = ({ supplier, supplierName, refNo, date, branch, 
 
       {/* Table Rows */}
       {productArray.map((item, index) => (
-        <View style={styles.row} key={index}>
-          <Text style={[styles.cell, { flex: 0.5 }]}>{index + 1}</Text>
-          <Text style={styles.cell}>{item.tbl_product?.product_name || 'Product Description'}</Text>
-          <Text style={styles.cell}>{formatNumber(item.qty)}</Text>
-          <Text style={styles.cell}>{item.tbl_unit?.unit_name || item.unit_code}</Text>
-          <Text style={styles.cell}>{formatNumber(item.uprice)}</Text>
-          <Text style={styles.cell}>{formatNumber(item.amt)}</Text>
+        <View key={index}>
+          <View style={styles.row}>
+            <Text style={[styles.cell, { flex: 0.5 }]}>{index + 1}</Text>
+            <Text style={styles.cell}>{item.tbl_product?.product_name || 'Product Description'}</Text>
+            <Text style={styles.cell}>{formatNumber(item.qty)}</Text>
+            <Text style={styles.cell}>{item.tbl_unit?.unit_name || item.unit_code}</Text>
+            <Text style={styles.cell}>{formatNumber(item.uprice)}</Text>
+            <Text style={styles.cell}>{formatNumber(item.amt)}</Text>
+          </View>
+          {/* Barcode section under each product row */}
+          <View style={styles.barcodeContainer}>
+            <Text style={styles.barcode}>
+              {encodeToCode128(item.product_code)}
+            </Text>
+            <Text style={styles.barcodeText}>{item.product_code}</Text>
+            <Text style={styles.barcodeText}>{item.tbl_product?.product_name}</Text>
+          </View>
         </View>
       ))}
 

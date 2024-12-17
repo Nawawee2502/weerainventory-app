@@ -1,65 +1,4 @@
-// import * as React from 'react';
-// import { PageContainer } from '@toolpad/core/PageContainer';
-// import { AppProvider } from '@toolpad/core/AppProvider';
-// import { useDemoRouter } from '@toolpad/core/internal';
-// import { useTheme } from '@mui/material/styles';
-// import Paper from '@mui/material/Paper';
-// // import ReceiptFromSupplier from './ReceiptFromSupplier';
-// // import CreateReceiptFromSupplier from './CreateReceiptFromSupplier';
-// // import EditReceiptFromSupplier from './EditReceiptFromSupplier';
-
-// const NAVIGATION = [
-//   { segment: '', title: '' },
-//   { segment: 'receipts', title: 'Receipts' },
-// ];
-
-// export default function HomeSetMinimumStock() {
-//   const router = useDemoRouter('/');
-//   const theme = useTheme();
-
-//   const [currentView, setCurrentView] = React.useState('list');
-//   const [editRefno, setEditRefno] = React.useState(null);
-
-//   const handleCreate = () => {
-//     setCurrentView('create');
-//   };
-
-//   const handleEdit = (refno) => {
-//     setEditRefno(refno);
-//     setCurrentView('edit');
-//   };
-
-//   const handleBack = () => {
-//     setCurrentView('list');
-//     setEditRefno(null);
-//   };
-
-//   const renderComponent = () => {
-//     switch(currentView) {
-//       case 'create':
-//         // return <CreateReceiptFromSupplier onBack={handleBack} />;
-//     //   case 'edit':
-//     //     return <EditReceiptFromSupplier onBack={handleBack} editRefno={editRefno} />;
-//       default:
-//         // return <ReceiptFromSupplier onCreate={handleCreate} onEdit={handleEdit} />;
-//     }
-//   };
-
-//   return (
-    
-//     <AppProvider navigation={NAVIGATION} router={router} theme={theme}>
-//       <Paper sx={{ width: '100%' }}>
-//         <PageContainer sx={{ width: '100%' }}>
-//           {renderComponent()}
-//           <button>kkk</button>
-//         </PageContainer>
-//       </Paper>
-//     </AppProvider>
-//   );
-// }
-
-
-import { Box, Button, InputAdornment, TextField, Typography, Drawer, IconButton,Checkbox } from '@mui/material';
+import { Box, Button, InputAdornment, TextField, Typography, Drawer, IconButton, Checkbox, Select, MenuItem, FormControl, InputLabel } from '@mui/material';
 import React, { useState, useEffect } from 'react';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
 import SearchIcon from '@mui/icons-material/Search';
@@ -79,8 +18,10 @@ import { unitAll } from '../../../api/productunitApi';
 import { addWh_stockcard } from '../../../api/warehouse/wh_stockcard';
 import { useFormik } from 'formik';
 import Swal from 'sweetalert2';
-import { Edit, Delete, Search,DeleteIcon} from '@mui/icons-material';
+import { Edit, Delete, Search, DeleteIcon } from '@mui/icons-material';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+import { branchAll } from '../../../api/branchApi'
+import { addBrMinStock, queryBrMinStock, deleteBrMinStock } from '../../../api/restaurant/br_minimum_stockApi';
 
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
@@ -112,43 +53,49 @@ export default function HomeSetMinimumStock() {
     const [showDropdown, setShowDropdown] = useState(false);
     const [units, setUnits] = useState([]);
     const [selectedProduct, setSelectedProduct] = useState(null);
+    const [branches, setBranches] = useState([]);
+    const [selectedBranch, setSelectedBranch] = useState('');
+    const [minStocks, setMinStocks] = useState([]);
+    const [page, setPage] = useState(1);
+    const [itemsPerPage] = useState(10);
+
 
     // Custom DatePicker Input Component
-const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
-    <Box sx={{ position: 'relative', display: 'inline-block', width: '100%' }}>
-        <TextField
-            value={value}
-            onClick={onClick}
-            placeholder={placeholder}
-            ref={ref}
-            size="small"
-            sx={{
-                '& .MuiInputBase-root': {
-                    height: '38px',
-                    width: '100%',
-                    backgroundColor: '#fff',
-                },
-                '& .MuiOutlinedInput-input': {
-                    cursor: 'pointer',
-                    paddingRight: '40px',
-                }
-            }}
-            InputProps={{
-                readOnly: true,
-                endAdornment: (
-                    <InputAdornment position="start">
-                        <CalendarTodayIcon
-                            sx={{
-                                color: '#754C27',
-                                cursor: 'pointer'
-                            }}
-                        />
-                    </InputAdornment>
-                ),
-            }}
-        />
-    </Box>
-));
+    const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
+        <Box sx={{ position: 'relative', display: 'inline-block', width: '100%' }}>
+            <TextField
+                value={value}
+                onClick={onClick}
+                placeholder={placeholder}
+                ref={ref}
+                size="small"
+                sx={{
+                    '& .MuiInputBase-root': {
+                        height: '38px',
+                        width: '100%',
+                        backgroundColor: '#fff',
+                    },
+                    '& .MuiOutlinedInput-input': {
+                        cursor: 'pointer',
+                        paddingRight: '40px',
+                    }
+                }}
+                InputProps={{
+                    readOnly: true,
+                    endAdornment: (
+                        <InputAdornment position="start">
+                            <CalendarTodayIcon
+                                sx={{
+                                    color: '#754C27',
+                                    cursor: 'pointer'
+                                }}
+                            />
+                        </InputAdornment>
+                    ),
+                }}
+            />
+        </Box>
+    ));
 
     const handleDateChange = (date) => {
         setFilterDate(date);
@@ -156,14 +103,11 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
 
     const formik = useFormik({
         initialValues: {
-            date: new Date(),
             product_code: '',
             product_name: '',
             unit_code: '',
-            amount: '',
-            unit_price: '',
-            User:'',
-            Shop:'',
+            branch_code: '',
+            min_qty: '',
         },
         validate: values => {
             const errors = {};
@@ -174,73 +118,74 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
             if (!values.unit_code) {
                 errors.unit_code = 'Unit is required';
             }
-            if (!values.User) {
-                errors.User = 'User is required';
+            if (!values.branch_code) {
+                errors.branch_code = 'Branch is required';
             }
-            if (!values.Shop) {
-                errors.Shop = 'Shop is required';
+            if (!values.min_qty || values.min_qty <= 0) {
+                errors.min_qty = 'Minimum quantity must be greater than 0';
             }
-            if (!values.amount || values.amount <= 0) {
-                errors.amount = 'Amount must be greater than 0';
-            }
-            if (!values.unit_price || values.unit_price <= 0) {
-                errors.unit_price = 'Unit price must be greater than 0';
-            }
-            
 
             return errors;
         },
-        onSubmit: (values) => {
-            const year = values.date.getFullYear();
-            const month = (values.date.getMonth() + 1).toString().padStart(2, '0');
-            const day = values.date.getDate().toString().padStart(2, '0');
+        onSubmit: async (values) => {
+            try {
+                const minStockData = {
+                    product_code: values.product_code,
+                    branch_code: values.branch_code,
+                    unit_code: values.unit_code,
+                    min_qty: values.min_qty
+                };
 
-            const stockcardData = {
-                myear: year,
-                monthh: month,
-                product_code: values.product_code,
-                unit_code: values.unit_code,
-                refno: 'BEG',
-                rdate: values.date.toLocaleDateString('en-GB'),
-                trdate: `${year}${month}${day}`,
-                beg1: Number(values.amount),
-                in1: 0,
-                out1: 0,
-                upd1: 0,
-                uprice: Number(values.unit_price),
-                beg1_amt: Number(values.amount) * Number(values.unit_price),
-                in1_amt: 0,
-                out1_amt: 0,
-                upd1_amt: 0
-            };
+                await dispatch(addBrMinStock(minStockData)).unwrap();
 
-            Swal.fire({
-                title: 'Saving...',
-                allowOutsideClick: false,
-                didOpen: () => Swal.showLoading()
-            });
-
-            dispatch(addWh_stockcard(stockcardData))
-                .unwrap()
-                .then(() => {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Saved successfully',
-                        showConfirmButton: false,
-                        timer: 1500
-                    });
-                    setOpenDrawer(false);
-                    resetForm();
-                })
-                .catch((err) => {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Error',
-                        text: err.message
-                    });
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Saved successfully',
+                    showConfirmButton: false,
+                    timer: 1500
                 });
-        },
+
+                setOpenDrawer(false);
+                resetForm();
+                // Refresh data
+                if (selectedBranch) {
+                    dispatch(queryBrMinStock({
+                        offset: 0,
+                        limit: itemsPerPage,
+                        branch_code: selectedBranch
+                    }));
+                }
+            } catch (error) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: error.message || 'Failed to save minimum stock'
+                });
+            }
+        }
     });
+
+    useEffect(() => {
+        const offset = (page - 1) * itemsPerPage;
+        dispatch(queryBrMinStock({
+            offset,
+            limit: itemsPerPage
+        }))
+            .unwrap()
+            .then((res) => {
+                if (res && res.data) {
+                    setMinStocks(res.data);
+                }
+            })
+            .catch((error) => {
+                console.error('Error fetching minimum stocks:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Failed to fetch minimum stocks'
+                });
+            });
+    }, [page, dispatch, itemsPerPage]);
 
     useEffect(() => {
         let offset = 0;
@@ -251,6 +196,14 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
                 setUnits(res.data);
             })
             .catch((err) => console.log(err.message));
+        dispatch(branchAll({ offset: 0, limit: 100 }))
+            .unwrap()
+            .then((response) => {
+                setBranches(response.data || []);
+            })
+            .catch((error) => {
+                console.error('Error fetching branches:', error);
+            });
     }, [dispatch]);
 
     const handleSearchChange = (e) => {
@@ -304,10 +257,43 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
         setStartDate(new Date());
     };
 
-    const calculateTotal = () => {
-        const amount = Number(formik.values.amount) || 0;
-        const unitPrice = Number(formik.values.unit_price) || 0;
-        return (amount * unitPrice).toFixed(2);
+    const handleDelete = (product_code, branch_code) => {
+        Swal.fire({
+            title: 'Are you sure?',
+            text: "You won't be able to revert this!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#754C27',
+            cancelButtonColor: '#F62626',
+            confirmButtonText: 'Yes, delete it!'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                dispatch(deleteBrMinStock({ product_code, branch_code }))
+                    .unwrap()
+                    .then(() => {
+                        Swal.fire(
+                            'Deleted!',
+                            'Minimum stock has been deleted.',
+                            'success'
+                        );
+                        // Refresh data
+                        if (selectedBranch) {
+                            dispatch(queryBrMinStock({
+                                offset: 0,
+                                limit: itemsPerPage,
+                                branch_code: selectedBranch
+                            }));
+                        }
+                    })
+                    .catch((error) => {
+                        Swal.fire(
+                            'Error!',
+                            error.message || 'Failed to delete minimum stock',
+                            'error'
+                        );
+                    });
+            }
+        });
     };
 
     return (
@@ -331,53 +317,88 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
                     </Typography>
                 </Button>
 
+                <FormControl sx={{ width: '50%' }}>
+                    <Select
+                        value={selectedBranch}
+                        onChange={(e) => setSelectedBranch(e.target.value)}
+                        displayEmpty
+                        size="small"
+                        sx={{
+                            height: '40px',
+                            backgroundColor: '#fff',
+                            mt: '24px',
+                            '& .MuiSelect-select': {
+                                padding: '8.5px 14px',
+                            },
+                            '& .MuiOutlinedInput-notchedOutline': {
+                                borderColor: 'rgba(0, 0, 0, 0.23)',
+                            },
+                            '&:hover .MuiOutlinedInput-notchedOutline': {
+                                borderColor: 'rgba(0, 0, 0, 0.87)',
+                            },
+                            '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#754C27',
+                            }
+                        }}
+                    >
+                        <MenuItem value="">
+                            <em>All Branches</em>
+                        </MenuItem>
+                        {branches.map((branch) => (
+                            <MenuItem key={branch.branch_code} value={branch.branch_code}>
+                                {branch.branch_name}
+                            </MenuItem>
+                        ))}
+                    </Select>
+                </FormControl>
+
                 <Box
-                sx={{
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    mt: '48px',
-                    width: '90%',
-                    gap: '20px'
-                }}
-            >
-                {/* <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>
+                    sx={{
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        mt: '24px',
+                        width: '90%',
+                        gap: '20px'
+                    }}
+                >
+                    {/* <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>
                     Search
                 </Typography> */}
-                <TextField
-                    value={searchTerm}
-                    onChange={handleSearchChange}
-                    placeholder="Search"
-                    sx={{
-                        '& .MuiInputBase-root': {
-                            height: '40px',
-                            width: '100%'
-                        },
-                        '& .MuiOutlinedInput-input': {
-                            padding: '8.5px 14px',
-                        },
-                        width: '35%'
-                    }}
-                    InputProps={{
-                        startAdornment: (
-                            <InputAdornment position="start">
-                                <SearchIcon sx={{ color: '#5A607F' }} />
-                            </InputAdornment>
-                        ),
-                    }}
-                />
-               
-                <Box sx={{ width: '200px' }}>
-                    <DatePicker
-                        selected={filterDate}
-                        onChange={handleDateChange}
-                        dateFormat="dd/MM/yyyy"
-                        placeholderText="Filter by date"
-                        customInput={<CustomInput />}
-                        popperClassName="custom-popper"
+                    <TextField
+                        value={searchTerm}
+                        onChange={handleSearchChange}
+                        placeholder="Search"
+                        sx={{
+                            '& .MuiInputBase-root': {
+                                height: '40px',
+                                width: '100%'
+                            },
+                            '& .MuiOutlinedInput-input': {
+                                padding: '8.5px 14px',
+                            },
+                            width: '35%'
+                        }}
+                        InputProps={{
+                            startAdornment: (
+                                <InputAdornment position="start">
+                                    <SearchIcon sx={{ color: '#5A607F' }} />
+                                </InputAdornment>
+                            ),
+                        }}
                     />
-                </Box>
-                {/* <Button
+
+                    <Box sx={{ width: '200px' }}>
+                        <DatePicker
+                            selected={filterDate}
+                            onChange={handleDateChange}
+                            dateFormat="dd/MM/yyyy"
+                            placeholderText="Filter by date"
+                            customInput={<CustomInput />}
+                            popperClassName="custom-popper"
+                        />
+                    </Box>
+                    {/* <Button
                     onClick={clearFilters}
                     variant="outlined"
                     sx={{
@@ -394,47 +415,46 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
                     Clear
                 </Button> */}
 
-           
-            </Box>
 
+                </Box>
 
                 <TableContainer component={Paper} sx={{ width: '80%', mt: '24px' }}>
                     <Table aria-label="customized table">
                         <TableHead>
                             <TableRow>
-                            <StyledTableCell sx={{ width: '1%', textAlign: 'center' }}>
-                                <Checkbox
-                                sx={{ color: '#FFF' }} />
-                            </StyledTableCell>
-                            
+                                <StyledTableCell sx={{ width: '1%', textAlign: 'center' }}>
+                                    <Checkbox
+                                        sx={{ color: '#FFF' }} />
+                                </StyledTableCell>
                                 <StyledTableCell width='1%'>No.</StyledTableCell>
                                 <StyledTableCell align="center">ID</StyledTableCell>
                                 <StyledTableCell align="center">Product Name</StyledTableCell>
                                 <StyledTableCell align="center">Unit</StyledTableCell>
                                 <StyledTableCell align="center">Minimum Quantity</StyledTableCell>
-                                {/* <StyledTableCell align="center">Total</StyledTableCell> */}
-                                <StyledTableCell width='1%' align="center"></StyledTableCell>
                                 <StyledTableCell width='1%' align="center"></StyledTableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {/* Table data */}
-                            <td style={{ padding: '12px 16px' }}>
-                             <Checkbox />
-                            </td>
-                            <td style={{ padding: '12px 16px' ,}}>{ 1}</td>
-                            <td style={{ padding: '12px 16px',textAlign: 'center' }}>ID</td>
-                            <td style={{ padding: '12px 16px',textAlign: 'center' }}>Product Name</td>
-                            <td style={{ padding: '12px 16px',textAlign: 'center' }}>Unit</td>
-                            <td style={{ padding: '12px 16px',textAlign: 'center' }}>Minimum Quantity</td>
-                            <td align='center'>
-                            <IconButton
-                                        // onClick={() => handleDelete(row.refno)}
-                                sx={{ paddingTop: '10px',border: '1px solid #F62626', borderRadius: '7px',textAlign: 'center' }}
-                                 >
-                                <Delete sx={{ color: '#F62626' }} />
-                            </IconButton>
-                            </td>
+                            {minStocks.map((stock, index) => (
+                                <StyledTableRow key={`${stock.product_code}-${stock.branch_code}`}>
+                                    <StyledTableCell padding="checkbox">
+                                        <Checkbox />
+                                    </StyledTableCell>
+                                    <StyledTableCell>{index + 1}</StyledTableCell>
+                                    <StyledTableCell>{stock.product_code}</StyledTableCell>
+                                    <StyledTableCell>{stock.tbl_product?.product_name}</StyledTableCell>
+                                    <StyledTableCell>{stock.tbl_unit?.unit_name}</StyledTableCell>
+                                    <StyledTableCell align="center">{stock.min_qty}</StyledTableCell>
+                                    <StyledTableCell align="center">
+                                        <IconButton
+                                            onClick={() => handleDelete(stock.product_code, stock.branch_code)}
+                                            sx={{ border: '1px solid #F62626', borderRadius: '7px' }}
+                                        >
+                                            <Delete sx={{ color: '#F62626' }} />
+                                        </IconButton>
+                                    </StyledTableCell>
+                                </StyledTableRow>
+                            ))}
                         </TableBody>
                     </Table>
                 </TableContainer>
@@ -496,13 +516,13 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
                     }}>
                         <form onSubmit={formik.handleSubmit} style={{ width: '80%' }}>
                             <Box sx={{ width: '100%', mt: '24px' }}>
-                        <Typography sx={{ display: 'flex', flexDirection: 'row',justifyContent: 'center', }}>
-                            Product ID :
-                            <Box component="span" sx={{ color: '#754C27', ml: '12px' }}>
-                              #11
-                            </Box>
-                        </Typography>
-                       
+                                <Typography sx={{ display: 'flex', flexDirection: 'row', justifyContent: 'center', }}>
+                                    Product ID :
+                                    <Box component="span" sx={{ color: '#754C27', ml: '12px' }}>
+                                        #11
+                                    </Box>
+                                </Typography>
+
 
                                 <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
                                     Product Name
@@ -599,64 +619,46 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
                                         {formik.errors.unit_code}
                                     </Typography>
                                 )}
-
                                 <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
-                                    User
+                                    Branch
                                 </Typography>
-                                <TextField
-                                    size="small"
-                                    type="varchar"
-                                    name="User"
-                                    value={formik.values.User}
-                                    onChange={formik.handleChange}
-                                    onBlur={formik.handleBlur}
-                                    placeholder="User"
-                                    error={formik.touched.User && Boolean(formik.errors.User)}
-                                    helperText={formik.touched.User && formik.errors.User}
-                                    sx={{
-                                        mt: '8px',
-                                        width: '100%',
-                                        '& .MuiOutlinedInput-root': {
+                                <FormControl fullWidth sx={{ mt: 1 }}>
+                                    <Select
+                                        size="small"
+                                        name="branch_code"
+                                        value={formik.values.branch_code}
+                                        onChange={formik.handleChange}
+                                        error={formik.touched.branch_code && Boolean(formik.errors.branch_code)}
+                                        sx={{
                                             borderRadius: '10px',
-                                        },
-                                    }}
-                                />
-
-                                <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
-                                    Shop
-                                </Typography>
-                                <TextField
-                                    size="small"
-                                    type="varchar"
-                                    name="Shop"
-                                    value={formik.values.Shop}
-                                    onChange={formik.handleChange}
-                                    onBlur={formik.handleBlur}
-                                    placeholder="Shop"
-                                    error={formik.touched.Shop && Boolean(formik.errors.Shop)}
-                                    helperText={formik.touched.Shop && formik.errors.Shop}
-                                    sx={{
-                                        mt: '8px',
-                                        width: '100%',
-                                        '& .MuiOutlinedInput-root': {
-                                            borderRadius: '10px',
-                                        },
-                                    }}
-                                />
-
+                                        }}
+                                    >
+                                        <MenuItem value="">Select Branch</MenuItem>
+                                        {branches.map((branch) => (
+                                            <MenuItem key={branch.branch_code} value={branch.branch_code}>
+                                                {branch.branch_name}
+                                            </MenuItem>
+                                        ))}
+                                    </Select>
+                                    {formik.touched.branch_code && formik.errors.branch_code && (
+                                        <Typography color="error" variant="caption">
+                                            {formik.errors.branch_code}
+                                        </Typography>
+                                    )}
+                                </FormControl>
                                 <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
                                     Minimum Quantity
                                 </Typography>
                                 <TextField
                                     size="small"
-                                    type="text"
-                                    name="Minimum Quantity"
-                                    value={formik.values.min}
+                                    type="number"
+                                    name="min_qty"
+                                    value={formik.values.min_qty}
                                     onChange={formik.handleChange}
                                     onBlur={formik.handleBlur}
-                                    placeholder="Minimum Quantity"
-                                    error={formik.touched.min && Boolean(formik.errors.min)}
-                                    helperText={formik.touched.min && formik.errors.min}
+                                    placeholder="Enter minimum quantity"
+                                    error={formik.touched.min_qty && Boolean(formik.errors.min_qty)}
+                                    helperText={formik.touched.min_qty && formik.errors.min_qty}
                                     sx={{
                                         mt: '8px',
                                         width: '100%',
@@ -666,7 +668,7 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
                                     }}
                                 />
 
-                               
+
                             </Box>
 
                             <Box sx={{ mt: '24px', display: 'flex', justifyContent: 'flex-end' }}>

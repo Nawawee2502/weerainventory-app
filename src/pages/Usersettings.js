@@ -8,7 +8,7 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import MoreIcon from '@mui/icons-material/MoreVert';
 import InputBase from '@mui/material/InputBase';
-import { AppBar, Badge, IconButton, Menu, MenuItem, Toolbar } from '@mui/material';
+import { AppBar, Badge, IconButton, Menu, MenuItem, Toolbar, Typography } from '@mui/material';
 import { styled, alpha } from '@mui/material/styles';
 import TabContext from '@mui/lab/TabContext';
 import TabList from '@mui/lab/TabList';
@@ -95,6 +95,22 @@ export default function UserSettings() {
 
     const isMenuOpen = Boolean(anchorEl);
     const isMobileMenuOpen = Boolean(mobileMoreAnchorEl);
+
+    const userData = JSON.parse(localStorage.getItem('userData2'));
+    const permissions = userData?.tbl_typeuserpermission || {};
+
+    if (permissions.menu_setuser !== 'Y') {
+        return (
+            <Box sx={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                height: '100vh'
+            }}>
+                <Typography>You don't have permission to access this page.</Typography>
+            </Box>
+        );
+    }
 
     const handleProfileMenuOpen = (event) => {
         setAnchorEl(event.currentTarget);
@@ -280,38 +296,50 @@ export default function UserSettings() {
                     >
                         <TabContext value={value}>
                             <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-                                <TabList onChange={handleChange} aria-label="lab API tabs example">
-                                    <Tab label="User Type" value="1" />
-                                    <Tab label="User Permission" value="2" />
-                                    <Tab label="Manage User" value="3" />
+                                <TabList onChange={handleChange}>
+                                    {/* แสดง tabs ตาม permissions */}
+                                    {permissions.menu_setuser_typeuser === 'Y' &&
+                                        <Tab label="User Type" value="1" />
+                                    }
+                                    {permissions.menu_setuser_typeuserpermission === 'Y' &&
+                                        <Tab label="User Permission" value="2" />
+                                    }
+                                    {permissions.menu_setuser_user === 'Y' &&
+                                        <Tab label="Manage User" value="3" />
+                                    }
                                     <Tab
                                         label="Back"
                                         value="4"
                                         onClick={handleBackToSettings}
                                         sx={{
-                                            marginLeft: 'auto',  // ทำให้ tab อยู่ทางขวาสุด
-                                            color: '#F62626',   // สีแดง
+                                            marginLeft: 'auto',
+                                            color: '#F62626',
                                             '&:hover': {
-                                                color: '#D32F2F'  // สีแดงเข้มเมื่อ hover
+                                                color: '#D32F2F'
                                             }
                                         }}
                                     />
                                 </TabList>
                             </Box>
-                            <TabPanel value="1">
-                                {/* <SetProductType /> */}
-                                <UserType />
-                            </TabPanel>
-                            <TabPanel value="2">
-                                {/* <SetCountingUnit /> */}
-                                <UserPermission />
-                            </TabPanel>
-                            <TabPanel value="3">
-                                {/* <ProductRecord /> */}
-                                <ManageUser />
-                            </TabPanel>
+
+                            {/* TabPanels with permission checks */}
+                            {permissions.menu_setuser_typeuser === 'Y' &&
+                                <TabPanel value="1">
+                                    <UserType />
+                                </TabPanel>
+                            }
+                            {permissions.menu_setuser_typeuserpermission === 'Y' &&
+                                <TabPanel value="2">
+                                    <UserPermission />
+                                </TabPanel>
+                            }
+                            {permissions.menu_setuser_user === 'Y' &&
+                                <TabPanel value="3">
+                                    <ManageUser />
+                                </TabPanel>
+                            }
                             <TabPanel value="4">
-                                {/* ไม่ต้องใส่อะไรเพราะจะ navigate ไปหน้า settings ทันทีที่กด */}
+                                {/* Empty panel for back button */}
                             </TabPanel>
                         </TabContext>
                     </Box>

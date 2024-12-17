@@ -8,7 +8,7 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import MoreIcon from '@mui/icons-material/MoreVert';
 import InputBase from '@mui/material/InputBase';
-import { AppBar, Badge, IconButton, Menu, MenuItem, Toolbar } from '@mui/material';
+import { AppBar, Badge, IconButton, Menu, MenuItem, Toolbar, Typography } from '@mui/material';
 import { styled, alpha } from '@mui/material/styles';
 import TabContext from '@mui/lab/TabContext';
 import TabList from '@mui/lab/TabList';
@@ -93,11 +93,28 @@ export default function GeneralSettings() {
     const [value, setValue] = useState('1');
     const [anchorEl, setAnchorEl] = useState(null);
     const [mobileMoreAnchorEl, setMobileMoreAnchorEl] = useState(null);
+    const userData = JSON.parse(localStorage.getItem('userData2'));
+    const permissions = userData?.tbl_typeuserpermission || {};
+
+    let navigate = useNavigate();
 
     const isMenuOpen = Boolean(anchorEl);
     const isMobileMenuOpen = Boolean(mobileMoreAnchorEl);
 
-    let navigate = useNavigate();
+    if (permissions.menu_setgeneral !== 'Y') {
+        return (
+            <Box sx={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                height: '100vh'
+            }}>
+                <Typography>You don't have permission to access this page.</Typography>
+            </Box>
+        );
+    }
+
+
 
     const handleProfileMenuOpen = (event) => {
         setAnchorEl(event.currentTarget);
@@ -281,48 +298,61 @@ export default function GeneralSettings() {
                     }}>
                         <TabContext value={value}>
                             <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-                                <TabList onChange={handleChange} aria-label="lab API tabs example">
-                                    <Tab label="Set product type" value="1" />
-                                    <Tab label="Set counting unit" value="2" />
-                                    <Tab label="Product record" value="3" />
-                                    <Tab label="Branch" value="4" />
-                                    <Tab label="Comissary Kitchen" value="5" />
-                                    <Tab label="Supplier" value="6" />
+                                <TabList onChange={handleChange}>
+                                    {/* แสดง tabs ตาม permissions */}
+                                    {permissions.menu_setgen_typeproduct === 'Y' &&
+                                        <Tab label="Set product type" value="1" />}
+
+                                    {permissions.menu_setgen_unit === 'Y' &&
+                                        <Tab label="Set counting unit" value="2" />}
+
+                                    {permissions.menu_setgen_product === 'Y' &&
+                                        <Tab label="Product record" value="3" />}
+
+                                    {permissions.menu_setgen_branch === 'Y' &&
+                                        <Tab label="Branch" value="4" />}
+
+                                    {permissions.menu_setgen_kitchen === 'Y' &&
+                                        <Tab label="Comissary Kitchen" value="5" />}
+
+                                    {permissions.menu_setgen_supplier === 'Y' &&
+                                        <Tab label="Supplier" value="6" />}
+
                                     <Tab
                                         label="Back"
                                         value="7"
                                         onClick={handleBackToSettings}
                                         sx={{
-                                            marginLeft: 'auto',  // ทำให้ tab อยู่ทางขวาสุด
-                                            color: '#F62626',   // สีแดง
+                                            marginLeft: 'auto',
+                                            color: '#F62626',
                                             '&:hover': {
-                                                color: '#D32F2F'  // สีแดงเข้มเมื่อ hover
+                                                color: '#D32F2F'
                                             }
                                         }}
                                     />
                                 </TabList>
                             </Box>
-                            <TabPanel value="1">
-                                <SetProductType />
-                            </TabPanel>
-                            <TabPanel value="2">
-                                <SetCountingUnit />
-                            </TabPanel>
-                            <TabPanel value="3">
-                                <ProductRecord />
-                            </TabPanel>
-                            <TabPanel value="4">
-                                <Branch />
-                            </TabPanel>
-                            <TabPanel value="5">
-                                <ComissaryKitchen />
-                            </TabPanel>
-                            <TabPanel value="6">
-                                <Supplier />
-                            </TabPanel>
-                            <TabPanel value="7">
-                                {/* ไม่ต้องใส่อะไรเพราะจะ navigate ไปหน้า settings ทันทีที่กด */}
-                            </TabPanel>
+
+                            {/* TabPanels with permission checks */}
+                            {permissions.menu_setgen_typeproduct === 'Y' &&
+                                <TabPanel value="1"><SetProductType /></TabPanel>}
+
+                            {permissions.menu_setgen_unit === 'Y' &&
+                                <TabPanel value="2"><SetCountingUnit /></TabPanel>}
+
+                            {permissions.menu_setgen_product === 'Y' &&
+                                <TabPanel value="3"><ProductRecord /></TabPanel>}
+
+                            {permissions.menu_setgen_branch === 'Y' &&
+                                <TabPanel value="4"><Branch /></TabPanel>}
+
+                            {permissions.menu_setgen_kitchen === 'Y' &&
+                                <TabPanel value="5"><ComissaryKitchen /></TabPanel>}
+
+                            {permissions.menu_setgen_supplier === 'Y' &&
+                                <TabPanel value="6"><Supplier /></TabPanel>}
+
+                            <TabPanel value="7">{/* Empty panel for back button */}</TabPanel>
                         </TabContext>
                     </Box>
                 </Box>

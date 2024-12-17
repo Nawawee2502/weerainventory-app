@@ -55,15 +55,23 @@ export const addUser = createAsyncThunk(
 
 export const updateUser = createAsyncThunk(
   "",
-  async ({ user_code, username }, { dispatch }) => {
+  async ({ user_code, username, password, email, typeuser_code, line_uid }, { dispatch }) => {
     try {
-      const res = await axios.post(BASE_URL + "/api/updateUser", {
-        user_code: user_code,
-        username: username,
-      });
+      const updateData = {
+        user_code,
+        username,
+        email,
+        typeuser_code,
+        line_uid,
+      };
 
+      // เพิ่ม password เฉพาะเมื่อมีค่า
+      if (password) {
+        updateData.password = password;
+      }
+
+      const res = await axios.post(BASE_URL + "/api/updateUser", updateData);
       console.log(res.data);
-
       return res.data;
     } catch (error) {
       console.log(error.message);
