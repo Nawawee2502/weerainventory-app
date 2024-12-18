@@ -1,22 +1,92 @@
-import { Box, Button, InputAdornment, TextField, Typography, tableCellClasses, TableContainer, Table, TableHead, TableRow, TableCell, TableBody, Paper, Checkbox, IconButton } from '@mui/material';
-import React, { useState, useEffect } from 'react';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import InputAdornment from '@mui/material/InputAdornment';
+import TextField from '@mui/material/TextField';
+import Typography from '@mui/material/Typography';
+import TableContainer from '@mui/material/TableContainer';
+import Table from '@mui/material/Table';
+import TableHead from '@mui/material/TableHead';
+import TableRow from '@mui/material/TableRow';
+import TableCell from '@mui/material/TableCell';
+import TableBody from '@mui/material/TableBody';
+import Paper from '@mui/material/Paper';
+import Checkbox from '@mui/material/Checkbox';
+import IconButton from '@mui/material/IconButton';
+import Stack from '@mui/material/Stack';
+import Pagination from '@mui/material/Pagination';
+import { tableCellClasses } from '@mui/material/TableCell';
+
 import AddCircleIcon from '@mui/icons-material/AddCircle';
 import SearchIcon from '@mui/icons-material/Search';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
-import VisibilityIcon from '@mui/icons-material/Visibility';
 import PrintIcon from '@mui/icons-material/Print';
-import { styled } from '@mui/material/styles';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+
+import { styled } from '@mui/material/styles';
+import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
+import { useDispatch } from 'react-redux';
 import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
-import Stack from '@mui/material/Stack';
-import Pagination from '@mui/material/Pagination';
-import { useDispatch } from 'react-redux';
 import { wh_dpbAlljoindt, deleteWh_dpb } from '../../../api/warehouse/wh_dpbApi';
 import Swal from 'sweetalert2';
+import debounce from 'lodash/debounce';
 
-const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
+// Styles
+const STYLES = {
+    container: {
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center'
+    },
+    createButton: {
+        width: '209px',
+        height: '70px',
+        background: 'linear-gradient(180deg, #AD7A2C 0%, #754C27 100%)',
+        borderRadius: '15px',
+        boxShadow: '0px 4px 4px 0px #00000040',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        mt: '48px',
+        '&:hover': {
+            background: 'linear-gradient(180deg, #8C5D1E 0%, #5D3A1F 100%)',
+        }
+    },
+    searchContainer: {
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        mt: '48px',
+        width: '90%',
+        gap: '20px'
+    }
+};
+
+// Styled Components
+const StyledTableCell = styled(TableCell)(({ theme }) => ({
+    [`&.${tableCellClasses.head}`]: {
+        backgroundColor: '#754C27',
+        color: theme.palette.common.white,
+    },
+    [`&.${tableCellClasses.body}`]: {
+        fontSize: '16px',
+    },
+}));
+
+const StyledTableRow = styled(TableRow)(({ theme }) => ({
+    '&:nth-of-type(odd)': {
+        backgroundColor: theme.palette.action.hover,
+    },
+    '&:last-child td, &:last-child th': {
+        border: 0,
+    },
+}));
+
+// Custom Components
+const CustomInput = memo(React.forwardRef(({ value, onClick, placeholder }, ref) => (
     <Box sx={{ position: 'relative', display: 'inline-block', width: '100%' }}>
         <TextField
             value={value}
@@ -45,27 +115,45 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
             }}
         />
     </Box>
+)));
+
+// Memoized Table Row Component
+const TableRowMemoized = memo(({ row, onDelete, onSelectOne, isSelected, rowNumber }) => (
+    <StyledTableRow>
+        <StyledTableCell padding="checkbox">
+            <Checkbox
+                checked={isSelected}
+                onChange={(event) => onSelectOne(event, row.refno)}
+            />
+        </StyledTableCell>
+        <StyledTableCell component="th" scope="row">{rowNumber}</StyledTableCell>
+        <StyledTableCell align="center">{row.refno}</StyledTableCell>
+        <StyledTableCell align="center">{row.rdate}</StyledTableCell>
+        <StyledTableCell align="center">{row.tbl_branch?.branch_name}</StyledTableCell>
+        <StyledTableCell align="center">{row.total.toFixed(2)}</StyledTableCell>
+        <StyledTableCell align="center">{row.user?.username}</StyledTableCell>
+        <StyledTableCell align="center">
+            <IconButton sx={{ border: '1px solid #AD7A2C', borderRadius: '7px' }}>
+                <EditIcon sx={{ color: '#AD7A2C' }} />
+            </IconButton>
+        </StyledTableCell>
+        <StyledTableCell align="center">
+            <IconButton
+                onClick={() => onDelete(row.refno)}
+                sx={{ border: '1px solid #F62626', borderRadius: '7px' }}
+            >
+                <DeleteIcon sx={{ color: '#F62626' }} />
+            </IconButton>
+        </StyledTableCell>
+        <StyledTableCell align="center">
+            <IconButton sx={{ border: '1px solid #5686E1', borderRadius: '7px' }}>
+                <PrintIcon sx={{ color: '#5686E1' }} />
+            </IconButton>
+        </StyledTableCell>
+    </StyledTableRow>
 ));
 
-const StyledTableCell = styled(TableCell)(({ theme }) => ({
-    [`&.${tableCellClasses.head}`]: {
-        backgroundColor: '#754C27',
-        color: theme.palette.common.white,
-    },
-    [`&.${tableCellClasses.body}`]: {
-        fontSize: '16px',
-    },
-}));
-
-const StyledTableRow = styled(TableRow)(({ theme }) => ({
-    '&:nth-of-type(odd)': {
-        backgroundColor: theme.palette.action.hover,
-    },
-    '&:last-child td, &:last-child th': {
-        border: 0,
-    },
-}));
-
+// Main Component
 export default function DispatchToBranch({ onCreate }) {
     const dispatch = useDispatch();
     const [searchTerm, setSearchTerm] = useState("");
@@ -77,16 +165,11 @@ export default function DispatchToBranch({ onCreate }) {
     const [isLoading, setIsLoading] = useState(false);
     const limit = 5;
 
-    useEffect(() => {
-        fetchData();
-    }, [page, searchTerm, filterDate]);
-
-    const fetchData = async () => {
+    // Fetch Data
+    const fetchData = useCallback(async () => {
         try {
             setIsLoading(true);
             const offset = (page - 1) * limit;
-
-            // Format date for API
             const formattedDate = filterDate.toISOString().slice(0, 10).replace(/-/g, '');
 
             const response = await dispatch(wh_dpbAlljoindt({
@@ -99,9 +182,7 @@ export default function DispatchToBranch({ onCreate }) {
 
             if (response.result && response.data) {
                 setData(response.data);
-                // Calculate total pages
-                const totalPages = Math.ceil(response.data.length / limit);
-                setCount(totalPages || 1);
+                setCount(Math.ceil(response.data.length / limit) || 1);
             }
         } catch (error) {
             console.error('Error fetching data:', error);
@@ -113,11 +194,16 @@ export default function DispatchToBranch({ onCreate }) {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [dispatch, page, searchTerm, filterDate, limit]);
 
-    const handleDelete = async (refno) => {
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
+
+    // Handlers
+    const handleDelete = useCallback(async (refno) => {
         try {
-            await Swal.fire({
+            const result = await Swal.fire({
                 title: 'Are you sure?',
                 text: "You won't be able to revert this!",
                 icon: 'warning',
@@ -125,17 +211,13 @@ export default function DispatchToBranch({ onCreate }) {
                 confirmButtonColor: '#3085d6',
                 cancelButtonColor: '#d33',
                 confirmButtonText: 'Yes, delete it!'
-            }).then(async (result) => {
-                if (result.isConfirmed) {
-                    await dispatch(deleteWh_dpb({ refno })).unwrap();
-                    Swal.fire(
-                        'Deleted!',
-                        'Record has been deleted.',
-                        'success'
-                    );
-                    fetchData(); // Refresh data after deletion
-                }
             });
+
+            if (result.isConfirmed) {
+                await dispatch(deleteWh_dpb({ refno })).unwrap();
+                Swal.fire('Deleted!', 'Record has been deleted.', 'success');
+                fetchData();
+            }
         } catch (error) {
             Swal.fire({
                 icon: 'error',
@@ -143,40 +225,23 @@ export default function DispatchToBranch({ onCreate }) {
                 text: 'Failed to delete record'
             });
         }
-    };
+    }, [dispatch, fetchData]);
 
-    const handleSelectAll = (event) => {
-        if (event.target.checked) {
-            const newSelected = data.map(row => row.refno);
-            setSelected(newSelected);
-        } else {
-            setSelected([]);
-        }
-    };
+    const handleSelectAll = useCallback((event) => {
+        setSelected(event.target.checked ? data.map(row => row.refno) : []);
+    }, [data]);
 
-    const handleSelectOne = (event, refno) => {
-        const selectedIndex = selected.indexOf(refno);
-        let newSelected = [];
+    const handleSelectOne = useCallback((event, refno) => {
+        setSelected(prev =>
+            prev.includes(refno)
+                ? prev.filter(id => id !== refno)
+                : [...prev, refno]
+        );
+    }, []);
 
-        if (selectedIndex === -1) {
-            newSelected = newSelected.concat(selected, refno);
-        } else if (selectedIndex === 0) {
-            newSelected = newSelected.concat(selected.slice(1));
-        } else if (selectedIndex === selected.length - 1) {
-            newSelected = newSelected.concat(selected.slice(0, -1));
-        } else if (selectedIndex > 0) {
-            newSelected = newSelected.concat(
-                selected.slice(0, selectedIndex),
-                selected.slice(selectedIndex + 1),
-            );
-        }
-
-        setSelected(newSelected);
-    };
-
-    const handleDeleteSelected = async () => {
+    const handleDeleteSelected = useCallback(async () => {
         try {
-            await Swal.fire({
+            const result = await Swal.fire({
                 title: 'Are you sure?',
                 text: "You won't be able to revert this!",
                 icon: 'warning',
@@ -184,21 +249,16 @@ export default function DispatchToBranch({ onCreate }) {
                 confirmButtonColor: '#3085d6',
                 cancelButtonColor: '#d33',
                 confirmButtonText: 'Yes, delete them!'
-            }).then(async (result) => {
-                if (result.isConfirmed) {
-                    // Delete all selected items
-                    await Promise.all(
-                        selected.map(refno => dispatch(deleteWh_dpb({ refno })).unwrap())
-                    );
-                    Swal.fire(
-                        'Deleted!',
-                        'Records have been deleted.',
-                        'success'
-                    );
-                    setSelected([]);
-                    fetchData(); // Refresh data after deletion
-                }
             });
+
+            if (result.isConfirmed) {
+                await Promise.all(
+                    selected.map(refno => dispatch(deleteWh_dpb({ refno })).unwrap())
+                );
+                Swal.fire('Deleted!', 'Records have been deleted.', 'success');
+                setSelected([]);
+                fetchData();
+            }
         } catch (error) {
             Swal.fire({
                 icon: 'error',
@@ -206,53 +266,53 @@ export default function DispatchToBranch({ onCreate }) {
                 text: 'Failed to delete records'
             });
         }
-    };
+    }, [dispatch, selected, fetchData]);
+
+    const debouncedSearch = useCallback(
+        debounce((value) => {
+            setSearchTerm(value);
+            setPage(1);
+        }, 500),
+        []
+    );
 
     const handleSearchChange = (e) => {
-        setSearchTerm(e.target.value);
-        setPage(1); // Reset page when searching
+        debouncedSearch(e.target.value);
     };
 
-    const handleDateChange = (date) => {
+    const handleDateChange = useCallback((date) => {
         setFilterDate(date);
-        setPage(1); // Reset page when changing date
-    };
+        setPage(1);
+    }, []);
 
-    const clearFilters = () => {
+    const clearFilters = useCallback(() => {
         setSearchTerm("");
         setFilterDate(new Date());
         setPage(1);
-    };
+    }, []);
 
+    // Memoized Values
+    const memoizedData = useMemo(() => {
+        return data.map((row, index) => ({
+            ...row,
+            rowNumber: ((page - 1) * limit) + index + 1,
+            isSelected: selected.includes(row.refno)
+        }));
+    }, [data, page, limit, selected]);
+
+    // Render
     return (
-        <Box sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <Button
-                onClick={onCreate}
-                sx={{
-                    width: '209px',
-                    height: '70px',
-                    background: 'linear-gradient(180deg, #AD7A2C 0%, #754C27 100%)',
-                    borderRadius: '15px',
-                    boxShadow: '0px 4px 4px 0px #00000040',
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    mt: '48px',
-                    '&:hover': {
-                        background: 'linear-gradient(180deg, #8C5D1E 0%, #5D3A1F 100%)',
-                    }
-                }}
-            >
+        <Box sx={STYLES.container}>
+            <Button onClick={onCreate} sx={STYLES.createButton}>
                 <AddCircleIcon sx={{ fontSize: '42px', color: '#FFFFFF', mr: '12px' }} />
                 <Typography sx={{ fontSize: '24px', fontWeight: '600', color: '#FFFFFF' }}>
                     Create
                 </Typography>
             </Button>
 
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mt: '48px', width: '90%', gap: '20px' }}>
+            <Box sx={STYLES.searchContainer}>
                 <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>Search</Typography>
                 <TextField
-                    value={searchTerm}
                     onChange={handleSearchChange}
                     placeholder="Search"
                     sx={{
@@ -275,7 +335,6 @@ export default function DispatchToBranch({ onCreate }) {
                         dateFormat="dd/MM/yyyy"
                         placeholderText="Filter by date"
                         customInput={<CustomInput />}
-                        popperClassName="custom-popper"
                     />
                 </Box>
                 <Button
@@ -296,20 +355,20 @@ export default function DispatchToBranch({ onCreate }) {
                 </Button>
             </Box>
 
-            <Box sx={{ width: '100%', mt: '24px' }}>
-                <Button
-                    variant="contained"
-                    color="error"
-                    onClick={handleDeleteSelected}
-                    sx={{ mt: 2 }}
-                    disabled={selected.length === 0}
-                >
-                    Delete Selected ({selected.length})
-                </Button>
-            </Box>
+            {selected.length > 0 && (
+                <Box sx={{ width: '100%', mt: '24px' }}>
+                    <Button
+                        variant="contained"
+                        color="error"
+                        onClick={handleDeleteSelected}
+                    >
+                        Delete Selected ({selected.length})
+                    </Button>
+                </Box>
+            )}
 
             <TableContainer component={Paper} sx={{ width: '100%', mt: '24px' }}>
-                <Table sx={{}} aria-label="customized table">
+                <Table>
                     <TableHead>
                         <TableRow>
                             <StyledTableCell sx={{ width: '1%', textAlign: 'center' }}>
@@ -334,56 +393,21 @@ export default function DispatchToBranch({ onCreate }) {
                             <TableRow>
                                 <TableCell colSpan={10} align="center">Loading...</TableCell>
                             </TableRow>
-                        ) : data.length === 0 ? (
+                        ) : memoizedData.length === 0 ? (
                             <TableRow>
                                 <TableCell colSpan={10} align="center">No data found</TableCell>
                             </TableRow>
                         ) : (
-                            data.map((row, index) => {
-                                const isSelected = selected.indexOf(row.refno) !== -1;
-                                return (
-                                    <StyledTableRow key={row.refno}>
-                                        <StyledTableCell padding="checkbox">
-                                            <Checkbox
-                                                checked={isSelected}
-                                                onChange={(event) => handleSelectOne(event, row.refno)}
-                                            />
-                                        </StyledTableCell>
-                                        <StyledTableCell component="th" scope="row">
-                                            {((page - 1) * limit) + index + 1}
-                                        </StyledTableCell>
-                                        <StyledTableCell align="center">{row.refno}</StyledTableCell>
-                                        <StyledTableCell align="center">{row.rdate}</StyledTableCell>
-                                        <StyledTableCell align="center">{row.tbl_branch?.branch_name}</StyledTableCell>
-                                        <StyledTableCell align="center">{row.total.toFixed(2)}</StyledTableCell>
-                                        <StyledTableCell align="center">{row.user?.username}</StyledTableCell>
-                                        <StyledTableCell align="center">
-                                            <IconButton
-                                                onClick={() => {/* Add edit functionality later */ }}
-                                                sx={{ border: '1px solid #AD7A2C', borderRadius: '7px' }}
-                                            >
-                                                <EditIcon sx={{ color: '#AD7A2C' }} />
-                                            </IconButton>
-                                        </StyledTableCell>
-                                        <StyledTableCell align="center">
-                                            <IconButton
-                                                onClick={() => handleDelete(row.refno)}
-                                                sx={{ border: '1px solid #F62626', borderRadius: '7px' }}
-                                            >
-                                                <DeleteIcon sx={{ color: '#F62626' }} />
-                                            </IconButton>
-                                        </StyledTableCell>
-                                        <StyledTableCell align="center">
-                                            <IconButton
-                                                onClick={() => {/* Add print functionality later */ }}
-                                                sx={{ border: '1px solid #5686E1', borderRadius: '7px' }}
-                                            >
-                                                <PrintIcon sx={{ color: '#5686E1' }} />
-                                            </IconButton>
-                                        </StyledTableCell>
-                                    </StyledTableRow>
-                                );
-                            })
+                            memoizedData.map((row) => (
+                                <TableRowMemoized
+                                    key={row.refno}
+                                    row={row}
+                                    onDelete={handleDelete}
+                                    onSelectOne={handleSelectOne}
+                                    isSelected={row.isSelected}
+                                    rowNumber={row.rowNumber}
+                                />
+                            ))
                         )}
                     </TableBody>
                 </Table>
@@ -401,4 +425,4 @@ export default function DispatchToBranch({ onCreate }) {
             </Stack>
         </Box>
     );
-};
+}

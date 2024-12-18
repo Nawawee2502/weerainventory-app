@@ -8,9 +8,6 @@ import Settings from "./pages/Settings";
 import UserSettings from "./pages/Usersettings";
 import Warehouse from "./pages/Warehouse";
 import Restaurant from "./pages/Restaurant"
-import LineLiffHome from "./pages/liff/Home"; 
-import LineLiffLogin from "./pages/liff/Login"; 
-import LineLiffLayout from "./layouts/LineLiffLayout"; // Layout เฉพาะสำหรับ LIFF
 
 const ProtectedRoute = ({ children }) => {
   const isAuthenticated = useSelector((state) => state.authentication.token);
@@ -77,17 +74,6 @@ const Router = () => {
           <ProtectedRoute>
             <Restaurant />
           </ProtectedRoute>
-        } />
-        {/* LIFF Routes */}
-        <Route path="/liff/home" element={
-          <LineLiffLayout>
-            <LineLiffHome />
-          </LineLiffLayout>
-        } />
-        <Route path="/liff/login" element={
-          <LineLiffLayout>
-            <LineLiffLogin />
-          </LineLiffLayout>
         } />
       </Routes>
     </BrowserRouter>

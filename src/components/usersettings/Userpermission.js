@@ -485,7 +485,7 @@ export default function UserPermission() {
                             <StyledTableCell align="center">User Setting</StyledTableCell>
                             <StyledTableCell align="center">Warehouse</StyledTableCell>
                             <StyledTableCell align="center">Commissary Kitchen</StyledTableCell>
-                            <StyledTableCell align="center">Branch</StyledTableCell>
+                            <StyledTableCell align="center">Restaurant</StyledTableCell>
                             <StyledTableCell width='1%' align="center"></StyledTableCell>
                             <StyledTableCell width='1%' align="center"></StyledTableCell>
                         </TableRow>
@@ -619,7 +619,11 @@ export default function UserPermission() {
                                             onChange={handleMainPermissionChange(key)}
                                         />
                                     }
-                                    label={key.replace('menu_set', '').replace('_', ' ').toUpperCase()}
+                                    label={
+                                        key === 'menu_setbranch'
+                                            ? 'RESTAURANT'
+                                            : key.replace('menu_set', '').replace('_', ' ').toUpperCase()
+                                    }
                                 />
                             ))}
                         </Box>
@@ -845,7 +849,7 @@ export default function UserPermission() {
                             {formik.values.menu_setbranch === 'Y' && (
                                 <Grid item xs={12} md={4}>
                                     <Typography sx={{ mb: 2, fontWeight: '600', color: '#754C27' }}>
-                                        Branch
+                                        Restaurant
                                     </Typography>
                                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                                         <FormControlLabel
@@ -1127,7 +1131,7 @@ export default function UserPermission() {
                             {formik.values.menu_setbranch === 'Y' && (
                                 <Grid item xs={12} md={4}>
                                     <Typography sx={{ mb: 2, fontWeight: '600', color: '#754C27' }}>
-                                        Branch
+                                        Restaurant
                                     </Typography>
                                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                                         {Object.keys(formik.values)

@@ -512,7 +512,7 @@ export default function ProductRecord() {
                     }}
                 >
                     <Typography sx={{ fontSize: '16px', fontWeight: '600', mr: '24px' }}>
-                        Branch Search
+                        Restaurant Search
                     </Typography>
                     <TextField
                         value={searchTerm}
@@ -562,7 +562,7 @@ export default function ProductRecord() {
                                 </StyledTableCell>
                                 <StyledTableCell width='1%' >No.</StyledTableCell>
                                 <StyledTableCell align="center">ID</StyledTableCell>
-                                <StyledTableCell align="center">Branch Name</StyledTableCell>
+                                <StyledTableCell align="center">Restaurant</StyledTableCell>
                                 <StyledTableCell align="center">Address</StyledTableCell>
                                 <StyledTableCell align="center">Telephone</StyledTableCell>
                                 <StyledTableCell width='1%' align="center"></StyledTableCell>

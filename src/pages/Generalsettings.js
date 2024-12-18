@@ -310,7 +310,7 @@ export default function GeneralSettings() {
                                         <Tab label="Product record" value="3" />}
 
                                     {permissions.menu_setgen_branch === 'Y' &&
-                                        <Tab label="Branch" value="4" />}
+                                        <Tab label="Restaurant" value="4" />}
 
                                     {permissions.menu_setgen_kitchen === 'Y' &&
                                         <Tab label="Comissary Kitchen" value="5" />}
