@@ -646,18 +646,26 @@ export default function UserPermission() {
                                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                                         {Object.keys(formik.values)
                                             .filter(key => key.startsWith('menu_setgen_'))
-                                            .map(key => (
-                                                <FormControlLabel
-                                                    key={key}
-                                                    control={
-                                                        <Checkbox
-                                                            checked={formik.values[key] === 'Y'}
-                                                            onChange={handleCheckboxChangeFormik(key)}
-                                                        />
-                                                    }
-                                                    label={key.replace('menu_setgen_', '').replace('_', ' ')}
-                                                />
-                                            ))}
+                                            .map(key => {
+                                                // สร้างตัวแปรสำหรับ label
+                                                let label = key.replace('menu_setgen_', '').replace('_', ' ');
+                                                // ถ้าเป็น branch ให้แสดงเป็น restaurant แทน
+                                                if (label === 'branch') {
+                                                    label = 'restaurant';
+                                                }
+                                                return (
+                                                    <FormControlLabel
+                                                        key={key}
+                                                        control={
+                                                            <Checkbox
+                                                                checked={formik.values[key] === 'Y'}
+                                                                onChange={handleCheckboxChangeFormik(key)}
+                                                            />
+                                                        }
+                                                        label={label.charAt(0).toUpperCase() + label.slice(1)}
+                                                    />
+                                                );
+                                            })}
                                     </Box>
                                 </Grid>
                             )}
@@ -737,7 +745,7 @@ export default function UserPermission() {
                                                     onChange={handleCheckboxChangeFormik('menu_setwh_dispatch_to_branch')}
                                                 />
                                             }
-                                            label="Dispatch to Branch"
+                                            label="Dispatch to Restaurant"
                                         />
                                         <FormControlLabel
                                             control={
@@ -820,7 +828,7 @@ export default function UserPermission() {
                                                     onChange={handleCheckboxChangeFormik('menu_setkt_dispatch_to_branch')}
                                                 />
                                             }
-                                            label="Dispatch to Branch"
+                                            label="Dispatch to Restaurant"
                                         />
                                         <FormControlLabel
                                             control={
