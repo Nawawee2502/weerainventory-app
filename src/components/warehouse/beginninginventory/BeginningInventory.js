@@ -492,7 +492,7 @@ export default function BeginningInventory() {
                         <TableHead>
                             <TableRow>
                                 <StyledTableCell width='1%'>No.</StyledTableCell>
-                                <StyledTableCell align="center">Ref no</StyledTableCell>
+                                <StyledTableCell align="center">Product Code</StyledTableCell>
                                 <StyledTableCell align="center">Product Name</StyledTableCell>
                                 <StyledTableCell align="center">Amount</StyledTableCell>
                                 <StyledTableCell align="center">Unit Price</StyledTableCell>
@@ -505,7 +505,7 @@ export default function BeginningInventory() {
                             {stockcards.map((row) => (
                                 <StyledTableRow key={row.id}>
                                     <StyledTableCell>{row.id}</StyledTableCell>
-                                    <StyledTableCell align="center">{row.refno}</StyledTableCell>
+                                    <StyledTableCell align="center">{row.product_code}</StyledTableCell>
                                     <StyledTableCell align="center">
                                         {row.tbl_product?.product_name || row.product_code}
                                     </StyledTableCell>

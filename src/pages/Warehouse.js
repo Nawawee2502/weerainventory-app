@@ -81,7 +81,7 @@ function Warehouse(props) {
         if (permissions.menu_setwarehouse === 'Y') {
             menu.push({
                 segment: 'beginning-inventory',
-                title: 'Warehouse Beginning Inventory',
+                title: 'Beginning Inventory',
                 icon: <ReceiptLongOutlinedIcon />,
             });
         }
@@ -90,7 +90,7 @@ function Warehouse(props) {
         if (permissions.menu_setwh_purchase_order_to_supplier === 'Y') {
             menu.push({
                 segment: 'purchase-order-to-supplier',
-                title: 'Warehouse Purchase Order to Supplier',
+                title: 'Purchase Order to Supplier',
                 icon: <ReceiptLongOutlinedIcon />,
             });
         }
@@ -99,7 +99,7 @@ function Warehouse(props) {
         if (permissions.menu_setwh_receipt_from_supplier === 'Y') {
             menu.push({
                 segment: 'receipt-from-supplier',
-                title: 'Warehouse Receipt From Supplier',
+                title: 'Receipt From Supplier',
                 icon: <ReceiptOutlinedIcon />,
             });
         }
@@ -108,7 +108,7 @@ function Warehouse(props) {
         if (permissions.menu_setwh_receipt_from_kitchen === 'Y') {
             menu.push({
                 segment: 'receipt-from-kitchen',
-                title: 'Warehouse Receipt From Kitchen',
+                title: 'Receipt From Kitchen',
                 icon: <LocalShippingOutlinedIcon />,
             });
         }
@@ -117,7 +117,7 @@ function Warehouse(props) {
         if (permissions.menu_setwh_dispatch_to_kitchen === 'Y') {
             menu.push({
                 segment: 'dispatch-to-kitchen',
-                title: 'Warehouse Dispatch to Kitchen',
+                title: 'Dispatch to Kitchen',
                 icon: <CountertopsOutlinedIcon />,
             });
         }
@@ -126,7 +126,7 @@ function Warehouse(props) {
         if (permissions.menu_setwh_dispatch_to_branch === 'Y') {
             menu.push({
                 segment: 'dispatch-to-branch',
-                title: 'Warehouse Dispatch to Restaurant',
+                title: 'Dispatch to Restaurant',
                 icon: <HouseSidingOutlinedIcon />,
             });
         }
@@ -135,7 +135,7 @@ function Warehouse(props) {
         if (permissions.menu_setwh_stock_adjustment === 'Y') {
             menu.push({
                 segment: 'stock-adjustment',
-                title: 'Warehouse Stock Adjustment',
+                title: 'Stock Adjustment',
                 icon: <Inventory2OutlinedIcon />,
             });
         }
@@ -144,7 +144,7 @@ function Warehouse(props) {
         if (permissions.menu_setwh_report === 'Y') {
             menu.push({
                 segment: 'reports',
-                title: 'Warehouse Reports',
+                title: 'Reports',
                 icon: <BarChartIcon />,
                 children: [
                     {
@@ -200,19 +200,25 @@ function Warehouse(props) {
     };
 
     const findMenuTitle = (path) => {
-        const segment = path.substring(1);
-
-        const mainMenu = NAVIGATION.find(item => item.segment === segment);
-        if (mainMenu) return mainMenu.title;
-
-        for (const menu of NAVIGATION) {
-            if (menu.children) {
-                const subMenu = menu.children.find(item => item.segment === segment);
+        // สำหรับ reports จะมี path format เป็น /reports/xxx
+        if (path.startsWith('/reports/')) {
+            const reportSegment = path.substring('/reports/'.length);
+            // หา reports menu
+            const reportsMenu = NAVIGATION.find(item => item.segment === 'reports');
+            if (reportsMenu && reportsMenu.children) {
+                // หา submenu ที่ตรงกับ segment
+                const subMenu = reportsMenu.children.find(item => item.segment === reportSegment);
                 if (subMenu) return subMenu.title;
             }
+            return 'Reports'; // fallback ถ้าไม่เจอ submenu
         }
-
-        return 'Beginning Inventory'; // เปลี่ยน default return
+    
+        // สำหรับเมนูหลักอื่นๆ
+        const segment = path.substring(1);
+        const mainMenu = NAVIGATION.find(item => item.segment === segment);
+        if (mainMenu) return mainMenu.title;
+    
+        return 'Beginning Inventory'; // default
     };
 
     function SidebarFooter({ mini }) {

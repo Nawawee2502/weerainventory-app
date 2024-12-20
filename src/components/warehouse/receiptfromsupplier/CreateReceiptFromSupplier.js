@@ -277,7 +277,7 @@ function CreateReceiptFromSupplier({ onBack }) {
       });
       return;
     }
-
+  
     const headerData = {
       refno: lastRefNo,
       rdate: startDate.toLocaleDateString('en-GB'),
@@ -286,50 +286,44 @@ function CreateReceiptFromSupplier({ onBack }) {
       trdate: startDate.toISOString().slice(0, 10).replace(/-/g, ''),
       monthh: (startDate.getMonth() + 1).toString().padStart(2, '0'),
       myear: startDate.getFullYear(),
-      user_code: userData2.user_code,
-      taxable: taxableAmount,
-      nontaxable: nonTaxableAmount,
-      total: total,
-      instant_saving: instantSaving,
-      delivery_surcharge: deliverySurcharge,
-      sale_tax: saleTax,
-      total_due: totalDue
+      user_code: userData2.user_code
     };
-
+  
     const productArrayData = products.map(product => ({
       refno: lastRefNo,
       product_code: product.product_code,
-      qty: (product.amount || 0) / (units[product.product_code] === product.productUnit1.unit_code ?
-        product.bulk_unit_price : product.retail_unit_price),
+      qty: Number(product.amount) || 0,
       unit_code: units[product.product_code] || product.productUnit1.unit_code,
-      uprice: units[product.product_code] === product.productUnit1.unit_code ?
-        product.bulk_unit_price : product.retail_unit_price,
+      uprice: Number(units[product.product_code] === product.productUnit1.unit_code ? 
+        product.bulk_unit_price : product.retail_unit_price) || 0,
       tax1: product.tax1,
       expire_date: expiryDates[product.product_code]?.toLocaleDateString('en-GB'),
       texpire_date: expiryDates[product.product_code]?.toISOString().slice(0, 10).replace(/-/g, ''),
-      instant_saving1: product.instant_saving1 || 0,
+      instant_saving1: Number(product.instant_saving1) || 0,
       temperature1: temperatures[product.product_code] || '',
-      amt: product.amount || 0
+      amt: Number(product.amount) || 0
     }));
-
+  
+    const footerData = {
+      taxable: Number(taxableAmount) || 0,
+      nontaxable: Number(nonTaxableAmount) || 0, 
+      total: Number(total) || 0,
+      instant_saving: Number(instantSaving) || 0,
+      delivery_surcharge: Number(deliverySurcharge) || 0,
+      sale_tax: Number(saleTax) || 0,
+      total_due: Number(totalDue) || 0
+    };
+  
     Swal.fire({
       title: 'Saving...',
       allowOutsideClick: false,
       didOpen: () => Swal.showLoading()
     });
-
+  
     dispatch(addWh_rfs({
       headerData,
       productArrayData,
-      footerData: {
-        taxable: taxableAmount,
-        nontaxable: nonTaxableAmount,
-        total: total,
-        instant_saving: instantSaving,
-        delivery_surcharge: deliverySurcharge,
-        sale_tax: saleTax,
-        total_due: totalDue
-      }
+      footerData
     }))
       .unwrap()
       .then(() => {

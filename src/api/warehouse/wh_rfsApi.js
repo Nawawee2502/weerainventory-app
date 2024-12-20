@@ -5,21 +5,20 @@ const BASE_URL = `${process.env.REACT_APP_URL_API}`;
 
 export const addWh_rfs = createAsyncThunk(
     "wh_rfs/add",
-    async (req, { dispatch }) => {
+    async (req, { rejectWithValue }) => {
         try {
-            console.log("API APP");
-            console.log(req);
             const res = await axios.post(BASE_URL + "/api/addWh_rfs", {
                 headerData: req.headerData,
                 productArrayData: req.productArrayData,
                 footerData: req.footerData,
             });
-            console.log("API APP");
-            console.log(res.data);
             return res.data;
         } catch (error) {
-            console.error(error.message);
-            throw error;
+            console.error('API Error:', error);
+            return rejectWithValue(error.response?.data || {
+                message: error.message,
+                result: false
+            });
         }
     }
 );
