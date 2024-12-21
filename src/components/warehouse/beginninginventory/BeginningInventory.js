@@ -147,10 +147,21 @@ export default function BeginningInventory() {
         }
     };
 
+    // Form Validation Schema
+    const validate = values => {
+        const errors = {};
+        if (!values.product_code) errors.product_code = 'Product is required';
+        if (!values.unit_code) errors.unit_code = 'Unit is required';
+        if (!values.amount || values.amount <= 0) errors.amount = 'Amount must be greater than 0';
+        if (!values.unit_price || values.unit_price <= 0) errors.unit_price = 'Unit price must be greater than 0';
+        return errors;
+    };
+
     // Formik Hook
     const formik = useFormik({
         initialValues,
-        validationSchema,
+        validate,
+        validateOnChange: false,
         onSubmit: async (values) => {
             try {
                 const year = values.date.getFullYear();
@@ -288,15 +299,16 @@ export default function BeginningInventory() {
     };
 
     const handleProductSelect = (product) => {
-        setSelectedProduct(product);
-        formik.setValues({
+        const newValues = {
             ...formik.values,
             product_code: product.product_code,
             product_name: product.product_name,
-            unit_code: product.productUnit2.unit_code,
-            unit_price: product.retail_unit_price,
-            isEditing: formik.values.isEditing,
-        });
+            unit_code: product.productUnit2?.unit_code || '',
+            unit_price: product.retail_unit_price || ''
+        };
+
+        formik.resetForm({ values: newValues });
+        setSelectedProduct(product);
         setProductSearchTerm(product.product_name);
         setShowDropdown(false);
     };
@@ -727,7 +739,10 @@ export default function BeginningInventory() {
                                     type="number"
                                     name="amount"
                                     value={formik.values.amount}
-                                    onChange={formik.handleChange}
+                                    onChange={(e) => {
+                                        const value = e.target.value;
+                                        formik.setFieldValue('amount', value === '' ? '' : Number(value), false);
+                                    }}
                                     onBlur={formik.handleBlur}
                                     placeholder="Enter Amount"
                                     error={formik.touched.amount && Boolean(formik.errors.amount)}
@@ -749,7 +764,10 @@ export default function BeginningInventory() {
                                     type="number"
                                     name="unit_price"
                                     value={formik.values.unit_price}
-                                    onChange={formik.handleChange}
+                                    onChange={(e) => {
+                                        const value = e.target.value;
+                                        formik.setFieldValue('unit_price', value === '' ? '' : Number(value), false);
+                                    }}
                                     onBlur={formik.handleBlur}
                                     placeholder="Enter Unit Price"
                                     error={formik.touched.unit_price && Boolean(formik.errors.unit_price)}
