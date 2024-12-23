@@ -5,7 +5,7 @@ const BASE_URL = `${process.env.REACT_APP_URL_API}`;
 
 export const addWh_stockcard = createAsyncThunk(
     "wh_stockcard/add",
-    async (req, { dispatch }) => {
+    async (req, { rejectWithValue }) => {
         try {
             const res = await axios.post(BASE_URL + "/api/addWh_stockcard", {
                 myear: req.myear,
@@ -27,8 +27,15 @@ export const addWh_stockcard = createAsyncThunk(
             });
             return res.data;
         } catch (error) {
-            console.error(error.message);
-            throw error;
+            // Check if the error has a response from the server
+            if (error.response) {
+                return rejectWithValue(error.response.data);
+            }
+            // If there's no response, return a generic error
+            return rejectWithValue({ 
+                message: error.message || 'An error occurred', 
+                type: 'ERROR' 
+            });
         }
     }
 );

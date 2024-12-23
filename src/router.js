@@ -8,6 +8,7 @@ import Settings from "./pages/Settings";
 import UserSettings from "./pages/Usersettings";
 import Warehouse from "./pages/Warehouse";
 import Restaurant from "./pages/Restaurant"
+import Room4Room5 from "./pages/Room4Room5"
 
 const ProtectedRoute = ({ children }) => {
   const isAuthenticated = useSelector((state) => state.authentication.token);
@@ -73,6 +74,11 @@ const Router = () => {
         <Route path="/restaurant" element={
           <ProtectedRoute>
             <Restaurant />
+          </ProtectedRoute>
+        } />
+        <Route path="/kitchen" element={
+          <ProtectedRoute>
+            <Room4Room5 />
           </ProtectedRoute>
         } />
       </Routes>

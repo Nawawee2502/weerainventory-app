@@ -86,6 +86,10 @@ export default function Dashboard() {
         navigate('/restaurant');
     };
 
+    const handleRoom4Room5 = () => {
+        navigate('/kitchen');
+    };
+
     const handleProfileMenuOpen = (event) => {
         setAnchorEl(event.currentTarget);
     };
@@ -323,6 +327,7 @@ export default function Dashboard() {
                 {/* Kitchen Button - แสดงเฉพาะเมื่อ menu_setkitchen เป็น Y */}
                 {permissions.menu_setkitchen === 'Y' && (
                     <Button
+                        onClick={handleRoom4Room5}
                         sx={{
                             width: '150px',
                             height: '130px',

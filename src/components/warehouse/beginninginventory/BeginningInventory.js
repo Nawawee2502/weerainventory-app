@@ -157,7 +157,6 @@ export default function BeginningInventory() {
         return errors;
     };
 
-    // Formik Hook
     const formik = useFormik({
         initialValues,
         validate,
@@ -188,28 +187,42 @@ export default function BeginningInventory() {
                 };
 
                 const action = values.isEditing ? updateWh_stockcard : addWh_stockcard;
-                await dispatch(action(stockcardData)).unwrap();
+                const result = await dispatch(action(stockcardData)).unwrap();
 
-                Swal.fire({
-                    icon: 'success',
-                    title: values.isEditing ? 'Updated successfully' : 'Saved successfully',
-                    showConfirmButton: false,
-                    timer: 1500
-                });
+                if (result.result) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: values.isEditing ? 'Updated successfully' : 'Saved successfully',
+                        showConfirmButton: false,
+                        timer: 1500
+                    });
 
-                setOpenDrawer(false);
-                resetForm();
-                loadData(page);
-
+                    setOpenDrawer(false);
+                    resetForm();
+                    loadData(page);
+                }
             } catch (error) {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error',
-                    text: error.message
-                });
+                console.log('Error:', error);
+                // การจัดการ error ที่มาจาก backend
+                if (error.type === 'DUPLICATE_RECORD') {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Duplicate Entry',
+                        text: error.message,
+                        confirmButtonColor: '#754C27'
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: error.message || 'An unexpected error occurred',
+                        confirmButtonColor: '#754C27'
+                    });
+                }
             }
         }
     });
+
 
     // Load Units Effect
     useEffect(() => {
