@@ -32,9 +32,9 @@ export const addWh_stockcard = createAsyncThunk(
                 return rejectWithValue(error.response.data);
             }
             // If there's no response, return a generic error
-            return rejectWithValue({ 
-                message: error.message || 'An error occurred', 
-                type: 'ERROR' 
+            return rejectWithValue({
+                message: error.message || 'An error occurred',
+                type: 'ERROR'
             });
         }
     }
@@ -103,34 +103,94 @@ export const deleteWh_stockcard = createAsyncThunk(
 
 export const queryWh_stockcard = createAsyncThunk(
     "wh_stockcard/query",
-    async ({ offset = 0, limit = 5, rdate, product_name }, { dispatch }) => {
+    async ({
+        offset = 0,
+        limit = 5,
+        rdate,
+        rdate1,
+        rdate2,
+        product_code,
+        product_name
+    }, { rejectWithValue }) => {
         try {
-            const res = await axios.post(BASE_URL + "/api/Query_Wh_stockcard", {
+            // Build the payload object with all possible parameters
+            const payload = {
                 offset,
-                limit,
-                rdate,           // ส่งวันที่
-                product_name     // ส่งชื่อสินค้า
-            });
+                limit
+            };
+
+            // Add optional date parameters based on what's provided
+            if (rdate1 && rdate2) {
+                payload.rdate1 = rdate1;
+                payload.rdate2 = rdate2;
+            } else if (rdate) {
+                payload.rdate = rdate;
+            }
+
+            // Add product filtering parameters if provided
+            if (product_code) {
+                payload.product_code = product_code;
+            }
+            if (product_name) {
+                payload.product_name = product_name;
+            }
+
+            // Log the request payload for debugging
+            console.log("Query Request Payload:", payload);
+
+            const res = await axios.post(BASE_URL + "/api/Query_Wh_stockcard", payload);
+
+            // Log the response for debugging
+            console.log("Query Response:", res.data);
+
             return res.data;
         } catch (error) {
-            console.error(error.message);
-            throw error;
+            // Handle errors with proper error message
+            if (error.response) {
+                return rejectWithValue(error.response.data);
+            }
+            return rejectWithValue({
+                message: error.message || 'Failed to fetch stockcard data',
+                type: 'ERROR'
+            });
         }
     }
 );
 
 export const countWh_stockcard = createAsyncThunk(
     "wh_stockcard/count",
-    async ({ rdate, product_name } = {}, { dispatch }) => {
+    async ({
+        rdate,
+        rdate1,
+        rdate2,
+        product_name
+    }, { rejectWithValue }) => {
         try {
-            const res = await axios.post(BASE_URL + "/api/countWh_stockcard", {
-                rdate,
-                product_name
-            });
+            const payload = {};
+
+            // Add date parameters based on what's provided
+            if (rdate1 && rdate2) {
+                payload.rdate1 = rdate1;
+                payload.rdate2 = rdate2;
+            } else if (rdate) {
+                payload.rdate = rdate;
+            }
+
+            // Add product name if provided
+            if (product_name) {
+                payload.product_name = product_name;
+            }
+
+            const res = await axios.post(BASE_URL + "/api/countWh_stockcard", payload);
             return res.data;
         } catch (error) {
-            console.error(error.message);
-            throw error;
+            if (error.response) {
+                return rejectWithValue(error.response.data);
+            }
+            return rejectWithValue({
+                message: error.message || 'Failed to count stockcard records',
+                type: 'ERROR'
+            });
         }
     }
 );

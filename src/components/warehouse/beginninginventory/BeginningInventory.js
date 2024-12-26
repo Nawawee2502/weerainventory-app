@@ -180,7 +180,7 @@ export default function BeginningInventory() {
                     out1: 0,
                     upd1: 0,
                     uprice: Number(values.unit_price),
-                    beg1_amt: Number(values.amount) * Number(values.unit_price),
+                    beg1_amt: Number(values.amount),
                     in1_amt: 0,
                     out1_amt: 0,
                     upd1_amt: 0

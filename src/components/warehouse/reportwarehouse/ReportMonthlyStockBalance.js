@@ -1,45 +1,127 @@
-import * as React from 'react';
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Typography, TextField, Grid2, Button } from '@mui/material';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
-import { Checkbox, Switch, Divider } from '@mui/material';
+import { Switch, Divider } from '@mui/material';
+import { useDispatch } from 'react-redux';
+import { queryWh_stockcard } from '../../../api/warehouse/wh_stockcard';
+import Swal from 'sweetalert2';
+import { format } from 'date-fns';
 
 export default function ReportMonthlyStockBalance() {
-    const [startDate, setStartDate] = useState(new Date());
+    const dispatch = useDispatch();
+    const today = new Date();
+
+    // States
+    const [startDate, setStartDate] = useState(today);
+    const [endDate, setEndDate] = useState(today);
+    const [productSearch, setProductSearch] = useState('');
+    const [stockBalanceData, setStockBalanceData] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+    const [excludePrice, setExcludePrice] = useState(false);
+
+    // Format date functions
+    const formatDateForApi = (date) => {
+        return format(date, 'yyyyMMdd');
+    };
+
+    const formatDateForDisplay = (date) => {
+        return format(new Date(date), 'dd/MM/yyyy');
+    };
+
+    // แก้ไขฟังก์ชัน fetchStockBalance
+    const fetchStockBalance = async () => {
+        try {
+            setLoading(true);
+            setError(null);
+
+            const response = await dispatch(queryWh_stockcard({
+                rdate1: formatDateForApi(startDate),
+                rdate2: formatDateForApi(endDate),
+                product_name: productSearch || undefined
+            })).unwrap();
+
+            if (response.result) {
+                // แสดงข้อมูลโดยตรงไม่ต้อง group
+                setStockBalanceData(response.data);
+            }
+        } catch (err) {
+            setError(err.message || 'Failed to fetch data');
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: err.message || 'Failed to fetch data',
+                confirmButtonColor: '#754C27'
+            });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Initial data load
+    useEffect(() => {
+        fetchStockBalance();
+    }, []);
+
+    // Handle search
+    const handleSearch = () => {
+        fetchStockBalance();
+    };
+
+    // Handle exports
+    const handleExportExcel = () => {
+        if (stockBalanceData.length === 0) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'No Data',
+                text: 'No data available to export',
+                confirmButtonColor: '#754C27'
+            });
+            return;
+        }
+        // Add Excel export logic
+    };
+
+    const handleExportPdf = () => {
+        if (stockBalanceData.length === 0) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'No Data',
+                text: 'No data available to export',
+                confirmButtonColor: '#754C27'
+            });
+            return;
+        }
+        // Add PDF export logic
+    };
 
     return (
         <Box sx={{
             width: '100%',
             display: 'flex',
             justifyContent: 'center',
-            bgcolor: 'white',
             flexDirection: 'column',
             alignItems: 'center',
             bgcolor: '#F8F8F8'
         }}>
-            <Box sx={{
-                width: '70%',
-                mt: '10px',
-                flexDirection: 'column'
-            }}>
-                <Box
-                    sx={{
-                        display: 'flex',
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        flexDirection: 'column',
-                        bgcolor: '#FFFFFF',
-                        height: '100%',
-                        p: '16px',
-                        position: 'relative',
-                        zIndex: 2,
-                        mb: '50px',
-                        bgcolor: '#F8F8F8'
-                    }}
-                >
+            {/* Search Section */}
+            <Box sx={{ width: '70%', mt: '10px', flexDirection: 'column' }}>
+                <Box sx={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    flexDirection: 'column',
+                    bgcolor: '#F8F8F8',
+                    height: '100%',
+                    p: '16px',
+                    position: 'relative',
+                    zIndex: 2,
+                    mb: '50px',
+                }}>
                     <Box sx={{ width: '90%', mt: '24px' }}>
                         <Grid2 container spacing={2}>
+                            {/* From Date */}
                             <Grid2 item size={{ xs: 12, md: 6 }}>
                                 <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
                                     From Date
@@ -47,7 +129,12 @@ export default function ReportMonthlyStockBalance() {
                                 <DatePicker
                                     selected={startDate}
                                     onChange={(date) => setStartDate(date)}
+                                    selectsStart
+                                    startDate={startDate}
+                                    endDate={endDate}
                                     dateFormat="dd/MM/yyyy"
+                                    isClearable
+                                    placeholderText="Select start date"
                                     customInput={
                                         <TextField
                                             size="small"
@@ -55,25 +142,32 @@ export default function ReportMonthlyStockBalance() {
                                             sx={{
                                                 mt: '8px',
                                                 width: '80%',
-                                                '& .MuiInputBase-root': {
-                                                    width: '100%',
-                                                },
+                                                '& .MuiInputBase-root': { width: '100%' },
                                                 '& .MuiOutlinedInput-root': {
                                                     borderRadius: '10px',
+                                                    bgcolor: 'white'
                                                 },
                                             }}
                                         />
                                     }
                                 />
                             </Grid2>
+
+                            {/* To Date */}
                             <Grid2 item size={{ xs: 12, md: 6 }}>
                                 <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
                                     To Date
                                 </Typography>
                                 <DatePicker
-                                    selected={startDate}
-                                    onChange={(date) => setStartDate(date)}
+                                    selected={endDate}
+                                    onChange={(date) => setEndDate(date)}
+                                    selectsEnd
+                                    startDate={startDate}
+                                    endDate={endDate}
+                                    minDate={startDate}
                                     dateFormat="dd/MM/yyyy"
+                                    isClearable
+                                    placeholderText="Select end date"
                                     customInput={
                                         <TextField
                                             size="small"
@@ -81,71 +175,18 @@ export default function ReportMonthlyStockBalance() {
                                             sx={{
                                                 mt: '8px',
                                                 width: '80%',
-                                                '& .MuiInputBase-root': {
-                                                    width: '100%',
-                                                },
+                                                '& .MuiInputBase-root': { width: '100%' },
                                                 '& .MuiOutlinedInput-root': {
                                                     borderRadius: '10px',
+                                                    bgcolor: 'white'
                                                 },
                                             }}
                                         />
                                     }
                                 />
                             </Grid2>
-                            <Grid2 item size={{ xs: 12, md: 6 }}>
-                                <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
-                                    Supplier
-                                </Typography>
-                                <Box
-                                    component="select"
-                                    sx={{
-                                        mt: '8px',
-                                        width: '100%',
-                                        height: '40px',
-                                        borderRadius: '10px',
-                                        padding: '0 14px',
-                                        border: '1px solid rgba(0, 0, 0, 0.23)',
-                                        fontSize: '16px',
-                                        '&:focus': {
-                                            outline: 'none',
-                                            borderColor: '#754C27',
-                                        },
-                                        '& option': {
-                                            fontSize: '16px',
-                                        },
-                                    }}
-                                    id="supplier"
-                                >
-                                    <option value="">Select a supplier</option>
-                                </Box>
-                            </Grid2>
-                            <Grid2 item size={{ xs: 12, md: 6 }}>
-                                <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
-                                    Branch
-                                </Typography>
-                                <Box
-                                    component="select"
-                                    sx={{
-                                        mt: '8px',
-                                        width: '100%',
-                                        height: '40px',
-                                        borderRadius: '10px',
-                                        padding: '0 14px',
-                                        border: '1px solid rgba(0, 0, 0, 0.23)',
-                                        fontSize: '16px',
-                                        '&:focus': {
-                                            outline: 'none',
-                                            borderColor: '#754C27',
-                                        },
-                                        '& option': {
-                                            fontSize: '16px',
-                                        },
-                                    }}
-                                    id="Branch"
-                                >
-                                    <option value="">Select a Branch</option>
-                                </Box>
-                            </Grid2>
+
+                            {/* Product Search */}
                             <Grid2 item size={{ xs: 12, md: 12 }}>
                                 <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
                                     Product
@@ -154,21 +195,33 @@ export default function ReportMonthlyStockBalance() {
                                     <TextField
                                         size="small"
                                         fullWidth
-                                        placeholder="Search..."
+                                        value={productSearch}
+                                        onChange={(e) => {
+                                            setProductSearch(e.target.value);
+                                            if (e.target.value === '') {
+                                                handleSearch();
+                                            }
+                                        }}
+                                        onKeyPress={(e) => {
+                                            if (e.key === 'Enter') {
+                                                handleSearch();
+                                            }
+                                        }}
+                                        placeholder="Search product name..."
                                         sx={{
                                             '& .MuiOutlinedInput-root': {
                                                 borderRadius: '10px',
+                                                bgcolor: 'white'
                                             },
                                         }}
                                     />
                                     <Button
                                         variant="contained"
+                                        onClick={handleSearch}
                                         sx={{
                                             bgcolor: '#754C27',
                                             color: 'white',
-                                            '&:hover': {
-                                                bgcolor: '#5c3c1f',
-                                            },
+                                            '&:hover': { bgcolor: '#5c3c1f' },
                                             borderRadius: '10px',
                                             minWidth: '100px'
                                         }}
@@ -178,71 +231,58 @@ export default function ReportMonthlyStockBalance() {
                                 </Box>
                             </Grid2>
                         </Grid2>
-
-
                     </Box>
                 </Box>
-
-
             </Box>
 
-
-            <Box
-                sx={{
-                    width: '98%',
-                    bgcolor: 'white',
-                    p: '12px',
-                    borderRadius: '24px',
-                    mb: '24px',
-                    position: 'relative', // เพิ่มเพื่อให้สามารถวาง Box หัวข้อแบบ absolute ได้
-                    mt: '20px'
-                }}
-            >
+            {/* Results Section */}
+            <Box sx={{
+                width: '98%',
+                bgcolor: 'white',
+                p: '12px',
+                borderRadius: '24px',
+                mb: '24px',
+                position: 'relative',
+                mt: '20px'
+            }}>
                 <Box sx={{
                     position: 'absolute',
-                    top: '-20px', // ปรับตำแหน่งให้อยู่ด้านบนของ Box หลัก
+                    top: '-20px',
                     left: '50%',
                     transform: 'translateX(-50%)',
                     bgcolor: '#EAB86C',
-                    color: '#FFFFFF',
                     px: 3,
                     py: 2,
                     borderRadius: '8px',
                     zIndex: 3
                 }}>
                     <Typography sx={{ fontWeight: 'bold', color: '#754C27' }}>
-                        Purchase Order to Supplier
+                        Monthly stock balance
                     </Typography>
                 </Box>
+
                 <Box sx={{ width: '100%' }}>
+                    {/* Controls */}
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                         <Box sx={{ display: 'flex' }}>
                             <Box>
                                 <Typography sx={{ fontWeight: '700', color: '#AD7A2C' }}>
                                     Date
                                 </Typography>
-                                <Typography sx={{ fontWeight: '700', color: '#AD7A2C' }}>
-                                    Supplier
-                                </Typography>
-                                <Typography sx={{ fontWeight: '700', color: '#AD7A2C' }}>
-                                    Shop
-                                </Typography>
                             </Box>
                             <Box sx={{ ml: '8px' }}>
                                 <Typography>
-                                    23/08/2567 - 25/08/2567
-                                </Typography>
-                                <Typography>
-                                    Eleanor Pena
-                                </Typography>
-                                <Typography>
-                                    Weera Thai
+                                    {`${formatDateForDisplay(startDate)} - ${formatDateForDisplay(endDate)}`}
                                 </Typography>
                             </Box>
                         </Box>
+
                         <Box sx={{ display: 'flex', gap: 2, flexDirection: 'column' }}>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <Switch />
+                                <Switch
+                                    checked={excludePrice}
+                                    onChange={(e) => setExcludePrice(e.target.checked)}
+                                />
                                 <Typography sx={{ fontWeight: '500', color: '#7E84A3' }}>
                                     Exclude price in file
                                 </Typography>
@@ -250,63 +290,110 @@ export default function ReportMonthlyStockBalance() {
                             <Box>
                                 <Button
                                     variant="outlined"
+                                    onClick={handleExportExcel}
                                     sx={{
                                         color: '#754C27',
                                         borderColor: '#754C27',
-                                        '&:hover': {
-                                            borderColor: '#5c3c1f',
-                                        }
+                                        '&:hover': { borderColor: '#5c3c1f' }
                                     }}
                                 >
-                                    Export (Excel)
+                                    Excel
                                 </Button>
                                 <Button
                                     variant="outlined"
+                                    onClick={handleExportPdf}
                                     sx={{
                                         color: '#754C27',
                                         borderColor: '#754C27',
-                                        '&:hover': {
-                                            borderColor: '#5c3c1f',
-                                        },
+                                        '&:hover': { borderColor: '#5c3c1f' },
                                         ml: '24px'
                                     }}
                                 >
                                     PDF
                                 </Button>
                             </Box>
-
                         </Box>
                     </Box>
+
+                    {/* Table */}
                     <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', mb: '12px' }}>
                         <table style={{ width: '100%', marginTop: '24px' }}>
                             <thead>
                                 <tr>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left' }}>
-                                        <Checkbox />
-                                    </th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>No.</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Date</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Ref.no</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Supplier</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Branch</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>ID</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Product Name</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Quantity</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Unit Price</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>No</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Refno</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Product</th>
                                     <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Unit</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Amount</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Remainning</th>
                                     <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Total</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Username</th>
                                 </tr>
                                 <tr>
-                                    <td colSpan="15">
-                                        <Divider sx={{ width: '100%', color: '#754C27', border: '1px solid #754C27' }} />
+                                    <td colSpan="6">
+                                        <Divider style={{ width: '100%', color: '#754C27', border: '1px solid #754C27' }} />
                                     </td>
                                 </tr>
                             </thead>
                             <tbody>
-                                {/* Table data will go here */}
+                                {loading ? (
+                                    <tr>
+                                        <td colSpan="6" style={{ textAlign: 'center', padding: '20px' }}>Loading...</td>
+                                    </tr>
+                                ) : error ? (
+                                    <tr>
+                                        <td colSpan="6" style={{ textAlign: 'center', padding: '20px', color: 'red' }}>{error}</td>
+                                    </tr>
+                                ) : stockBalanceData.length === 0 ? (
+                                    <tr>
+                                        <td colSpan="6" style={{ textAlign: 'center', padding: '20px' }}>No data found</td>
+                                    </tr>
+                                ) : (
+                                    stockBalanceData.map((item, index) => {
+                                        const remainingQty = (item.beg1 || 0) + (item.in1 || 0) +
+                                            (item.upd1 || 0) - (item.out1 || 0);
+                                        const totalAmount = remainingQty * (item.uprice || 0);
+                                        return (
+                                            <tr key={`${item.refno}-${index}`}>
+                                                <td style={{ padding: '8px 16px' }}>{index + 1}</td>
+                                                <td style={{ padding: '8px 16px' }}>{item.refno}</td>
+                                                <td style={{ padding: '8px 16px' }}>{item.product_name}</td>
+                                                <td style={{ padding: '8px 16px' }}>{item.unit_name}</td>
+                                                <td style={{ padding: '8px 16px' }}>{remainingQty}</td>
+                                                <td style={{ padding: '8px 16px' }}>
+                                                    {!excludePrice ? totalAmount.toFixed(2) : '-'}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
+                                )}
                             </tbody>
+                            {stockBalanceData.length > 0 && (
+                                <tfoot>
+                                    <tr>
+                                        <td colSpan="6">
+                                            <Divider style={{ width: '100%', color: '#754C27', border: '1px solid #754C27' }} />
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td colSpan="4" style={{ textAlign: 'right', padding: '12px 16px', fontWeight: 'bold', color: '#754C27' }}>
+                                            Total:
+                                        </td>
+                                        <td style={{ padding: '12px 16px', fontWeight: 'bold', color: '#754C27' }}>
+                                            {stockBalanceData.reduce((sum, item) => {
+                                                const qty = (item.beg1 || 0) + (item.in1 || 0) +
+                                                    (item.upd1 || 0) - (item.out1 || 0);
+                                                return sum + qty;
+                                            }, 0)}
+                                        </td>
+                                        <td style={{ padding: '12px 16px', fontWeight: 'bold', color: '#754C27' }}>
+                                            {!excludePrice ? stockBalanceData.reduce((sum, item) => {
+                                                const qty = (item.beg1 || 0) + (item.in1 || 0) +
+                                                    (item.upd1 || 0) - (item.out1 || 0);
+                                                return sum + (qty * (item.uprice || 0));
+                                            }, 0).toFixed(2) : '-'}
+                                        </td>
+                                    </tr>
+                                </tfoot>
+                            )}
                         </table>
                     </Box>
                 </Box>
