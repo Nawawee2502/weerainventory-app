@@ -15,11 +15,18 @@ export default function ReportMonthlyStockBalance() {
     // States
     const [startDate, setStartDate] = useState(today);
     const [endDate, setEndDate] = useState(today);
-    const [productSearch, setProductSearch] = useState('');
     const [stockBalanceData, setStockBalanceData] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [excludePrice, setExcludePrice] = useState(false);
+
+
+    // เพิ่ม useEffect นี้
+    useEffect(() => {
+        fetchStockBalance();
+    }, [startDate, endDate]);
+
+    // ลบ handleSearch ออกเพราะไม่ได้ใช้แล้ว
 
     // Format date functions
     const formatDateForApi = (date) => {
@@ -30,20 +37,20 @@ export default function ReportMonthlyStockBalance() {
         return format(new Date(date), 'dd/MM/yyyy');
     };
 
-    // แก้ไขฟังก์ชัน fetchStockBalance
     const fetchStockBalance = async () => {
         try {
             setLoading(true);
             setError(null);
-
+    
             const response = await dispatch(queryWh_stockcard({
                 rdate1: formatDateForApi(startDate),
                 rdate2: formatDateForApi(endDate),
-                product_name: productSearch || undefined
+                limit: 99999  // เพิ่มค่า limit สูงๆ เพื่อให้ได้ข้อมูลทั้งหมด
             })).unwrap();
 
+            console.log("Data :", response);
+    
             if (response.result) {
-                // แสดงข้อมูลโดยตรงไม่ต้อง group
                 setStockBalanceData(response.data);
             }
         } catch (err) {
@@ -185,51 +192,6 @@ export default function ReportMonthlyStockBalance() {
                                     }
                                 />
                             </Grid2>
-
-                            {/* Product Search */}
-                            <Grid2 item size={{ xs: 12, md: 12 }}>
-                                <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
-                                    Product
-                                </Typography>
-                                <Box sx={{ display: 'flex', gap: 2, mt: 1 }}>
-                                    <TextField
-                                        size="small"
-                                        fullWidth
-                                        value={productSearch}
-                                        onChange={(e) => {
-                                            setProductSearch(e.target.value);
-                                            if (e.target.value === '') {
-                                                handleSearch();
-                                            }
-                                        }}
-                                        onKeyPress={(e) => {
-                                            if (e.key === 'Enter') {
-                                                handleSearch();
-                                            }
-                                        }}
-                                        placeholder="Search product name..."
-                                        sx={{
-                                            '& .MuiOutlinedInput-root': {
-                                                borderRadius: '10px',
-                                                bgcolor: 'white'
-                                            },
-                                        }}
-                                    />
-                                    <Button
-                                        variant="contained"
-                                        onClick={handleSearch}
-                                        sx={{
-                                            bgcolor: '#754C27',
-                                            color: 'white',
-                                            '&:hover': { bgcolor: '#5c3c1f' },
-                                            borderRadius: '10px',
-                                            minWidth: '100px'
-                                        }}
-                                    >
-                                        Show
-                                    </Button>
-                                </Box>
-                            </Grid2>
                         </Grid2>
                     </Box>
                 </Box>
@@ -321,14 +283,13 @@ export default function ReportMonthlyStockBalance() {
                             <thead>
                                 <tr>
                                     <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>No</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Refno</th>
                                     <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Product</th>
                                     <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Unit</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Remainning</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Total</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'right', color: '#754C27' }}>Remainning</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'right', color: '#754C27' }}>Total</th>
                                 </tr>
                                 <tr>
-                                    <td colSpan="6">
+                                    <td colSpan="5">
                                         <Divider style={{ width: '100%', color: '#754C27', border: '1px solid #754C27' }} />
                                     </td>
                                 </tr>
@@ -336,15 +297,15 @@ export default function ReportMonthlyStockBalance() {
                             <tbody>
                                 {loading ? (
                                     <tr>
-                                        <td colSpan="6" style={{ textAlign: 'center', padding: '20px' }}>Loading...</td>
+                                        <td colSpan="5" style={{ textAlign: 'center', padding: '20px' }}>Loading...</td>
                                     </tr>
                                 ) : error ? (
                                     <tr>
-                                        <td colSpan="6" style={{ textAlign: 'center', padding: '20px', color: 'red' }}>{error}</td>
+                                        <td colSpan="5" style={{ textAlign: 'center', padding: '20px', color: 'red' }}>{error}</td>
                                     </tr>
                                 ) : stockBalanceData.length === 0 ? (
                                     <tr>
-                                        <td colSpan="6" style={{ textAlign: 'center', padding: '20px' }}>No data found</td>
+                                        <td colSpan="5" style={{ textAlign: 'center', padding: '20px' }}>No data found</td>
                                     </tr>
                                 ) : (
                                     stockBalanceData.map((item, index) => {
@@ -354,12 +315,16 @@ export default function ReportMonthlyStockBalance() {
                                         return (
                                             <tr key={`${item.refno}-${index}`}>
                                                 <td style={{ padding: '8px 16px' }}>{index + 1}</td>
-                                                <td style={{ padding: '8px 16px' }}>{item.refno}</td>
-                                                <td style={{ padding: '8px 16px' }}>{item.product_name}</td>
-                                                <td style={{ padding: '8px 16px' }}>{item.unit_name}</td>
-                                                <td style={{ padding: '8px 16px' }}>{remainingQty}</td>
-                                                <td style={{ padding: '8px 16px' }}>
-                                                    {!excludePrice ? totalAmount.toFixed(2) : '-'}
+                                                <td style={{ padding: '8px 16px' }}>{item.tbl_product.product_name}</td>
+                                                <td style={{ padding: '8px 16px' }}>{item.tbl_unit.unit_name}</td>
+                                                <td style={{ padding: '8px 16px', textAlign: 'right' }}>
+                                                    {remainingQty.toLocaleString()}
+                                                </td>
+                                                <td style={{ padding: '8px 16px', textAlign: 'right' }}>
+                                                    {!excludePrice ? totalAmount.toLocaleString(undefined, {
+                                                        minimumFractionDigits: 2,
+                                                        maximumFractionDigits: 2
+                                                    }) : '-'}
                                                 </td>
                                             </tr>
                                         );
@@ -369,27 +334,30 @@ export default function ReportMonthlyStockBalance() {
                             {stockBalanceData.length > 0 && (
                                 <tfoot>
                                     <tr>
-                                        <td colSpan="6">
+                                        <td colSpan="5">
                                             <Divider style={{ width: '100%', color: '#754C27', border: '1px solid #754C27' }} />
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td colSpan="4" style={{ textAlign: 'right', padding: '12px 16px', fontWeight: 'bold', color: '#754C27' }}>
+                                        <td colSpan="3" style={{ textAlign: 'right', padding: '12px 16px', fontWeight: 'bold', color: '#754C27' }}>
                                             Total:
                                         </td>
-                                        <td style={{ padding: '12px 16px', fontWeight: 'bold', color: '#754C27' }}>
+                                        <td style={{ padding: '12px 16px', fontWeight: 'bold', color: '#754C27', textAlign: 'right' }}>
                                             {stockBalanceData.reduce((sum, item) => {
                                                 const qty = (item.beg1 || 0) + (item.in1 || 0) +
                                                     (item.upd1 || 0) - (item.out1 || 0);
                                                 return sum + qty;
-                                            }, 0)}
+                                            }, 0).toLocaleString()}
                                         </td>
-                                        <td style={{ padding: '12px 16px', fontWeight: 'bold', color: '#754C27' }}>
+                                        <td style={{ padding: '12px 16px', fontWeight: 'bold', color: '#754C27', textAlign: 'right' }}>
                                             {!excludePrice ? stockBalanceData.reduce((sum, item) => {
                                                 const qty = (item.beg1 || 0) + (item.in1 || 0) +
                                                     (item.upd1 || 0) - (item.out1 || 0);
                                                 return sum + (qty * (item.uprice || 0));
-                                            }, 0).toFixed(2) : '-'}
+                                            }, 0).toLocaleString(undefined, {
+                                                minimumFractionDigits: 2,
+                                                maximumFractionDigits: 2
+                                            }) : '-'}
                                         </td>
                                     </tr>
                                 </tfoot>
