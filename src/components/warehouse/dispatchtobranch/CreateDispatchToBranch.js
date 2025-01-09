@@ -405,7 +405,7 @@ export default function CreateDispatchToBranch({ onBack }) {
     };
     // Helper Functions
     const prepareOrderData = () => {
-        const formattedDate = format(startDate, 'dd/MM/yyyy');
+        const formattedDate = format(startDate, 'MM/dd/yyyy');
         const year = startDate.getFullYear();
         const month = String(startDate.getMonth() + 1).padStart(2, '0');
         const day = String(startDate.getDate()).padStart(2, '0');
@@ -598,7 +598,7 @@ export default function CreateDispatchToBranch({ onBack }) {
                             <DatePicker
                                 selected={startDate}
                                 onChange={setStartDate}
-                                dateFormat="dd/MM/yyyy"
+                                dateFormat="MM/dd/yyyy"
                                 customInput={<CustomInput />}
                             />
                         </Grid2>

@@ -19,7 +19,54 @@ import CancelIcon from '@mui/icons-material/Cancel';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import Swal from 'sweetalert2';
+import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 
+// Utility Functions
+const convertToLasVegasTime = (date) => {
+  if (!date) return new Date();
+  const newDate = new Date(date);
+  newDate.setHours(0, 0, 0, 0);
+  return new Date(newDate.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
+};
+
+const formatDate = (date) => {
+  if (!date) return "";
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const year = date.getFullYear();
+  return `${month}/${day}/${year}`;
+};
+
+const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
+  <Box sx={{ position: 'relative', display: 'inline-block', width: '100%' }}>
+    <TextField
+      value={value}
+      onClick={onClick}
+      placeholder={placeholder || "MM/DD/YYYY"}
+      ref={ref}
+      size="small"
+      sx={{
+        '& .MuiInputBase-root': {
+          height: '38px',
+          width: '100%',
+          backgroundColor: '#fff',
+        },
+        '& .MuiOutlinedInput-input': {
+          cursor: 'pointer',
+          paddingRight: '40px',
+        }
+      }}
+      InputProps={{
+        readOnly: true,
+        endAdornment: (
+          <InputAdornment position="end">
+            <CalendarTodayIcon sx={{ color: '#754C27', cursor: 'pointer' }} />
+          </InputAdornment>
+        ),
+      }}
+    />
+  </Box>
+));
 
 
 function CreatePurchaseOrderToSupplier({ onBack }) {
@@ -617,9 +664,9 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
     if (!saveSupplier || !saveBranch) {
       Swal.fire({
         icon: 'warning',
-        title: 'Please select supplier and branch',
-        showConfirmButton: false,
-        timer: 1500
+        title: 'Missing Information',
+        text: 'Please select both supplier and branch',
+        confirmButtonColor: '#754C27'
       });
       return;
     }
@@ -627,9 +674,9 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
     if (products.length === 0) {
       Swal.fire({
         icon: 'warning',
-        title: 'Please add at least one product',
-        showConfirmButton: false,
-        timer: 1500
+        title: 'No Products',
+        text: 'Please add at least one product to the order',
+        confirmButtonColor: '#754C27'
       });
       return;
     }
@@ -637,64 +684,87 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
     try {
       // Show loading
       Swal.fire({
-        title: 'Saving order...',
+        title: 'Processing...',
+        text: 'Creating purchase order',
         allowOutsideClick: false,
         didOpen: () => {
           Swal.showLoading();
         }
       });
 
-      // Get latest refno again right before saving to ensure it's current
-      const refnoResponse = await dispatch(refno({ test: 10 })).unwrap();
-      const currentDate = startDate;
-      const year = currentDate.getFullYear().toString().slice(-2);
-      const month = String(currentDate.getMonth() + 1).padStart(2, '0');
-
+      // Generate new refno
       let newRefNo;
-      if (!refnoResponse.data || !refnoResponse.data.refno) {
-        newRefNo = `WPOS${year}${month}001`;
-      } else {
-        const lastRefNo = refnoResponse.data.refno;
-        const lastRefMonth = lastRefNo.substring(6, 8);
-        const lastRefYear = lastRefNo.substring(4, 6);
+      try {
+        const refnoResponse = await dispatch(refno({ test: 10 })).unwrap();
+        const currentDate = startDate;
+        const year = currentDate.getFullYear().toString().slice(-2);
+        const month = String(currentDate.getMonth() + 1).padStart(2, '0');
 
-        if (lastRefMonth !== month || lastRefYear !== year) {
+        if (!refnoResponse.data || !refnoResponse.data.refno) {
           newRefNo = `WPOS${year}${month}001`;
         } else {
-          const lastNumber = parseInt(lastRefNo.slice(-3));
-          const newNumber = lastNumber + 1;
-          newRefNo = `WPOS${year}${month}${String(newNumber).padStart(3, '0')}`;
+          const lastRefNo = refnoResponse.data.refno;
+          const lastRefMonth = lastRefNo.substring(6, 8);
+          const lastRefYear = lastRefNo.substring(4, 6);
+
+          if (lastRefMonth !== month || lastRefYear !== year) {
+            newRefNo = `WPOS${year}${month}001`;
+          } else {
+            const lastNumber = parseInt(lastRefNo.slice(-3));
+            const newNumber = lastNumber + 1;
+            newRefNo = `WPOS${year}${month}${String(newNumber).padStart(3, '0')}`;
+          }
         }
+      } catch (refnoError) {
+        throw new Error('Failed to generate reference number: ' + refnoError.message);
       }
 
-      const day = String(currentDate.getDate()).padStart(2, '0');
+      const day = String(startDate.getDate()).padStart(2, '0');
+      const month = String(startDate.getMonth() + 1).padStart(2, '0');
+      const year = startDate.getFullYear();
 
+      // Prepare header data
       const headerData = {
-        refno: newRefNo, // Use the newly generated refno
-        rdate: `${day}/${month}/${currentDate.getFullYear()}`,
+        refno: newRefNo,
+        rdate: formatDate(startDate),
         supplier_code: saveSupplier,
         branch_code: saveBranch,
         taxable: taxableAmount,
         nontaxable: nonTaxableAmount,
-        trdate: `${currentDate.getFullYear()}${month}${day}`,
+        trdate: `${year}${month}${day}`,
         monthh: month,
-        myear: currentDate.getFullYear(),
-        user_code: userData2.user_code
+        myear: year,
+        user_code: userData2?.user_code
       };
 
-      // Create array of products with updated values
+      // Validate all required fields in headerData
+      if (!headerData.user_code) {
+        throw new Error('User information is missing or invalid');
+      }
+
+      // Prepare product data with validation
       const tmpProduct = products.map(product => {
+        if (!product.product_code) {
+          throw new Error('Invalid product data: Missing product code');
+        }
+
         const productCode = product.product_code;
-        const quantity = quantities[productCode] || 1;
-        const unitCode = units[productCode] || product.productUnit1.unit_code;
-        const unitPrice = unitPrices[productCode] ??
-          (unitCode === product.productUnit1.unit_code
-            ? product.bulk_unit_price
-            : product.retail_unit_price);
+        const quantity = quantities[productCode];
+        const unitCode = units[productCode];
+        const unitPrice = unitPrices[productCode];
+
+        if (!quantity || quantity <= 0) {
+          throw new Error(`Invalid quantity for product: ${product.product_name}`);
+        }
+        if (!unitCode) {
+          throw new Error(`Missing unit code for product: ${product.product_name}`);
+        }
+        if (!unitPrice || unitPrice <= 0) {
+          throw new Error(`Invalid unit price for product: ${product.product_name}`);
+        }
+
         const amount = quantity * unitPrice;
-        const finalAmount = product.tax1 === 'Y'
-          ? amount * (1 + TAX_RATE)
-          : amount;
+        const finalAmount = product.tax1 === 'Y' ? amount * (1 + TAX_RATE) : amount;
 
         return {
           refno: headerData.refno,
@@ -708,7 +778,7 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
       });
 
       const orderData = {
-        headerData: headerData,
+        headerData,
         productArrayData: tmpProduct,
         footerData: {
           taxable: taxableAmount,
@@ -720,30 +790,46 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
       // Save the order
       const result = await dispatch(addWh_pos(orderData)).unwrap();
 
+      if (!result.result) {
+        throw new Error(result.message || 'Failed to save purchase order');
+      }
+
       // Show success message
       await Swal.fire({
         icon: 'success',
-        title: 'Create order successfully',
-        text: `Reference No: ${newRefNo}`,
-        showConfirmButton: false,
-        timer: 1500
+        title: 'Success!',
+        text: `Purchase order created successfully (Ref: ${newRefNo})`,
+        confirmButtonColor: '#754C27'
       });
 
       // Reset form
       resetForm();
 
     } catch (error) {
-      // Handle specific error cases
-      let errorMessage = 'Error saving order';
+      console.error('Error in handleSaveWhposdt:', error);
+
+      // Handle specific error types
+      let errorMessage = 'An unexpected error occurred';
+
       if (error.name === 'SequelizeUniqueConstraintError') {
-        errorMessage = 'A duplicate order number was generated. Please try again.';
+        errorMessage = 'This reference number already exists. Please try again.';
+      } else if (error.message.includes('Network Error')) {
+        errorMessage = 'Unable to connect to the server. Please check your internet connection.';
+      } else if (error.response?.status === 404) {
+        errorMessage = 'Server endpoint not found. Please contact support.';
+      } else if (error.response?.status === 403) {
+        errorMessage = 'You do not have permission to perform this action.';
+      } else if (error.response?.status === 500) {
+        errorMessage = 'Internal server error. Please try again later.';
+      } else {
+        errorMessage = error.message || 'Failed to create purchase order';
       }
 
       Swal.fire({
         icon: 'error',
         title: 'Error',
         text: errorMessage,
-        confirmButtonText: 'OK'
+        confirmButtonColor: '#754C27'
       });
     }
   };
@@ -810,26 +896,13 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
                 <DatePicker
                   selected={startDate}
                   onChange={(date) => {
-                    setStartDate(date);
-                    handleGetLastRefNo(date); // Call when the date is selected
+                    const vegasDate = convertToLasVegasTime(date);
+                    setStartDate(vegasDate);
+                    handleGetLastRefNo(vegasDate);
                   }}
-                  dateFormat="dd/MM/yyyy"
-                  customInput={
-                    <TextField
-                      size="small"
-                      fullWidth
-                      sx={{
-                        mt: '8px',
-                        width: '80%',
-                        '& .MuiInputBase-root': {
-                          width: '100%',
-                        },
-                        '& .MuiOutlinedInput-root': {
-                          borderRadius: '10px',
-                        },
-                      }}
-                    />
-                  }
+                  dateFormat="MM/dd/yyyy"
+                  placeholderText="MM/DD/YYYY"
+                  customInput={<CustomInput />}
                 />
 
               </Grid2>

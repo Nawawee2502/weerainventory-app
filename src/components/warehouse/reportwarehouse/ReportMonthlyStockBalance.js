@@ -7,6 +7,10 @@ import { useDispatch } from 'react-redux';
 import { queryWh_stockcard } from '../../../api/warehouse/wh_stockcard';
 import Swal from 'sweetalert2';
 import { format } from 'date-fns';
+import { exportToExcelStockBalance } from './ExportExcelMonthlyStockBalance';
+import { exportToPdfStockBalance } from './ExportPdfMonthlyStockBalance';
+import PrintLayout from './PrintPreviewMonthlyStockBalance';
+import { createRoot } from 'react-dom/client';
 
 export default function ReportMonthlyStockBalance() {
     const dispatch = useDispatch();
@@ -28,32 +32,47 @@ export default function ReportMonthlyStockBalance() {
 
     // ลบ handleSearch ออกเพราะไม่ได้ใช้แล้ว
 
-    // Format date functions
     const formatDateForApi = (date) => {
-        return format(date, 'yyyyMMdd');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${year}${month}${day}`;  // แก้จาก MM/DD/YYYY เป็น YYYYMMDD
     };
 
     const formatDateForDisplay = (date) => {
-        return format(new Date(date), 'dd/MM/yyyy');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${month}/${day}/${year}`;
     };
 
     const fetchStockBalance = async () => {
         try {
             setLoading(true);
             setError(null);
-    
-            const response = await dispatch(queryWh_stockcard({
+
+            const params = {
                 rdate1: formatDateForApi(startDate),
                 rdate2: formatDateForApi(endDate),
-                limit: 99999  // เพิ่มค่า limit สูงๆ เพื่อให้ได้ข้อมูลทั้งหมด
-            })).unwrap();
+                limit: 99999
+            };
 
-            console.log("Data :", response);
-    
+            // เพิ่ม log เพื่อตรวจสอบค่า
+            console.log('Searching with dates:', {
+                startDate: startDate,
+                endDate: endDate,
+                formattedStartDate: params.rdate1,
+                formattedEndDate: params.rdate2
+            });
+
+            const response = await dispatch(queryWh_stockcard(params)).unwrap();
+            console.log("API Response:", response);
+
             if (response.result) {
                 setStockBalanceData(response.data);
             }
         } catch (err) {
+            console.error('Error in fetchStockBalance:', err);
             setError(err.message || 'Failed to fetch data');
             Swal.fire({
                 icon: 'error',
@@ -76,7 +95,7 @@ export default function ReportMonthlyStockBalance() {
         fetchStockBalance();
     };
 
-    // Handle exports
+    // ในส่วนของ handleExportExcel
     const handleExportExcel = () => {
         if (stockBalanceData.length === 0) {
             Swal.fire({
@@ -87,9 +106,10 @@ export default function ReportMonthlyStockBalance() {
             });
             return;
         }
-        // Add Excel export logic
+        exportToExcelStockBalance(stockBalanceData, excludePrice, startDate, endDate);
     };
 
+    // ในส่วนของ handleExportPdf
     const handleExportPdf = () => {
         if (stockBalanceData.length === 0) {
             Swal.fire({
@@ -100,7 +120,57 @@ export default function ReportMonthlyStockBalance() {
             });
             return;
         }
-        // Add PDF export logic
+        exportToPdfStockBalance(stockBalanceData, excludePrice, startDate, endDate);
+    };
+
+    const handlePrint = () => {
+        if (stockBalanceData.length === 0) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'No Data',
+                text: 'No data available to print',
+                confirmButtonColor: '#754C27'
+            });
+            return;
+        }
+
+        const printWindow = window.open('', '_blank');
+        const printDoc = printWindow.document;
+
+        printDoc.write(`
+            <html>
+                <head>
+                    <style>
+                        @media print {
+                            body { margin: 0; }
+                            @page { size: landscape; }
+                        }
+                        table { page-break-inside: auto; }
+                        tr { page-break-inside: avoid; page-break-after: auto; }
+                        thead { display: table-header-group; }
+                        tfoot { display: table-footer-group; }
+                    </style>
+                </head>
+                <body>
+                    <div id="print-content"></div>
+                </body>
+            </html>
+        `);
+
+        const root = createRoot(printDoc.getElementById('print-content'));
+        root.render(
+            <PrintLayout
+                data={stockBalanceData}
+                excludePrice={excludePrice}
+                startDate={startDate}
+                endDate={endDate}
+            />
+        );
+
+        printWindow.setTimeout(() => {
+            printWindow.print();
+            printWindow.close();
+        }, 1000);
     };
 
     return (
@@ -139,9 +209,9 @@ export default function ReportMonthlyStockBalance() {
                                     selectsStart
                                     startDate={startDate}
                                     endDate={endDate}
-                                    dateFormat="dd/MM/yyyy"
+                                    dateFormat="MM/dd/yyyy"  // แก้จาก dd/MM/yyyy
                                     isClearable
-                                    placeholderText="Select start date"
+                                    placeholderText="MM/DD/YYYY"  // แก้ placeholder
                                     customInput={
                                         <TextField
                                             size="small"
@@ -172,9 +242,9 @@ export default function ReportMonthlyStockBalance() {
                                     startDate={startDate}
                                     endDate={endDate}
                                     minDate={startDate}
-                                    dateFormat="dd/MM/yyyy"
+                                    dateFormat="MM/dd/yyyy"  // แก้จาก dd/MM/yyyy
                                     isClearable
-                                    placeholderText="Select end date"
+                                    placeholderText="MM/DD/YYYY"  // แก้ placeholder
                                     customInput={
                                         <TextField
                                             size="small"
@@ -251,12 +321,24 @@ export default function ReportMonthlyStockBalance() {
                             </Box>
                             <Box>
                                 <Button
+                                    onClick={handlePrint}
+                                    variant="outlined"
+                                    sx={{
+                                        color: '#754C27',
+                                        borderColor: '#754C27',
+                                        '&:hover': { borderColor: '#5c3c1f' }
+                                    }}
+                                >
+                                    Print
+                                </Button>
+                                <Button
                                     variant="outlined"
                                     onClick={handleExportExcel}
                                     sx={{
                                         color: '#754C27',
                                         borderColor: '#754C27',
-                                        '&:hover': { borderColor: '#5c3c1f' }
+                                        '&:hover': { borderColor: '#5c3c1f' },
+                                        ml: '24px'
                                     }}
                                 >
                                     Excel
@@ -280,16 +362,21 @@ export default function ReportMonthlyStockBalance() {
                     {/* Table */}
                     <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', mb: '12px' }}>
                         <table style={{ width: '100%', marginTop: '24px' }}>
+                        // Table header section
                             <thead>
                                 <tr>
                                     <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>No</th>
                                     <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Product</th>
                                     <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Unit</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'right', color: '#754C27' }}>Remainning</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'right', color: '#754C27' }}>Beg</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'right', color: '#754C27' }}>In</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'right', color: '#754C27' }}>Out</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'right', color: '#754C27' }}>Update</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'right', color: '#754C27' }}>Balance</th>
                                     <th style={{ padding: '12px 16px', textAlign: 'right', color: '#754C27' }}>Total</th>
                                 </tr>
                                 <tr>
-                                    <td colSpan="5">
+                                    <td colSpan="9">
                                         <Divider style={{ width: '100%', color: '#754C27', border: '1px solid #754C27' }} />
                                     </td>
                                 </tr>
@@ -297,15 +384,15 @@ export default function ReportMonthlyStockBalance() {
                             <tbody>
                                 {loading ? (
                                     <tr>
-                                        <td colSpan="5" style={{ textAlign: 'center', padding: '20px' }}>Loading...</td>
+                                        <td colSpan="9" style={{ textAlign: 'center', padding: '20px' }}>Loading...</td>
                                     </tr>
                                 ) : error ? (
                                     <tr>
-                                        <td colSpan="5" style={{ textAlign: 'center', padding: '20px', color: 'red' }}>{error}</td>
+                                        <td colSpan="9" style={{ textAlign: 'center', padding: '20px', color: 'red' }}>{error}</td>
                                     </tr>
                                 ) : stockBalanceData.length === 0 ? (
                                     <tr>
-                                        <td colSpan="5" style={{ textAlign: 'center', padding: '20px' }}>No data found</td>
+                                        <td colSpan="9" style={{ textAlign: 'center', padding: '20px' }}>No data found</td>
                                     </tr>
                                 ) : (
                                     stockBalanceData.map((item, index) => {
@@ -317,6 +404,18 @@ export default function ReportMonthlyStockBalance() {
                                                 <td style={{ padding: '8px 16px' }}>{index + 1}</td>
                                                 <td style={{ padding: '8px 16px' }}>{item.tbl_product.product_name}</td>
                                                 <td style={{ padding: '8px 16px' }}>{item.tbl_unit.unit_name}</td>
+                                                <td style={{ padding: '8px 16px', textAlign: 'right' }}>
+                                                    {(item.beg1 || 0).toLocaleString()}
+                                                </td>
+                                                <td style={{ padding: '8px 16px', textAlign: 'right' }}>
+                                                    {(item.in1 || 0).toLocaleString()}
+                                                </td>
+                                                <td style={{ padding: '8px 16px', textAlign: 'right' }}>
+                                                    {(item.out1 || 0).toLocaleString()}
+                                                </td>
+                                                <td style={{ padding: '8px 16px', textAlign: 'right' }}>
+                                                    {(item.upd1 || 0).toLocaleString()}
+                                                </td>
                                                 <td style={{ padding: '8px 16px', textAlign: 'right' }}>
                                                     {remainingQty.toLocaleString()}
                                                 </td>
@@ -334,12 +433,12 @@ export default function ReportMonthlyStockBalance() {
                             {stockBalanceData.length > 0 && (
                                 <tfoot>
                                     <tr>
-                                        <td colSpan="5">
+                                        <td colSpan="9">
                                             <Divider style={{ width: '100%', color: '#754C27', border: '1px solid #754C27' }} />
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td colSpan="3" style={{ textAlign: 'right', padding: '12px 16px', fontWeight: 'bold', color: '#754C27' }}>
+                                        <td colSpan="7" style={{ textAlign: 'right', padding: '12px 16px', fontWeight: 'bold', color: '#754C27' }}>
                                             Total:
                                         </td>
                                         <td style={{ padding: '12px 16px', fontWeight: 'bold', color: '#754C27', textAlign: 'right' }}>

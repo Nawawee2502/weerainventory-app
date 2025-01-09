@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useState, useEffect } from 'react';
 import { useDispatch } from 'react-redux';
-import { Box, Typography, TextField, Grid2, Button } from '@mui/material';
+import { Box, Typography, TextField, Grid2, Button, InputAdornment } from '@mui/material';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { Checkbox, Switch, Divider } from '@mui/material';
@@ -12,11 +12,53 @@ import { createRoot } from 'react-dom/client';
 import PrintLayout from './PrintPreviewMonthlyStockcard';
 import { exportToExcelMonthlyStockCard } from './ExportExcelMonthlyStockcard';
 import { exportToPdfMonthlyStockCard } from './ExportPdfMonthlyStockcard';
+import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+import { searchProductName } from '../../../api/productrecordApi';
+import SearchIcon from '@mui/icons-material/Search';
+
+
+const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
+    <Box sx={{ position: 'relative', display: 'inline-block', width: '100%' }}>
+        <TextField
+            value={value}
+            onClick={onClick}
+            placeholder={placeholder || "MM/DD/YYYY"}
+            ref={ref}
+            size="small"
+            sx={{
+                '& .MuiInputBase-root': {
+                    height: '38px',
+                    width: '100%',
+                    backgroundColor: '#fff',
+                },
+                '& .MuiOutlinedInput-input': {
+                    cursor: 'pointer',
+                    paddingRight: '40px',
+                }
+            }}
+            InputProps={{
+                readOnly: true,
+                endAdornment: (
+                    <InputAdornment position="end">
+                        <CalendarTodayIcon sx={{ color: '#754C27', cursor: 'pointer' }} />
+                    </InputAdornment>
+                ),
+            }}
+        />
+    </Box>
+));
+
+const convertToLasVegasTime = (date) => {
+    if (!date) return new Date();
+    const newDate = new Date(date);
+    newDate.setHours(0, 0, 0, 0);
+    return new Date(newDate.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
+};
 
 export default function ReportMonthlyStockCard() {
     const dispatch = useDispatch();
-    const [startDate, setStartDate] = useState(new Date());
-    const [endDate, setEndDate] = useState(new Date());
+    const [startDate, setStartDate] = useState(() => convertToLasVegasTime(new Date()));
+    const [endDate, setEndDate] = useState(() => convertToLasVegasTime(new Date()));
     const [productSearch, setProductSearch] = useState('');
     const [stockcardData, setStockcardData] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -25,20 +67,130 @@ export default function ReportMonthlyStockCard() {
     const [page, setPage] = useState(0);
     const [rowsPerPage] = useState(10);
     const [hasSearched, setHasSearched] = useState(false);
+    const [searchResults, setSearchResults] = useState([]);
+    const [showDropdown, setShowDropdown] = useState(false);
+    const [selectedProduct, setSelectedProduct] = useState(null);
 
-    // Function to format date for API
-    const formatDateForApi = (date) => {
-        return format(date, 'yyyyMMdd');
+    const handleProductSearch = (e) => {
+        const value = e.target.value;
+        setProductSearch(value);
+
+        if (value.length > 0) {
+            dispatch(searchProductName({ product_name: value }))
+                .unwrap()
+                .then((res) => {
+                    if (res.data) {
+                        const sortedResults = [...res.data].sort((a, b) => {
+                            const aExact = a.product_name.toLowerCase() === value.toLowerCase();
+                            const bExact = b.product_name.toLowerCase() === value.toLowerCase();
+                            if (aExact && !bExact) return -1;
+                            if (!aExact && bExact) return 1;
+                            return a.product_name.length - b.product_name.length;
+                        });
+                        setSearchResults(sortedResults);
+                        setShowDropdown(true);
+                    }
+                })
+                .catch((err) => {
+                    console.log(err.message);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Failed to search for products',
+                        confirmButtonColor: '#754C27'
+                    });
+                });
+        } else {
+            setSearchResults([]);
+            setShowDropdown(false);
+        }
     };
 
-    // Format date for display
+    const handleProductSelect = (product) => {
+        setSelectedProduct(product);
+        setProductSearch(product.product_name);
+        setShowDropdown(false);
+
+        // ตรวจสอบและโหลดข้อมูลทันที
+        const loadProductData = async () => {
+            try {
+                setLoading(true);
+                setError(null);
+
+                const params = {
+                    rdate1: formatDateForApi(startDate),
+                    rdate2: formatDateForApi(endDate),
+                    // เพิ่ม product_code เพื่อให้ค้นหาแบบ exact match
+                    product_code: product.product_code, // เพิ่มบรรทัดนี้
+                    limit: 99999
+                };
+
+                const response = await dispatch(queryWh_stockcard(params)).unwrap();
+
+                if (response.result) {
+                    // กรองข้อมูลเฉพาะ product ที่เลือก
+                    const filteredData = response.data.filter(
+                        item => item.product_code === product.product_code
+                    );
+
+                    if (filteredData.length === 0) {
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'No Data Found',
+                            text: 'No records found for the selected product and date range',
+                            confirmButtonColor: '#754C27'
+                        });
+                    }
+                    setStockcardData(filteredData);
+                    setHasSearched(true);
+                }
+            } catch (err) {
+                console.error('Error in loadProductData:', err);
+                setError(err.message || 'Failed to fetch data');
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: err.message || 'Failed to fetch data',
+                    confirmButtonColor: '#754C27'
+                });
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        loadProductData();
+    };
+
+    const formatDateForApi = (date) => {
+        if (!date) return "";
+        const newDate = convertToLasVegasTime(date);
+        const year = newDate.getFullYear();
+        const month = String(newDate.getMonth() + 1).padStart(2, '0');
+        const day = String(newDate.getDate()).padStart(2, '0');
+        console.log('Format Date For API:', {
+            input: date,
+            converted: newDate,
+            formatted: `${year}${month}${day}`
+        });
+        return `${year}${month}${day}`;  // เปลี่ยนเป็น YYYYMMDD ตามที่ backend ต้องการ
+    };
+
     const formatDateForDisplay = (dateString) => {
-        const date = new Date(dateString);
-        return format(date, 'dd/MM/yyyy');
+        if (!dateString) return "";
+        try {
+            const date = new Date(dateString);
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const year = date.getFullYear();
+            return `${month}/${day}/${year}`;
+        } catch (error) {
+            console.error("Error formatting date:", error);
+            return dateString;
+        }
     };
 
     const loadData = async () => {
-        if (!productSearch.trim()) {
+        if (!selectedProduct) {
             setStockcardData([]);
             setHasSearched(true);
             return;
@@ -48,28 +200,38 @@ export default function ReportMonthlyStockCard() {
             setLoading(true);
             setError(null);
 
-            const response = await dispatch(queryWh_stockcard({
-                offset: page * rowsPerPage,
-                limit: rowsPerPage,
+            const params = {
                 rdate1: formatDateForApi(startDate),
                 rdate2: formatDateForApi(endDate),
-                product_name: productSearch.trim()
-            })).unwrap();
+                product_name: selectedProduct.product_name,
+                limit: 99999
+            };
+
+            console.log('Searching with params:', params);
+
+            const response = await dispatch(queryWh_stockcard(params)).unwrap();
+            console.log("API Response:", response);
 
             if (response.result) {
                 if (response.data.length === 0) {
                     Swal.fire({
                         icon: 'warning',
-                        title: 'Product Not Found',
-                        text: 'This product does not exist in stockcard',
+                        title: 'No Data Found',
+                        text: 'No records found for the selected product and date range',
                         confirmButtonColor: '#754C27'
                     });
                 }
                 setStockcardData(response.data);
             }
-            setHasSearched(true);
         } catch (err) {
+            console.error('Error in loadData:', err);
             setError(err.message || 'Failed to fetch data');
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: err.message || 'Failed to fetch data',
+                confirmButtonColor: '#754C27'
+            });
         } finally {
             setLoading(false);
         }
@@ -166,6 +328,20 @@ export default function ReportMonthlyStockCard() {
         });
     };
 
+    const handleStartDateChange = (date) => {
+        if (!date) return;
+        const vegasDate = convertToLasVegasTime(date);
+        setStartDate(vegasDate);
+    };
+
+    const handleEndDateChange = (date) => {
+        if (!date) return;
+        const vegasDate = convertToLasVegasTime(date);
+        setEndDate(vegasDate);
+    };
+
+
+
     return (
         <Box sx={{
             width: '100%',
@@ -198,30 +374,10 @@ export default function ReportMonthlyStockCard() {
                                 </Typography>
                                 <DatePicker
                                     selected={startDate}
-                                    onChange={(date) => setStartDate(date)}
-                                    selectsStart
-                                    startDate={startDate}
-                                    endDate={endDate}
-                                    dateFormat="dd/MM/yyyy"
-                                    isClearable
-                                    placeholderText="Select start date"
-                                    customInput={
-                                        <TextField
-                                            size="small"
-                                            fullWidth
-                                            sx={{
-                                                mt: '8px',
-                                                width: '80%',
-                                                '& .MuiInputBase-root': {
-                                                    width: '100%'
-                                                },
-                                                '& .MuiOutlinedInput-root': {
-                                                    borderRadius: '10px',
-                                                    bgcolor: 'white'
-                                                },
-                                            }}
-                                        />
-                                    }
+                                    onChange={handleStartDateChange}
+                                    dateFormat="MM/dd/yyyy"
+                                    placeholderText="MM/DD/YYYY"
+                                    customInput={<CustomInput />}
                                 />
                             </Grid2>
 
@@ -232,31 +388,14 @@ export default function ReportMonthlyStockCard() {
                                 </Typography>
                                 <DatePicker
                                     selected={endDate}
-                                    onChange={(date) => setEndDate(date)}
+                                    onChange={handleEndDateChange}
                                     selectsEnd
                                     startDate={startDate}
                                     endDate={endDate}
                                     minDate={startDate}
-                                    dateFormat="dd/MM/yyyy"
-                                    isClearable
-                                    placeholderText="Select end date"
-                                    customInput={
-                                        <TextField
-                                            size="small"
-                                            fullWidth
-                                            sx={{
-                                                mt: '8px',
-                                                width: '80%',
-                                                '& .MuiInputBase-root': {
-                                                    width: '100%'
-                                                },
-                                                '& .MuiOutlinedInput-root': {
-                                                    borderRadius: '10px',
-                                                    bgcolor: 'white'
-                                                },
-                                            }}
-                                        />
-                                    }
+                                    dateFormat="MM/dd/yyyy"
+                                    placeholderText="MM/DD/YYYY"
+                                    customInput={<CustomInput />}
                                 />
                             </Grid2>
 
@@ -265,45 +404,64 @@ export default function ReportMonthlyStockCard() {
                                 <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
                                     Product
                                 </Typography>
-                                <Box sx={{ display: 'flex', gap: 2, mt: 1 }}>
+                                <Box sx={{ position: 'relative', width: '100%' }}> {/* เพิ่ม position: relative ที่นี่ */}
                                     <TextField
-                                        size="small"
                                         fullWidth
                                         value={productSearch}
-                                        onChange={(e) => {
-                                            setProductSearch(e.target.value);
-                                            if (e.target.value === '') {
-                                                handleSearch();
-                                            }
-                                        }}
-                                        onKeyPress={(e) => {
-                                            if (e.key === 'Enter') {
-                                                handleSearch();
-                                            }
-                                        }}
+                                        onChange={handleProductSearch}
                                         placeholder="Search product name..."
                                         sx={{
-                                            '& .MuiOutlinedInput-root': {
-                                                borderRadius: '10px',
-                                                bgcolor: 'white'
+                                            '& .MuiInputBase-root': {
+                                                height: '38px',
+                                                backgroundColor: '#fff',
                                             },
+                                            '& .MuiOutlinedInput-input': {
+                                                padding: '8.5px 14px',
+                                            }
+                                        }}
+                                        InputProps={{
+                                            startAdornment: (
+                                                <InputAdornment position="start">
+                                                    <SearchIcon sx={{ color: '#5A607F' }} />
+                                                </InputAdornment>
+                                            ),
                                         }}
                                     />
-                                    <Button
-                                        variant="contained"
-                                        onClick={handleSearch}
-                                        sx={{
-                                            bgcolor: '#754C27',
-                                            color: 'white',
-                                            '&:hover': {
-                                                bgcolor: '#5c3c1f',
-                                            },
-                                            borderRadius: '10px',
-                                            minWidth: '100px'
-                                        }}
-                                    >
-                                        Show
-                                    </Button>
+                                    {showDropdown && searchResults.length > 0 && (
+                                        <Box sx={{
+                                            position: 'absolute',
+                                            top: '100%',
+                                            left: 0,
+                                            right: 0,
+                                            backgroundColor: 'white',
+                                            boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                                            borderRadius: '4px',
+                                            zIndex: 1000,
+                                            maxHeight: '200px',
+                                            overflowY: 'auto',
+                                            mt: '4px',
+                                            width: '100%'
+                                        }}>
+                                            {searchResults.map((product) => (
+                                                <Box
+                                                    key={product.product_code}
+                                                    onClick={() => handleProductSelect(product)}
+                                                    sx={{
+                                                        p: 1.5,
+                                                        cursor: 'pointer',
+                                                        '&:hover': {
+                                                            backgroundColor: '#f5f5f5'
+                                                        },
+                                                        borderBottom: '1px solid #eee'
+                                                    }}
+                                                >
+                                                    <Typography sx={{ fontSize: '14px', fontWeight: '600' }}>
+                                                        {product.product_name}
+                                                    </Typography>
+                                                </Box>
+                                            ))}
+                                        </Box>
+                                    )}
                                 </Box>
                             </Grid2>
                         </Grid2>
@@ -347,7 +505,7 @@ export default function ReportMonthlyStockCard() {
                             <Box sx={{ ml: '8px' }}>
                                 <Typography>
                                     {startDate && endDate
-                                        ? `${formatDateForDisplay(startDate)} - ${formatDateForDisplay(endDate)}`
+                                        ? `${format(startDate, 'MM/dd/yyyy')} - ${format(endDate, 'MM/dd/yyyy')}`
                                         : "Not specified"}
                                 </Typography>
                                 <Typography>
@@ -418,19 +576,22 @@ export default function ReportMonthlyStockCard() {
                             <thead>
                                 <tr>
                                     <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>No.</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Ref No</th>
                                     <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Date</th>
                                     <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Beg</th>
                                     <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>In</th>
                                     <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Out</th>
                                     <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Update</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Balance</th>
                                     <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Unit Price</th>
                                     <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Beg Amt</th>
                                     <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>In Amt</th>
                                     <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Out Amt</th>
                                     <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Update Amt</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Balance Amount</th>
                                 </tr>
                                 <tr>
-                                    <td colSpan="11">
+                                    <td colSpan="14">
                                         <Divider sx={{ width: '100%', color: '#754C27', border: '1px solid #754C27' }} />
                                     </td>
                                 </tr>
@@ -438,48 +599,62 @@ export default function ReportMonthlyStockCard() {
                             <tbody>
                                 {loading ? (
                                     <tr>
-                                        <td colSpan="11" style={{ textAlign: 'center', padding: '20px' }}>Loading...</td>
+                                        <td colSpan="14" style={{ textAlign: 'center', padding: '20px' }}>Loading...</td>
                                     </tr>
                                 ) : error ? (
                                     <tr>
-                                        <td colSpan="11" style={{ textAlign: 'center', padding: '20px', color: 'red' }}>{error}</td>
+                                        <td colSpan="14" style={{ textAlign: 'center', padding: '20px', color: 'red' }}>{error}</td>
                                     </tr>
                                 ) : !hasSearched || !productSearch.trim() ? (
                                     <tr>
-                                        <td colSpan="11" style={{ textAlign: 'center', padding: '20px' }}>Please select a product</td>
+                                        <td colSpan="14" style={{ textAlign: 'center', padding: '20px' }}>Please select a product</td>
                                     </tr>
                                 ) : stockcardData.length === 0 ? (
                                     <tr>
-                                        <td colSpan="11" style={{ textAlign: 'center', padding: '20px' }}>No data found</td>
+                                        <td colSpan="14" style={{ textAlign: 'center', padding: '20px' }}>No data found</td>
                                     </tr>
                                 ) : (
-                                    stockcardData.map((item, index) => (
-                                        <tr key={item.refno}>
-                                            <td style={{ padding: '8px 16px', textAlign: 'center' }}>{index + 1}</td>
-                                            <td style={{ padding: '8px 16px' }}>{formatDateForDisplay(item.rdate)}</td>
-                                            <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(item.beg1)}</td>
-                                            <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(item.in1)}</td>
-                                            <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(item.out1)}</td>
-                                            <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(item.upd1)}</td>
-                                            <td style={{ padding: '8px 16px', textAlign: 'right' }}>{!excludePrice ? formatNumber(item.uprice) : '-'}</td>
-                                            <td style={{ padding: '8px 16px', textAlign: 'right' }}>{!excludePrice ? formatNumber(item.beg1_amt) : '-'}</td>
-                                            <td style={{ padding: '8px 16px', textAlign: 'right' }}>{!excludePrice ? formatNumber(item.in1_amt) : '-'}</td>
-                                            <td style={{ padding: '8px 16px', textAlign: 'right' }}>{!excludePrice ? formatNumber(item.out1_amt) : '-'}</td>
-                                            <td style={{ padding: '8px 16px', textAlign: 'right' }}>{!excludePrice ? formatNumber(item.upd1_amt) : '-'}</td>
-                                        </tr>
-                                    ))
+                                    stockcardData.map((item, index) => {
+                                        const balance = ((item.beg1 || 0) + (item.in1 || 0) - (item.out1 || 0)) + (item.upd1 || 0);
+                                        const balanceAmount = ((item.beg1_amt || 0) + (item.in1_amt || 0) - (item.out1_amt || 0)) + (item.upd1_amt || 0);
+
+                                        return (
+                                            <tr key={item.refno}>
+                                                <td style={{ padding: '8px 16px', textAlign: 'center' }}>{index + 1}</td>
+                                                <td style={{ padding: '8px 16px', textAlign: 'left' }}>{item.refno}</td>
+                                                <td style={{ padding: '8px 16px' }}>{formatDateForDisplay(item.rdate)}</td>
+                                                <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(item.beg1)}</td>
+                                                <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(item.in1)}</td>
+                                                <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(item.out1)}</td>
+                                                <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(item.upd1)}</td>
+                                                <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(balance)}</td>
+                                                <td style={{ padding: '8px 16px', textAlign: 'right' }}>{!excludePrice ? formatNumber(item.uprice) : '-'}</td>
+                                                <td style={{ padding: '8px 16px', textAlign: 'right' }}>{!excludePrice ? formatNumber(item.beg1_amt) : '-'}</td>
+                                                <td style={{ padding: '8px 16px', textAlign: 'right' }}>{!excludePrice ? formatNumber(item.in1_amt) : '-'}</td>
+                                                <td style={{ padding: '8px 16px', textAlign: 'right' }}>{!excludePrice ? formatNumber(item.out1_amt) : '-'}</td>
+                                                <td style={{ padding: '8px 16px', textAlign: 'right' }}>{!excludePrice ? formatNumber(item.upd1_amt) : '-'}</td>
+                                                <td style={{ padding: '8px 16px', textAlign: 'right' }}>{!excludePrice ? formatNumber(balanceAmount) : '-'}</td>
+                                            </tr>
+                                        );
+                                    })
                                 )}
                             </tbody>
                             {stockcardData.length > 0 && (
                                 <tfoot>
                                     <tr>
-                                        <td colSpan="11">
+                                        <td colSpan="14">
                                             <Divider sx={{ width: '100%', color: '#754C27', border: '1px solid #754C27' }} />
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td colSpan="6" style={{ textAlign: 'right', padding: '12px 16px', fontWeight: 'bold', color: '#754C27' }}>
+                                        <td colSpan="7" style={{ textAlign: 'right', padding: '12px 16px', fontWeight: 'bold', color: '#754C27' }}>
                                             Total:
+                                        </td>
+                                        <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>
+                                            {stockcardData.reduce((sum, item) => {
+                                                const balance = ((item.beg1 || 0) + (item.in1 || 0) - (item.out1 || 0)) + (item.upd1 || 0);
+                                                return sum + balance;
+                                            }, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                         </td>
                                         <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>-</td>
                                         <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>
@@ -493,6 +668,12 @@ export default function ReportMonthlyStockCard() {
                                         </td>
                                         <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>
                                             {!excludePrice ? formatNumber(stockcardData.reduce((sum, item) => sum + (item.upd1_amt || 0), 0)) : '-'}
+                                        </td>
+                                        <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>
+                                            {!excludePrice ? stockcardData.reduce((sum, item) => {
+                                                const balanceAmount = ((item.beg1_amt || 0) + (item.in1_amt || 0) - (item.out1_amt || 0)) + (item.upd1_amt || 0);
+                                                return sum + balanceAmount;
+                                            }, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}
                                         </td>
                                     </tr>
                                 </tfoot>

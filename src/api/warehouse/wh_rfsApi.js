@@ -87,16 +87,15 @@ export const deleteWh_rfs = createAsyncThunk(
 
 export const wh_rfsAlljoindt = createAsyncThunk(
     "wh_rfs/read",
-    async ({ offset = 0, limit = 5, rdate1, rdate2, supplier_code, branch_code, product_code }, { dispatch }) => {
+    async ({ offset = 0, limit = 5, rdate, supplier_code, branch_code, product_code }, { dispatch }) => {
         try {
             const payload = {
                 offset,
                 limit
             };
 
-            // เพิ่มค่าในตัวแปรที่จะส่งเฉพาะเมื่อมีค่า
-            if (rdate1) payload.rdate1 = rdate1;
-            if (rdate2) payload.rdate2 = rdate2;
+            // เพิ่ม rdate เข้าไปใน payload
+            if (rdate) payload.rdate = rdate;
             if (supplier_code) payload.supplier_code = supplier_code;
             if (branch_code) payload.branch_code = branch_code;
             if (product_code) payload.product_code = product_code;
@@ -142,11 +141,12 @@ export const refno = createAsyncThunk(
 
 export const countwh_rfs = createAsyncThunk(
     "wh_rfs/count",
-    async ({ test }, { dispatch }) => {
+    async ({ rdate }, { dispatch }) => {
         try {
-            console.log("____TEST____");
-            const res = await axios.post(BASE_URL + "/api/countWh_rfs", { test: test });
-            console.log(res.data);
+            console.log("Counting with date:", rdate);
+            const res = await axios.post(BASE_URL + "/api/countWh_rfs", { 
+                rdate: rdate 
+            });
             return res.data;
         } catch (error) {
             console.error(error.message);

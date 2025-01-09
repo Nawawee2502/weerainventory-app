@@ -15,6 +15,14 @@ import { useDispatch } from 'react-redux';
 import { wh_dpkAlljoindt, deleteWh_dpk } from '../../../api/warehouse/wh_dpkApi';
 import Swal from 'sweetalert2';
 
+const formatDate = (date) => {
+    if (!date) return "";
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${month}/${day}/${year}`;
+};
+
 const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
     <Box sx={{ position: 'relative', display: 'inline-block', width: '100%' }}>
         <TextField
@@ -65,7 +73,7 @@ const StyledTableRow = styled(TableRow)(({ theme }) => ({
     },
 }));
 
-export default function DispatchToKitchen({ onCreate }) {
+export default function DispatchToKitchen({ onCreate, onEdit }) {
     const dispatch = useDispatch();
     const [searchTerm, setSearchTerm] = useState("");
     const [filterDate, setFilterDate] = useState(new Date());
@@ -87,18 +95,18 @@ export default function DispatchToKitchen({ onCreate }) {
 
             // Format date for API
             const formattedDate = filterDate.toISOString().slice(0, 10).replace(/-/g, '');
+            console.log("Querying for date:", formattedDate);
 
             const response = await dispatch(wh_dpkAlljoindt({
                 offset,
                 limit,
-                rdate1: formattedDate,
+                rdate1: formattedDate,  // Using YYYYMMDD format for API
                 rdate2: formattedDate,
                 product_code: searchTerm
             })).unwrap();
 
             if (response.result && response.data) {
                 setData(response.data);
-                // Calculate total pages
                 const totalPages = Math.ceil(response.data.length / limit);
                 setCount(totalPages || 1);
             }
@@ -270,10 +278,9 @@ export default function DispatchToKitchen({ onCreate }) {
                     <DatePicker
                         selected={filterDate}
                         onChange={handleDateChange}
-                        dateFormat="dd/MM/yyyy"
-                        placeholderText="Filter by date"
+                        dateFormat="MM/dd/yyyy" 
+                        placeholderText="MM/DD/YYYY"
                         customInput={<CustomInput />}
-                        popperClassName="custom-popper"
                     />
                 </Box>
                 <Button
@@ -357,7 +364,7 @@ export default function DispatchToKitchen({ onCreate }) {
                                         <StyledTableCell align="center">{row.user?.username}</StyledTableCell>
                                         <StyledTableCell align="center">
                                             <IconButton
-                                                onClick={() => {/* Add edit functionality later */ }}
+                                                onClick={() => onEdit(row.refno)}
                                                 sx={{ border: '1px solid #AD7A2C', borderRadius: '7px' }}
                                             >
                                                 <EditIcon sx={{ color: '#AD7A2C' }} />

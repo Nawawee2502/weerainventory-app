@@ -6,6 +6,8 @@ import { useTheme } from '@mui/material/styles';
 import Paper from '@mui/material/Paper';
 import ReceiptFromSupplier from './ReceiptFromSupplier';
 import CreateReceiptFromSupplier from './CreateReceiptFromSupplier';
+import EditReceiptFromSupplier from './EditReceiptFromSupplier';
+
 // import EditReceiptFromSupplier from './EditReceiptFromSupplier';
 
 const NAVIGATION = [
@@ -38,8 +40,8 @@ export default function HomeReceiptFromSupplier() {
     switch(currentView) {
       case 'create':
         return <CreateReceiptFromSupplier onBack={handleBack} />;
-    //   case 'edit':
-    //     return <EditReceiptFromSupplier onBack={handleBack} editRefno={editRefno} />;
+      case 'edit':
+        return <EditReceiptFromSupplier onBack={handleBack} editRefno={editRefno} />;
       default:
         return <ReceiptFromSupplier onCreate={handleCreate} onEdit={handleEdit} />;
     }

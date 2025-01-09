@@ -31,19 +31,34 @@ import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 
+// Utility Functions
+const convertToLasVegasTime = (date) => {
+  if (!date) return new Date();
+  const newDate = new Date(date);
+  newDate.setHours(0, 0, 0, 0);
+  return new Date(newDate.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
+};
+
+const formatDate = (date) => {
+  if (!date) return "";
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const year = date.getFullYear();
+  return `${month}/${day}/${year}`;
+};
 
 const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
   <Box sx={{ position: 'relative', display: 'inline-block', width: '100%' }}>
     <TextField
       value={value}
       onClick={onClick}
-      placeholder={placeholder}
+      placeholder={placeholder || "MM/DD/YYYY"}
       ref={ref}
       size="small"
       sx={{
         '& .MuiInputBase-root': {
           height: '38px',
-          width: '100%', // ให้ขนาดเต็มตาม parent
+          width: '100%',
           backgroundColor: '#fff',
         },
         '& .MuiOutlinedInput-input': {
@@ -55,12 +70,7 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
         readOnly: true,
         endAdornment: (
           <InputAdornment position="end">
-            <CalendarTodayIcon
-              sx={{
-                color: '#754C27',
-                cursor: 'pointer'
-              }}
-            />
+            <CalendarTodayIcon sx={{ color: '#754C27', cursor: 'pointer' }} />
           </InputAdornment>
         ),
       }}
@@ -154,14 +164,6 @@ export default function PurchaseOrderToSupplier({ onCreate, onEdit }) {
     setSearchTerm(e.target.value);
   };
 
-  // ฟังก์ชั่นสำหรับจัดรูปแบบวันที่เป็น dd/mm/yyyy
-  const formatDate = (date) => {
-    if (!date) return "";
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-    return `${day}/${month}/${year}`;
-  };
 
   useEffect(() => {
     const searchTimeout = setTimeout(() => {
@@ -182,53 +184,47 @@ export default function PurchaseOrderToSupplier({ onCreate, onEdit }) {
     refetchData(value);
   };
 
-useEffect(() => {
+  useEffect(() => {
     const fetchData = async () => {
       try {
         const currentPage = Math.max(1, page);
         const offset = Math.max(0, (currentPage - 1) * itemsPerPage);
         const limit = itemsPerPage;
 
-        // Format the date for API
+        // แปลงวันที่เป็น mm/dd/yyyy แล้วส่งไป API
         const formattedDate = filterDate ? formatDate(filterDate) : null;
+        console.log("Date sending to API:", formattedDate); // ดูค่าที่ส่งไป API
 
-        // ดึงข้อมูลและจำนวนรายการทั้งหมดพร้อมกัน
         const [dataRes, countRes] = await Promise.all([
-          dispatch(wh_posAlljoindt({ 
-            offset, 
+          dispatch(wh_posAlljoindt({
+            offset,
             limit,
-            rdate: formattedDate
+            rdate: formattedDate  // ส่งเป็น mm/dd/yyyy
           })).unwrap(),
-          dispatch(countwh_pos({ 
-            rdate: formattedDate 
+          dispatch(countwh_pos({
+            rdate: formattedDate  // ส่งเป็น mm/dd/yyyy
           })).unwrap()
         ]);
 
-        // จัดการข้อมูลตาราง
-        const resultData = dataRes.data.map((item, index) => ({
-          ...item,
-          id: offset + index + 1
-        }));
-        setWhpos(resultData);
+        console.log("API Response:", dataRes); // ดูข้อมูลที่ได้จาก API
 
-        // อัพเดท pagination ตามจำนวนข้อมูลที่กรองแล้ว
+        if (dataRes.result && Array.isArray(dataRes.data)) {
+          const resultData = dataRes.data.map((item, index) => ({
+            ...item,
+            id: offset + index + 1
+          }));
+          setWhpos(resultData);
+        }
+
         if (countRes.result) {
           const totalItems = countRes.data;
           const totalPages = Math.ceil(totalItems / itemsPerPage);
           setCount(totalPages);
-
-          // ถ้าหน้าปัจจุบันเกินจำนวนหน้าทั้งหมด ให้กลับไปหน้าสุดท้าย
-          if (currentPage > totalPages) {
-            setPage(Math.max(1, totalPages));
-          }
         }
+
       } catch (err) {
         console.error("Error fetching data:", err);
-        Swal.fire({
-          icon: 'error',
-          title: 'Error loading data',
-          text: err.message || 'An unknown error occurred',
-        });
+        console.log("Error details:", err.response?.data);  // ดู error ที่ได้จาก API
       }
     };
 
@@ -236,12 +232,14 @@ useEffect(() => {
   }, [page, filterDate, dispatch, itemsPerPage]);
 
   const handleDateChange = (date) => {
-    setFilterDate(date);
-    setPage(1); // Reset to first page when changing date
+    const vegasDate = convertToLasVegasTime(date);
+    setFilterDate(vegasDate);
+    setPage(1);
   };
 
   const clearFilters = () => {
-    setFilterDate(new Date()); // กลับไปเป็นวันปัจจุบัน
+    const today = convertToLasVegasTime(new Date());
+    setFilterDate(today);
     setSearchTerm("");
     setPage(1);
   };
@@ -623,10 +621,9 @@ useEffect(() => {
             <DatePicker
               selected={filterDate}
               onChange={handleDateChange}
-              dateFormat="dd/MM/yyyy"
-              placeholderText="Filter by date"
+              dateFormat="MM/dd/yyyy"  // ตรงกับฐานข้อมูล
+              placeholderText="MM/DD/YYYY"
               customInput={<CustomInput />}
-              popperClassName="custom-popper"
             />
           </Box>
           <Button

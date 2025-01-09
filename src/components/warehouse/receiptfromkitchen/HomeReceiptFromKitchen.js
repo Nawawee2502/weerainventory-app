@@ -6,7 +6,7 @@ import { useTheme } from '@mui/material/styles';
 import Paper from '@mui/material/Paper';
 import ReceiptFromKitchen from './ReceiptFromKitchen';
 import CreateReceiptFromKitchen from './CreateReceiptFromKitchen';
-// import EditReceiptFromKitchen from './EditReceiptFromKitchen';
+import EditReceiptFromKitchen from './EditReceiptFromKitchen';
 
 const NAVIGATION = [
   { segment: '', title: '' },
@@ -38,8 +38,8 @@ export default function HomeReceiptFromKitchen() {
     switch(currentView) {
       case 'create':
         return <CreateReceiptFromKitchen onBack={handleBack} />;
-    //   case 'edit':
-    //     return <EditReceiptFromKitchen onBack={handleBack} editRefno={editRefno} />;
+      case 'edit':
+        return <EditReceiptFromKitchen onBack={handleBack} editRefno={editRefno} />;
       default:
         return <ReceiptFromKitchen onCreate={handleCreate} onEdit={handleEdit} />;
     }

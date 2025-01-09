@@ -16,6 +16,14 @@ import { useDispatch } from 'react-redux';
 import { wh_rfkAlljoindt, deleteWh_rfk } from '../../../api/warehouse/wh_rfkApi';
 import Swal from 'sweetalert2';
 
+const formatDate = (date) => {
+    if (!date) return "";
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${month}/${day}/${year}`;
+};
+
 const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
     <Box sx={{ position: 'relative', display: 'inline-block', width: '100%' }}>
         <TextField
@@ -65,7 +73,7 @@ const StyledTableRow = styled(TableRow)(({ theme }) => ({
         border: 0,
     },
 }));
-export default function ReceiptFromKitchen({ onCreate }) {
+export default function ReceiptFromKitchen({ onCreate, onEdit }) {
     const dispatch = useDispatch();
     const [searchTerm, setSearchTerm] = useState("");
     const [filterDate, setFilterDate] = useState(new Date());
@@ -85,8 +93,9 @@ export default function ReceiptFromKitchen({ onCreate }) {
             setIsLoading(true);
             const offset = (page - 1) * limit;
 
-            // Format date for API
+            // Format date for API and convert to backend format (YYYYMMDD)
             const formattedDate = filterDate.toISOString().slice(0, 10).replace(/-/g, '');
+            console.log("Querying for date:", formattedDate);
 
             const response = await dispatch(wh_rfkAlljoindt({
                 offset,
@@ -278,8 +287,8 @@ export default function ReceiptFromKitchen({ onCreate }) {
                     <DatePicker
                         selected={filterDate}
                         onChange={handleDateChange}
-                        dateFormat="dd/MM/yyyy"
-                        placeholderText="Filter by date"
+                        dateFormat="MM/dd/yyyy"  // Changed from dd/MM/yyyy
+                        placeholderText="MM/DD/YYYY"
                         customInput={<CustomInput />}
                         popperClassName="custom-popper"
                     />
@@ -365,7 +374,7 @@ export default function ReceiptFromKitchen({ onCreate }) {
                                         <StyledTableCell align="center">{row.user?.username}</StyledTableCell>
                                         <StyledTableCell align="center">
                                             <IconButton
-                                                onClick={() => {/* Add edit functionality later */}}
+                                                onClick={() => onEdit(row.refno)}
                                                 sx={{ border: '1px solid #AD7A2C', borderRadius: '7px' }}
                                             >
                                                 <EditIcon sx={{ color: '#AD7A2C' }} />
@@ -381,7 +390,7 @@ export default function ReceiptFromKitchen({ onCreate }) {
                                         </StyledTableCell>
                                         <StyledTableCell align="center">
                                             <IconButton
-                                                onClick={() => {/* Add print functionality later */}}
+                                                onClick={() => {/* Add print functionality later */ }}
                                                 sx={{ border: '1px solid #5686E1', borderRadius: '7px' }}
                                             >
                                                 <PrintIcon sx={{ color: '#5686E1' }} />

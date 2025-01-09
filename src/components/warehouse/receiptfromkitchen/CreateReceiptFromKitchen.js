@@ -10,7 +10,47 @@ import { addWh_rfk, refno } from '../../../api/warehouse/wh_rfkApi';
 import { searchProductName } from '../../../api/productrecordApi';
 import { kitchenAll } from '../../../api/kitchenApi';
 import Swal from 'sweetalert2';
+import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 // import { refno } from '../../../api/warehouse/wh_rfkApi';
+
+const formatDate = (date) => {
+    if (!date) return "";
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${month}/${day}/${year}`;
+};
+
+const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
+    <Box sx={{ position: 'relative', display: 'inline-block', width: '100%' }}>
+        <TextField
+            value={value}
+            onClick={onClick}
+            placeholder={placeholder || "MM/DD/YYYY"}
+            ref={ref}
+            size="small"
+            sx={{
+                '& .MuiInputBase-root': {
+                    height: '38px',
+                    width: '100%',
+                    backgroundColor: '#fff',
+                },
+                '& .MuiOutlinedInput-input': {
+                    cursor: 'pointer',
+                    paddingRight: '40px',
+                }
+            }}
+            InputProps={{
+                readOnly: true,
+                endAdornment: (
+                    <InputAdornment position="end">
+                        <CalendarTodayIcon sx={{ color: '#754C27', cursor: 'pointer' }} />
+                    </InputAdornment>
+                ),
+            }}
+        />
+    </Box>
+));
 
 function CreateReceiptFromKitchen({ onBack }) {
     const dispatch = useDispatch();
@@ -34,6 +74,7 @@ function CreateReceiptFromKitchen({ onBack }) {
     const [temperatures, setTemperatures] = useState({});
     const [lastMonth, setLastMonth] = useState('');
     const [lastYear, setLastYear] = useState('');
+    const [customPrices, setCustomPrices] = useState({});
     const TAX_RATE = 0.07;
 
     const userDataJson = localStorage.getItem("userData2");
@@ -177,8 +218,11 @@ function CreateReceiptFromKitchen({ onBack }) {
 
         products.forEach(product => {
             const unit = units[product.product_code] || product.productUnit1.unit_code;
-            const price = unit === product.productUnit1.unit_code ?
-                product.bulk_unit_price : product.retail_unit_price;
+            // ใช้ custom price ถ้ามี ถ้าไม่มีใช้ default price
+            const price = customPrices[product.product_code] ??
+                (unit === product.productUnit1.unit_code ?
+                    product.bulk_unit_price :
+                    product.retail_unit_price);
             const amount = Number(product.amount || 0);
             const lineTotal = amount * price;
 
@@ -203,6 +247,11 @@ function CreateReceiptFromKitchen({ onBack }) {
 
     const handleUnitChange = (productCode, newUnit) => {
         setUnits(prev => ({ ...prev, [productCode]: newUnit }));
+        // Reset custom price when unit changes
+        setCustomPrices(prev => {
+            const { [productCode]: removed, ...rest } = prev;
+            return rest;
+        });
         calculateOrderTotals();
     };
 
@@ -219,7 +268,7 @@ function CreateReceiptFromKitchen({ onBack }) {
 
         const headerData = {
             refno: lastRefNo,
-            rdate: startDate.toLocaleDateString('en-GB'),
+            rdate: formatDate(startDate),
             kitchen_code: saveKitchen,
             trdate: startDate.toISOString().slice(0, 10).replace(/-/g, ''),
             monthh: (startDate.getMonth() + 1).toString().padStart(2, '0'),
@@ -235,10 +284,12 @@ function CreateReceiptFromKitchen({ onBack }) {
             product_code: product.product_code,
             qty: product.amount || 0,
             unit_code: units[product.product_code] || product.productUnit1.unit_code,
-            uprice: units[product.product_code] === product.productUnit1.unit_code ?
-                product.bulk_unit_price : product.retail_unit_price,
+            uprice: customPrices[product.product_code] ??
+                (units[product.product_code] === product.productUnit1.unit_code ?
+                    product.bulk_unit_price :
+                    product.retail_unit_price),
             tax1: product.tax1,
-            expire_date: expiryDates[product.product_code]?.toLocaleDateString('en-GB'),
+            expire_date: formatDate(expiryDates[product.product_code]), // Changed from toLocaleDateString
             texpire_date: expiryDates[product.product_code]?.toISOString().slice(0, 10).replace(/-/g, ''),
             temperature1: temperatures[product.product_code] || '',
             amt: product.amount || 0
@@ -291,6 +342,7 @@ function CreateReceiptFromKitchen({ onBack }) {
         setTaxableAmount(0);
         setNonTaxableAmount(0);
         setTotal(0);
+        setCustomPrices({});
 
         dispatch(refno({ test: 10 }))
             .unwrap()
@@ -362,23 +414,9 @@ function CreateReceiptFromKitchen({ onBack }) {
                                         setStartDate(date);
                                         handleGetLastRefNo(date);
                                     }}
-                                    dateFormat="dd/MM/yyyy"
-                                    customInput={
-                                        <TextField
-                                            size="small"
-                                            fullWidth
-                                            sx={{
-                                                mt: '8px',
-                                                width: '80%',
-                                                '& .MuiInputBase-root': {
-                                                    width: '100%',
-                                                },
-                                                '& .MuiOutlinedInput-root': {
-                                                    borderRadius: '10px',
-                                                },
-                                            }}
-                                        />
-                                    }
+                                    dateFormat="MM/dd/yyyy"  // Changed from dd/MM/yyyy
+                                    placeholderText="MM/DD/YYYY"
+                                    customInput={<CustomInput />}
                                 />
                             </Grid2>
                             <Grid2 item size={{ xs: 12, md: 6 }}>
@@ -520,11 +558,12 @@ function CreateReceiptFromKitchen({ onBack }) {
                                 {products.map((product, index) => {
                                     const productCode = product.product_code;
                                     const unit = units[productCode] || product.productUnit1.unit_code;
-                                    const price = unit === product.productUnit1.unit_code ?
-                                        product.bulk_unit_price : product.retail_unit_price;
+                                    const price = customPrices[productCode] ??
+                                        (unit === product.productUnit1.unit_code ?
+                                            product.bulk_unit_price :
+                                            product.retail_unit_price);
                                     const amount = product.amount || 0;
                                     const total = amount * price;
-
                                     return (
                                         <tr key={productCode}>
                                             <td style={{ padding: '4px', fontSize: '12px', fontWeight: '800' }}>{index + 1}</td>
@@ -534,7 +573,7 @@ function CreateReceiptFromKitchen({ onBack }) {
                                                 <DatePicker
                                                     selected={expiryDates[productCode]}
                                                     onChange={(date) => handleExpiryDateChange(productCode, date)}
-                                                    dateFormat="dd/MM/yyyy"
+                                                    dateFormat="MM/dd/yyyy"  // Changed from dd/MM/yyyy
                                                     customInput={<TextField size="small" sx={{ width: '120px' }} />}
                                                 />
                                             </td>
@@ -574,7 +613,68 @@ function CreateReceiptFromKitchen({ onBack }) {
                                                     <option value={product.productUnit2.unit_code}>{product.productUnit2.unit_name}</option>
                                                 </select>
                                             </td>
-                                            <td>{price.toFixed(2)}</td>
+                                            <td>
+                                                <TextField
+                                                    type="number"
+                                                    size="small"
+                                                    value={customPrices[productCode] ?? price}
+                                                    onChange={(e) => {
+                                                        const newPrice = Number(e.target.value);
+                                                        if (!isNaN(newPrice) && newPrice >= 0) {
+                                                            // ทำการ update customPrices และคำนวณ totals ในทันที
+                                                            const newCustomPrices = {
+                                                                ...customPrices,
+                                                                [productCode]: newPrice
+                                                            };
+                                                            setCustomPrices(newCustomPrices);
+
+                                                            // คำนวณ totals ทันทีโดยใช้ค่าใหม่
+                                                            let newTaxable = 0;
+                                                            let newNonTaxable = 0;
+                                                            let newTotal = 0;
+
+                                                            products.forEach(p => {
+                                                                const pUnit = units[p.product_code] || p.productUnit1.unit_code;
+                                                                const pPrice = p.product_code === productCode ?
+                                                                    newPrice :
+                                                                    (customPrices[p.product_code] ??
+                                                                        (pUnit === p.productUnit1.unit_code ?
+                                                                            p.bulk_unit_price :
+                                                                            p.retail_unit_price));
+                                                                const pAmount = Number(p.amount || 0);
+                                                                const lineTotal = pAmount * pPrice;
+
+                                                                if (p.tax1 === 'Y') {
+                                                                    newTaxable += lineTotal;
+                                                                } else {
+                                                                    newNonTaxable += lineTotal;
+                                                                }
+
+                                                                newTotal += lineTotal;
+                                                            });
+
+                                                            const newSaleTax = newTaxable * TAX_RATE;
+                                                            const newTotalDue = newTotal + newSaleTax;
+
+                                                            setTaxableAmount(newTaxable);
+                                                            setNonTaxableAmount(newNonTaxable);
+                                                            setSaleTax(newSaleTax);
+                                                            setTotal(newTotal);
+                                                            setTotalDue(newTotalDue);
+                                                        }
+                                                    }}
+                                                    sx={{
+                                                        width: '100px',
+                                                        '& input': {
+                                                            padding: '8px'
+                                                        }
+                                                    }}
+                                                    inputProps={{
+                                                        min: 0,
+                                                        step: "any"
+                                                    }}
+                                                />
+                                            </td>
                                             <td>{total.toFixed(2)}</td>
                                             <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
                                                 <IconButton onClick={() => handleDeleteProduct(productCode)} size="small">

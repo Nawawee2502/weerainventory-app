@@ -5,8 +5,8 @@ import { useDemoRouter } from '@toolpad/core/internal';
 import { useTheme } from '@mui/material/styles';
 import Paper from '@mui/material/Paper';
 import CreateDispatchToBranch from './CreateDispatchToBranch';
+import EditDispatchToBranch from './EditDispatchToBranch';
 import DispatchToBranch from './DispatchToBranch';
-// import EditReceiptFromKitchen from './EditReceiptFromKitchen';
 
 const NAVIGATION = [
     { segment: '', title: '' },
@@ -38,8 +38,8 @@ export default function HomeDispatchToBranch() {
         switch (currentView) {
             case 'create':
                 return <CreateDispatchToBranch onBack={handleBack} />;
-            //   case 'edit':
-            //     return <EditReceiptFromKitchen onBack={handleBack} editRefno={editRefno} />;
+            case 'edit':
+                return <EditDispatchToBranch onBack={handleBack} editRefno={editRefno} />;
             default:
                 return <DispatchToBranch onCreate={handleCreate} onEdit={handleEdit} />;
         }

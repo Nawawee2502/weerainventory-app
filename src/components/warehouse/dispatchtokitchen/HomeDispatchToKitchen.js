@@ -6,7 +6,7 @@ import { useTheme } from '@mui/material/styles';
 import Paper from '@mui/material/Paper';
 import CreateDispatchToKitchen from './CreateDispatchToKitchen';
 import DispatchToKitchen from './DispatchToKitchen';
-// import EditReceiptFromKitchen from './EditReceiptFromKitchen';
+import EditDispatchToKitchen from './EditDispatchToKitchen';
 
 const NAVIGATION = [
   { segment: '', title: '' },
@@ -35,11 +35,11 @@ export default function HomeDispatchToKitchen() {
   };
 
   const renderComponent = () => {
-    switch(currentView) {
+    switch (currentView) {
       case 'create':
         return <CreateDispatchToKitchen onBack={handleBack} />;
-    //   case 'edit':
-    //     return <EditReceiptFromKitchen onBack={handleBack} editRefno={editRefno} />;
+      case 'edit':
+        return <EditDispatchToKitchen onBack={handleBack} editRefno={editRefno} />;
       default:
         return <DispatchToKitchen onCreate={handleCreate} onEdit={handleEdit} />;
     }

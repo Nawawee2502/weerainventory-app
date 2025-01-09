@@ -7,11 +7,12 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { useDispatch } from "react-redux";
 import { searchProductName } from '../../../api/productrecordApi';
-import { kitchenAll } from '../../../api/kitchenApi';
-import { addWh_dpk, wh_dpkrefno } from '../../../api/warehouse/wh_dpkApi';
+import { branchAll } from '../../../api/branchApi';
+import { updateWh_dpb, Wh_dpbByRefno } from '../../../api/warehouse/wh_dpbApi';
+import { updateWh_dpbdt, deleteWh_dpbdt, addWh_dpbdt } from '../../../api/warehouse/wh_dpbdtApi';
 import Swal from 'sweetalert2';
-import { format } from 'date-fns';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+import { format } from 'date-fns';
 
 const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
     <Box sx={{ position: 'relative', display: 'inline-block', width: '100%' }}>
@@ -44,100 +45,121 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
     </Box>
 ));
 
-export default function CreateDispatchToKitchen({ onBack }) {
+function EditDispatchToBranch({ onBack, editRefno }) {
     const dispatch = useDispatch();
-    const [startDate, setStartDate] = useState(new Date());
-    const [lastRefNo, setLastRefNo] = useState('');
-    const [kitchens, setKitchens] = useState([]);
-    const [saveKitchen, setSaveKitchen] = useState('');
+    const [editDate, setEditDate] = useState(new Date());
+    const [branches, setBranches] = useState([]);
+    const [saveBranch, setSaveBranch] = useState('');
     const [products, setProducts] = useState([]);
+    const [originalProducts, setOriginalProducts] = useState([]);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [searchResults, setSearchResults] = useState([]);
+    const [showDropdown, setShowDropdown] = useState(false);
     const [quantities, setQuantities] = useState({});
     const [units, setUnits] = useState({});
     const [unitPrices, setUnitPrices] = useState({});
     const [totals, setTotals] = useState({});
-    const [total, setTotal] = useState(0);
-    const [searchTerm, setSearchTerm] = useState("");
-    const [searchResults, setSearchResults] = useState([]);
-    const [showDropdown, setShowDropdown] = useState(false);
     const [taxableAmount, setTaxableAmount] = useState(0);
     const [nonTaxableAmount, setNonTaxableAmount] = useState(0);
-    const TAX_RATE = 0.07;
-    const [lastMonth, setLastMonth] = useState('');
-    const [lastYear, setLastYear] = useState('');
-    const userDataJson = localStorage.getItem("userData2");
-    const userData2 = JSON.parse(userDataJson);
+    const [total, setTotal] = useState(0);
     const [expiryDates, setExpiryDates] = useState({});
-    const [temperatures, setTemperatures] = useState({});
-    const [totalDue, setTotalDue] = useState(0);
+    const [isLoading, setIsLoading] = useState(false);
+    const TAX_RATE = 0.07;
 
     useEffect(() => {
-        const currentDate = new Date();
-        const currentMonth = (currentDate.getMonth() + 1).toString().padStart(2, '0');
-        const currentYear = currentDate.getFullYear().toString().slice(-2);
-        setLastMonth(currentMonth);
-        setLastYear(currentYear);
-        handleGetLastRefNo(currentDate);
+        let offset = 0;
+        let limit = 100;
 
-        dispatch(kitchenAll({ offset: 0, limit: 100 }))
-            .unwrap()
-            .then((res) => {
-                setKitchens(res.data);
-            })
-            .catch((err) => console.log(err.message));
-    }, [dispatch]);
+        const fetchData = async () => {
+            try {
+                setIsLoading(true);
+                const [branchRes, dpbRes] = await Promise.all([
+                    dispatch(branchAll({ offset, limit })).unwrap(),
+                    dispatch(Wh_dpbByRefno({ refno: editRefno })).unwrap()
+                ]);
 
-    const handleGetLastRefNo = async (selectedDate) => {
-        try {
-            const res = await dispatch(wh_dpkrefno({ test: 10 })).unwrap();
-            const year = selectedDate.getFullYear().toString().slice(-2);
-            const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+                setBranches(branchRes.data || []);
 
-            if (!res.data || !res.data.refno) {
-                setLastRefNo(`WDPK${year}${month}001`);
-                return;
+                if (dpbRes?.data) {
+                    const dpbData = dpbRes.data;
+
+                    if (dpbData.rdate) {
+                        try {
+                            const [month, day, year] = dpbData.rdate.split('/');
+                            const parsedDate = new Date(+year, +month - 1, +day);
+                            if (!isNaN(parsedDate.getTime())) {
+                                setEditDate(parsedDate);
+                            }
+                        } catch (error) {
+                            console.error("Error parsing date:", error);
+                            setEditDate(new Date());
+                        }
+                    }
+
+                    setSaveBranch(dpbData.branch_code || '');
+
+                    const initialProducts = dpbData.wh_dpbdts?.map(item => ({
+                        ...item.tbl_product,
+                        amount: item.qty,
+                        unit_code: item.unit_code,
+                        isNewProduct: false
+                    })) || [];
+
+                    setProducts(initialProducts);
+                    setOriginalProducts(initialProducts);
+
+                    // Initialize states
+                    const initialQuantities = {};
+                    const initialUnits = {};
+                    const initialUnitPrices = {};
+                    const initialTotals = {};
+                    const initialExpiryDates = {};
+
+                    initialProducts.forEach(product => {
+                        if (!product.product_code) return;
+
+                        const productCode = product.product_code;
+                        initialQuantities[productCode] = parseInt(product.amount) || 1;
+                        initialUnits[productCode] = product.unit_code || product.productUnit1?.unit_code;
+                        initialUnitPrices[productCode] = parseFloat(product.uprice) || 0;
+                        initialTotals[productCode] = (initialQuantities[productCode] * initialUnitPrices[productCode]) || 0;
+
+                        try {
+                            if (product.expire_date) {
+                                const [month, day, year] = product.expire_date.split('/');
+                                const expiryDate = new Date(+year, +month - 1, +day);
+                                initialExpiryDates[productCode] = !isNaN(expiryDate.getTime()) ? expiryDate : new Date();
+                            } else {
+                                initialExpiryDates[productCode] = new Date();
+                            }
+                        } catch (error) {
+                            console.error("Error parsing expiry date for product", productCode, error);
+                            initialExpiryDates[productCode] = new Date();
+                        }
+                    });
+
+                    setQuantities(initialQuantities);
+                    setUnits(initialUnits);
+                    setUnitPrices(initialUnitPrices);
+                    setTotals(initialTotals);
+                    setExpiryDates(initialExpiryDates);
+
+                    calculateOrderTotals(initialProducts, initialQuantities, initialUnits, initialUnitPrices);
+                }
+            } catch (error) {
+                console.error("Error loading data:", error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error loading data',
+                    text: error.response?.data?.message || error.message || 'Failed to load data'
+                });
+            } finally {
+                setIsLoading(false);
             }
+        };
 
-            const lastRefNo = res.data.refno;
-            const lastRefMonth = lastRefNo.substring(6, 8);
-            const lastRefYear = lastRefNo.substring(4, 6);
-
-            if (lastRefMonth !== month || lastRefYear !== year) {
-                setLastRefNo(`WDPK${year}${month}001`);
-                return;
-            }
-
-            const lastNumber = parseInt(lastRefNo.slice(-3));
-            const newNumber = lastNumber + 1;
-            setLastRefNo(`WDPK${year}${month}${String(newNumber).padStart(3, '0')}`);
-
-            setLastMonth(month);
-            setLastYear(year);
-        } catch (err) {
-            console.error("Error generating refno:", err);
-        }
-    };
-
-    const handleProductSelect = (product) => {
-        if (products.some(p => p.product_code === product.product_code)) {
-            Swal.fire({
-                icon: 'warning',
-                title: 'Product already exists',
-                timer: 1500,
-                showConfirmButton: false
-            });
-            return;
-        }
-
-        setProducts(prev => [...prev, product]);
-        setQuantities(prev => ({ ...prev, [product.product_code]: 1 }));
-        setUnits(prev => ({ ...prev, [product.product_code]: product.productUnit1.unit_code }));
-        setExpiryDates(prev => ({ ...prev, [product.product_code]: new Date() }));
-        setUnitPrices(prev => ({ ...prev, [product.product_code]: product.bulk_unit_price }));
-
-        setSearchTerm('');
-        setShowDropdown(false);
-        calculateOrderTotals([...products, product]);
-    };
+        fetchData();
+    }, [dispatch, editRefno]);
 
     const handleSearchChange = (e) => {
         const value = e.target.value;
@@ -159,16 +181,44 @@ export default function CreateDispatchToKitchen({ onBack }) {
         }
     };
 
-    const calculateOrderTotals = (currentProducts = products) => {
+    const handleProductSelect = (product) => {
+        if (products.some(p => p.product_code === product.product_code)) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Product already exists',
+                timer: 1500,
+                showConfirmButton: false
+            });
+            return;
+        }
+
+        const newProduct = {
+            ...product,
+            amount: 1,
+            isNewProduct: true
+        };
+
+        setProducts(prev => [...prev, newProduct]);
+        setQuantities(prev => ({ ...prev, [product.product_code]: 1 }));
+        setUnits(prev => ({ ...prev, [product.product_code]: product.productUnit1.unit_code }));
+        setExpiryDates(prev => ({ ...prev, [product.product_code]: new Date() }));
+        setUnitPrices(prev => ({ ...prev, [product.product_code]: product.bulk_unit_price }));
+
+        setSearchTerm('');
+        setShowDropdown(false);
+        calculateOrderTotals([...products, newProduct], quantities, units, unitPrices);
+    };
+
+    const calculateOrderTotals = (currentProducts = products, currentQuantities = quantities, currentUnits = units, currentUnitPrices = unitPrices) => {
         let newTaxable = 0;
         let newNonTaxable = 0;
         let newTotal = 0;
 
         currentProducts.forEach(product => {
             const productCode = product.product_code;
-            const quantity = quantities[productCode] || 1;
-            const price = unitPrices[productCode] || (
-                units[productCode] === product.productUnit1.unit_code
+            const quantity = currentQuantities[productCode] || 1;
+            const price = currentUnitPrices[productCode] || (
+                currentUnits[productCode] === product.productUnit1.unit_code
                     ? product.bulk_unit_price
                     : product.retail_unit_price
             );
@@ -187,84 +237,39 @@ export default function CreateDispatchToKitchen({ onBack }) {
         setTaxableAmount(newTaxable);
         setNonTaxableAmount(newNonTaxable);
         setTotal(newTotal);
-        setTotalDue(newTotal);
-    };
-
-    const handleUnitChange = (productCode, newUnitCode) => {
-        setUnits(prev => ({
-            ...prev,
-            [productCode]: newUnitCode
-        }));
-
-        const product = products.find(p => p.product_code === productCode);
-        const defaultUnitPrice = newUnitCode === product.productUnit1.unit_code
-            ? product.bulk_unit_price
-            : product.retail_unit_price;
-
-        setUnitPrices(prev => ({
-            ...prev,
-            [productCode]: defaultUnitPrice
-        }));
-
-        const quantity = quantities[productCode] || 1;
-        const total = quantity * defaultUnitPrice;
-        setTotals(prev => ({ ...prev, [productCode]: total }));
-        calculateOrderTotals();
-    };
-
-    const handleUnitPriceChange = (productCode, value) => {
-        const newPrice = parseFloat(value);
-        if (!isNaN(newPrice) && newPrice >= 0) {
-            setUnitPrices(prev => ({
-                ...prev,
-                [productCode]: newPrice
-            }));
-
-            const quantity = quantities[productCode] || 1;
-            const total = quantity * newPrice;
-            setTotals(prev => ({ ...prev, [productCode]: total }));
-            calculateOrderTotals();
-        }
-    };
-
-    const handleDeleteProduct = (productCode) => {
-        setProducts(products.filter(item => item.product_code !== productCode));
-        const updatedProducts = products.filter(item => item.product_code !== productCode);
-        calculateOrderTotals(updatedProducts);
     };
 
     const handleQuantityChange = (productCode, newQuantity) => {
         if (newQuantity >= 1) {
-            setQuantities(prev => ({
-                ...prev,
-                [productCode]: newQuantity
-            }));
-
-            const product = products.find(p => p.product_code === productCode);
-            const unit = units[productCode] || product.productUnit1.unit_code;
-            const unitPrice = unitPrices[productCode] ??
-                (unit === product.productUnit1.unit_code
-                    ? product.bulk_unit_price
-                    : product.retail_unit_price);
-
-            const total = newQuantity * unitPrice;
-            setTotals(prev => ({
-                ...prev,
-                [productCode]: total
-            }));
-            calculateOrderTotals();
+            setQuantities(prev => ({ ...prev, [productCode]: newQuantity }));
+            const updatedQuantities = { ...quantities, [productCode]: newQuantity };
+            calculateOrderTotals(products, updatedQuantities, units, unitPrices);
         }
     };
 
-    const handleExpiryDateChange = (productCode, date) => {
-        setExpiryDates(prev => ({
-            ...prev,
-            [productCode]: date
-        }));
+    const handleUnitChange = (productCode, newUnit) => {
+        setUnits(prev => ({ ...prev, [productCode]: newUnit }));
+        const product = products.find(p => p.product_code === productCode);
+        const newPrice = newUnit === product.productUnit1.unit_code ?
+            product.bulk_unit_price : product.retail_unit_price;
+
+        setUnitPrices(prev => ({ ...prev, [productCode]: newPrice }));
+        const updatedPrices = { ...unitPrices, [productCode]: newPrice };
+        calculateOrderTotals(products, quantities, { ...units, [productCode]: newUnit }, updatedPrices);
     };
 
-    const handleSave = async () => {
-        if (!saveKitchen || products.length === 0) {
+    const handleDeleteProduct = (productCode) => {
+        setProducts(products.filter(p => p.product_code !== productCode));
+        const updatedProducts = products.filter(p => p.product_code !== productCode);
+        calculateOrderTotals(updatedProducts, quantities, units, unitPrices);
+    };
+
+    const handleExpiryDateChange = (productCode, date) => {
+        setExpiryDates(prev => ({ ...prev, [productCode]: date }));
+    };
+
+    const handleUpdate = async () => {
+        if (!saveBranch || products.length === 0) {
             Swal.fire({
                 icon: 'warning',
                 title: 'Missing Information',
@@ -276,98 +281,73 @@ export default function CreateDispatchToKitchen({ onBack }) {
 
         try {
             Swal.fire({
-                title: 'Saving dispatch...',
+                title: 'Updating...',
                 allowOutsideClick: false,
-                didOpen: () => {
-                    Swal.showLoading();
-                }
+                didOpen: () => Swal.showLoading()
             });
 
             const headerData = {
-                refno: lastRefNo,
-                rdate: format(startDate, 'MM/dd/yyyy'),
-                kitchen_code: saveKitchen,
-                trdate: format(startDate, 'yyyyMMdd'),
-                monthh: format(startDate, 'MM'),
-                myear: startDate.getFullYear(),
-                user_code: userData2.user_code,
+                refno: editRefno,
+                rdate: format(editDate, 'MM/dd/yyyy'),
+                branch_code: saveBranch,
+                trdate: format(editDate, 'yyyyMMdd'),
+                monthh: format(editDate, 'MM'),
+                myear: editDate.getFullYear(),
                 taxable: taxableAmount.toString(),
                 nontaxable: nonTaxableAmount.toString(),
                 total: total.toString()
             };
 
-            const productArrayData = products.map(product => {
-                const expDate = expiryDates[product.product_code];
-                const monthYear = expDate ? {
-                    expire_date: format(expDate, 'MM/dd/yyyy'),
-                    texpire_date: format(expDate, 'yyyyMMdd')
-                } : {};
+            await dispatch(updateWh_dpb(headerData)).unwrap();
 
-                return {
-                    refno: headerData.refno,
+            const deletedProducts = originalProducts.filter(
+                original => !products.some(current => current.product_code === original.product_code)
+            );
+
+            for (const product of deletedProducts) {
+                await dispatch(deleteWh_dpbdt({
+                    refno: editRefno,
+                    product_code: product.product_code
+                })).unwrap();
+            }
+
+            for (const product of products) {
+                const productData = {
+                    refno: editRefno,
                     product_code: product.product_code,
                     qty: quantities[product.product_code].toString(),
-                    unit_code: units[product.product_code],
+                    unit_code: units[product.product_code] || product.productUnit1.unit_code,
                     uprice: (unitPrices[product.product_code] || product.bulk_unit_price).toString(),
                     tax1: product.tax1,
-                    amt: totals[product.product_code].toString(),
-                    ...monthYear
+                    expire_date: format(expiryDates[product.product_code], 'MM/dd/yyyy'),
+                    texpire_date: format(expiryDates[product.product_code], 'yyyyMMdd'),
+                    amt: totals[product.product_code].toString()
                 };
-            });
 
-            const orderData = {
-                headerData,
-                productArrayData,
-                footerData: {
-                    taxable: taxableAmount.toString(),
-                    nontaxable: nonTaxableAmount.toString(),
-                    total: total.toString()
+                if (product.isNewProduct) {
+                    await dispatch(addWh_dpbdt(productData)).unwrap();
+                } else {
+                    await dispatch(updateWh_dpbdt(productData)).unwrap();
                 }
-            };
-
-            await dispatch(addWh_dpk(orderData)).unwrap();
-
-            await Swal.fire({
-                icon: 'success',
-                title: 'Created dispatch successfully',
-                text: `Reference No: ${lastRefNo}`,
-                showConfirmButton: false,
-                timer: 1500
-            });
-
-            resetForm();
-            onBack();
-
-        } catch (error) {
-            let errorMessage = 'Error saving dispatch';
-            if (error.name === 'SequelizeUniqueConstraintError') {
-                errorMessage = 'A duplicate dispatch number was generated. Please try again.';
             }
 
             Swal.fire({
+                icon: 'success',
+                title: 'Updated successfully',
+                timer: 1500,
+                showConfirmButton: false
+            }).then(() => {
+                onBack();
+            });
+
+        } catch (error) {
+            console.error("Update error:", error);
+            Swal.fire({
                 icon: 'error',
-                title: 'Error',
-                text: errorMessage,
-                confirmButtonText: 'OK'
+                title: 'Error updating dispatch',
+                text: error.message
             });
         }
-    };
-
-    const resetForm = async () => {
-        setProducts([]);
-        setQuantities({});
-        setUnits({});
-        setUnitPrices({});
-        setTotals({});
-        setTaxableAmount(0);
-        setNonTaxableAmount(0);
-        setTotal(0);
-        setTotalDue(0);
-        setSaveKitchen('');
-        setSearchTerm('');
-        setExpiryDates({});
-        setTemperatures({});
-        await handleGetLastRefNo(startDate);
     };
 
     return (
@@ -377,7 +357,7 @@ export default function CreateDispatchToKitchen({ onBack }) {
                 startIcon={<ArrowBackIcon />}
                 sx={{ mb: 2 }}
             >
-                Back to Dispatch to Kitchen
+                Back to Dispatch to Restaurant
             </Button>
 
             <Box sx={{ width: '100%', mt: '10px', flexDirection: 'column' }}>
@@ -402,10 +382,9 @@ export default function CreateDispatchToKitchen({ onBack }) {
                                     Ref.no
                                 </Typography>
                                 <TextField
-                                    value={lastRefNo}
+                                    value={editRefno}
                                     disabled
                                     size="small"
-                                    placeholder='Ref.no'
                                     sx={{
                                         mt: '8px',
                                         width: '100%',
@@ -421,10 +400,11 @@ export default function CreateDispatchToKitchen({ onBack }) {
                                     Date
                                 </Typography>
                                 <DatePicker
-                                    selected={startDate}
+                                    selected={editDate}
                                     onChange={(date) => {
-                                        setStartDate(date);
-                                        handleGetLastRefNo(date);
+                                        if (date && !isNaN(date.getTime())) {
+                                            setEditDate(date);
+                                        }
                                     }}
                                     dateFormat="MM/dd/yyyy"
                                     placeholderText="MM/DD/YYYY"
@@ -433,12 +413,12 @@ export default function CreateDispatchToKitchen({ onBack }) {
                             </Grid2>
                             <Grid2 item size={{ xs: 12, md: 6 }}>
                                 <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
-                                    Kitchen
+                                    Restaurant
                                 </Typography>
                                 <Box
                                     component="select"
-                                    value={saveKitchen}
-                                    onChange={(e) => setSaveKitchen(e.target.value)}
+                                    value={saveBranch}
+                                    onChange={(e) => setSaveBranch(e.target.value)}
                                     sx={{
                                         mt: '8px',
                                         width: '100%',
@@ -456,10 +436,10 @@ export default function CreateDispatchToKitchen({ onBack }) {
                                         },
                                     }}
                                 >
-                                    <option value="">Select a Kitchen</option>
-                                    {kitchens.map((kitchen) => (
-                                        <option key={kitchen.kitchen_code} value={kitchen.kitchen_code}>
-                                            {kitchen.kitchen_name}
+                                    <option value="">Select a Restaurant</option>
+                                    {branches.map((b) => (
+                                        <option key={b.branch_code} value={b.branch_code}>
+                                            {b.branch_name}
                                         </option>
                                     ))}
                                 </Box>
@@ -480,6 +460,7 @@ export default function CreateDispatchToKitchen({ onBack }) {
                                     value={searchTerm}
                                     onChange={handleSearchChange}
                                     placeholder="Search"
+                                    size="small"
                                     sx={{
                                         '& .MuiInputBase-root': {
                                             height: '30px',
@@ -534,20 +515,6 @@ export default function CreateDispatchToKitchen({ onBack }) {
                                     </Box>
                                 )}
                             </Box>
-                            <Button
-                                onClick={resetForm}
-                                sx={{
-                                    ml: 'auto',
-                                    bgcolor: '#E2EDFB',
-                                    borderRadius: '6px',
-                                    width: '105px',
-                                    '&:hover': {
-                                        bgcolor: '#d0e0f7'
-                                    }
-                                }}
-                            >
-                                Clear All
-                            </Button>
                         </Box>
 
                         <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', mb: '12px' }}>
@@ -569,13 +536,14 @@ export default function CreateDispatchToKitchen({ onBack }) {
                                 <tbody>
                                     {products.map((product, index) => {
                                         const productCode = product.product_code;
-                                        const currentUnit = units[productCode] || product.productUnit1.unit_code;
                                         const currentQuantity = quantities[productCode] || 1;
-                                        const currentUnitPrice = unitPrices[productCode] ??
-                                            (currentUnit === product.productUnit1.unit_code
+                                        const currentUnit = units[productCode] || product.productUnit1.unit_code;
+                                        const currentPrice = unitPrices[productCode] || (
+                                            currentUnit === product.productUnit1.unit_code
                                                 ? product.bulk_unit_price
-                                                : product.retail_unit_price);
-                                        const currentTotal = (currentQuantity * currentUnitPrice).toFixed(2);
+                                                : product.retail_unit_price
+                                        );
+                                        const currentTotal = totals[productCode] || (currentQuantity * currentPrice);
 
                                         return (
                                             <tr key={productCode}>
@@ -587,7 +555,7 @@ export default function CreateDispatchToKitchen({ onBack }) {
                                                         selected={expiryDates[productCode] || null}
                                                         onChange={(date) => handleExpiryDateChange(productCode, date)}
                                                         dateFormat="MM/dd/yyyy"
-                                                        placeholderText="Select exp date"
+                                                        placeholderText="MM/DD/YYYY"
                                                         customInput={
                                                             <input
                                                                 style={{
@@ -628,25 +596,13 @@ export default function CreateDispatchToKitchen({ onBack }) {
                                                     </select>
                                                 </td>
                                                 <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
-                                                    <input
-                                                        type="number"
-                                                        min="0"
-                                                        step="0.01"
-                                                        value={currentUnitPrice}
-                                                        onChange={(e) => handleUnitPriceChange(productCode, e.target.value)}
-                                                        style={{
-                                                            width: '80px',
-                                                            textAlign: 'right',
-                                                            fontWeight: '600',
-                                                            padding: '4px'
-                                                        }}
-                                                    />
+                                                    {currentPrice.toFixed(2)}
                                                 </td>
                                                 <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
                                                     {product.tax1 === 'Y' ? 'Yes' : 'No'}
                                                 </td>
                                                 <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
-                                                    {currentTotal}
+                                                    {currentTotal.toFixed(2)}
                                                 </td>
                                                 <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
                                                     <IconButton
@@ -684,19 +640,10 @@ export default function CreateDispatchToKitchen({ onBack }) {
                                     </Box>
                                 </Box>
                             </Box>
-
-                            <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', mt: '8px' }}>
-                                <Typography sx={{ color: '#FFFFFF', fontSize: '30px', fontWeight: '600' }}>
-                                    Total due
-                                </Typography>
-                                <Typography sx={{ color: '#FFFFFF', ml: 'auto', fontSize: '30px', fontWeight: '600' }}>
-                                    ${totalDue.toFixed(2)}
-                                </Typography>
-                            </Box>
                         </Box>
 
                         <Button
-                            onClick={handleSave}
+                            onClick={handleUpdate}
                             sx={{
                                 width: '100%',
                                 height: '48px',
@@ -706,8 +653,9 @@ export default function CreateDispatchToKitchen({ onBack }) {
                                 '&:hover': {
                                     bgcolor: '#5C3D1F'
                                 }
-                            }}>
-                            Save
+                            }}
+                        >
+                            Update
                         </Button>
                     </Box>
                 </Box>
@@ -715,3 +663,5 @@ export default function CreateDispatchToKitchen({ onBack }) {
         </Box>
     );
 }
+
+export default EditDispatchToBranch;

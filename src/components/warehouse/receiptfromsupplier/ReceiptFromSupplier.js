@@ -15,6 +15,21 @@ import { useDispatch } from "react-redux";
 import Swal from 'sweetalert2';
 import { wh_rfsAlljoindt, deleteWh_rfs, countwh_rfs, Wh_rfsByRefno } from '../../../api/warehouse/wh_rfsApi';
 
+const formatDate = (date) => {
+    if (!date) return "";
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${month}/${day}/${year}`;
+};
+
+const convertToLasVegasTime = (date) => {
+    if (!date) return new Date();
+    const newDate = new Date(date);
+    newDate.setHours(0, 0, 0, 0);
+    return new Date(newDate.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
+  };
+
 const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
     <Box sx={{ position: 'relative', display: 'inline-block', width: '100%' }}>
         <TextField
@@ -75,43 +90,51 @@ export default function ReceiptFromSupplier({ onCreate, onEdit }) {
     const [whrfs, setWhrfs] = useState([]);
     const [itemsPerPage] = useState(5);
 
-    const formatDate = (date) => {
-        if (!date) return "";
-        const day = String(date.getDate()).padStart(2, '0');
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const year = date.getFullYear();
-        return `${day}/${month}/${year}`;
-    };
-
     useEffect(() => {
         loadData(page);
+        console.log("Current filter date:", formatDate(filterDate));
     }, [page, filterDate]);
+
 
     const loadData = async (pageNumber) => {
         try {
             setWhrfs([]);
             const offset = (pageNumber - 1) * itemsPerPage;
             const limit = itemsPerPage;
-
-            const res = await dispatch(wh_rfsAlljoindt({ offset, limit })).unwrap();
-
-            if (res.result && Array.isArray(res.data)) {
-                const formattedFilterDate = formatDate(filterDate);
-                const filteredData = res.data.filter(item => item.rdate === formattedFilterDate);
-
-                const resultData = filteredData.map((item, index) => ({
+    
+            // Format date เป็น MM/DD/YYYY เหมือน POS
+            const formattedDate = formatDate(filterDate);
+            console.log("Querying for date:", formattedDate);
+    
+            // เรียก API แบบเดียวกับ POS
+            const [dataRes, countRes] = await Promise.all([
+                dispatch(wh_rfsAlljoindt({ 
+                    offset, 
+                    limit,
+                    rdate: formattedDate  // ส่งวันที่แบบเดียวกับ POS
+                })).unwrap(),
+                dispatch(countwh_rfs({ 
+                    rdate: formattedDate 
+                })).unwrap()
+            ]);
+    
+            console.log("API Response:", dataRes);
+    
+            if (dataRes.result && Array.isArray(dataRes.data)) {
+                // ไม่ต้อง filter ข้อมูลที่ client อีก เพราะ API จะกรองให้แล้ว
+                const resultData = dataRes.data.map((item, index) => ({
                     ...item,
                     id: offset + index + 1
                 }));
-                console.log(resultData);
+                console.log("Processed data:", resultData);
                 setWhrfs(resultData);
             }
-
-            const countRes = await dispatch(countwh_rfs({ test: "" })).unwrap();
+    
             if (countRes.result) {
                 const totalPages = Math.ceil(countRes.data / itemsPerPage);
                 setCount(totalPages);
             }
+    
         } catch (err) {
             console.error("Error loading data:", err);
             Swal.fire({
@@ -127,7 +150,8 @@ export default function ReceiptFromSupplier({ onCreate, onEdit }) {
     };
 
     const handleDateChange = (date) => {
-        setFilterDate(date);
+        const vegasDate = convertToLasVegasTime(date);
+        setFilterDate(vegasDate);
         setPage(1);
     };
 
@@ -254,7 +278,7 @@ export default function ReceiptFromSupplier({ onCreate, onEdit }) {
                     <DatePicker
                         selected={filterDate}
                         onChange={handleDateChange}
-                        dateFormat="dd/MM/yyyy"
+                        dateFormat="MM/dd/yyyy"
                         placeholderText="Filter by date"
                         customInput={<CustomInput />}
                         popperClassName="custom-popper"

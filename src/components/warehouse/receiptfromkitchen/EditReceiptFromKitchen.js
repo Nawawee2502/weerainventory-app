@@ -6,12 +6,21 @@ import CancelIcon from '@mui/icons-material/Cancel';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { useDispatch } from "react-redux";
+import { updateWh_rfk, Wh_rfkByRefno } from '../../../api/warehouse/wh_rfkApi';
+import { updateWh_rfkdt, deleteWh_rfkdt, addWh_rfkdt } from '../../../api/warehouse/wh_rfkdtApi';
 import { searchProductName } from '../../../api/productrecordApi';
 import { kitchenAll } from '../../../api/kitchenApi';
-import { addWh_dpk, wh_dpkrefno } from '../../../api/warehouse/wh_dpkApi';
 import Swal from 'sweetalert2';
-import { format } from 'date-fns';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+
+// Utility Functions
+const formatDate = (date) => {
+    if (!date) return "";
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${month}/${day}/${year}`;
+};
 
 const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
     <Box sx={{ position: 'relative', display: 'inline-block', width: '100%' }}>
@@ -44,100 +53,113 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
     </Box>
 ));
 
-export default function CreateDispatchToKitchen({ onBack }) {
+function EditReceiptFromKitchen({ onBack, editRefno }) {
     const dispatch = useDispatch();
-    const [startDate, setStartDate] = useState(new Date());
-    const [lastRefNo, setLastRefNo] = useState('');
-    const [kitchens, setKitchens] = useState([]);
+    const [editDate, setEditDate] = useState(new Date());
+    const [kitchen, setKitchen] = useState([]);
     const [saveKitchen, setSaveKitchen] = useState('');
     const [products, setProducts] = useState([]);
-    const [quantities, setQuantities] = useState({});
-    const [units, setUnits] = useState({});
-    const [unitPrices, setUnitPrices] = useState({});
-    const [totals, setTotals] = useState({});
-    const [total, setTotal] = useState(0);
-    const [searchTerm, setSearchTerm] = useState("");
+    const [originalProducts, setOriginalProducts] = useState([]);
+    const [searchTerm, setSearchTerm] = useState('');
     const [searchResults, setSearchResults] = useState([]);
     const [showDropdown, setShowDropdown] = useState(false);
+    const [quantities, setQuantities] = useState({});
+    const [units, setUnits] = useState({});
+    const [totals, setTotals] = useState({});
     const [taxableAmount, setTaxableAmount] = useState(0);
     const [nonTaxableAmount, setNonTaxableAmount] = useState(0);
-    const TAX_RATE = 0.07;
-    const [lastMonth, setLastMonth] = useState('');
-    const [lastYear, setLastYear] = useState('');
-    const userDataJson = localStorage.getItem("userData2");
-    const userData2 = JSON.parse(userDataJson);
+    const [total, setTotal] = useState(0);
+    const [saleTax, setSaleTax] = useState(0);
+    const [totalDue, setTotalDue] = useState(0);
     const [expiryDates, setExpiryDates] = useState({});
     const [temperatures, setTemperatures] = useState({});
-    const [totalDue, setTotalDue] = useState(0);
+    const TAX_RATE = 0.07;
 
     useEffect(() => {
-        const currentDate = new Date();
-        const currentMonth = (currentDate.getMonth() + 1).toString().padStart(2, '0');
-        const currentYear = currentDate.getFullYear().toString().slice(-2);
-        setLastMonth(currentMonth);
-        setLastYear(currentYear);
-        handleGetLastRefNo(currentDate);
+        let offset = 0;
+        let limit = 100;
 
-        dispatch(kitchenAll({ offset: 0, limit: 100 }))
-            .unwrap()
-            .then((res) => {
-                setKitchens(res.data);
-            })
-            .catch((err) => console.log(err.message));
-    }, [dispatch]);
+        Promise.all([
+            dispatch(kitchenAll({ offset, limit })).unwrap(),
+            dispatch(Wh_rfkByRefno(editRefno)).unwrap()
+        ]).then(([kitchenRes, rfkRes]) => {
+            setKitchen(kitchenRes.data);
 
-    const handleGetLastRefNo = async (selectedDate) => {
-        try {
-            const res = await dispatch(wh_dpkrefno({ test: 10 })).unwrap();
-            const year = selectedDate.getFullYear().toString().slice(-2);
-            const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+            const rfkData = rfkRes.data;
 
-            if (!res.data || !res.data.refno) {
-                setLastRefNo(`WDPK${year}${month}001`);
-                return;
+            if (rfkData.rdate) {
+                try {
+                    const [month, day, year] = rfkData.rdate.split('/');
+                    const parsedDate = new Date(+year, +month - 1, +day);
+                    if (!isNaN(parsedDate.getTime())) {
+                        setEditDate(parsedDate);
+                    }
+                } catch (error) {
+                    console.error("Error parsing date:", error);
+                    setEditDate(new Date());
+                }
             }
 
-            const lastRefNo = res.data.refno;
-            const lastRefMonth = lastRefNo.substring(6, 8);
-            const lastRefYear = lastRefNo.substring(4, 6);
+            setSaveKitchen(rfkData.kitchen_code);
 
-            if (lastRefMonth !== month || lastRefYear !== year) {
-                setLastRefNo(`WDPK${year}${month}001`);
-                return;
-            }
+            const initialProducts = rfkData.wh_rfkdts.map(item => ({
+                ...item.tbl_product,
+                amount: item.qty,
+                unit_code: item.unit_code,
+                temperature1: item.temperature1,
+                isNewProduct: false
+            }));
 
-            const lastNumber = parseInt(lastRefNo.slice(-3));
-            const newNumber = lastNumber + 1;
-            setLastRefNo(`WDPK${year}${month}${String(newNumber).padStart(3, '0')}`);
+            setProducts(initialProducts);
+            setOriginalProducts(initialProducts);
 
-            setLastMonth(month);
-            setLastYear(year);
-        } catch (err) {
-            console.error("Error generating refno:", err);
-        }
-    };
+            // Initialize states for each product
+            const initialQuantities = {};
+            const initialUnits = {};
+            const initialExpiryDates = {};
+            const initialTemperatures = {};
 
-    const handleProductSelect = (product) => {
-        if (products.some(p => p.product_code === product.product_code)) {
-            Swal.fire({
-                icon: 'warning',
-                title: 'Product already exists',
-                timer: 1500,
-                showConfirmButton: false
+            initialProducts.forEach(product => {
+                const productCode = product.product_code;
+                initialQuantities[productCode] = parseInt(product.amount);
+                initialUnits[productCode] = product.unit_code;
+                initialTemperatures[productCode] = product.temperature1;
+
+                try {
+                    if (product.expire_date) {
+                        const [month, day, year] = product.expire_date.split('/');
+                        const expiryDate = new Date(+year, +month - 1, +day);
+                        if (!isNaN(expiryDate.getTime())) {
+                            initialExpiryDates[productCode] = expiryDate;
+                        } else {
+                            initialExpiryDates[productCode] = new Date();
+                        }
+                    } else {
+                        initialExpiryDates[productCode] = new Date();
+                    }
+                } catch (error) {
+                    console.error("Error parsing expiry date for product", productCode, error);
+                    initialExpiryDates[productCode] = new Date();
+                }
             });
-            return;
-        }
 
-        setProducts(prev => [...prev, product]);
-        setQuantities(prev => ({ ...prev, [product.product_code]: 1 }));
-        setUnits(prev => ({ ...prev, [product.product_code]: product.productUnit1.unit_code }));
-        setExpiryDates(prev => ({ ...prev, [product.product_code]: new Date() }));
-        setUnitPrices(prev => ({ ...prev, [product.product_code]: product.bulk_unit_price }));
+            setQuantities(initialQuantities);
+            setUnits(initialUnits);
+            setExpiryDates(initialExpiryDates);
+            setTemperatures(initialTemperatures);
+            setSaleTax(parseFloat(rfkData.sale_tax) || 0);
+            setTotalDue(parseFloat(rfkData.total_due) || 0);
 
-        setSearchTerm('');
-        setShowDropdown(false);
-        calculateOrderTotals([...products, product]);
-    };
+            calculateOrderTotals(initialProducts, initialQuantities, initialUnits);
+        }).catch(err => {
+            console.error("Error loading data:", err);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error loading data',
+                text: err.message
+            });
+        });
+    }, [dispatch, editRefno]);
 
     const handleSearchChange = (e) => {
         const value = e.target.value;
@@ -159,111 +181,70 @@ export default function CreateDispatchToKitchen({ onBack }) {
         }
     };
 
-    const calculateOrderTotals = (currentProducts = products) => {
+    const handleProductSelect = (product) => {
+        if (products.some(p => p.product_code === product.product_code)) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Product already exists',
+                timer: 1500,
+                showConfirmButton: false
+            });
+            return;
+        }
+
+        const newProduct = {
+            ...product,
+            amount: 1,
+            isNewProduct: true
+        };
+
+        setProducts(prev => [...prev, newProduct]);
+        setQuantities(prev => ({ ...prev, [product.product_code]: 1 }));
+        setUnits(prev => ({ ...prev, [product.product_code]: product.productUnit1.unit_code }));
+        setExpiryDates(prev => ({ ...prev, [product.product_code]: new Date() }));
+        setTemperatures(prev => ({ ...prev, [product.product_code]: '38' }));
+
+        calculateOrderTotals([...products, newProduct], quantities, units);
+        setSearchTerm('');
+        setShowDropdown(false);
+    };
+
+    const calculateOrderTotals = (currentProducts = products, currentQuantities = quantities, currentUnits = units) => {
         let newTaxable = 0;
         let newNonTaxable = 0;
-        let newTotal = 0;
 
         currentProducts.forEach(product => {
-            const productCode = product.product_code;
-            const quantity = quantities[productCode] || 1;
-            const price = unitPrices[productCode] || (
-                units[productCode] === product.productUnit1.unit_code
-                    ? product.bulk_unit_price
-                    : product.retail_unit_price
-            );
-            const lineTotal = quantity * price;
+            const amount = Number(product.amount || 0);
+            const unit = currentUnits[product.product_code] || product.productUnit1.unit_code;
+            const price = unit === product.productUnit1.unit_code ?
+                product.bulk_unit_price : product.retail_unit_price;
+            const lineTotal = amount * price;
 
             if (product.tax1 === 'Y') {
                 newTaxable += lineTotal;
             } else {
                 newNonTaxable += lineTotal;
             }
-
-            newTotal += lineTotal;
-            setTotals(prev => ({ ...prev, [productCode]: lineTotal }));
         });
+
+        const newSaleTax = newTaxable * TAX_RATE;
+        const newTotal = newTaxable + newNonTaxable;
+        const newTotalDue = newTotal + newSaleTax;
 
         setTaxableAmount(newTaxable);
         setNonTaxableAmount(newNonTaxable);
+        setSaleTax(newSaleTax);
         setTotal(newTotal);
-        setTotalDue(newTotal);
-    };
-
-    const handleUnitChange = (productCode, newUnitCode) => {
-        setUnits(prev => ({
-            ...prev,
-            [productCode]: newUnitCode
-        }));
-
-        const product = products.find(p => p.product_code === productCode);
-        const defaultUnitPrice = newUnitCode === product.productUnit1.unit_code
-            ? product.bulk_unit_price
-            : product.retail_unit_price;
-
-        setUnitPrices(prev => ({
-            ...prev,
-            [productCode]: defaultUnitPrice
-        }));
-
-        const quantity = quantities[productCode] || 1;
-        const total = quantity * defaultUnitPrice;
-        setTotals(prev => ({ ...prev, [productCode]: total }));
-        calculateOrderTotals();
-    };
-
-    const handleUnitPriceChange = (productCode, value) => {
-        const newPrice = parseFloat(value);
-        if (!isNaN(newPrice) && newPrice >= 0) {
-            setUnitPrices(prev => ({
-                ...prev,
-                [productCode]: newPrice
-            }));
-
-            const quantity = quantities[productCode] || 1;
-            const total = quantity * newPrice;
-            setTotals(prev => ({ ...prev, [productCode]: total }));
-            calculateOrderTotals();
-        }
+        setTotalDue(newTotalDue);
     };
 
     const handleDeleteProduct = (productCode) => {
-        setProducts(products.filter(item => item.product_code !== productCode));
-        const updatedProducts = products.filter(item => item.product_code !== productCode);
-        calculateOrderTotals(updatedProducts);
+        const updatedProducts = products.filter(p => p.product_code !== productCode);
+        setProducts(updatedProducts);
+        calculateOrderTotals(updatedProducts, quantities, units);
     };
 
-    const handleQuantityChange = (productCode, newQuantity) => {
-        if (newQuantity >= 1) {
-            setQuantities(prev => ({
-                ...prev,
-                [productCode]: newQuantity
-            }));
-
-            const product = products.find(p => p.product_code === productCode);
-            const unit = units[productCode] || product.productUnit1.unit_code;
-            const unitPrice = unitPrices[productCode] ??
-                (unit === product.productUnit1.unit_code
-                    ? product.bulk_unit_price
-                    : product.retail_unit_price);
-
-            const total = newQuantity * unitPrice;
-            setTotals(prev => ({
-                ...prev,
-                [productCode]: total
-            }));
-            calculateOrderTotals();
-        }
-    };
-
-    const handleExpiryDateChange = (productCode, date) => {
-        setExpiryDates(prev => ({
-            ...prev,
-            [productCode]: date
-        }));
-    };
-
-    const handleSave = async () => {
+    const handleUpdate = async () => {
         if (!saveKitchen || products.length === 0) {
             Swal.fire({
                 icon: 'warning',
@@ -276,100 +257,84 @@ export default function CreateDispatchToKitchen({ onBack }) {
 
         try {
             Swal.fire({
-                title: 'Saving dispatch...',
+                title: 'Updating...',
                 allowOutsideClick: false,
-                didOpen: () => {
-                    Swal.showLoading();
-                }
+                didOpen: () => Swal.showLoading()
             });
 
             const headerData = {
-                refno: lastRefNo,
-                rdate: format(startDate, 'MM/dd/yyyy'),
+                refno: editRefno,
+                rdate: formatDate(editDate),
                 kitchen_code: saveKitchen,
-                trdate: format(startDate, 'yyyyMMdd'),
-                monthh: format(startDate, 'MM'),
-                myear: startDate.getFullYear(),
-                user_code: userData2.user_code,
+                trdate: editDate.toISOString().slice(0, 10).replace(/-/g, ''),
+                monthh: String(editDate.getMonth() + 1).padStart(2, '0'),
+                myear: editDate.getFullYear(),
                 taxable: taxableAmount.toString(),
                 nontaxable: nonTaxableAmount.toString(),
-                total: total.toString()
+                total: total.toString(),
+                sale_tax: saleTax.toString(),
+                total_due: totalDue.toString()
             };
 
-            const productArrayData = products.map(product => {
-                const expDate = expiryDates[product.product_code];
-                const monthYear = expDate ? {
-                    expire_date: format(expDate, 'MM/dd/yyyy'),
-                    texpire_date: format(expDate, 'yyyyMMdd')
-                } : {};
+            // Update header
+            await dispatch(updateWh_rfk(headerData)).unwrap();
 
-                return {
-                    refno: headerData.refno,
+            // Handle deleted products
+            const deletedProducts = originalProducts.filter(
+                original => !products.some(current => current.product_code === original.product_code)
+            );
+
+            for (const product of deletedProducts) {
+                await dispatch(deleteWh_rfkdt({
+                    refno: editRefno,
+                    product_code: product.product_code
+                })).unwrap();
+            }
+
+            // Update existing and add new products
+            for (const product of products) {
+                const productData = {
+                    refno: editRefno,
                     product_code: product.product_code,
-                    qty: quantities[product.product_code].toString(),
-                    unit_code: units[product.product_code],
-                    uprice: (unitPrices[product.product_code] || product.bulk_unit_price).toString(),
+                    qty: product.amount.toString(),
+                    unit_code: units[product.product_code] || product.productUnit1.unit_code,
+                    uprice: (units[product.product_code] === product.productUnit1.unit_code ?
+                        product.bulk_unit_price : product.retail_unit_price).toString(),
                     tax1: product.tax1,
-                    amt: totals[product.product_code].toString(),
-                    ...monthYear
+                    expire_date: formatDate(expiryDates[product.product_code]),
+                    texpire_date: expiryDates[product.product_code]?.toISOString().slice(0, 10).replace(/-/g, ''),
+                    temperature1: temperatures[product.product_code] || '',
+                    amt: (product.amount * (units[product.product_code] === product.productUnit1.unit_code ?
+                        product.bulk_unit_price : product.retail_unit_price)).toString()
                 };
-            });
 
-            const orderData = {
-                headerData,
-                productArrayData,
-                footerData: {
-                    taxable: taxableAmount.toString(),
-                    nontaxable: nonTaxableAmount.toString(),
-                    total: total.toString()
+                if (product.isNewProduct) {
+                    await dispatch(addWh_rfkdt(productData)).unwrap();
+                } else {
+                    await dispatch(updateWh_rfkdt(productData)).unwrap();
                 }
-            };
-
-            await dispatch(addWh_dpk(orderData)).unwrap();
-
-            await Swal.fire({
-                icon: 'success',
-                title: 'Created dispatch successfully',
-                text: `Reference No: ${lastRefNo}`,
-                showConfirmButton: false,
-                timer: 1500
-            });
-
-            resetForm();
-            onBack();
-
-        } catch (error) {
-            let errorMessage = 'Error saving dispatch';
-            if (error.name === 'SequelizeUniqueConstraintError') {
-                errorMessage = 'A duplicate dispatch number was generated. Please try again.';
             }
 
             Swal.fire({
+                icon: 'success',
+                title: 'Updated successfully',
+                timer: 1500,
+                showConfirmButton: false
+            }).then(() => {
+                onBack();
+            });
+
+        } catch (error) {
+            console.error("Update error:", error);
+            Swal.fire({
                 icon: 'error',
-                title: 'Error',
-                text: errorMessage,
-                confirmButtonText: 'OK'
+                title: 'Error updating receipt',
+                text: error.message
             });
         }
     };
 
-    const resetForm = async () => {
-        setProducts([]);
-        setQuantities({});
-        setUnits({});
-        setUnitPrices({});
-        setTotals({});
-        setTaxableAmount(0);
-        setNonTaxableAmount(0);
-        setTotal(0);
-        setTotalDue(0);
-        setSaveKitchen('');
-        setSearchTerm('');
-        setExpiryDates({});
-        setTemperatures({});
-        await handleGetLastRefNo(startDate);
-    };
-
+    // Rest of the render logic similar to CreateReceiptFromKitchen but with update functionality
     return (
         <Box sx={{ width: '100%' }}>
             <Button
@@ -377,7 +342,7 @@ export default function CreateDispatchToKitchen({ onBack }) {
                 startIcon={<ArrowBackIcon />}
                 sx={{ mb: 2 }}
             >
-                Back to Dispatch to Kitchen
+                Back to Receipt From Kitchen
             </Button>
 
             <Box sx={{ width: '100%', mt: '10px', flexDirection: 'column' }}>
@@ -402,10 +367,9 @@ export default function CreateDispatchToKitchen({ onBack }) {
                                     Ref.no
                                 </Typography>
                                 <TextField
-                                    value={lastRefNo}
+                                    value={editRefno}
                                     disabled
                                     size="small"
-                                    placeholder='Ref.no'
                                     sx={{
                                         mt: '8px',
                                         width: '100%',
@@ -421,10 +385,11 @@ export default function CreateDispatchToKitchen({ onBack }) {
                                     Date
                                 </Typography>
                                 <DatePicker
-                                    selected={startDate}
+                                    selected={editDate}
                                     onChange={(date) => {
-                                        setStartDate(date);
-                                        handleGetLastRefNo(date);
+                                        if (date && !isNaN(date.getTime())) {
+                                            setEditDate(date);
+                                        }
                                     }}
                                     dateFormat="MM/dd/yyyy"
                                     placeholderText="MM/DD/YYYY"
@@ -456,10 +421,10 @@ export default function CreateDispatchToKitchen({ onBack }) {
                                         },
                                     }}
                                 >
-                                    <option value="">Select a Kitchen</option>
-                                    {kitchens.map((kitchen) => (
-                                        <option key={kitchen.kitchen_code} value={kitchen.kitchen_code}>
-                                            {kitchen.kitchen_name}
+                                    <option value="">Select a kitchen</option>
+                                    {kitchen.map((k) => (
+                                        <option key={k.kitchen_code} value={k.kitchen_code}>
+                                            {k.kitchen_name}
                                         </option>
                                     ))}
                                 </Box>
@@ -480,6 +445,7 @@ export default function CreateDispatchToKitchen({ onBack }) {
                                     value={searchTerm}
                                     onChange={handleSearchChange}
                                     placeholder="Search"
+                                    size="small"
                                     sx={{
                                         '& .MuiInputBase-root': {
                                             height: '30px',
@@ -500,19 +466,21 @@ export default function CreateDispatchToKitchen({ onBack }) {
                                 />
 
                                 {showDropdown && searchResults.length > 0 && (
-                                    <Box sx={{
-                                        position: 'absolute',
-                                        top: '100%',
-                                        left: 0,
-                                        right: 0,
-                                        backgroundColor: 'white',
-                                        boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-                                        borderRadius: '4px',
-                                        zIndex: 1000,
-                                        maxHeight: '200px',
-                                        overflowY: 'auto',
-                                        mt: '4px'
-                                    }}>
+                                    <Box
+                                        sx={{
+                                            position: 'absolute',
+                                            top: '100%',
+                                            left: 0,
+                                            right: 0,
+                                            backgroundColor: 'white',
+                                            boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                                            borderRadius: '4px',
+                                            zIndex: 1000,
+                                            maxHeight: '200px',
+                                            overflowY: 'auto',
+                                            mt: '4px'
+                                        }}
+                                    >
                                         {searchResults.map((product) => (
                                             <Box
                                                 key={product.product_code}
@@ -534,20 +502,6 @@ export default function CreateDispatchToKitchen({ onBack }) {
                                     </Box>
                                 )}
                             </Box>
-                            <Button
-                                onClick={resetForm}
-                                sx={{
-                                    ml: 'auto',
-                                    bgcolor: '#E2EDFB',
-                                    borderRadius: '6px',
-                                    width: '105px',
-                                    '&:hover': {
-                                        bgcolor: '#d0e0f7'
-                                    }
-                                }}
-                            >
-                                Clear All
-                            </Button>
                         </Box>
 
                         <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', mb: '12px' }}>
@@ -555,13 +509,14 @@ export default function CreateDispatchToKitchen({ onBack }) {
                                 <thead>
                                     <tr>
                                         <th style={{ padding: '4px', fontSize: '14px', width: '1%', color: '#754C27', fontWeight: '800' }}>No.</th>
-                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '15%', color: '#754C27', fontWeight: '800' }}>Product code</th>
-                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '15%', color: '#754C27', fontWeight: '800' }}>Product name</th>
-                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Expiry Date</th>
-                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Quantity</th>
-                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '10%', color: '#754C27', fontWeight: '800' }}>Unit</th>
-                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Unit Price</th>
+                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '10%', color: '#754C27', fontWeight: '800' }}>Product code</th>
+                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '10%', color: '#754C27', fontWeight: '800' }}>Product name</th>
+                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Expiry date</th>
                                         <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Tax</th>
+                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Temperature</th>
+                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Amount</th>
+                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Unit</th>
+                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Unit Price</th>
                                         <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Total</th>
                                         <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '1%', color: '#754C27', fontWeight: '800' }}></th>
                                     </tr>
@@ -569,13 +524,11 @@ export default function CreateDispatchToKitchen({ onBack }) {
                                 <tbody>
                                     {products.map((product, index) => {
                                         const productCode = product.product_code;
-                                        const currentUnit = units[productCode] || product.productUnit1.unit_code;
-                                        const currentQuantity = quantities[productCode] || 1;
-                                        const currentUnitPrice = unitPrices[productCode] ??
-                                            (currentUnit === product.productUnit1.unit_code
-                                                ? product.bulk_unit_price
-                                                : product.retail_unit_price);
-                                        const currentTotal = (currentQuantity * currentUnitPrice).toFixed(2);
+                                        const unit = units[productCode] || product.productUnit1.unit_code;
+                                        const price = unit === product.productUnit1.unit_code ?
+                                            product.bulk_unit_price : product.retail_unit_price;
+                                        const amount = product.amount || 0;
+                                        const total = amount * price;
 
                                         return (
                                             <tr key={productCode}>
@@ -584,75 +537,70 @@ export default function CreateDispatchToKitchen({ onBack }) {
                                                 <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>{product.product_name}</td>
                                                 <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
                                                     <DatePicker
-                                                        selected={expiryDates[productCode] || null}
-                                                        onChange={(date) => handleExpiryDateChange(productCode, date)}
+                                                        selected={expiryDates[productCode]}
+                                                        onChange={(date) => {
+                                                            setExpiryDates(prev => ({
+                                                                ...prev,
+                                                                [productCode]: date
+                                                            }));
+                                                        }}
                                                         dateFormat="MM/dd/yyyy"
-                                                        placeholderText="Select exp date"
-                                                        customInput={
-                                                            <input
-                                                                style={{
-                                                                    width: '110px',
-                                                                    padding: '4px',
-                                                                    borderRadius: '4px',
-                                                                    textAlign: 'center'
-                                                                }}
-                                                            />
-                                                        }
-                                                    />
-                                                </td>
-                                                <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
-                                                    <input
-                                                        type="number"
-                                                        min="1"
-                                                        value={currentQuantity}
-                                                        onChange={(e) => handleQuantityChange(productCode, parseInt(e.target.value))}
-                                                        style={{
-                                                            width: '50px',
-                                                            textAlign: 'center',
-                                                            fontWeight: '600',
-                                                            padding: '4px'
-                                                        }}
-                                                    />
-                                                </td>
-                                                <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
-                                                    <select
-                                                        value={currentUnit}
-                                                        onChange={(e) => handleUnitChange(productCode, e.target.value)}
-                                                        style={{
-                                                            padding: '4px',
-                                                            borderRadius: '4px'
-                                                        }}
-                                                    >
-                                                        <option value={product.productUnit1.unit_code}>{product.productUnit1.unit_name}</option>
-                                                        <option value={product.productUnit2.unit_code}>{product.productUnit2.unit_name}</option>
-                                                    </select>
-                                                </td>
-                                                <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
-                                                    <input
-                                                        type="number"
-                                                        min="0"
-                                                        step="0.01"
-                                                        value={currentUnitPrice}
-                                                        onChange={(e) => handleUnitPriceChange(productCode, e.target.value)}
-                                                        style={{
-                                                            width: '80px',
-                                                            textAlign: 'right',
-                                                            fontWeight: '600',
-                                                            padding: '4px'
-                                                        }}
+                                                        customInput={<TextField size="small" sx={{ width: '120px' }} />}
                                                     />
                                                 </td>
                                                 <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
                                                     {product.tax1 === 'Y' ? 'Yes' : 'No'}
                                                 </td>
                                                 <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
-                                                    {currentTotal}
+                                                    <TextField
+                                                        size="small"
+                                                        value={temperatures[productCode] || ''}
+                                                        onChange={(e) => {
+                                                            setTemperatures(prev => ({
+                                                                ...prev,
+                                                                [productCode]: e.target.value
+                                                            }));
+                                                        }}
+                                                        sx={{ width: '80px' }}
+                                                    />
                                                 </td>
                                                 <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
-                                                    <IconButton
-                                                        onClick={() => handleDeleteProduct(productCode)}
+                                                    <TextField
+                                                        type="number"
                                                         size="small"
+                                                        value={amount}
+                                                        onChange={(e) => {
+                                                            const newAmount = Number(e.target.value);
+                                                            product.amount = newAmount;
+                                                            calculateOrderTotals();
+                                                        }}
+                                                        sx={{ width: '80px' }}
+                                                    />
+                                                </td>
+                                                <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                                                    <select
+                                                        value={unit}
+                                                        onChange={(e) => {
+                                                            setUnits(prev => ({
+                                                                ...prev,
+                                                                [productCode]: e.target.value
+                                                            }));
+                                                            calculateOrderTotals();
+                                                        }}
+                                                        style={{ padding: '4px', borderRadius: '4px' }}
                                                     >
+                                                        <option value={product.productUnit1.unit_code}>{product.productUnit1.unit_name}</option>
+                                                        <option value={product.productUnit2.unit_code}>{product.productUnit2.unit_name}</option>
+                                                    </select>
+                                                </td>
+                                                <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                                                    {price.toFixed(2)}
+                                                </td>
+                                                <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                                                    {total.toFixed(2)}
+                                                </td>
+                                                <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                                                    <IconButton onClick={() => handleDeleteProduct(productCode)} size="small">
                                                         <CancelIcon />
                                                     </IconButton>
                                                 </td>
@@ -663,13 +611,14 @@ export default function CreateDispatchToKitchen({ onBack }) {
                             </table>
                         </Box>
 
-                        <Box sx={{ width: '100%', height: 'auto', bgcolor: '#EAB86C', borderRadius: '10px', p: '18px' }}>
+                        <Box sx={{ width: '100%', height: 'auto', bgcolor: '#EAB86C', borderRadius: '10px', p: '18px', mt: 3 }}>
                             <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', height: '100%' }}>
                                 <Box sx={{
                                     display: 'flex',
                                     flexDirection: 'row',
                                     alignItems: 'center',
-                                    width: '100%',
+                                    width: '48%',
+                                    mr: 'auto',
                                     justifyContent: 'space-between'
                                 }}>
                                     <Box>
@@ -681,6 +630,24 @@ export default function CreateDispatchToKitchen({ onBack }) {
                                         <Typography sx={{ color: '#FFFFFF' }}>${taxableAmount.toFixed(2)}</Typography>
                                         <Typography sx={{ color: '#FFFFFF' }}>${nonTaxableAmount.toFixed(2)}</Typography>
                                         <Typography sx={{ color: '#FFFFFF' }}>${total.toFixed(2)}</Typography>
+                                    </Box>
+                                </Box>
+
+                                <Divider orientation="vertical" flexItem sx={{ borderColor: '#754C27', mx: 2 }} />
+
+                                <Box sx={{
+                                    display: 'flex',
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    width: '48%',
+                                    ml: 'auto',
+                                    justifyContent: 'space-between'
+                                }}>
+                                    <Box>
+                                        <Typography sx={{ color: '#FFFFFF' }}>Sale Tax</Typography>
+                                    </Box>
+                                    <Box>
+                                        <Typography sx={{ color: '#FFFFFF' }}>${saleTax.toFixed(2)}</Typography>
                                     </Box>
                                 </Box>
                             </Box>
@@ -696,7 +663,7 @@ export default function CreateDispatchToKitchen({ onBack }) {
                         </Box>
 
                         <Button
-                            onClick={handleSave}
+                            onClick={handleUpdate}
                             sx={{
                                 width: '100%',
                                 height: '48px',
@@ -704,10 +671,11 @@ export default function CreateDispatchToKitchen({ onBack }) {
                                 bgcolor: '#754C27',
                                 color: '#FFFFFF',
                                 '&:hover': {
-                                    bgcolor: '#5C3D1F'
+                                    bgcolor: '#5D3A1F',
                                 }
-                            }}>
-                            Save
+                            }}
+                        >
+                            Update
                         </Button>
                     </Box>
                 </Box>
@@ -715,3 +683,5 @@ export default function CreateDispatchToKitchen({ onBack }) {
         </Box>
     );
 }
+
+export default EditReceiptFromKitchen;

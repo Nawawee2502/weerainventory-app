@@ -14,6 +14,14 @@ import { branchAll } from '../../../api/branchApi';
 import Swal from 'sweetalert2';
 import { refno } from '../../../api/warehouse/wh_rfsApi';
 
+const formatDate = (date) => {
+  if (!date) return "";
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const year = date.getFullYear();
+  return `${month}/${day}/${year}`;
+};
+
 function CreateReceiptFromSupplier({ onBack }) {
   const dispatch = useDispatch();
   const [startDate, setStartDate] = useState(new Date());
@@ -40,6 +48,7 @@ function CreateReceiptFromSupplier({ onBack }) {
   const [temperatures, setTemperatures] = useState({});
   const [lastMonth, setLastMonth] = useState('');
   const [lastYear, setLastYear] = useState('');
+  const [customPrices, setCustomPrices] = useState({});
   const TAX_RATE = 0.07;
 
   const userDataJson = localStorage.getItem("userData2");
@@ -155,6 +164,12 @@ function CreateReceiptFromSupplier({ onBack }) {
 
   const handleUnitChange = (productCode, newUnit) => {
     setUnits(prev => ({ ...prev, [productCode]: newUnit }));
+    // Reset custom price when unit changes
+    setCustomPrices(prev => {
+      const { [productCode]: removed, ...rest } = prev;
+      return rest;
+    });
+    calculateOrderTotals();
 
     // Get the product and recalculate with new unit price
     const product = products.find(p => p.product_code === productCode);
@@ -277,10 +292,10 @@ function CreateReceiptFromSupplier({ onBack }) {
       });
       return;
     }
-  
+
     const headerData = {
       refno: lastRefNo,
-      rdate: startDate.toLocaleDateString('en-GB'),
+      rdate: formatDate(startDate),
       supplier_code: saveSupplier,
       branch_code: saveBranch,
       trdate: startDate.toISOString().slice(0, 10).replace(/-/g, ''),
@@ -288,14 +303,16 @@ function CreateReceiptFromSupplier({ onBack }) {
       myear: startDate.getFullYear(),
       user_code: userData2.user_code
     };
-  
+
     const productArrayData = products.map(product => ({
       refno: lastRefNo,
       product_code: product.product_code,
       qty: Number(product.amount) || 0,
       unit_code: units[product.product_code] || product.productUnit1.unit_code,
-      uprice: Number(units[product.product_code] === product.productUnit1.unit_code ? 
-        product.bulk_unit_price : product.retail_unit_price) || 0,
+      uprice: customPrices[product.product_code] ??
+        (units[product.product_code] === product.productUnit1.unit_code ?
+          product.bulk_unit_price :
+          product.retail_unit_price),
       tax1: product.tax1,
       expire_date: expiryDates[product.product_code]?.toLocaleDateString('en-GB'),
       texpire_date: expiryDates[product.product_code]?.toISOString().slice(0, 10).replace(/-/g, ''),
@@ -303,23 +320,23 @@ function CreateReceiptFromSupplier({ onBack }) {
       temperature1: temperatures[product.product_code] || '',
       amt: Number(product.amount) || 0
     }));
-  
+
     const footerData = {
       taxable: Number(taxableAmount) || 0,
-      nontaxable: Number(nonTaxableAmount) || 0, 
+      nontaxable: Number(nonTaxableAmount) || 0,
       total: Number(total) || 0,
       instant_saving: Number(instantSaving) || 0,
       delivery_surcharge: Number(deliverySurcharge) || 0,
       sale_tax: Number(saleTax) || 0,
       total_due: Number(totalDue) || 0
     };
-  
+
     Swal.fire({
       title: 'Saving...',
       allowOutsideClick: false,
       didOpen: () => Swal.showLoading()
     });
-  
+
     dispatch(addWh_rfs({
       headerData,
       productArrayData,
@@ -360,6 +377,7 @@ function CreateReceiptFromSupplier({ onBack }) {
     setSaleTax(0); // Added
     setTotal(0); // Added
     setTotalDue(0); // Added
+    setCustomPrices({});
 
     dispatch(refno({ test: 10 }))
       .unwrap()
@@ -380,8 +398,10 @@ function CreateReceiptFromSupplier({ onBack }) {
 
     products.forEach(product => {
       const unit = units[product.product_code] || product.productUnit1.unit_code;
-      const price = unit === product.productUnit1.unit_code ?
-        product.bulk_unit_price : product.retail_unit_price;
+      const price = customPrices[product.product_code] ??
+        (unit === product.productUnit1.unit_code ?
+          product.bulk_unit_price :
+          product.retail_unit_price);
       const amount = Number(product.amount || 0);
       const lineTotal = amount * price;
 
@@ -406,7 +426,7 @@ function CreateReceiptFromSupplier({ onBack }) {
     setTotalDue(newTotalDue);
   };
 
-  
+
 
   return (
     <Box sx={{ width: '100%' }}>
@@ -467,7 +487,7 @@ function CreateReceiptFromSupplier({ onBack }) {
                     setStartDate(date);
                     handleGetLastRefNo(date);
                   }}
-                  dateFormat="dd/MM/yyyy"
+                  dateFormat="MM/dd/yyyy"
                   customInput={
                     <TextField
                       size="small"
@@ -726,8 +746,71 @@ function CreateReceiptFromSupplier({ onBack }) {
                           <option value={product.productUnit2.unit_code}>{product.productUnit2.unit_name}</option>
                         </select>
                       </td>
-                      <td>{price.toFixed(2)}</td>
-                      <td>{total.toFixed(2)}</td>
+                      <td>
+                        <TextField
+                          type="number"
+                          size="small"
+                          value={customPrices[productCode] ?? price}
+                          onChange={(e) => {
+                            const newPrice = Number(e.target.value);
+                            if (!isNaN(newPrice) && newPrice >= 0) {
+                              const newCustomPrices = {
+                                ...customPrices,
+                                [productCode]: newPrice
+                              };
+                              setCustomPrices(newCustomPrices);
+
+                              // คำนวณ totals ทันทีโดยใช้ค่าใหม่
+                              let newTaxable = 0;
+                              let newNonTaxable = 0;
+                              let newTotal = 0;
+                              let newInstantSaving = 0;
+
+                              products.forEach(p => {
+                                const pUnit = units[p.product_code] || p.productUnit1.unit_code;
+                                const pPrice = p.product_code === productCode ?
+                                  newPrice :
+                                  (customPrices[p.product_code] ??
+                                    (pUnit === p.productUnit1.unit_code ?
+                                      p.bulk_unit_price :
+                                      p.retail_unit_price));
+                                const amount = Number(p.amount || 0);
+                                const lineTotal = amount * pPrice;
+
+                                if (p.tax1 === 'Y') {
+                                  newTaxable += lineTotal;
+                                } else {
+                                  newNonTaxable += lineTotal;
+                                }
+
+                                newTotal += lineTotal;
+                                newInstantSaving += Number(p.instant_saving1 || 0);
+                              });
+
+                              const newSaleTax = newTaxable * TAX_RATE;
+                              const newTotalDue = newTotal + newSaleTax + deliverySurcharge - newInstantSaving;
+
+                              setTaxableAmount(newTaxable);
+                              setNonTaxableAmount(newNonTaxable);
+                              setInstantSaving(newInstantSaving);
+                              setSaleTax(newSaleTax);
+                              setTotal(newTotal);
+                              setTotalDue(newTotalDue);
+                            }
+                          }}
+                          sx={{
+                            width: '100px',
+                            '& input': {
+                              padding: '8px'
+                            }
+                          }}
+                          inputProps={{
+                            min: 0,
+                            step: "any"
+                          }}
+                        />
+                      </td>
+                      <td>{(amount * (customPrices[productCode] ?? price)).toFixed(2)}</td>
                       <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
                         <IconButton onClick={() => handleDeleteProduct(productCode)} size="small">
                           <CancelIcon />

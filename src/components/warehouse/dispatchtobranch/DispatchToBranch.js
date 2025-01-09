@@ -32,6 +32,14 @@ import { wh_dpbAlljoindt, deleteWh_dpb } from '../../../api/warehouse/wh_dpbApi'
 import Swal from 'sweetalert2';
 import debounce from 'lodash/debounce';
 
+const formatDate = (date) => {
+    if (!date) return "";
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${month}/${day}/${year}`;
+};
+
 // Styles
 const STYLES = {
     container: {
@@ -118,43 +126,10 @@ const CustomInput = memo(React.forwardRef(({ value, onClick, placeholder }, ref)
 )));
 
 // Memoized Table Row Component
-const TableRowMemoized = memo(({ row, onDelete, onSelectOne, isSelected, rowNumber }) => (
-    <StyledTableRow>
-        <StyledTableCell padding="checkbox">
-            <Checkbox
-                checked={isSelected}
-                onChange={(event) => onSelectOne(event, row.refno)}
-            />
-        </StyledTableCell>
-        <StyledTableCell component="th" scope="row">{rowNumber}</StyledTableCell>
-        <StyledTableCell align="center">{row.refno}</StyledTableCell>
-        <StyledTableCell align="center">{row.rdate}</StyledTableCell>
-        <StyledTableCell align="center">{row.tbl_branch?.branch_name}</StyledTableCell>
-        <StyledTableCell align="center">{row.total.toFixed(2)}</StyledTableCell>
-        <StyledTableCell align="center">{row.user?.username}</StyledTableCell>
-        <StyledTableCell align="center">
-            <IconButton sx={{ border: '1px solid #AD7A2C', borderRadius: '7px' }}>
-                <EditIcon sx={{ color: '#AD7A2C' }} />
-            </IconButton>
-        </StyledTableCell>
-        <StyledTableCell align="center">
-            <IconButton
-                onClick={() => onDelete(row.refno)}
-                sx={{ border: '1px solid #F62626', borderRadius: '7px' }}
-            >
-                <DeleteIcon sx={{ color: '#F62626' }} />
-            </IconButton>
-        </StyledTableCell>
-        <StyledTableCell align="center">
-            <IconButton sx={{ border: '1px solid #5686E1', borderRadius: '7px' }}>
-                <PrintIcon sx={{ color: '#5686E1' }} />
-            </IconButton>
-        </StyledTableCell>
-    </StyledTableRow>
-));
+
 
 // Main Component
-export default function DispatchToBranch({ onCreate }) {
+export default function DispatchToBranch({ onCreate, onEdit }) {
     const dispatch = useDispatch();
     const [searchTerm, setSearchTerm] = useState("");
     const [filterDate, setFilterDate] = useState(new Date());
@@ -165,7 +140,7 @@ export default function DispatchToBranch({ onCreate }) {
     const [isLoading, setIsLoading] = useState(false);
     const limit = 5;
 
-    // Fetch Data
+
     const fetchData = useCallback(async () => {
         try {
             setIsLoading(true);
@@ -332,8 +307,8 @@ export default function DispatchToBranch({ onCreate }) {
                     <DatePicker
                         selected={filterDate}
                         onChange={handleDateChange}
-                        dateFormat="dd/MM/yyyy"
-                        placeholderText="Filter by date"
+                        dateFormat="MM/dd/yyyy"
+                        placeholderText="MM/DD/YYYY"
                         customInput={<CustomInput />}
                     />
                 </Box>
@@ -399,14 +374,41 @@ export default function DispatchToBranch({ onCreate }) {
                             </TableRow>
                         ) : (
                             memoizedData.map((row) => (
-                                <TableRowMemoized
-                                    key={row.refno}
-                                    row={row}
-                                    onDelete={handleDelete}
-                                    onSelectOne={handleSelectOne}
-                                    isSelected={row.isSelected}
-                                    rowNumber={row.rowNumber}
-                                />
+                                <StyledTableRow key={row.refno}>
+                                    <StyledTableCell padding="checkbox">
+                                        <Checkbox
+                                            checked={row.isSelected}
+                                            onChange={(event) => handleSelectOne(event, row.refno)}
+                                        />
+                                    </StyledTableCell>
+                                    <StyledTableCell component="th" scope="row">{row.rowNumber}</StyledTableCell>
+                                    <StyledTableCell align="center">{row.refno}</StyledTableCell>
+                                    <StyledTableCell align="center">{row.rdate}</StyledTableCell>
+                                    <StyledTableCell align="center">{row.tbl_branch?.branch_name}</StyledTableCell>
+                                    <StyledTableCell align="center">{row.total.toFixed(2)}</StyledTableCell>
+                                    <StyledTableCell align="center">{row.user?.username}</StyledTableCell>
+                                    <StyledTableCell align="center">
+                                        <IconButton
+                                            onClick={() => onEdit(row.refno)}
+                                            sx={{ border: '1px solid #AD7A2C', borderRadius: '7px' }}
+                                        >
+                                            <EditIcon sx={{ color: '#AD7A2C' }} />
+                                        </IconButton>
+                                    </StyledTableCell>
+                                    <StyledTableCell align="center">
+                                        <IconButton
+                                            onClick={() => handleDelete(row.refno)}
+                                            sx={{ border: '1px solid #F62626', borderRadius: '7px' }}
+                                        >
+                                            <DeleteIcon sx={{ color: '#F62626' }} />
+                                        </IconButton>
+                                    </StyledTableCell>
+                                    <StyledTableCell align="center">
+                                        <IconButton sx={{ border: '1px solid #5686E1', borderRadius: '7px' }}>
+                                            <PrintIcon sx={{ color: '#5686E1' }} />
+                                        </IconButton>
+                                    </StyledTableCell>
+                                </StyledTableRow>
                             ))
                         )}
                     </TableBody>

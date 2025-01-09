@@ -12,6 +12,54 @@ import CancelIcon from '@mui/icons-material/Cancel';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import Swal from 'sweetalert2';
+import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+
+// Utility Functions
+const convertToLasVegasTime = (date) => {
+  if (!date) return new Date();
+  const newDate = new Date(date);
+  newDate.setHours(0, 0, 0, 0);
+  return new Date(newDate.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
+};
+
+const formatDate = (date) => {
+  if (!date) return "";
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const year = date.getFullYear();
+  return `${month}/${day}/${year}`;
+};
+
+const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
+  <Box sx={{ position: 'relative', display: 'inline-block', width: '100%' }}>
+    <TextField
+      value={value}
+      onClick={onClick}
+      placeholder={placeholder || "MM/DD/YYYY"}
+      ref={ref}
+      size="small"
+      sx={{
+        '& .MuiInputBase-root': {
+          height: '38px',
+          width: '100%',
+          backgroundColor: '#fff',
+        },
+        '& .MuiOutlinedInput-input': {
+          cursor: 'pointer',
+          paddingRight: '40px',
+        }
+      }}
+      InputProps={{
+        readOnly: true,
+        endAdornment: (
+          <InputAdornment position="end">
+            <CalendarTodayIcon sx={{ color: '#754C27', cursor: 'pointer' }} />
+          </InputAdornment>
+        ),
+      }}
+    />
+  </Box>
+));
 
 function EditPurchaseOrderToSupplier({ onBack, editRefno }) {
   const dispatch = useDispatch();
@@ -444,7 +492,7 @@ function EditPurchaseOrderToSupplier({ onBack, editRefno }) {
     // ข้อมูลสำหรับ update wh_pos
     const updateHeaderData = {
       refno: editRefno,
-      rdate: `${day}/${month}/${year}`,
+      rdate: formatDate(editDate),
       trdate: `${year}${month}${day}`,
       myear: year.toString(),
       monthh: month,
@@ -593,24 +641,13 @@ function EditPurchaseOrderToSupplier({ onBack, editRefno }) {
                 </Typography>
                 <DatePicker
                   selected={editDate}
-                  onChange={date => setEditDate(date)}
-                  dateFormat="dd/MM/yyyy"
-                  customInput={
-                    <TextField
-                      size="small"
-                      fullWidth
-                      sx={{
-                        mt: '8px',
-                        width: '80%',
-                        '& .MuiInputBase-root': {
-                          width: '100%',
-                        },
-                        '& .MuiOutlinedInput-root': {
-                          borderRadius: '10px',
-                        },
-                      }}
-                    />
-                  }
+                  onChange={(date) => {
+                    const vegasDate = convertToLasVegasTime(date);
+                    setEditDate(vegasDate);
+                  }}
+                  dateFormat="MM/dd/yyyy"
+                  placeholderText="MM/DD/YYYY"
+                  customInput={<CustomInput />}
                 />
               </Grid2>
               <Grid2 item size={{ xs: 12, md: 6 }}>
