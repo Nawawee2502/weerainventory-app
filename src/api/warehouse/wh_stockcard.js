@@ -107,19 +107,20 @@ export const queryWh_stockcard = createAsyncThunk(
         offset = 0,
         limit = 5,
         rdate,
+        trdate,      // เพิ่ม trdate
         rdate1,
         rdate2,
         product_code,
-        product_name
+        product_name,
+        refno        // เพิ่ม refno
     }, { rejectWithValue }) => {
         try {
-            // Build the payload object with all possible parameters
             const payload = {
                 offset,
                 limit
             };
 
-            // Add optional date parameters based on what's provided
+            // เพิ่มเงื่อนไขวันที่
             if (rdate1 && rdate2) {
                 payload.rdate1 = rdate1;
                 payload.rdate2 = rdate2;
@@ -127,7 +128,12 @@ export const queryWh_stockcard = createAsyncThunk(
                 payload.rdate = rdate;
             }
 
-            // Add product filtering parameters if provided
+            // เพิ่ม trdate ถ้ามี
+            if (trdate) {
+                payload.trdate = trdate;
+            }
+
+            // เพิ่มการกรอง product
             if (product_code) {
                 payload.product_code = product_code;
             }
@@ -135,17 +141,18 @@ export const queryWh_stockcard = createAsyncThunk(
                 payload.product_name = product_name;
             }
 
-            // Log the request payload for debugging
+            // เพิ่ม refno ถ้ามี
+            if (refno) {
+                payload.refno = refno;
+            }
+
             console.log("Query Request Payload:", payload);
 
             const res = await axios.post(BASE_URL + "/api/Query_Wh_stockcard", payload);
-
-            // Log the response for debugging
             console.log("Query Response:", res.data);
 
             return res.data;
         } catch (error) {
-            // Handle errors with proper error message
             if (error.response) {
                 return rejectWithValue(error.response.data);
             }
@@ -161,14 +168,16 @@ export const countWh_stockcard = createAsyncThunk(
     "wh_stockcard/count",
     async ({
         rdate,
+        trdate,      // เพิ่ม trdate
         rdate1,
         rdate2,
-        product_name
+        product_name,
+        refno        // เพิ่ม refno
     }, { rejectWithValue }) => {
         try {
             const payload = {};
 
-            // Add date parameters based on what's provided
+            // เพิ่มเงื่อนไขวันที่
             if (rdate1 && rdate2) {
                 payload.rdate1 = rdate1;
                 payload.rdate2 = rdate2;
@@ -176,9 +185,19 @@ export const countWh_stockcard = createAsyncThunk(
                 payload.rdate = rdate;
             }
 
-            // Add product name if provided
+            // เพิ่ม trdate ถ้ามี
+            if (trdate) {
+                payload.trdate = trdate;
+            }
+
+            // เพิ่ม product name ถ้ามี
             if (product_name) {
                 payload.product_name = product_name;
+            }
+
+            // เพิ่ม refno ถ้ามี
+            if (refno) {
+                payload.refno = refno;
             }
 
             const res = await axios.post(BASE_URL + "/api/countWh_stockcard", payload);

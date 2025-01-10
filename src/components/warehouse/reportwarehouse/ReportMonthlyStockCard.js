@@ -623,17 +623,17 @@ export default function ReportMonthlyStockCard() {
                                                 <td style={{ padding: '8px 16px', textAlign: 'center' }}>{index + 1}</td>
                                                 <td style={{ padding: '8px 16px', textAlign: 'left' }}>{item.refno}</td>
                                                 <td style={{ padding: '8px 16px' }}>{formatDateForDisplay(item.rdate)}</td>
-                                                <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(item.beg1)}</td>
-                                                <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(item.in1)}</td>
-                                                <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(item.out1)}</td>
-                                                <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(item.upd1)}</td>
-                                                <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(balance)}</td>
+                                                <td style={{ padding: '8px 16px', textAlign: 'right' }}>{(item.beg1)}</td>
+                                                <td style={{ padding: '8px 16px', textAlign: 'right' }}>{(item.in1)}</td>
+                                                <td style={{ padding: '8px 16px', textAlign: 'right' }}>{(item.out1)}</td>
+                                                <td style={{ padding: '8px 16px', textAlign: 'right' }}>{(item.upd1)}</td>
+                                                <td style={{ padding: '8px 16px', textAlign: 'right' }}>{(item.balance)}</td>
                                                 <td style={{ padding: '8px 16px', textAlign: 'right' }}>{!excludePrice ? formatNumber(item.uprice) : '-'}</td>
                                                 <td style={{ padding: '8px 16px', textAlign: 'right' }}>{!excludePrice ? formatNumber(item.beg1_amt) : '-'}</td>
                                                 <td style={{ padding: '8px 16px', textAlign: 'right' }}>{!excludePrice ? formatNumber(item.in1_amt) : '-'}</td>
                                                 <td style={{ padding: '8px 16px', textAlign: 'right' }}>{!excludePrice ? formatNumber(item.out1_amt) : '-'}</td>
                                                 <td style={{ padding: '8px 16px', textAlign: 'right' }}>{!excludePrice ? formatNumber(item.upd1_amt) : '-'}</td>
-                                                <td style={{ padding: '8px 16px', textAlign: 'right' }}>{!excludePrice ? formatNumber(balanceAmount) : '-'}</td>
+                                                <td style={{ padding: '8px 16px', textAlign: 'right' }}>{!excludePrice ? formatNumber(item.balance_amount) : '-'}</td>
                                             </tr>
                                         );
                                     })
@@ -647,15 +647,19 @@ export default function ReportMonthlyStockCard() {
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td colSpan="7" style={{ textAlign: 'right', padding: '12px 16px', fontWeight: 'bold', color: '#754C27' }}>
+                                        <td colSpan="1" style={{ textAlign: 'right', padding: '12px 16px', fontWeight: 'bold', color: '#754C27' }}>
                                             Total:
                                         </td>
+                                        <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}></td>
+                                        <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}></td>
                                         <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>
-                                            {stockcardData.reduce((sum, item) => {
-                                                const balance = ((item.beg1 || 0) + (item.in1 || 0) - (item.out1 || 0)) + (item.upd1 || 0);
-                                                return sum + balance;
-                                            }, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                            {!excludePrice ? (stockcardData.reduce((sum, item) => sum + (item.beg1 || 0), 0)) : '-'}
                                         </td>
+                                        <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>
+                                            {!excludePrice ? (stockcardData.reduce((sum, item) => sum + (item.in1 || 0), 0)) : '-'}
+                                        </td>                                        <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>-</td>
+                                        <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>-</td>
+                                        <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>-</td>
                                         <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>-</td>
                                         <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>
                                             {!excludePrice ? formatNumber(stockcardData.reduce((sum, item) => sum + (item.beg1_amt || 0), 0)) : '-'}

@@ -57,19 +57,55 @@ export default function ReportMonthlyStockBalance() {
                 limit: 99999
             };
 
-            // เพิ่ม log เพื่อตรวจสอบค่า
-            console.log('Searching with dates:', {
-                startDate: startDate,
-                endDate: endDate,
-                formattedStartDate: params.rdate1,
-                formattedEndDate: params.rdate2
-            });
-
             const response = await dispatch(queryWh_stockcard(params)).unwrap();
             console.log("API Response:", response);
 
             if (response.result) {
-                setStockBalanceData(response.data);
+                // จัดกลุ่มข้อมูลตาม product_code
+                const groupedData = {};
+
+                // เรียงข้อมูลตามวันที่ก่อน
+                const sortedData = response.data.sort((a, b) => {
+                    // เรียงตาม trdate ก่อน
+                    const dateCompare = b.trdate.localeCompare(a.trdate);
+                    if (dateCompare !== 0) return dateCompare;
+                    // ถ้า trdate เท่ากัน เรียงตาม refno
+                    return b.refno.localeCompare(a.refno);
+                });
+
+                // วนลูปผ่านข้อมูลที่เรียงแล้ว
+                sortedData.forEach(item => {
+                    const key = item.product_code;
+
+                    if (!groupedData[key]) {
+                        // สร้าง record ใหม่สำหรับ product นี้
+                        groupedData[key] = {
+                            ...item,
+                            beg1: Number(item.beg1 || 0),
+                            in1: Number(item.in1 || 0),
+                            out1: Number(item.out1 || 0),
+                            upd1: Number(item.upd1 || 0),
+                            balance: item.balance,           // เก็บค่า balance จาก record แรก (ล่าสุด)
+                            balance_amount: item.balance_amount, // เก็บค่า balance_amount จาก record แรก (ล่าสุด)
+                            tbl_product: item.tbl_product,
+                            tbl_unit: item.tbl_unit,
+                            trdate: item.trdate,
+                            refno: item.refno
+                        };
+                    } else {
+                        // รวมค่าสำหรับ record ที่มีอยู่แล้ว
+                        groupedData[key].beg1 += Number(item.beg1 || 0);
+                        groupedData[key].in1 += Number(item.in1 || 0);
+                        groupedData[key].out1 += Number(item.out1 || 0);
+                        groupedData[key].upd1 += Number(item.upd1 || 0);
+                    }
+                });
+
+                // แปลงกลับเป็น array และเรียงตามชื่อ product
+                const processedData = Object.values(groupedData)
+                    .sort((a, b) => a.tbl_product.product_name.localeCompare(b.tbl_product.product_name));
+
+                setStockBalanceData(processedData);
             }
         } catch (err) {
             console.error('Error in fetchStockBalance:', err);
@@ -362,7 +398,6 @@ export default function ReportMonthlyStockBalance() {
                     {/* Table */}
                     <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', mb: '12px' }}>
                         <table style={{ width: '100%', marginTop: '24px' }}>
-                        // Table header section
                             <thead>
                                 <tr>
                                     <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>No</th>
@@ -404,9 +439,7 @@ export default function ReportMonthlyStockBalance() {
                                                 <td style={{ padding: '8px 16px' }}>{index + 1}</td>
                                                 <td style={{ padding: '8px 16px' }}>{item.tbl_product.product_name}</td>
                                                 <td style={{ padding: '8px 16px' }}>{item.tbl_unit.unit_name}</td>
-                                                <td style={{ padding: '8px 16px', textAlign: 'right' }}>
-                                                    {(item.beg1 || 0).toLocaleString()}
-                                                </td>
+                                                <td style={{ padding: '8px 16px', textAlign: 'right' }}>{(item.beg1)}</td>
                                                 <td style={{ padding: '8px 16px', textAlign: 'right' }}>
                                                     {(item.in1 || 0).toLocaleString()}
                                                 </td>
@@ -417,20 +450,17 @@ export default function ReportMonthlyStockBalance() {
                                                     {(item.upd1 || 0).toLocaleString()}
                                                 </td>
                                                 <td style={{ padding: '8px 16px', textAlign: 'right' }}>
-                                                    {remainingQty.toLocaleString()}
+                                                    {(item.balance || 0).toLocaleString()}
                                                 </td>
                                                 <td style={{ padding: '8px 16px', textAlign: 'right' }}>
-                                                    {!excludePrice ? totalAmount.toLocaleString(undefined, {
-                                                        minimumFractionDigits: 2,
-                                                        maximumFractionDigits: 2
-                                                    }) : '-'}
+                                                    {(item.balance_amount || 0).toLocaleString()}
                                                 </td>
                                             </tr>
                                         );
                                     })
                                 )}
                             </tbody>
-                            {stockBalanceData.length > 0 && (
+                            {/* {stockBalanceData.length > 0 && (
                                 <tfoot>
                                     <tr>
                                         <td colSpan="9">
@@ -460,7 +490,7 @@ export default function ReportMonthlyStockBalance() {
                                         </td>
                                     </tr>
                                 </tfoot>
-                            )}
+                            )} */}
                         </table>
                     </Box>
                 </Box>

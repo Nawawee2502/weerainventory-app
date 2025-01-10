@@ -28,7 +28,7 @@ const convertToLasVegasTime = (date) => {
     const newDate = new Date(date);
     newDate.setHours(0, 0, 0, 0);
     return new Date(newDate.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
-  };
+};
 
 const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
     <Box sx={{ position: 'relative', display: 'inline-block', width: '100%' }}>
@@ -89,6 +89,7 @@ export default function ReceiptFromSupplier({ onCreate, onEdit }) {
     const [filterDate, setFilterDate] = useState(new Date());
     const [whrfs, setWhrfs] = useState([]);
     const [itemsPerPage] = useState(5);
+    const [totalPages, setTotalPages] = useState(0);
 
     useEffect(() => {
         loadData(page);
@@ -101,25 +102,25 @@ export default function ReceiptFromSupplier({ onCreate, onEdit }) {
             setWhrfs([]);
             const offset = (pageNumber - 1) * itemsPerPage;
             const limit = itemsPerPage;
-    
+
             // Format date เป็น MM/DD/YYYY เหมือน POS
             const formattedDate = formatDate(filterDate);
             console.log("Querying for date:", formattedDate);
-    
+
             // เรียก API แบบเดียวกับ POS
             const [dataRes, countRes] = await Promise.all([
-                dispatch(wh_rfsAlljoindt({ 
-                    offset, 
+                dispatch(wh_rfsAlljoindt({
+                    offset,
                     limit,
                     rdate: formattedDate  // ส่งวันที่แบบเดียวกับ POS
                 })).unwrap(),
-                dispatch(countwh_rfs({ 
-                    rdate: formattedDate 
+                dispatch(countwh_rfs({
+                    rdate: formattedDate
                 })).unwrap()
             ]);
-    
+
             console.log("API Response:", dataRes);
-    
+
             if (dataRes.result && Array.isArray(dataRes.data)) {
                 // ไม่ต้อง filter ข้อมูลที่ client อีก เพราะ API จะกรองให้แล้ว
                 const resultData = dataRes.data.map((item, index) => ({
@@ -129,12 +130,12 @@ export default function ReceiptFromSupplier({ onCreate, onEdit }) {
                 console.log("Processed data:", resultData);
                 setWhrfs(resultData);
             }
-    
+
             if (countRes.result) {
                 const totalPages = Math.ceil(countRes.data / itemsPerPage);
                 setCount(totalPages);
             }
-    
+
         } catch (err) {
             console.error("Error loading data:", err);
             Swal.fire({
