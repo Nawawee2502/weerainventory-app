@@ -75,6 +75,7 @@ function CreateReceiptFromKitchen({ onBack }) {
     const [lastMonth, setLastMonth] = useState('');
     const [lastYear, setLastYear] = useState('');
     const [customPrices, setCustomPrices] = useState({});
+    const [refNo, setRefNo] = useState('');
     const TAX_RATE = 0.07;
 
     const userDataJson = localStorage.getItem("userData2");
@@ -89,33 +90,6 @@ function CreateReceiptFromKitchen({ onBack }) {
 
         const baseRefNo = `WRFK${currentYear}${currentMonth}`;
 
-        dispatch(refno({}))
-            .unwrap()
-            .then((refNumber) => {
-                if (!refNumber) {
-                    // If no previous ref number exists, start with 001
-                    setLastRefNo(`${baseRefNo}001`);
-                } else {
-                    // If ref number exists, check if it's for current month
-                    const existingYear = refNumber.substring(4, 6);
-                    const existingMonth = refNumber.substring(6, 8);
-
-                    if (existingYear !== currentYear || existingMonth !== currentMonth) {
-                        // If different month/year, start new sequence
-                        setLastRefNo(`${baseRefNo}001`);
-                    } else {
-                        // If same month, increment last number
-                        const currentNumber = parseInt(refNumber.slice(-3));
-                        const nextNumber = (currentNumber + 1).toString().padStart(3, '0');
-                        setLastRefNo(`${baseRefNo}${nextNumber}`);
-                    }
-                }
-            })
-            .catch((err) => {
-                console.error(err.message);
-                // On error, start new sequence
-                setLastRefNo(`${baseRefNo}001`);
-            });
     }, [dispatch]);
 
     useEffect(() => {
@@ -174,43 +148,6 @@ function CreateReceiptFromKitchen({ onBack }) {
         setTemperatures(prev => ({ ...prev, [productCode]: temp }));
     };
 
-    const handleGetLastRefNo = (selectedDate) => {
-        const year = selectedDate.getFullYear().toString().slice(-2);
-        const month = (selectedDate.getMonth() + 1).toString().padStart(2, '0');
-        const baseRefNo = `WRFK${year}${month}`;
-
-        dispatch(refno({}))
-            .unwrap()
-            .then((refNumber) => {
-                if (!refNumber) {
-                    setLastRefNo(`${baseRefNo}001`);
-                    setLastMonth(month);
-                    setLastYear(year);
-                    return;
-                }
-
-                const existingYear = refNumber.substring(4, 6);
-                const existingMonth = refNumber.substring(6, 8);
-
-                if (existingYear !== year || existingMonth !== month) {
-                    setLastRefNo(`${baseRefNo}001`);
-                } else {
-                    const currentNumber = parseInt(refNumber.slice(-3));
-                    const nextNumber = (currentNumber + 1).toString().padStart(3, '0');
-                    setLastRefNo(`${baseRefNo}${nextNumber}`);
-                }
-
-                setLastMonth(month);
-                setLastYear(year);
-            })
-            .catch((err) => {
-                console.error(err.message);
-                setLastRefNo(`${baseRefNo}001`);
-                setLastMonth(month);
-                setLastYear(year);
-            });
-    };
-
     const calculateOrderTotals = () => {
         let newTaxable = 0;
         let newNonTaxable = 0;
@@ -267,7 +204,7 @@ function CreateReceiptFromKitchen({ onBack }) {
         }
 
         const headerData = {
-            refno: lastRefNo,
+            refno: refNo,
             rdate: formatDate(startDate),
             kitchen_code: saveKitchen,
             trdate: startDate.toISOString().slice(0, 10).replace(/-/g, ''),
@@ -280,7 +217,7 @@ function CreateReceiptFromKitchen({ onBack }) {
         };
 
         const productArrayData = products.map(product => ({
-            refno: lastRefNo,
+            refno: refNo,
             product_code: product.product_code,
             qty: product.amount || 0,
             unit_code: units[product.product_code] || product.productUnit1.unit_code,
@@ -343,16 +280,7 @@ function CreateReceiptFromKitchen({ onBack }) {
         setNonTaxableAmount(0);
         setTotal(0);
         setCustomPrices({});
-
-        dispatch(refno({ test: 10 }))
-            .unwrap()
-            .then((res) => {
-                setLastRefNo(res.data);
-                if (startDate) {
-                    handleGetLastRefNo(startDate);
-                }
-            })
-            .catch((err) => console.log(err.message));
+        setRefNo('');
     };
 
     return (
@@ -390,10 +318,10 @@ function CreateReceiptFromKitchen({ onBack }) {
                                     Ref.no
                                 </Typography>
                                 <TextField
-                                    value={lastRefNo}
-                                    disabled
+                                    value={refNo}
+                                    onChange={(e) => setRefNo(e.target.value)}
                                     size="small"
-                                    placeholder='Ref.no'
+                                    placeholder='Enter Reference Number'
                                     sx={{
                                         mt: '8px',
                                         width: '100%',
@@ -412,11 +340,13 @@ function CreateReceiptFromKitchen({ onBack }) {
                                     selected={startDate}
                                     onChange={(date) => {
                                         setStartDate(date);
-                                        handleGetLastRefNo(date);
                                     }}
                                     dateFormat="MM/dd/yyyy"  // Changed from dd/MM/yyyy
                                     placeholderText="MM/DD/YYYY"
                                     customInput={<CustomInput />}
+                                    sx={{
+                                        mt: '8px'
+                                    }}
                                 />
                             </Grid2>
                             <Grid2 item size={{ xs: 12, md: 6 }}>

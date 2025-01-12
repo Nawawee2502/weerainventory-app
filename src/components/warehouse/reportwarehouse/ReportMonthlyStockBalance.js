@@ -58,52 +58,57 @@ export default function ReportMonthlyStockBalance() {
             };
 
             const response = await dispatch(queryWh_stockcard(params)).unwrap();
-            console.log("API Response:", response);
 
             if (response.result) {
-                // จัดกลุ่มข้อมูลตาม product_code
-                const groupedData = {};
+                // First group by type_product
+                const groupedByType = {};
 
-                // เรียงข้อมูลตามวันที่ก่อน
+                // Sort the data by date (trdate) first to ensure latest records come last
                 const sortedData = response.data.sort((a, b) => {
-                    // เรียงตาม trdate ก่อน
-                    const dateCompare = b.trdate.localeCompare(a.trdate);
+                    const dateCompare = a.trdate.localeCompare(b.trdate);
                     if (dateCompare !== 0) return dateCompare;
-                    // ถ้า trdate เท่ากัน เรียงตาม refno
-                    return b.refno.localeCompare(a.refno);
+                    return a.refno.localeCompare(b.refno);
                 });
 
-                // วนลูปผ่านข้อมูลที่เรียงแล้ว
                 sortedData.forEach(item => {
-                    const key = item.product_code;
-
-                    if (!groupedData[key]) {
-                        // สร้าง record ใหม่สำหรับ product นี้
-                        groupedData[key] = {
-                            ...item,
-                            beg1: Number(item.beg1 || 0),
-                            in1: Number(item.in1 || 0),
-                            out1: Number(item.out1 || 0),
-                            upd1: Number(item.upd1 || 0),
-                            balance: item.balance,           // เก็บค่า balance จาก record แรก (ล่าสุด)
-                            balance_amount: item.balance_amount, // เก็บค่า balance_amount จาก record แรก (ล่าสุด)
-                            tbl_product: item.tbl_product,
-                            tbl_unit: item.tbl_unit,
-                            trdate: item.trdate,
-                            refno: item.refno
-                        };
-                    } else {
-                        // รวมค่าสำหรับ record ที่มีอยู่แล้ว
-                        groupedData[key].beg1 += Number(item.beg1 || 0);
-                        groupedData[key].in1 += Number(item.in1 || 0);
-                        groupedData[key].out1 += Number(item.out1 || 0);
-                        groupedData[key].upd1 += Number(item.upd1 || 0);
+                    const typeProduct = item.tbl_product.type_product || 'Uncategorized';
+                    if (!groupedByType[typeProduct]) {
+                        groupedByType[typeProduct] = [];
                     }
+                    groupedByType[typeProduct].push(item);
                 });
 
-                // แปลงกลับเป็น array และเรียงตามชื่อ product
-                const processedData = Object.values(groupedData)
-                    .sort((a, b) => a.tbl_product.product_name.localeCompare(b.tbl_product.product_name));
+                // Then process each type group
+                let processedData = [];
+                Object.entries(groupedByType).forEach(([typeProduct, items]) => {
+                    // Group by product within each type
+                    const productGroups = items.reduce((acc, item) => {
+                        const key = item.product_code;
+                        if (!acc[key]) {
+                            acc[key] = {
+                                ...item,
+                                beg1: Number(item.beg1 || 0),
+                                in1: Number(item.in1 || 0),
+                                out1: Number(item.out1 || 0),
+                                upd1: Number(item.upd1 || 0),
+                                balance: Number(item.balance || 0),  // Keep the latest balance
+                                balance_amount: Number(item.balance_amount || 0),  // Keep the latest balance_amount
+                                type_product: typeProduct
+                            };
+                        } else {
+                            acc[key].beg1 += Number(item.beg1 || 0);
+                            acc[key].in1 += Number(item.in1 || 0);
+                            acc[key].out1 += Number(item.out1 || 0);
+                            acc[key].upd1 += Number(item.upd1 || 0);
+                            // Update balance and balance_amount with latest values
+                            acc[key].balance = Number(item.balance || 0);
+                            acc[key].balance_amount = Number(item.balance_amount || 0);
+                        }
+                        return acc;
+                    }, {});
+
+                    processedData = [...processedData, ...Object.values(productGroups)];
+                });
 
                 setStockBalanceData(processedData);
             }
@@ -418,49 +423,40 @@ export default function ReportMonthlyStockBalance() {
                             </thead>
                             <tbody>
                                 {loading ? (
-                                    <tr>
-                                        <td colSpan="9" style={{ textAlign: 'center', padding: '20px' }}>Loading...</td>
-                                    </tr>
+                                    <tr><td colSpan="9" style={{ textAlign: 'center', padding: '20px' }}>Loading...</td></tr>
                                 ) : error ? (
-                                    <tr>
-                                        <td colSpan="9" style={{ textAlign: 'center', padding: '20px', color: 'red' }}>{error}</td>
-                                    </tr>
+                                    <tr><td colSpan="9" style={{ textAlign: 'center', padding: '20px', color: 'red' }}>{error}</td></tr>
                                 ) : stockBalanceData.length === 0 ? (
-                                    <tr>
-                                        <td colSpan="9" style={{ textAlign: 'center', padding: '20px' }}>No data found</td>
-                                    </tr>
+                                    <tr><td colSpan="9" style={{ textAlign: 'center', padding: '20px' }}>No data found</td></tr>
                                 ) : (
-                                    stockBalanceData.map((item, index) => {
-                                        const remainingQty = (item.beg1 || 0) + (item.in1 || 0) +
-                                            (item.upd1 || 0) - (item.out1 || 0);
-                                        const totalAmount = remainingQty * (item.uprice || 0);
-                                        return (
-                                            <tr key={`${item.refno}-${index}`}>
-                                                <td style={{ padding: '8px 16px' }}>{index + 1}</td>
-                                                <td style={{ padding: '8px 16px' }}>{item.tbl_product.product_name}</td>
-                                                <td style={{ padding: '8px 16px' }}>{item.tbl_unit.unit_name}</td>
-                                                <td style={{ padding: '8px 16px', textAlign: 'right' }}>{(item.beg1)}</td>
-                                                <td style={{ padding: '8px 16px', textAlign: 'right' }}>
-                                                    {(item.in1 || 0).toLocaleString()}
-                                                </td>
-                                                <td style={{ padding: '8px 16px', textAlign: 'right' }}>
-                                                    {(item.out1 || 0).toLocaleString()}
-                                                </td>
-                                                <td style={{ padding: '8px 16px', textAlign: 'right' }}>
-                                                    {(item.upd1 || 0).toLocaleString()}
-                                                </td>
-                                                <td style={{ padding: '8px 16px', textAlign: 'right' }}>
-                                                    {(item.balance || 0).toLocaleString()}
-                                                </td>
-                                                <td style={{ padding: '8px 16px', textAlign: 'right' }}>
-                                                    {(item.balance_amount || 0).toLocaleString()}
-                                                </td>
-                                            </tr>
-                                        );
-                                    })
+                                    stockBalanceData.map((item, index) => (
+                                        <tr key={`${item.refno}-${index}`}>
+                                            <td style={{ padding: '8px 16px' }}>{index + 1}</td>
+                                            <td style={{ padding: '8px 16px' }}>{item.tbl_product.product_name}</td>
+                                            <td style={{ padding: '8px 16px' }}>{item.tbl_unit.unit_name}</td>
+                                            <td style={{ padding: '8px 16px', textAlign: 'right' }}>
+                                                {item.beg1.toLocaleString()}
+                                            </td>
+                                            <td style={{ padding: '8px 16px', textAlign: 'right' }}>
+                                                {item.in1.toLocaleString()}
+                                            </td>
+                                            <td style={{ padding: '8px 16px', textAlign: 'right' }}>
+                                                {item.out1.toLocaleString()}
+                                            </td>
+                                            <td style={{ padding: '8px 16px', textAlign: 'right' }}>
+                                                {item.upd1.toLocaleString()}
+                                            </td>
+                                            <td style={{ padding: '8px 16px', textAlign: 'right' }}>
+                                                {item.balance.toLocaleString()}
+                                            </td>
+                                            <td style={{ padding: '8px 16px', textAlign: 'right' }}>
+                                                {item.balance_amount.toLocaleString()}
+                                            </td>
+                                        </tr>
+                                    ))
                                 )}
                             </tbody>
-                            {/* {stockBalanceData.length > 0 && (
+                            {stockBalanceData.length > 0 && (
                                 <tfoot>
                                     <tr>
                                         <td colSpan="9">
@@ -468,29 +464,34 @@ export default function ReportMonthlyStockBalance() {
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td colSpan="7" style={{ textAlign: 'right', padding: '12px 16px', fontWeight: 'bold', color: '#754C27' }}>
+                                        <td colSpan="7" style={{
+                                            textAlign: 'right',
+                                            padding: '12px 16px',
+                                            fontWeight: 'bold',
+                                            color: '#754C27'
+                                        }}>
                                             Total:
                                         </td>
-                                        <td style={{ padding: '12px 16px', fontWeight: 'bold', color: '#754C27', textAlign: 'right' }}>
-                                            {stockBalanceData.reduce((sum, item) => {
-                                                const qty = (item.beg1 || 0) + (item.in1 || 0) +
-                                                    (item.upd1 || 0) - (item.out1 || 0);
-                                                return sum + qty;
-                                            }, 0).toLocaleString()}
+                                        <td style={{
+                                            padding: '12px 16px',
+                                            fontWeight: 'bold',
+                                            color: '#754C27',
+                                            textAlign: 'right'
+                                        }}>
+                                            {stockBalanceData.reduce((sum, item) => sum + Number(item.balance || 0), 0).toLocaleString()}
                                         </td>
-                                        <td style={{ padding: '12px 16px', fontWeight: 'bold', color: '#754C27', textAlign: 'right' }}>
-                                            {!excludePrice ? stockBalanceData.reduce((sum, item) => {
-                                                const qty = (item.beg1 || 0) + (item.in1 || 0) +
-                                                    (item.upd1 || 0) - (item.out1 || 0);
-                                                return sum + (qty * (item.uprice || 0));
-                                            }, 0).toLocaleString(undefined, {
-                                                minimumFractionDigits: 2,
-                                                maximumFractionDigits: 2
-                                            }) : '-'}
+                                        <td style={{
+                                            padding: '12px 16px',
+                                            fontWeight: 'bold',
+                                            color: '#754C27',
+                                            textAlign: 'right'
+                                        }}>
+                                            {!excludePrice ? stockBalanceData.reduce((sum, item) =>
+                                                sum + Number(item.balance_amount || 0), 0).toLocaleString() : '-'}
                                         </td>
                                     </tr>
                                 </tfoot>
-                            )} */}
+                            )}
                         </table>
                     </Box>
                 </Box>

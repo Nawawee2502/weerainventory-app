@@ -25,7 +25,7 @@ const formatDate = (date) => {
 function CreateReceiptFromSupplier({ onBack }) {
   const dispatch = useDispatch();
   const [startDate, setStartDate] = useState(new Date());
-  const [lastRefNo, setLastRefNo] = useState('');
+  const [refNo, setRefNo] = useState('');
   const [supplier, setSupplier] = useState([]);
   const [branch, setBranch] = useState([]);
   const [saveSupplier, setSaveSupplier] = useState('');
@@ -60,16 +60,6 @@ function CreateReceiptFromSupplier({ onBack }) {
     const currentYear = currentDate.getFullYear().toString().slice(-2);
     setLastMonth(currentMonth);
     setLastYear(currentYear);
-
-    dispatch(refno({ test: 10 }))  // Changed from Wh_rfsByRefno to refno
-      .unwrap()
-      .then((res) => {
-        setLastRefNo(res.data);
-        if (startDate) {
-          handleGetLastRefNo(startDate);
-        }
-      })
-      .catch((err) => console.log(err.message));
   }, [dispatch]);
 
   useEffect(() => {
@@ -222,38 +212,6 @@ function CreateReceiptFromSupplier({ onBack }) {
     setTemperatures(prev => ({ ...prev, [productCode]: temp }));
   };
 
-  const handleGetLastRefNo = (selectedDate) => {
-    const year = selectedDate.getFullYear().toString().slice(-2);
-    const month = (selectedDate.getMonth() + 1).toString().padStart(2, '0');
-    const baseRefNo = `WRFS${year}${month}`; // Changed from WPOS to WRFS
-
-    dispatch(refno({ test: 10 }))
-      .unwrap()
-      .then((res) => {
-        let lastRefNo = res.data;
-        if (lastRefNo && typeof lastRefNo === 'object') {
-          lastRefNo = lastRefNo.refno || '';
-        }
-
-        let newRefNo;
-        const lastRefYear = lastRefNo ? lastRefNo.substring(4, 6) : '';
-        const lastRefMonth = lastRefNo ? lastRefNo.substring(6, 8) : '';
-
-        if (lastRefYear !== year || lastRefMonth !== month) {
-          newRefNo = `${baseRefNo}001`;
-        } else {
-          const lastNumber = parseInt(lastRefNo.slice(-3));
-          const increment = lastNumber + 1;
-          newRefNo = `${baseRefNo}${increment.toString().padStart(3, '0')}`;
-        }
-
-        setLastRefNo(newRefNo);
-        setLastMonth(month);
-        setLastYear(year);
-      })
-      .catch((err) => console.log(err.message));
-  };
-
   const updateTotals = () => {
     let newTaxable = 0;
     let newNonTaxable = 0;
@@ -294,7 +252,7 @@ function CreateReceiptFromSupplier({ onBack }) {
     }
 
     const headerData = {
-      refno: lastRefNo,
+      refno: refNo,
       rdate: formatDate(startDate),
       supplier_code: saveSupplier,
       branch_code: saveBranch,
@@ -305,7 +263,7 @@ function CreateReceiptFromSupplier({ onBack }) {
     };
 
     const productArrayData = products.map(product => ({
-      refno: lastRefNo,
+      refno: refNo,
       product_code: product.product_code,
       qty: Number(product.amount) || 0,
       unit_code: units[product.product_code] || product.productUnit1.unit_code,
@@ -378,16 +336,8 @@ function CreateReceiptFromSupplier({ onBack }) {
     setTotal(0); // Added
     setTotalDue(0); // Added
     setCustomPrices({});
+    setRefNo('');
 
-    dispatch(refno({ test: 10 }))
-      .unwrap()
-      .then((res) => {
-        setLastRefNo(res.data);
-        if (startDate) {
-          handleGetLastRefNo(startDate);
-        }
-      })
-      .catch((err) => console.log(err.message));
   };
 
   const calculateOrderTotals = () => {
@@ -463,10 +413,10 @@ function CreateReceiptFromSupplier({ onBack }) {
                   Ref.no
                 </Typography>
                 <TextField
-                  value={lastRefNo}
-                  disabled
+                  value={refNo}
+                  onChange={(e) => setRefNo(e.target.value)}
                   size="small"
-                  placeholder='Ref.no'
+                  placeholder='Enter Reference Number'
                   sx={{
                     mt: '8px',
                     width: '100%',
@@ -485,7 +435,6 @@ function CreateReceiptFromSupplier({ onBack }) {
                   selected={startDate}
                   onChange={(date) => {
                     setStartDate(date);
-                    handleGetLastRefNo(date);
                   }}
                   dateFormat="MM/dd/yyyy"
                   customInput={
