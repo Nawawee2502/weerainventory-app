@@ -120,6 +120,7 @@ export default function BeginningInventory() {
     const [productSearchTerm, setProductSearchTerm] = useState('');
     const [tableSearchTerm, setTableSearchTerm] = useState('');
     const [filterDate, setFilterDate] = useState(() => convertToLasVegasTime(new Date()));
+    const [loading, setLoading] = useState(false); 
 
     // Initial Form Values
     const initialValues = {
@@ -134,6 +135,24 @@ export default function BeginningInventory() {
         myear: '',
         monthh: ''
     };
+
+    useEffect(() => {
+        const loadUnits = async () => {
+            try {
+                const response = await dispatch(unitAll({ offset: 0, limit: 100 })).unwrap();
+                setUnits(response.data);
+            } catch (err) {
+                console.error('Error loading units:', err);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error Loading Units',
+                    text: err.message || 'Failed to load units',
+                    confirmButtonColor: '#754C27'
+                });
+            }
+        };
+        loadUnits();
+    }, [dispatch]);
 
     // Form Validation Schema
     const validationSchema = {
@@ -232,9 +251,9 @@ export default function BeginningInventory() {
             .catch((err) => console.log(err.message));
     }, [dispatch]);
 
-    // Load Data Function
     const loadData = async (pageNumber = 1) => {
         try {
+            setLoading(true);
             const offset = (pageNumber - 1) * itemsPerPage;
             const formattedDate = filterDate ? formatDate(filterDate) : null;
 
@@ -263,13 +282,16 @@ export default function BeginningInventory() {
                 const totalPages = Math.ceil(countRes.data / itemsPerPage);
                 setCount(totalPages);
             }
-        } catch (error) {
-            console.error("Error loading data:", error);
+        } catch (err) {
+            console.error('Error loading data:', err);
             Swal.fire({
                 icon: 'error',
-                title: 'Error loading data',
-                text: error.message || 'An unknown error occurred'
+                title: 'Error Loading Data',
+                text: err.message || 'An unknown error occurred',
+                confirmButtonColor: '#754C27'
             });
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -278,31 +300,36 @@ export default function BeginningInventory() {
         loadData(page);
     }, [filterDate, tableSearchTerm, page]);
 
-    // Event Handlers
-    const handleProductSearch = (e) => {
-        const value = e.target.value;
-        setProductSearchTerm(value);
+    const handleProductSearch = async (e) => {
+        try {
+            const value = e.target.value;
+            setProductSearchTerm(value);
 
-        if (value.length > 0) {
-            dispatch(searchProductName({ product_name: value }))
-                .unwrap()
-                .then((res) => {
-                    if (res.data) {
-                        const sortedResults = [...res.data].sort((a, b) => {
-                            const aExact = a.product_name.toLowerCase() === value.toLowerCase();
-                            const bExact = b.product_name.toLowerCase() === value.toLowerCase();
-                            if (aExact && !bExact) return -1;
-                            if (!aExact && bExact) return 1;
-                            return a.product_name.length - b.product_name.length;
-                        });
-                        setSearchResults(sortedResults);
-                        setShowDropdown(true);
-                    }
-                })
-                .catch((err) => console.log(err.message));
-        } else {
-            setSearchResults([]);
-            setShowDropdown(false);
+            if (value.length > 0) {
+                const response = await dispatch(searchProductName({ product_name: value })).unwrap();
+                if (response.data) {
+                    const sortedResults = [...response.data].sort((a, b) => {
+                        const aExact = a.product_name.toLowerCase() === value.toLowerCase();
+                        const bExact = b.product_name.toLowerCase() === value.toLowerCase();
+                        if (aExact && !bExact) return -1;
+                        if (!aExact && bExact) return 1;
+                        return a.product_name.length - b.product_name.length;
+                    });
+                    setSearchResults(sortedResults);
+                    setShowDropdown(true);
+                }
+            } else {
+                setSearchResults([]);
+                setShowDropdown(false);
+            }
+        } catch (err) {
+            console.error('Error searching products:', err);
+            Swal.fire({
+                icon: 'error',
+                title: 'Search Error',
+                text: err.message || 'Failed to search products',
+                confirmButtonColor: '#754C27'
+            });
         }
     };
 
@@ -352,66 +379,88 @@ export default function BeginningInventory() {
         loadData(value);
     };
 
-    const handleEdit = (row) => {
-        const productData = {
-            product_code: row.product_code,
-            product_name: row.tbl_product?.product_name || '',
-            productUnit2: {
-                unit_code: row.unit_code
-            },
-            retail_unit_price: row.uprice
-        };
+    const handleEdit = async (row) => {
+        try {
+            const productData = {
+                product_code: row.product_code,
+                product_name: row.tbl_product?.product_name || '',
+                productUnit2: {
+                    unit_code: row.unit_code
+                },
+                retail_unit_price: row.uprice
+            };
 
-        const [month, day, year] = row.rdate.split('/');
-        const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-        date.setHours(0, 0, 0, 0);
+            const [month, day, year] = row.rdate.split('/');
+            const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+            date.setHours(0, 0, 0, 0);
 
-        formik.setValues({
-            date,
-            product_code: row.product_code,
-            product_name: row.tbl_product?.product_name || '',
-            unit_code: row.unit_code,
-            amount: row.beg1,
-            unit_price: row.uprice,
-            isEditing: true,
-            refno: row.refno,
-            myear: row.myear,
-            monthh: row.monthh
-        });
+            formik.setValues({
+                date,
+                product_code: row.product_code,
+                product_name: row.tbl_product?.product_name || '',
+                unit_code: row.unit_code,
+                amount: row.beg1,
+                unit_price: row.uprice,
+                isEditing: true,
+                refno: row.refno,
+                myear: row.myear,
+                monthh: row.monthh
+            });
 
-        setProductSearchTerm(row.tbl_product?.product_name || '');
-        setSelectedProduct(productData);
-        setOpenDrawer(true);
+            setProductSearchTerm(row.tbl_product?.product_name || '');
+            setSelectedProduct(productData);
+            setOpenDrawer(true);
+        } catch (err) {
+            console.error('Error editing record:', err);
+            Swal.fire({
+                icon: 'error',
+                title: 'Edit Error',
+                text: err.message || 'Failed to edit record',
+                confirmButtonColor: '#754C27'
+            });
+        }
     };
 
-    const handleDelete = (row) => {
-        Swal.fire({
-            title: 'Are you sure?',
-            text: "You won't be able to revert this!",
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#754C27',
-            cancelButtonColor: '#d33',
-            confirmButtonText: 'Yes, delete it!'
-        }).then((result) => {
+    const handleDelete = async (row) => {
+        try {
+            const result = await Swal.fire({
+                title: 'Are you sure?',
+                text: "You won't be able to revert this!",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#754C27',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Yes, delete it!'
+            });
+
             if (result.isConfirmed) {
-                dispatch(deleteWh_stockcard({
+                await dispatch(deleteWh_stockcard({
                     refno: row.refno,
                     myear: row.myear,
                     monthh: row.monthh,
                     product_code: row.product_code
-                }))
-                    .unwrap()
-                    .then(() => {
-                        Swal.fire('Deleted!', 'Record has been deleted.', 'success');
-                        loadData(page);
-                    })
-                    .catch((err) => {
-                        Swal.fire('Error!', err.message || 'Failed to delete record.', 'error');
-                    });
+                })).unwrap();
+
+                await Swal.fire({
+                    icon: 'success',
+                    title: 'Deleted!',
+                    text: 'Record has been deleted.',
+                    confirmButtonColor: '#754C27'
+                });
+
+                await loadData(page);
             }
-        });
+        } catch (err) {
+            console.error('Error deleting record:', err);
+            Swal.fire({
+                icon: 'error',
+                title: 'Delete Error',
+                text: err.message || 'Failed to delete record',
+                confirmButtonColor: '#754C27'
+            });
+        }
     };
+
 
     const calculateTotal = () => {
         const amount = Number(formik.values.amount) || 0;

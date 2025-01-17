@@ -190,56 +190,9 @@ export default function CreateDispatchToKitchen({ onBack }) {
         setTotalDue(newTotal);
     };
 
-    const handleUnitChange = (productCode, newUnitCode) => {
-        setUnits(prev => ({
-            ...prev,
-            [productCode]: newUnitCode
-        }));
-
-        const product = products.find(p => p.product_code === productCode);
-        const defaultUnitPrice = newUnitCode === product.productUnit1.unit_code
-            ? product.bulk_unit_price
-            : product.retail_unit_price;
-
-        setUnitPrices(prev => ({
-            ...prev,
-            [productCode]: defaultUnitPrice
-        }));
-
-        const quantity = quantities[productCode] || 1;
-        const total = quantity * defaultUnitPrice;
-        setTotals(prev => ({ ...prev, [productCode]: total }));
-        calculateOrderTotals();
-    };
-
-    const handleUnitPriceChange = (productCode, value) => {
-        const newPrice = parseFloat(value);
-        if (!isNaN(newPrice) && newPrice >= 0) {
-            setUnitPrices(prev => ({
-                ...prev,
-                [productCode]: newPrice
-            }));
-
-            const quantity = quantities[productCode] || 1;
-            const total = quantity * newPrice;
-            setTotals(prev => ({ ...prev, [productCode]: total }));
-            calculateOrderTotals();
-        }
-    };
-
-    const handleDeleteProduct = (productCode) => {
-        setProducts(products.filter(item => item.product_code !== productCode));
-        const updatedProducts = products.filter(item => item.product_code !== productCode);
-        calculateOrderTotals(updatedProducts);
-    };
-
+    // แก้ไขฟังก์ชัน handleQuantityChange
     const handleQuantityChange = (productCode, newQuantity) => {
         if (newQuantity >= 1) {
-            setQuantities(prev => ({
-                ...prev,
-                [productCode]: newQuantity
-            }));
-
             const product = products.find(p => p.product_code === productCode);
             const unit = units[productCode] || product.productUnit1.unit_code;
             const unitPrice = unitPrices[productCode] ??
@@ -247,14 +200,180 @@ export default function CreateDispatchToKitchen({ onBack }) {
                     ? product.bulk_unit_price
                     : product.retail_unit_price);
 
-            const total = newQuantity * unitPrice;
-            setTotals(prev => ({
+            const lineTotal = newQuantity * unitPrice;
+
+            // Update all states at once
+            setQuantities(prev => ({
                 ...prev,
-                [productCode]: total
+                [productCode]: newQuantity
             }));
-            calculateOrderTotals();
+
+            setTotals(prev => {
+                const newTotals = {
+                    ...prev,
+                    [productCode]: lineTotal
+                };
+
+                // Calculate new totals immediately
+                let newTaxable = 0;
+                let newNonTaxable = 0;
+                let newTotal = 0;
+
+                products.forEach(p => {
+                    const pCode = p.product_code;
+                    const currentTotal = pCode === productCode ? lineTotal : newTotals[pCode];
+                    if (currentTotal) {
+                        if (p.tax1 === 'Y') {
+                            newTaxable += currentTotal;
+                        } else {
+                            newNonTaxable += currentTotal;
+                        }
+                        newTotal += currentTotal;
+                    }
+                });
+
+                // Update other states immediately
+                setTaxableAmount(newTaxable);
+                setNonTaxableAmount(newNonTaxable);
+                setTotal(newTotal);
+                setTotalDue(newTotal); // เพิ่มบรรทัดนี้เพื่อแก้ totalDue ด้วย
+
+                return newTotals;
+            });
         }
     };
+
+    // แก้ไขฟังก์ชัน handleUnitPriceChange
+    const handleUnitPriceChange = (productCode, value) => {
+        const newPrice = parseFloat(value);
+        if (!isNaN(newPrice) && newPrice >= 0) {
+            const quantity = quantities[productCode] || 1;
+            const lineTotal = quantity * newPrice;
+
+            setUnitPrices(prev => ({
+                ...prev,
+                [productCode]: newPrice
+            }));
+
+            setTotals(prev => {
+                const newTotals = {
+                    ...prev,
+                    [productCode]: lineTotal
+                };
+
+                let newTaxable = 0;
+                let newNonTaxable = 0;
+                let newTotal = 0;
+
+                products.forEach(p => {
+                    const pCode = p.product_code;
+                    const currentTotal = pCode === productCode ? lineTotal : newTotals[pCode];
+                    if (currentTotal) {
+                        if (p.tax1 === 'Y') {
+                            newTaxable += currentTotal;
+                        } else {
+                            newNonTaxable += currentTotal;
+                        }
+                        newTotal += currentTotal;
+                    }
+                });
+
+                setTaxableAmount(newTaxable);
+                setNonTaxableAmount(newNonTaxable);
+                setTotal(newTotal);
+                setTotalDue(newTotal);
+
+                return newTotals;
+            });
+        }
+    };
+
+    // แก้ไขฟังก์ชัน handleDeleteProduct
+    const handleDeleteProduct = (productCode) => {
+        const updatedProducts = products.filter(item => item.product_code !== productCode);
+        setProducts(updatedProducts);
+
+        setTotals(prev => {
+            const newTotals = { ...prev };
+            delete newTotals[productCode];
+
+            let newTaxable = 0;
+            let newNonTaxable = 0;
+            let newTotal = 0;
+
+            updatedProducts.forEach(p => {
+                const currentTotal = newTotals[p.product_code];
+                if (currentTotal) {
+                    if (p.tax1 === 'Y') {
+                        newTaxable += currentTotal;
+                    } else {
+                        newNonTaxable += currentTotal;
+                    }
+                    newTotal += currentTotal;
+                }
+            });
+
+            setTaxableAmount(newTaxable);
+            setNonTaxableAmount(newNonTaxable);
+            setTotal(newTotal);
+            setTotalDue(newTotal);
+
+            return newTotals;
+        });
+    };
+
+    // แก้ไขฟังก์ชัน handleUnitChange
+    const handleUnitChange = (productCode, newUnitCode) => {
+        const product = products.find(p => p.product_code === productCode);
+        const defaultUnitPrice = newUnitCode === product.productUnit1.unit_code
+            ? product.bulk_unit_price
+            : product.retail_unit_price;
+
+        const quantity = quantities[productCode] || 1;
+        const lineTotal = quantity * defaultUnitPrice;
+
+        setUnits(prev => ({
+            ...prev,
+            [productCode]: newUnitCode
+        }));
+
+        setUnitPrices(prev => ({
+            ...prev,
+            [productCode]: defaultUnitPrice
+        }));
+
+        setTotals(prev => {
+            const newTotals = {
+                ...prev,
+                [productCode]: lineTotal
+            };
+
+            let newTaxable = 0;
+            let newNonTaxable = 0;
+            let newTotal = 0;
+
+            products.forEach(p => {
+                const pCode = p.product_code;
+                const currentTotal = pCode === productCode ? lineTotal : newTotals[pCode];
+                if (currentTotal) {
+                    if (p.tax1 === 'Y') {
+                        newTaxable += currentTotal;
+                    } else {
+                        newNonTaxable += currentTotal;
+                    }
+                    newTotal += currentTotal;
+                }
+            });
+
+            setTaxableAmount(newTaxable);
+            setNonTaxableAmount(newNonTaxable);
+            setTotal(newTotal);
+            setTotalDue(newTotal);
+
+            return newTotals;
+        });
+    };
+
 
     const handleExpiryDateChange = (productCode, date) => {
         setExpiryDates(prev => ({

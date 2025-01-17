@@ -27,6 +27,11 @@ import {
     searchUser,
     getLastUserCode
 } from '../../api/loginApi';
+import { branchAll } from '../../api/branchApi';
+import { kitchenAll } from '../../api/kitchenApi';
+import Radio from '@mui/material/Radio';
+import RadioGroup from '@mui/material/RadioGroup';
+import FormControlLabel from '@mui/material/FormControlLabel';
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
     [`&.${tableCellClasses.head}`]: {
@@ -59,6 +64,9 @@ export default function ManageUser() {
     const [editMode, setEditMode] = useState(false);
     const [openDrawer, setOpenDrawer] = useState(false);
     const [userTypes, setUserTypes] = useState([]);
+    const [branches, setBranches] = useState([]);
+    const [kitchens, setKitchens] = useState([]);
+
 
     const loadUserTypes = async () => {
         try {
@@ -71,8 +79,29 @@ export default function ManageUser() {
         }
     };
 
+    const loadBranchesAndKitchens = async () => {
+        try {
+            const [branchRes, kitchenRes] = await Promise.all([
+                dispatch(branchAll({ offset: 0, limit: 100 })).unwrap(),
+                dispatch(kitchenAll({ offset: 0, limit: 100 })).unwrap()
+            ]);
+
+            if (branchRes.result && Array.isArray(branchRes.data)) {
+                setBranches(branchRes.data);
+            }
+            if (kitchenRes.result && Array.isArray(kitchenRes.data)) {
+                setKitchens(kitchenRes.data);
+            }
+        } catch (error) {
+            console.error('Error loading data:', error);
+            showAlert('Error loading data', 'error');
+        }
+    };
+
     useEffect(() => {
         loadUserTypes();
+        loadUserTypes();
+        loadBranchesAndKitchens();
     }, []);
 
     const validate = values => {
@@ -197,6 +226,12 @@ export default function ManageUser() {
             email: user.email,
             line_uid: user.line_uid || '',
             typeuser_code: user.typeuser_code,
+            kitchen_access_type: user.kitchen_code === 'All' ? 'all' :
+                user.kitchen_code === 'No' ? 'no_permission' : 'select',
+            branch_access_type: user.branch_code === 'All' ? 'all' :
+                user.branch_code === 'No' ? 'no_permission' : 'select',
+            branch_code: user.branch_code !== 'All' && user.branch_code !== 'No' ? user.branch_code : '',
+            kitchen_code: user.kitchen_code !== 'All' && user.kitchen_code !== 'No' ? user.kitchen_code : '',
             password: ''
         });
         setOpenDrawer(true);
@@ -261,17 +296,6 @@ export default function ManageUser() {
     const handleCreate = async (values) => {
         try {
             const userCode = await handleGenerateUserCode();
-            console.log('Generated user code:', userCode);
-
-            // ตรวจสอบว่ามี user code นี้อยู่แล้วหรือไม่
-            const checkExisting = await dispatch(showUser({
-                offset: 0,
-                limit: 1000 // ควรปรับตามความเหมาะสม
-            })).unwrap();
-
-            if (checkExisting.data.some(user => user.user_code === userCode)) {
-                throw new Error('User code already exists. Please try again.');
-            }
 
             const userData = {
                 user_code: userCode,
@@ -279,7 +303,9 @@ export default function ManageUser() {
                 password: values.password,
                 email: values.email,
                 typeuser_code: values.typeuser_code,
-                line_uid: values.line_uid || ''
+                line_uid: values.line_uid || '',
+                branch_code: values.branch_code || null,
+                kitchen_code: values.kitchen_code || null
             };
 
             const response = await dispatch(register(userData)).unwrap();
@@ -295,8 +321,6 @@ export default function ManageUser() {
 
                 handleCloseDrawer();
                 await fetchUsers();
-            } else {
-                throw new Error(response.message || 'เกิดข้อผิดพลาดในการเพิ่มข้อมูล');
             }
         } catch (error) {
             Swal.fire({
@@ -354,17 +378,31 @@ export default function ManageUser() {
             password: '',
             email: '',
             line_uid: '',
-            typeuser_code: ''
+            typeuser_code: '',
+            kitchen_access_type: 'no_permission', // Added
+            branch_access_type: 'no_permission',  // Added
+            branch_code: '',
+            kitchen_code: ''
         },
         validate,
         onSubmit: async (values) => {
+            const formattedValues = {
+                ...values,
+                kitchen_code: values.kitchen_access_type === 'select' ? values.kitchen_code :
+                    values.kitchen_access_type === 'all' ? 'All' : 'No',
+                branch_code: values.branch_access_type === 'select' ? values.branch_code :
+                    values.branch_access_type === 'all' ? 'All' : 'No'
+            };
+
             if (editMode) {
-                await handleUpdate(values);
+                await handleUpdate(formattedValues);
             } else {
-                await handleCreate(values);
+                await handleCreate(formattedValues);
             }
         }
     });
+
+
 
     return (
         <>
@@ -467,6 +505,8 @@ export default function ManageUser() {
                                 <StyledTableCell>User Type</StyledTableCell>
                                 <StyledTableCell>Email</StyledTableCell>
                                 <StyledTableCell>Line ID</StyledTableCell>
+                                <StyledTableCell>Restaurant</StyledTableCell>
+                                <StyledTableCell>Kitchen</StyledTableCell>
                                 <StyledTableCell></StyledTableCell>
                             </TableRow>
                         </TableHead>
@@ -487,6 +527,16 @@ export default function ManageUser() {
                                     </StyledTableCell>
                                     <StyledTableCell>{user.email}</StyledTableCell>
                                     <StyledTableCell>{user.line_uid}</StyledTableCell>
+                                    <StyledTableCell>
+                                        {user.branch_code === 'All' ? 'All' :
+                                            user.branch_code === 'No' ? 'No Permission' :
+                                                branches.find(b => b.branch_code === user.branch_code)?.branch_name || '-'}
+                                    </StyledTableCell>
+                                    <StyledTableCell>
+                                        {user.kitchen_code === 'All' ? 'All' :
+                                            user.kitchen_code === 'No' ? 'No Permission' :
+                                                kitchens.find(k => k.kitchen_code === user.kitchen_code)?.kitchen_name || '-'}
+                                    </StyledTableCell>
                                     <StyledTableCell>
                                         <IconButton
                                             onClick={() => handleEdit(user)}
@@ -638,6 +688,100 @@ export default function ManageUser() {
                                     )}
                                 </FormControl>
 
+                                <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: 2 }}>
+                                    Kitchen Access
+                                </Typography>
+                                <FormControl component="fieldset">
+                                    <RadioGroup
+                                        name="kitchen_access_type"
+                                        value={formik.values.kitchen_access_type}
+                                        onChange={formik.handleChange}
+                                    >
+                                        <FormControlLabel
+                                            value="no_permission"
+                                            control={<Radio />}
+                                            label="No Permission"
+                                        />
+                                        <FormControlLabel
+                                            value="select"
+                                            control={<Radio />}
+                                            label="Select Kitchen"
+                                        />
+                                        <FormControlLabel
+                                            value="all"
+                                            control={<Radio />}
+                                            label="All Kitchens"
+                                        />
+                                    </RadioGroup>
+                                </FormControl>
+
+                                <FormControl
+                                    fullWidth
+                                    size="small"
+                                    sx={{ mb: 2, mt: 1 }}
+                                    disabled={formik.values.kitchen_access_type !== 'select'}
+                                >
+                                    <Select
+                                        name="kitchen_code"
+                                        value={formik.values.kitchen_code}
+                                        onChange={formik.handleChange}
+                                    >
+                                        <MenuItem value="">Select a Kitchen</MenuItem>
+                                        {kitchens.map((kitchen) => (
+                                            <MenuItem key={kitchen.kitchen_code} value={kitchen.kitchen_code}>
+                                                {kitchen.kitchen_name}
+                                            </MenuItem>
+                                        ))}
+                                    </Select>
+                                </FormControl>
+
+                                <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: 2 }}>
+                                    Restaurant Access
+                                </Typography>
+                                <FormControl component="fieldset">
+                                    <RadioGroup
+                                        name="branch_access_type"
+                                        value={formik.values.branch_access_type}
+                                        onChange={formik.handleChange}
+                                    >
+                                        <FormControlLabel
+                                            value="no_permission"
+                                            control={<Radio />}
+                                            label="No Permission"
+                                        />
+                                        <FormControlLabel
+                                            value="select"
+                                            control={<Radio />}
+                                            label="Select Restaurant"
+                                        />
+                                        <FormControlLabel
+                                            value="all"
+                                            control={<Radio />}
+                                            label="All Branches"
+                                        />
+                                    </RadioGroup>
+                                </FormControl>
+
+                                <FormControl
+                                    fullWidth
+                                    size="small"
+                                    sx={{ mb: 2, mt: 1 }}
+                                    disabled={formik.values.branch_access_type !== 'select'}
+                                >
+                                    <Select
+                                        name="branch_code"
+                                        value={formik.values.branch_code}
+                                        onChange={formik.handleChange}
+                                    >
+                                        <MenuItem value="">Select a Restaurant</MenuItem>
+                                        {branches.map((branch) => (
+                                            <MenuItem key={branch.branch_code} value={branch.branch_code}>
+                                                {branch.branch_name}
+                                            </MenuItem>
+                                        ))}
+                                    </Select>
+                                </FormControl>
+
                                 <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
                                     Line ID
                                 </Typography>
@@ -783,6 +927,101 @@ export default function ManageUser() {
                                             {formik.errors.typeuser_code}
                                         </Typography>
                                     )}
+                                </FormControl>
+
+                                // หลัง User Type ในส่วน Edit Drawer
+                                <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: 2 }}>
+                                    Kitchen Access
+                                </Typography>
+                                <FormControl component="fieldset">
+                                    <RadioGroup
+                                        name="kitchen_access_type"
+                                        value={formik.values.kitchen_access_type}
+                                        onChange={formik.handleChange}
+                                    >
+                                        <FormControlLabel
+                                            value="no_permission"
+                                            control={<Radio />}
+                                            label="No Permission"
+                                        />
+                                        <FormControlLabel
+                                            value="select"
+                                            control={<Radio />}
+                                            label="Select Kitchen"
+                                        />
+                                        <FormControlLabel
+                                            value="all"
+                                            control={<Radio />}
+                                            label="All Kitchens"
+                                        />
+                                    </RadioGroup>
+                                </FormControl>
+
+                                <FormControl
+                                    fullWidth
+                                    size="small"
+                                    sx={{ mb: 2, mt: 1 }}
+                                    disabled={formik.values.kitchen_access_type !== 'select'}
+                                >
+                                    <Select
+                                        name="kitchen_code"
+                                        value={formik.values.kitchen_code}
+                                        onChange={formik.handleChange}
+                                    >
+                                        <MenuItem value="">Select a Kitchen</MenuItem>
+                                        {kitchens.map((kitchen) => (
+                                            <MenuItem key={kitchen.kitchen_code} value={kitchen.kitchen_code}>
+                                                {kitchen.kitchen_name}
+                                            </MenuItem>
+                                        ))}
+                                    </Select>
+                                </FormControl>
+
+                                <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: 2 }}>
+                                    Restaurant Access
+                                </Typography>
+                                <FormControl component="fieldset">
+                                    <RadioGroup
+                                        name="branch_access_type"
+                                        value={formik.values.branch_access_type}
+                                        onChange={formik.handleChange}
+                                    >
+                                        <FormControlLabel
+                                            value="no_permission"
+                                            control={<Radio />}
+                                            label="No Permission"
+                                        />
+                                        <FormControlLabel
+                                            value="select"
+                                            control={<Radio />}
+                                            label="Select Restaurant"
+                                        />
+                                        <FormControlLabel
+                                            value="all"
+                                            control={<Radio />}
+                                            label="All Branches"
+                                        />
+                                    </RadioGroup>
+                                </FormControl>
+
+                                <FormControl
+                                    fullWidth
+                                    size="small"
+                                    sx={{ mb: 2, mt: 1 }}
+                                    disabled={formik.values.branch_access_type !== 'select'}
+                                >
+                                    <Select
+                                        name="branch_code"
+                                        value={formik.values.branch_code}
+                                        onChange={formik.handleChange}
+                                    >
+                                        <MenuItem value="">Select a Restaurant</MenuItem>
+                                        {branches.map((branch) => (
+                                            <MenuItem key={branch.branch_code} value={branch.branch_code}>
+                                                {branch.branch_name}
+                                            </MenuItem>
+                                        ))}
+                                    </Select>
                                 </FormControl>
 
                                 <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>

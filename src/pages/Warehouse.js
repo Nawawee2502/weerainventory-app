@@ -24,16 +24,15 @@ import HomeReceiptFromKitchen from '../components/warehouse/receiptfromkitchen/H
 import HomeDispatchToKitchen from '../components/warehouse/dispatchtokitchen/HomeDispatchToKitchen';
 import HomeDispatchToBranch from '../components/warehouse/dispatchtobranch/HomeDispatchToBranch';
 import HomeStockAdjustment from '../components/warehouse/stockadjustment/HomeStockAdjustMent';
+import DailyClosing from '../components/warehouse/dailyclosing/DailyClosing';
 import ReportPurchaseordertosupplier from '../components/warehouse/reportwarehouse/Reportpurchaseordertosupplier';
 import ReportReceiptFromSupplier from '../components/warehouse/reportwarehouse/ReportReceiptfromsupplier';
 import ReportReceiptFromKitchen from '../components/warehouse/reportwarehouse/ReportReceiptFromKitchen';
 import ReportDispatchToKitchen from '../components/warehouse/reportwarehouse/ReportDispatchToKitchen';
 import ReportDispatchToBranch from '../components/warehouse/reportwarehouse/ReportDispatchToBranch';
-import ReportStockAdjustment from '../components/warehouse/reportwarehouse/ReportStockAdjustment';
 import ReportMonthlyStockCard from '../components/warehouse/reportwarehouse/ReportMonthlyStockCard';
 import ReportMonthlyStockBalance from '../components/warehouse/reportwarehouse/ReportMonthlyStockBalance';
 import BeginningInventory from '../components/warehouse/beginninginventory/BeginningInventory';
-
 
 const demoTheme = createTheme({
     breakpoints: {
@@ -77,7 +76,7 @@ function Warehouse(props) {
 
         const menu = [];
 
-        // Beginning Inventory (ถ้ามีสิทธิ์ warehouse)
+        // Beginning Inventory
         if (permissions.menu_setwarehouse === 'Y') {
             menu.push({
                 segment: 'beginning-inventory',
@@ -131,11 +130,11 @@ function Warehouse(props) {
             });
         }
 
-        // Stock Adjustment
-        if (permissions.menu_setwh_stock_adjustment === 'Y') {
+        // Daily Closing (Stock Adjustment)
+        if (permissions.menu_setwh_daily_closing === 'Y') {
             menu.push({
-                segment: 'stock-adjustment',
-                title: 'Stock Adjustment',
+                segment: 'daily-closing',
+                title: 'Daily Closing',
                 icon: <Inventory2OutlinedIcon />,
             });
         }
@@ -173,11 +172,6 @@ function Warehouse(props) {
                         icon: <CircleIcon fontSize='small' />,
                     },
                     {
-                        segment: 'stock-adjustment',
-                        title: 'Stock Adjustment',
-                        icon: <CircleIcon fontSize='small' />,
-                    },
-                    {
                         segment: 'monthly-stock-card',
                         title: 'Monthly Stock Card',
                         icon: <CircleIcon fontSize='small' />,
@@ -200,25 +194,23 @@ function Warehouse(props) {
     };
 
     const findMenuTitle = (path) => {
-        // สำหรับ reports จะมี path format เป็น /reports/xxx
+        // For reports with path format /reports/xxx
         if (path.startsWith('/reports/')) {
             const reportSegment = path.substring('/reports/'.length);
-            // หา reports menu
             const reportsMenu = NAVIGATION.find(item => item.segment === 'reports');
             if (reportsMenu && reportsMenu.children) {
-                // หา submenu ที่ตรงกับ segment
                 const subMenu = reportsMenu.children.find(item => item.segment === reportSegment);
                 if (subMenu) return subMenu.title;
             }
-            return 'Reports'; // fallback ถ้าไม่เจอ submenu
+            return 'Reports';
         }
-    
-        // สำหรับเมนูหลักอื่นๆ
+
+        // For other main menu items
         const segment = path.substring(1);
         const mainMenu = NAVIGATION.find(item => item.segment === segment);
         if (mainMenu) return mainMenu.title;
-    
-        return 'Beginning Inventory'; // default
+
+        return 'Beginning Inventory';
     };
 
     function SidebarFooter({ mini }) {
@@ -284,8 +276,6 @@ function Warehouse(props) {
                 return <ReportDispatchToKitchen />;
             case '/reports/dispatch-to-branch':
                 return <ReportDispatchToBranch />;
-            case '/reports/stock-adjustment':
-                return <ReportStockAdjustment />;
             case '/reports/monthly-stock-card':
                 return <ReportMonthlyStockCard />;
             case '/reports/monthly-stock-balance':
@@ -312,14 +302,13 @@ function Warehouse(props) {
                 return permissions.menu_setwh_dispatch_to_kitchen === 'Y' ? <HomeDispatchToKitchen /> : null;
             case '/dispatch-to-branch':
                 return permissions.menu_setwh_dispatch_to_branch === 'Y' ? <HomeDispatchToBranch /> : null;
-            case '/stock-adjustment':
-                return permissions.menu_setwh_stock_adjustment === 'Y' ? <HomeStockAdjustment /> : null;
+            case '/daily-closing':
+                return permissions.menu_setwh_daily_closing === 'Y' ? <DailyClosing /> : null;
             case '/reports/purchase-order-to-supplier':
             case '/reports/receipt-from-supplier':
             case '/reports/receipt-from-kitchen':
             case '/reports/dispatch-to-kitchen':
             case '/reports/dispatch-to-branch':
-            case '/reports/stock-adjustment':
             case '/reports/monthly-stock-card':
             case '/reports/monthly-stock-balance':
                 return permissions.menu_setwh_report === 'Y' ? renderReportContent(pathname) : null;

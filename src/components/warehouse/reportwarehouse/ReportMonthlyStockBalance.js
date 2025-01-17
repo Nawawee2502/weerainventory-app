@@ -25,13 +25,6 @@ export default function ReportMonthlyStockBalance() {
     const [excludePrice, setExcludePrice] = useState(false);
 
 
-    // เพิ่ม useEffect นี้
-    useEffect(() => {
-        fetchStockBalance();
-    }, [startDate, endDate]);
-
-    // ลบ handleSearch ออกเพราะไม่ได้ใช้แล้ว
-
     const formatDateForApi = (date) => {
         const month = String(date.getMonth() + 1).padStart(2, '0');
         const day = String(date.getDate()).padStart(2, '0');
@@ -47,6 +40,16 @@ export default function ReportMonthlyStockBalance() {
     };
 
     const fetchStockBalance = async () => {
+        if (!startDate || !endDate) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Please select dates',
+                text: 'Both start and end dates must be selected',
+                confirmButtonColor: '#754C27'
+            });
+            return;
+        }
+
         try {
             setLoading(true);
             setError(null);
@@ -60,57 +63,63 @@ export default function ReportMonthlyStockBalance() {
             const response = await dispatch(queryWh_stockcard(params)).unwrap();
 
             if (response.result) {
-                // First group by type_product
-                const groupedByType = {};
+                if (response.data.length === 0) {
+                    setStockBalanceData([]);
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'No Data Found',
+                        text: 'No records found for the selected date range',
+                        confirmButtonColor: '#754C27'
+                    });
+                    return;
+                }
 
-                // Sort the data by date (trdate) first to ensure latest records come last
-                const sortedData = response.data.sort((a, b) => {
-                    const dateCompare = a.trdate.localeCompare(b.trdate);
-                    if (dateCompare !== 0) return dateCompare;
-                    return a.refno.localeCompare(b.refno);
-                });
+                // Group data by product
+                const productGroups = response.data.reduce((acc, item) => {
+                    const key = item.product_code;
 
-                sortedData.forEach(item => {
-                    const typeProduct = item.tbl_product.type_product || 'Uncategorized';
-                    if (!groupedByType[typeProduct]) {
-                        groupedByType[typeProduct] = [];
+                    if (!acc[key]) {
+                        acc[key] = {
+                            ...item,
+                            beg1: 0,
+                            in1: 0,
+                            out1: 0,
+                            upd1: 0,
+                            balance: 0,
+                            balance_amount: 0
+                        };
                     }
-                    groupedByType[typeProduct].push(item);
-                });
 
-                // Then process each type group
-                let processedData = [];
-                Object.entries(groupedByType).forEach(([typeProduct, items]) => {
-                    // Group by product within each type
-                    const productGroups = items.reduce((acc, item) => {
-                        const key = item.product_code;
-                        if (!acc[key]) {
-                            acc[key] = {
-                                ...item,
-                                beg1: Number(item.beg1 || 0),
-                                in1: Number(item.in1 || 0),
-                                out1: Number(item.out1 || 0),
-                                upd1: Number(item.upd1 || 0),
-                                balance: Number(item.balance || 0),  // Keep the latest balance
-                                balance_amount: Number(item.balance_amount || 0),  // Keep the latest balance_amount
-                                type_product: typeProduct
-                            };
-                        } else {
-                            acc[key].beg1 += Number(item.beg1 || 0);
-                            acc[key].in1 += Number(item.in1 || 0);
-                            acc[key].out1 += Number(item.out1 || 0);
-                            acc[key].upd1 += Number(item.upd1 || 0);
-                            // Update balance and balance_amount with latest values
-                            acc[key].balance = Number(item.balance || 0);
-                            acc[key].balance_amount = Number(item.balance_amount || 0);
-                        }
-                        return acc;
-                    }, {});
+                    // Update running totals
+                    acc[key].beg1 += Number(item.beg1 || 0);
+                    acc[key].in1 += Number(item.in1 || 0);
+                    acc[key].out1 += Number(item.out1 || 0);
+                    acc[key].upd1 += Number(item.upd1 || 0);
 
-                    processedData = [...processedData, ...Object.values(productGroups)];
+                    // Update balance and balance_amount with the latest values
+                    const currentTransaction = response.data.filter(
+                        transaction => transaction.product_code === key
+                    ).sort((a, b) => new Date(b.trdate) - new Date(a.trdate))[0];
+
+                    if (currentTransaction) {
+                        acc[key].balance = Number(currentTransaction.balance || 0);
+                        acc[key].balance_amount = Number(currentTransaction.balance_amount || 0);
+                    }
+
+                    return acc;
+                }, {});
+
+                // Convert the grouped data back to an array and sort by product name
+                const processedData = Object.values(productGroups).sort((a, b) => {
+                    const nameA = a.tbl_product?.product_name || '';
+                    const nameB = b.tbl_product?.product_name || '';
+                    return nameA.localeCompare(nameB);
                 });
 
                 setStockBalanceData(processedData);
+
+            } else {
+                throw new Error('Failed to fetch data');
             }
         } catch (err) {
             console.error('Error in fetchStockBalance:', err);
@@ -121,19 +130,10 @@ export default function ReportMonthlyStockBalance() {
                 text: err.message || 'Failed to fetch data',
                 confirmButtonColor: '#754C27'
             });
+            setStockBalanceData([]);
         } finally {
             setLoading(false);
         }
-    };
-
-    // Initial data load
-    useEffect(() => {
-        fetchStockBalance();
-    }, []);
-
-    // Handle search
-    const handleSearch = () => {
-        fetchStockBalance();
     };
 
     // ในส่วนของ handleExportExcel
@@ -250,16 +250,15 @@ export default function ReportMonthlyStockBalance() {
                                     selectsStart
                                     startDate={startDate}
                                     endDate={endDate}
-                                    dateFormat="MM/dd/yyyy"  // แก้จาก dd/MM/yyyy
-                                    isClearable
-                                    placeholderText="MM/DD/YYYY"  // แก้ placeholder
+                                    dateFormat="MM/dd/yyyy"
+                                    placeholderText="MM/DD/YYYY"
                                     customInput={
                                         <TextField
                                             size="small"
                                             fullWidth
                                             sx={{
                                                 mt: '8px',
-                                                width: '80%',
+                                                width: '100%',
                                                 '& .MuiInputBase-root': { width: '100%' },
                                                 '& .MuiOutlinedInput-root': {
                                                     borderRadius: '10px',
@@ -283,16 +282,15 @@ export default function ReportMonthlyStockBalance() {
                                     startDate={startDate}
                                     endDate={endDate}
                                     minDate={startDate}
-                                    dateFormat="MM/dd/yyyy"  // แก้จาก dd/MM/yyyy
-                                    isClearable
-                                    placeholderText="MM/DD/YYYY"  // แก้ placeholder
+                                    dateFormat="MM/dd/yyyy"
+                                    placeholderText="MM/DD/YYYY"
                                     customInput={
                                         <TextField
                                             size="small"
                                             fullWidth
                                             sx={{
                                                 mt: '8px',
-                                                width: '80%',
+                                                width: '100%',
                                                 '& .MuiInputBase-root': { width: '100%' },
                                                 '& .MuiOutlinedInput-root': {
                                                     borderRadius: '10px',
@@ -303,12 +301,28 @@ export default function ReportMonthlyStockBalance() {
                                     }
                                 />
                             </Grid2>
+                            <Grid2 item size={{ xs: 12, md: 12 }} sx={{ mt: 2 }}>
+                                <Button
+                                    fullWidth
+                                    variant="contained"
+                                    onClick={fetchStockBalance}
+                                    sx={{
+                                        bgcolor: '#754C27',
+                                        color: 'white',
+                                        height: '48px',
+                                        '&:hover': {
+                                            bgcolor: '#5c3c1f'
+                                        }
+                                    }}
+                                >
+                                    Show
+                                </Button>
+                            </Grid2>
                         </Grid2>
                     </Box>
                 </Box>
             </Box>
 
-            {/* Results Section */}
             <Box sx={{
                 width: '98%',
                 bgcolor: 'white',

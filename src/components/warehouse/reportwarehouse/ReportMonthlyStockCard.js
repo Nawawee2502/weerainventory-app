@@ -52,7 +52,7 @@ const convertToLasVegasTime = (date) => {
     if (!date) return new Date();
     const newDate = new Date(date);
     newDate.setHours(0, 0, 0, 0);
-    return new Date(newDate.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
+    return newDate;
 };
 
 export default function ReportMonthlyStockCard() {
@@ -111,68 +111,14 @@ export default function ReportMonthlyStockCard() {
         setProductSearch(product.product_name);
         setShowDropdown(false);
 
-        // ตรวจสอบและโหลดข้อมูลทันที
-        const loadProductData = async () => {
-            try {
-                setLoading(true);
-                setError(null);
-
-                const params = {
-                    rdate1: formatDateForApi(startDate),
-                    rdate2: formatDateForApi(endDate),
-                    // เพิ่ม product_code เพื่อให้ค้นหาแบบ exact match
-                    product_code: product.product_code, // เพิ่มบรรทัดนี้
-                    limit: 99999
-                };
-
-                const response = await dispatch(queryWh_stockcard(params)).unwrap();
-
-                if (response.result) {
-                    // กรองข้อมูลเฉพาะ product ที่เลือก
-                    const filteredData = response.data.filter(
-                        item => item.product_code === product.product_code
-                    );
-
-                    if (filteredData.length === 0) {
-                        Swal.fire({
-                            icon: 'warning',
-                            title: 'No Data Found',
-                            text: 'No records found for the selected product and date range',
-                            confirmButtonColor: '#754C27'
-                        });
-                    }
-                    setStockcardData(filteredData);
-                    setHasSearched(true);
-                }
-            } catch (err) {
-                console.error('Error in loadProductData:', err);
-                setError(err.message || 'Failed to fetch data');
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error',
-                    text: err.message || 'Failed to fetch data',
-                    confirmButtonColor: '#754C27'
-                });
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        loadProductData();
     };
 
     const formatDateForApi = (date) => {
         if (!date) return "";
-        const newDate = convertToLasVegasTime(date);
-        const year = newDate.getFullYear();
-        const month = String(newDate.getMonth() + 1).padStart(2, '0');
-        const day = String(newDate.getDate()).padStart(2, '0');
-        console.log('Format Date For API:', {
-            input: date,
-            converted: newDate,
-            formatted: `${year}${month}${day}`
-        });
-        return `${year}${month}${day}`;  // เปลี่ยนเป็น YYYYMMDD ตามที่ backend ต้องการ
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}${month}${day}`;
     };
 
     const formatDateForDisplay = (dateString) => {
@@ -191,6 +137,12 @@ export default function ReportMonthlyStockCard() {
 
     const loadData = async () => {
         if (!selectedProduct) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Please select a product',
+                text: 'A product must be selected before showing data',
+                confirmButtonColor: '#754C27'
+            });
             setStockcardData([]);
             setHasSearched(true);
             return;
@@ -207,10 +159,7 @@ export default function ReportMonthlyStockCard() {
                 limit: 99999
             };
 
-            console.log('Searching with params:', params);
-
             const response = await dispatch(queryWh_stockcard(params)).unwrap();
-            console.log("API Response:", response);
 
             if (response.result) {
                 if (response.data.length === 0) {
@@ -222,6 +171,7 @@ export default function ReportMonthlyStockCard() {
                     });
                 }
                 setStockcardData(response.data);
+                setHasSearched(true);
             }
         } catch (err) {
             console.error('Error in loadData:', err);
@@ -374,10 +324,27 @@ export default function ReportMonthlyStockCard() {
                                 </Typography>
                                 <DatePicker
                                     selected={startDate}
-                                    onChange={handleStartDateChange}
+                                    onChange={(date) => setStartDate(date)}
+                                    selectsStart
+                                    startDate={startDate}
+                                    endDate={endDate}
                                     dateFormat="MM/dd/yyyy"
                                     placeholderText="MM/DD/YYYY"
-                                    customInput={<CustomInput />}
+                                    customInput={
+                                        <TextField
+                                            size="small"
+                                            fullWidth
+                                            sx={{
+                                                mt: '8px',
+                                                width: '100%',
+                                                '& .MuiInputBase-root': { width: '100%' },
+                                                '& .MuiOutlinedInput-root': {
+                                                    borderRadius: '10px',
+                                                    bgcolor: 'white'
+                                                },
+                                            }}
+                                        />
+                                    }
                                 />
                             </Grid2>
 
@@ -388,14 +355,28 @@ export default function ReportMonthlyStockCard() {
                                 </Typography>
                                 <DatePicker
                                     selected={endDate}
-                                    onChange={handleEndDateChange}
+                                    onChange={(date) => setEndDate(date)}
                                     selectsEnd
                                     startDate={startDate}
                                     endDate={endDate}
                                     minDate={startDate}
                                     dateFormat="MM/dd/yyyy"
                                     placeholderText="MM/DD/YYYY"
-                                    customInput={<CustomInput />}
+                                    customInput={
+                                        <TextField
+                                            size="small"
+                                            fullWidth
+                                            sx={{
+                                                mt: '8px',
+                                                width: '100%',
+                                                '& .MuiInputBase-root': { width: '100%' },
+                                                '& .MuiOutlinedInput-root': {
+                                                    borderRadius: '10px',
+                                                    bgcolor: 'white'
+                                                },
+                                            }}
+                                        />
+                                    }
                                 />
                             </Grid2>
 
@@ -463,6 +444,23 @@ export default function ReportMonthlyStockCard() {
                                         </Box>
                                     )}
                                 </Box>
+                            </Grid2>
+                            <Grid2 item size={{ xs: 12, md: 12 }} sx={{ mt: 2 }}>
+                                <Button
+                                    fullWidth
+                                    variant="contained"
+                                    onClick={loadData}
+                                    sx={{
+                                        bgcolor: '#754C27',
+                                        color: 'white',
+                                        height: '48px',
+                                        '&:hover': {
+                                            bgcolor: '#5c3c1f'
+                                        }
+                                    }}
+                                >
+                                    Show
+                                </Button>
                             </Grid2>
                         </Grid2>
                     </Box>
@@ -657,7 +655,10 @@ export default function ReportMonthlyStockCard() {
                                         </td>
                                         <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>
                                             {!excludePrice ? (stockcardData.reduce((sum, item) => sum + (item.in1 || 0), 0)) : '-'}
-                                        </td>                                        <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>-</td>
+                                        </td>
+                                        <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>
+                                            {!excludePrice ? (stockcardData.reduce((sum, item) => sum + (item.out1 || 0), 0)) : '-'}
+                                        </td>
                                         <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>-</td>
                                         <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>-</td>
                                         <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>-</td>

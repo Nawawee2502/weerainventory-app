@@ -16,10 +16,22 @@ import { refno } from '../../../api/warehouse/wh_rfsApi';
 
 const formatDate = (date) => {
   if (!date) return "";
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const year = date.getFullYear();
-  return `${month}/${day}/${year}`;
+  // Clone date object เพื่อป้องกันการเปลี่ยนแปลงค่าต้นฉบับ
+  const clonedDate = new Date(date);
+  const month = String(clonedDate.getMonth() + 1).padStart(2, '0');
+  const day = String(clonedDate.getDate()).padStart(2, '0');
+  const year = clonedDate.getFullYear();
+  return `${month}/${day}/${year}`; // MM/DD/YYYY
+};
+
+const formatTRDate = (date) => {
+  if (!date) return "";
+  // Clone date object และใช้ UTC เพื่อป้องกันปัญหา timezone
+  const clonedDate = new Date(date);
+  const year = clonedDate.getFullYear();
+  const month = String(clonedDate.getMonth() + 1).padStart(2, '0');
+  const day = String(clonedDate.getDate()).padStart(2, '0');
+  return `${year}${month}${day}`; // YYYYMMDD
 };
 
 function CreateReceiptFromSupplier({ onBack }) {
@@ -256,7 +268,7 @@ function CreateReceiptFromSupplier({ onBack }) {
       rdate: formatDate(startDate),
       supplier_code: saveSupplier,
       branch_code: saveBranch,
-      trdate: startDate.toISOString().slice(0, 10).replace(/-/g, ''),
+      trdate: formatTRDate(startDate),
       monthh: (startDate.getMonth() + 1).toString().padStart(2, '0'),
       myear: startDate.getFullYear(),
       user_code: userData2.user_code
