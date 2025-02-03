@@ -1,13 +1,340 @@
 import { Box, Button, InputAdornment, TextField, Typography, IconButton, Grid2, Divider } from '@mui/material';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SearchIcon from '@mui/icons-material/Search';
 import CancelIcon from '@mui/icons-material/Cancel';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
+import { useDispatch } from "react-redux";
+import { searchProductName } from '../../../api/productrecordApi';
+import { kitchenAll } from '../../../api/kitchenApi';
+import { addKt_trw, Kt_trwrefno } from '../../../api/kitchen/kt_trwApi';
+import Swal from 'sweetalert2';
+import { format } from 'date-fns';
+import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 
-export default function CreateProductionReceipt({ onBack }) {
+// Custom DatePicker Input Component
+const CustomDateInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
+    <Box sx={{ position: 'relative', display: 'inline-block', width: '100%' }}>
+        <TextField
+            value={value}
+            onClick={onClick}
+            placeholder={placeholder || "MM/DD/YYYY"}
+            ref={ref}
+            size="small"
+            sx={{
+                '& .MuiInputBase-root': {
+                    height: '38px',
+                    width: '100%',
+                    backgroundColor: '#fff',
+                },
+                '& .MuiOutlinedInput-input': {
+                    cursor: 'pointer',
+                    paddingRight: '40px',
+                }
+            }}
+            InputProps={{
+                readOnly: true,
+                endAdornment: (
+                    <InputAdornment position="end">
+                        <CalendarTodayIcon sx={{ color: '#754C27', cursor: 'pointer' }} />
+                    </InputAdornment>
+                ),
+            }}
+        />
+    </Box>
+));
+
+export default function CreateTransferWithdrawal({ onBack }) {
+    const dispatch = useDispatch();
     const [startDate, setStartDate] = useState(new Date());
+    const [lastRefNo, setLastRefNo] = useState('');
+    const [kitchens, setKitchens] = useState([]);
+    const [saveKitchen, setSaveKitchen] = useState('');
+    const [products, setProducts] = useState([]);
+    const [quantities, setQuantities] = useState({});
+    const [units, setUnits] = useState({});
+    const [unitPrices, setUnitPrices] = useState({});
+    const [totals, setTotals] = useState({});
+    const [total, setTotal] = useState(0);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [searchResults, setSearchResults] = useState([]);
+    const [showDropdown, setShowDropdown] = useState(false);
+    const [expiryDates, setExpiryDates] = useState({});
+    const [temperatures, setTemperatures] = useState({});
+
+    const userDataJson = localStorage.getItem("userData2");
+    const userData2 = JSON.parse(userDataJson);
+
+    // Initial Data Loading
+    useEffect(() => {
+        const currentDate = new Date();
+        handleGetLastRefNo(currentDate);
+        loadKitchens();
+    }, []);
+
+    // Load Kitchens
+    const loadKitchens = async () => {
+        try {
+            const res = await dispatch(kitchenAll({ offset: 0, limit: 100 })).unwrap();
+            setKitchens(res.data);
+        } catch (err) {
+            console.error("Error loading kitchens:", err);
+        }
+    };
+
+    // Get Last Reference Number
+    const handleGetLastRefNo = async (selectedDate) => {
+        try {
+            const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+            const year = selectedDate.getFullYear().toString().slice(-2);
+
+            const res = await dispatch(Kt_trwrefno({
+                month: month,
+                year: year
+            })).unwrap();
+
+            if (!res.data || !res.data.refno) {
+                setLastRefNo(`KTTRW${year}${month}001`);
+                return;
+            }
+
+            const lastRefNo = res.data.refno;
+            const lastRefMonth = lastRefNo.substring(6, 8);
+            const lastRefYear = lastRefNo.substring(4, 6);
+
+            if (lastRefMonth !== month || lastRefYear !== year) {
+                setLastRefNo(`KTTRW${year}${month}001`);
+                return;
+            }
+
+            const lastNumber = parseInt(lastRefNo.slice(-3));
+            const newNumber = lastNumber + 1;
+            setLastRefNo(`KTTRW${year}${month}${String(newNumber).padStart(3, '0')}`);
+
+        } catch (err) {
+            console.error("Error generating refno:", err);
+            const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+            const year = selectedDate.getFullYear().toString().slice(-2);
+            setLastRefNo(`KTTRW${year}${month}001`);
+        }
+    };
+
+    // Update Line Total and Grand Total
+    const updateTotals = (productCode, quantity, price) => {
+        const lineTotal = quantity * price;
+        setTotals(prev => {
+            const newTotals = { ...prev, [productCode]: lineTotal };
+            const grandTotal = Object.values(newTotals).reduce((sum, value) => sum + value, 0);
+            setTotal(grandTotal);
+            return newTotals;
+        });
+    };
+
+    // Product Selection Handler
+    const handleProductSelect = (product) => {
+        if (products.some(p => p.product_code === product.product_code)) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Product already exists',
+                timer: 1500,
+                showConfirmButton: false
+            });
+            return;
+        }
+
+        const productCode = product.product_code;
+        const initialQuantity = 1;
+        const initialPrice = product.bulk_unit_price;
+
+        setProducts(prev => [...prev, product]);
+        setQuantities(prev => ({ ...prev, [productCode]: initialQuantity }));
+        setUnits(prev => ({ ...prev, [productCode]: product.productUnit1.unit_code }));
+        setExpiryDates(prev => ({ ...prev, [productCode]: new Date() }));
+        setTemperatures(prev => ({ ...prev, [productCode]: "" }));
+        setUnitPrices(prev => ({ ...prev, [productCode]: initialPrice }));
+
+        updateTotals(productCode, initialQuantity, initialPrice);
+
+        setSearchTerm('');
+        setShowDropdown(false);
+    };
+
+    // Product Search Handler
+    const handleSearchChange = async (e) => {
+        const value = e.target.value;
+        setSearchTerm(value);
+
+        if (value.length > 0) {
+            try {
+                const res = await dispatch(searchProductName({ product_name: value })).unwrap();
+                if (res.data) {
+                    setSearchResults(res.data);
+                    setShowDropdown(true);
+                }
+            } catch (err) {
+                console.error("Search error:", err);
+                setSearchResults([]);
+                setShowDropdown(false);
+            }
+        } else {
+            setSearchResults([]);
+            setShowDropdown(false);
+        }
+    };
+
+    // Field Change Handlers
+    const handleExpiryDateChange = (productCode, date) => {
+        setExpiryDates(prev => ({
+            ...prev,
+            [productCode]: date
+        }));
+    };
+
+    const handleUnitChange = (productCode, newUnitCode) => {
+        setUnits(prev => ({
+            ...prev,
+            [productCode]: newUnitCode
+        }));
+
+        const product = products.find(p => p.product_code === productCode);
+        const newPrice = newUnitCode === product.productUnit1.unit_code
+            ? product.bulk_unit_price
+            : product.retail_unit_price;
+
+        setUnitPrices(prev => ({
+            ...prev,
+            [productCode]: newPrice
+        }));
+
+        updateTotals(productCode, quantities[productCode], newPrice);
+    };
+
+    const handleQuantityChange = (productCode, newQuantity) => {
+        if (newQuantity >= 1) {
+            setQuantities(prev => ({
+                ...prev,
+                [productCode]: newQuantity
+            }));
+            updateTotals(productCode, newQuantity, unitPrices[productCode]);
+        }
+    };
+
+    const handleUnitPriceChange = (productCode, value) => {
+        const newPrice = parseFloat(value);
+        if (!isNaN(newPrice) && newPrice >= 0) {
+            setUnitPrices(prev => ({
+                ...prev,
+                [productCode]: newPrice
+            }));
+            updateTotals(productCode, quantities[productCode], newPrice);
+        }
+    };
+
+    const handleTemperatureChange = (productCode, temperature) => {
+        setTemperatures(prev => ({
+            ...prev,
+            [productCode]: temperature
+        }));
+    };
+
+    // Delete Product Handler
+    const handleDeleteProduct = (productCode) => {
+        setProducts(prev => prev.filter(p => p.product_code !== productCode));
+        setTotals(prev => {
+            const newTotals = { ...prev };
+            delete newTotals[productCode];
+            const newTotal = Object.values(newTotals).reduce((sum, curr) => sum + curr, 0);
+            setTotal(newTotal);
+            return newTotals;
+        });
+    };
+
+    // Reset Form
+    const resetForm = () => {
+        setProducts([]);
+        setQuantities({});
+        setUnits({});
+        setUnitPrices({});
+        setTotals({});
+        setTotal(0);
+        setSaveKitchen('');
+        setSearchTerm('');
+        setExpiryDates({});
+        setTemperatures({});
+    };
+
+    // Save Handler
+    const handleSave = async () => {
+        if (!saveKitchen || products.length === 0) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Missing Information',
+                text: 'Please fill in all required fields.',
+                timer: 1500
+            });
+            return;
+        }
+
+        try {
+            Swal.fire({
+                title: 'Saving transfer withdrawal...',
+                allowOutsideClick: false,
+                didOpen: () => Swal.showLoading()
+            });
+
+            const headerData = {
+                refno: lastRefNo,
+                rdate: format(startDate, 'MM/dd/yyyy'),
+                kitchen_code: saveKitchen,
+                trdate: format(startDate, 'yyyyMMdd'),
+                monthh: format(startDate, 'MM'),
+                myear: startDate.getFullYear(),
+                user_code: userData2.user_code,
+            };
+
+            const productArrayData = products.map(product => ({
+                refno: headerData.refno,
+                product_code: product.product_code,
+                qty: quantities[product.product_code].toString(),
+                unit_code: units[product.product_code],
+                uprice: unitPrices[product.product_code].toString(),
+                amt: totals[product.product_code].toString(),
+                expire_date: format(expiryDates[product.product_code], 'MM/dd/yyyy'),
+                texpire_date: format(expiryDates[product.product_code], 'yyyyMMdd'),
+                temperature1: temperatures[product.product_code]
+            }));
+
+            const orderData = {
+                headerData,
+                productArrayData,
+                footerData: {
+                    total: total.toString()
+                }
+            };
+
+            await dispatch(addKt_trw(orderData)).unwrap();
+
+            await Swal.fire({
+                icon: 'success',
+                title: 'Created transfer withdrawal successfully',
+                text: `Reference No: ${lastRefNo}`,
+                showConfirmButton: false,
+                timer: 1500
+            });
+
+            resetForm();
+            onBack();
+
+        } catch (error) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: error.message || 'Error saving transfer withdrawal',
+                confirmButtonText: 'OK'
+            });
+        }
+    };
 
     return (
         <Box sx={{ width: '100%' }}>
@@ -16,38 +343,32 @@ export default function CreateProductionReceipt({ onBack }) {
                 startIcon={<ArrowBackIcon />}
                 sx={{ mb: 2, mr: 'auto' }}
             >
-                Back to Transfer To Warehouse
+                Back to Transfer Withdrawal
             </Button>
-            <Box
-                sx={{
-                    width: '100%',
-                    mt: '10px',
-                    flexDirection: 'column'
-                }}
-            >
-                <Box
-                    sx={{
-                        display: 'flex',
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        flexDirection: 'column',
-                        border: '1px solid #E4E4E4',
-                        borderRadius: '10px',
-                        bgcolor: '#FFFFFF',
-                        height: '100%',
-                        p: '16px',
-                        position: 'relative',
-                        zIndex: 2,
-                        mb: '50px'
-                    }}
-                >
+            <Box sx={{ width: '100%', mt: '10px', flexDirection: 'column' }}>
+                <Box sx={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    flexDirection: 'column',
+                    border: '1px solid #E4E4E4',
+                    borderRadius: '10px',
+                    bgcolor: '#FFFFFF',
+                    height: '100%',
+                    p: '16px',
+                    position: 'relative',
+                    zIndex: 2,
+                    mb: '50px'
+                }}>
                     <Box sx={{ width: '90%', mt: '24px' }}>
                         <Grid2 container spacing={2}>
+                            {/* Ref No Field */}
                             <Grid2 item size={{ xs: 12, md: 6 }}>
                                 <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
                                     Ref.no
                                 </Typography>
                                 <TextField
+                                    value={lastRefNo}
                                     disabled
                                     size="small"
                                     placeholder='Ref.no'
@@ -61,38 +382,32 @@ export default function CreateProductionReceipt({ onBack }) {
                                     }}
                                 />
                             </Grid2>
+
+                            {/* Date Picker */}
                             <Grid2 item size={{ xs: 12, md: 6 }}>
                                 <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
                                     Date
                                 </Typography>
                                 <DatePicker
                                     selected={startDate}
-                                    onChange={(date) => setStartDate(date)}
-                                    dateFormat="dd/MM/yyyy"
-                                    customInput={
-                                        <TextField
-                                            size="small"
-                                            fullWidth
-                                            sx={{
-                                                mt: '8px',
-                                                width: '80%',
-                                                '& .MuiInputBase-root': {
-                                                    width: '100%',
-                                                },
-                                                '& .MuiOutlinedInput-root': {
-                                                    borderRadius: '10px',
-                                                },
-                                            }}
-                                        />
-                                    }
+                                    onChange={(date) => {
+                                        setStartDate(date);
+                                        handleGetLastRefNo(date);
+                                    }}
+                                    dateFormat="MM/dd/yyyy"
+                                    customInput={<CustomDateInput />}
                                 />
                             </Grid2>
+
+                            {/* Kitchen Selection */}
                             <Grid2 item size={{ xs: 12, md: 6 }}>
                                 <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
-                                    Camissary Kitchen
+                                    Commissary Kitchen
                                 </Typography>
                                 <Box
                                     component="select"
+                                    value={saveKitchen}
+                                    onChange={(e) => setSaveKitchen(e.target.value)}
                                     sx={{
                                         mt: '8px',
                                         width: '100%',
@@ -109,52 +424,20 @@ export default function CreateProductionReceipt({ onBack }) {
                                             fontSize: '16px',
                                         },
                                     }}
-                                    id="Camissary Kitchen"
                                 >
-                                    <option value="">Select a Camissary Kitchen</option>
+                                    <option value="">Select a Commissary Kitchen</option>
+                                    {kitchens.map((kitchen) => (
+                                        <option key={kitchen.kitchen_code} value={kitchen.kitchen_code}>
+                                            {kitchen.kitchen_name}
+                                        </option>
+                                    ))}
                                 </Box>
-                            </Grid2>
-                          
-                            <Grid2 item size={{ xs: 12, md: 6 }}>
-                                <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
-                                   Username
-                                </Typography>
-                                <TextField
-                                    // disabled
-                                    size="small"
-                                    placeholder='Username'
-                                    sx={{
-                                        mt: '8px',
-                                        width: '100%',
-                                        '& .MuiOutlinedInput-root': {
-                                            borderRadius: '10px',
-                                            fontWeight: '100'
-                                        },
-                                    }}
-                                />
-                            </Grid2>
-                            <Grid2 item size={{ xs: 12, md: 6 }}>
-                                <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
-                                    Recorded date and time
-                                </Typography>
-                                <TextField
-                                    // disabled
-                                    size="small"
-                                    placeholder='Recorded date and time'
-                                    sx={{
-                                        mt: '8px',
-                                        width: '100%',
-                                        '& .MuiOutlinedInput-root': {
-                                            borderRadius: '10px',
-                                            fontWeight: '100'
-                                        },
-                                    }}
-                                />
                             </Grid2>
                         </Grid2>
 
                         <Divider sx={{ mt: '24px' }} />
 
+                        {/* Search Section */}
                         <Box sx={{ display: 'flex', flexDirection: 'row', width: '100%', p: '24px 0px' }}>
                             <Typography sx={{ fontSize: '20px', fontWeight: '600' }}>
                                 Current Order
@@ -164,7 +447,9 @@ export default function CreateProductionReceipt({ onBack }) {
                             </Typography>
                             <Box sx={{ position: 'relative', width: '50%', ml: '12px' }}>
                                 <TextField
-                                    placeholder="Search"
+                                    value={searchTerm}
+                                    onChange={handleSearchChange}
+                                    placeholder="Search products"
                                     sx={{
                                         '& .MuiInputBase-root': {
                                             height: '30px',
@@ -183,68 +468,209 @@ export default function CreateProductionReceipt({ onBack }) {
                                         ),
                                     }}
                                 />
+                                {showDropdown && searchResults.length > 0 && (
+                                    <Box sx={{
+                                        position: 'absolute',
+                                        top: '100%',
+                                        left: 0,
+                                        right: 0,
+                                        backgroundColor: 'white',
+                                        boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                                        borderRadius: '4px',
+                                        zIndex: 1000,
+                                        maxHeight: '200px',
+                                        overflowY: 'auto',
+                                        mt: '4px'
+                                    }}>
+                                        {searchResults.map((product) => (
+                                            <Box
+                                                key={product.product_code}
+                                                onClick={() => handleProductSelect(product)}
+                                                sx={{
+                                                    p: 1.5,
+                                                    cursor: 'pointer',
+                                                    '&:hover': {
+                                                        backgroundColor: '#f5f5f5'
+                                                    },
+                                                    borderBottom: '1px solid #eee'
+                                                }}
+                                            >
+                                                <Typography sx={{ fontSize: '14px', fontWeight: '600' }}>
+                                                    {product.product_name}
+                                                </Typography>
+                                            </Box>
+                                        ))}
+                                    </Box>
+                                )}
                             </Box>
-                            <Button sx={{ ml: 'auto', bgcolor: '#E2EDFB', borderRadius: '6px', width: '105px' }}>
+                            <Button
+                                onClick={resetForm}
+                                sx={{
+                                    ml: 'auto',
+                                    bgcolor: '#E2EDFB',
+                                    borderRadius: '6px',
+                                    width: '105px',
+                                    '&:hover': {
+                                        bgcolor: '#d0e0f7'
+                                    }
+                                }}
+                            >
                                 Clear All
                             </Button>
                         </Box>
 
+                        {/* Product Table */}
                         <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', mb: '12px' }}>
                             <table style={{ width: '100%', marginTop: '24px' }}>
                                 <thead>
                                     <tr>
                                         <th style={{ padding: '4px', fontSize: '14px', width: '1%', color: '#754C27', fontWeight: '800' }}>No.</th>
-                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center',  color: '#754C27', fontWeight: '800' }}>ID</th>
-                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center',  color: '#754C27', fontWeight: '800' }}>Product</th>
-                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>ExpierDate</th>
+                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '15%', color: '#754C27', fontWeight: '800' }}>Product code</th>
+                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '15%', color: '#754C27', fontWeight: '800' }}>Product name</th>
+                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Expiry Date</th>
+                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Temperature</th>
                                         <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Quantity</th>
-                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Unit</th>
+                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '10%', color: '#754C27', fontWeight: '800' }}>Unit</th>
                                         <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Unit Price</th>
-                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Total due</th>
+                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Total</th>
                                         <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '1%', color: '#754C27', fontWeight: '800' }}></th>
-                                    </tr>
-                                    <tr>
-                                        <td colSpan="10">
-                                            <Divider sx={{ width: '100%', color: '#C6C6C6', border: '1px solid #C6C6C6' }} />
-                                        </td>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {/* Table data will go here */}
+                                    {products.map((product, index) => {
+                                        const productCode = product.product_code;
+                                        const currentUnit = units[productCode] || product.productUnit1.unit_code;
+                                        const currentQuantity = quantities[productCode] || 1;
+                                        const currentUnitPrice = unitPrices[productCode] || product.bulk_unit_price;
+                                        const currentTotal = totals[productCode]?.toFixed(2) || '0.00';
+
+                                        return (
+                                            <tr key={productCode}>
+                                                <td style={{ padding: '4px', fontSize: '12px', fontWeight: '800' }}>{index + 1}</td>
+                                                <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>{productCode}</td>
+                                                <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>{product.product_name}</td>
+                                                <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                                                    <DatePicker
+                                                        selected={expiryDates[productCode] || null}
+                                                        onChange={(date) => handleExpiryDateChange(productCode, date)}
+                                                        dateFormat="MM/dd/yyyy"
+                                                        placeholderText="Select exp date"
+                                                        customInput={
+                                                            <input
+                                                                style={{
+                                                                    width: '110px',
+                                                                    padding: '4px',
+                                                                    borderRadius: '4px',
+                                                                    textAlign: 'center'
+                                                                }}
+                                                            />
+                                                        }
+                                                    />
+                                                </td>
+                                                <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                                                    <input
+                                                        type="text"
+                                                        value={temperatures[productCode] || ""}
+                                                        onChange={(e) => handleTemperatureChange(productCode, e.target.value)}
+                                                        placeholder="Temperature"
+                                                        style={{
+                                                            width: '80px',
+                                                            padding: '4px',
+                                                            textAlign: 'center',
+                                                            borderRadius: '4px'
+                                                        }}
+                                                    />
+                                                </td>
+                                                <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                                                    <input
+                                                        type="number"
+                                                        min="1"
+                                                        value={currentQuantity}
+                                                        onChange={(e) => handleQuantityChange(productCode, parseInt(e.target.value))}
+                                                        style={{
+                                                            width: '50px',
+                                                            textAlign: 'center',
+                                                            fontWeight: '600',
+                                                            padding: '4px'
+                                                        }}
+                                                    />
+                                                </td>
+                                                <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                                                    <select
+                                                        value={currentUnit}
+                                                        onChange={(e) => handleUnitChange(productCode, e.target.value)}
+                                                        style={{
+                                                            padding: '4px',
+                                                            borderRadius: '4px'
+                                                        }}
+                                                    >
+                                                        <option value={product.productUnit1.unit_code}>{product.productUnit1.unit_name}</option>
+                                                        <option value={product.productUnit2.unit_code}>{product.productUnit2.unit_name}</option>
+                                                    </select>
+                                                </td>
+                                                <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        step="0.01"
+                                                        value={currentUnitPrice}
+                                                        onChange={(e) => handleUnitPriceChange(productCode, e.target.value)}
+                                                        style={{
+                                                            width: '80px',
+                                                            textAlign: 'right',
+                                                            fontWeight: '600',
+                                                            padding: '4px'
+                                                        }}
+                                                    />
+                                                </td>
+                                                <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                                                    {currentTotal}
+                                                </td>
+                                                <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                                                    <IconButton
+                                                        onClick={() => handleDeleteProduct(productCode)}
+                                                        size="small"
+                                                    >
+                                                        <CancelIcon />
+                                                    </IconButton>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </Box>
 
+                        {/* Total Box */}
                         <Box sx={{ width: '100%', height: 'auto', bgcolor: '#EAB86C', borderRadius: '10px', p: '18px' }}>
-                            <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-                                <Typography sx={{ color: '#FFFFFF' }}>Subtotal</Typography>
-                                <Typography sx={{ color: '#FFFFFF', ml: 'auto' }}>
-                                $00
-                                </Typography>
-                            </Box>
-                            <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', mt: '8px' }}>
-                                <Typography sx={{ color: '#FFFFFF' }}>Tax(12%)</Typography>
-                                <Typography sx={{ color: '#FFFFFF', ml: 'auto' }}>
-                                $00
-                                </Typography>
-                            </Box>
                             <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', mt: '8px' }}>
                                 <Typography sx={{ color: '#FFFFFF', fontSize: '30px', fontWeight: '600' }}>
-                                Total
+                                    Total
                                 </Typography>
                                 <Typography sx={{ color: '#FFFFFF', ml: 'auto', fontSize: '30px', fontWeight: '600' }}>
-                                $00
+                                    ${total.toFixed(2)}
                                 </Typography>
                             </Box>
-                            </Box>
-                            <Button
-                            // onClick={}
-                            sx={{ width: '100%', height: '48px', mt: '24px', bgcolor: '#754C27', color: '#FFFFFF' }}>
+                        </Box>
+
+                        {/* Save Button */}
+                        <Button
+                            onClick={handleSave}
+                            sx={{
+                                width: '100%',
+                                height: '48px',
+                                mt: '24px',
+                                bgcolor: '#754C27',
+                                color: '#FFFFFF',
+                                '&:hover': {
+                                    bgcolor: '#5C3D1F'
+                                }
+                            }}>
                             Save
-                            </Button>
-                        </Box>
-                        </Box>
+                        </Button>
                     </Box>
-                    </Box>
+                </Box>
+            </Box>
+        </Box>
     );
 }

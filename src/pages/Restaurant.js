@@ -5,37 +5,26 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import { createTheme } from '@mui/material/styles';
 import DashboardIcon from '@mui/icons-material/Dashboard';
-import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import Button from '@mui/material/Button';
 import { AppProvider } from '@toolpad/core/AppProvider';
 import { DashboardLayout } from '@toolpad/core/DashboardLayout';
 import { useNavigate } from "react-router-dom";
-import HomePurchaseOrderToSupplier from '../components/warehouse/purchaseordertosupplier/HomePurchaseOrdertoSupplier';
 import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined';
 import ReceiptOutlinedIcon from '@mui/icons-material/ReceiptOutlined';
 import LocalShippingOutlinedIcon from '@mui/icons-material/LocalShippingOutlined';
-import CountertopsOutlinedIcon from '@mui/icons-material/CountertopsOutlined';
-import HouseSidingOutlinedIcon from '@mui/icons-material/HouseSidingOutlined';
-import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import CircleIcon from '@mui/icons-material/Circle';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import WarehouseIcon from '@mui/icons-material/Warehouse';
 import RequestQuoteIcon from '@mui/icons-material/RequestQuote';
 import ListAltIcon from '@mui/icons-material/ListAlt';
 import MoveToInboxIcon from '@mui/icons-material/MoveToInbox';
 
-
-
-
 import HomeSetMinimumStock from '../components/restaurant/setminimumstock/HomeSetMinimumStock';
-import HomeStockAdjustment from '../components/restaurant/stockadjustment/HomeStockAdjustMent';
 import HomePurchaseOrdertoWarehouse from '../components/restaurant/purchaseordertowarehouse/HomePurchaseOrdertoWarehouse';
 import HomeReceiptFromSupplier from '../components/restaurant/receiptfromsupplier/HomeReceiptFromSupplier';
 import HomeReceiptFromWarehouse from '../components/restaurant/receiptfromwarehouse/HomeReceiptFromWarehouse';
 import HomeReceiptFromKitchen from '../components/restaurant/receiptfromkitchen/HomeReceiptFromKitchen';
 import HomeGoodsRequisition from '../components/restaurant/goodsrequisition/HomeGoodsRequisition';
-import ReportStockAdjustMent from '../components/restaurant/report/ReportStockAdjustMent';
 import ReportPurchaseOrderToWarehouse from '../components/restaurant/report/ReportPurchaseOrderToWarehouse';
 import ReportReceiptFromWarehouse from '../components/restaurant/report/ReportReceiptFromWarehouse';
 import ReportReceiptFromKitchen from '../components/restaurant/report/ReportReceiptFromKitchen';
@@ -43,11 +32,6 @@ import ReportReceiptFromSupplier from '../components/restaurant/report/ReportRec
 import ReportGoodsRequisition from '../components/restaurant/report/ReportGoodsRequisition';
 import ReportMonthlyStockCard from '../components/restaurant/report/ReportMonthlyStockCard';
 import ReportMonthlyStockBalance from '../components/restaurant/report/ReportMonthlyStockBalance';
-
-
-import BeginningInventory from '../components/warehouse/beginninginventory/BeginningInventory';
-
-
 
 const demoTheme = createTheme({
     breakpoints: {
@@ -82,7 +66,7 @@ const demoTheme = createTheme({
 function Restaurant(props) {
     const { window } = props;
     const [pathname, setPathname] = React.useState('/set-minimum-stock');
-    const [currentTitle, setCurrentTitle] = React.useState('Set Minimum Stock');
+    const [currentTitle, setCurrentTitle] = React.useState('Restaurant - Set Minimum Stock');
     let navigate = useNavigate();
 
     const NAVIGATION = React.useMemo(() => {
@@ -97,15 +81,6 @@ function Restaurant(props) {
                 segment: 'set-minimum-stock',
                 title: 'Set Minimum Stock',
                 icon: <ReceiptLongOutlinedIcon />,
-            });
-        }
-
-        // Stock Adjustment
-        if (permissions.menu_setbr_stock_adjustment === 'Y') {
-            menu.push({
-                segment: 'stock-adjustment',
-                title: 'Stock Adjustment',
-                icon: <Inventory2OutlinedIcon />,
             });
         }
 
@@ -162,11 +137,6 @@ function Restaurant(props) {
                 icon: <BarChartIcon />,
                 children: [
                     {
-                        segment: 'stock-adjustmen',
-                        title: 'Stock Adjustment',
-                        icon: <CircleIcon fontSize='small' />,
-                    },
-                    {
                         segment: 'purchase-order-to-warehouse',
                         title: 'Purchase Order to Warehouse',
                         icon: <CircleIcon fontSize='small' />,
@@ -214,19 +184,21 @@ function Restaurant(props) {
     };
 
     const findMenuTitle = (path) => {
-        const segment = path.substring(1);
-
-        const mainMenu = NAVIGATION.find(item => item.segment === segment);
-        if (mainMenu) return mainMenu.title;
-
-        for (const menu of NAVIGATION) {
-            if (menu.children) {
-                const subMenu = menu.children.find(item => item.segment === segment);
-                if (subMenu) return subMenu.title;
+        if (path.startsWith('/reports/')) {
+            const reportSegment = path.substring('/reports/'.length);
+            const reportsMenu = NAVIGATION.find(item => item.segment === 'reports');
+            if (reportsMenu && reportsMenu.children) {
+                const subMenu = reportsMenu.children.find(item => item.segment === reportSegment);
+                if (subMenu) return `Restaurant - ${subMenu.title}`;
             }
+            return 'Restaurant - Reports';
         }
 
-        return 'Beginning Inventory'; // เปลี่ยน default return
+        const segment = path.substring(1);
+        const mainMenu = NAVIGATION.find(item => item.segment === segment);
+        if (mainMenu) return `Restaurant - ${mainMenu.title}`;
+
+        return 'Restaurant - Set Minimum Stock';
     };
 
     function SidebarFooter({ mini }) {
@@ -282,8 +254,6 @@ function Restaurant(props) {
 
     const renderReportContent = (path) => {
         switch (path) {
-            case '/reports/stock-adjustmen':
-                return <ReportStockAdjustMent />;
             case '/reports/purchase-order-to-warehouse':
                 return <ReportPurchaseOrderToWarehouse />;
             case '/reports/receipt-from-warehouse':
@@ -310,8 +280,6 @@ function Restaurant(props) {
         switch (pathname) {
             case '/set-minimum-stock':
                 return permissions.menu_setbr_minmum_stock === 'Y' ? <HomeSetMinimumStock /> : null;
-            case '/stock-adjustment':
-                return permissions.menu_setbr_stock_adjustment === 'Y' ? <HomeStockAdjustment /> : null;
             case '/purchase-order-to-warehouse':
                 return permissions.menu_setbr_purchase_order_to_wh === 'Y' ? <HomePurchaseOrdertoWarehouse /> : null;
             case '/receipt-from-warehouse':
@@ -322,7 +290,6 @@ function Restaurant(props) {
                 return permissions.menu_setbr_receipt_from_supplier === 'Y' ? <HomeReceiptFromSupplier /> : null;
             case '/goods-requisition':
                 return permissions.menu_setbr_goods_requisition === 'Y' ? <HomeGoodsRequisition /> : null;
-            case '/reports/stock-adjustmen':
             case '/reports/purchase-order-to-warehouse':
             case '/reports/receipt-from-warehouse':
             case '/reports/receipt-from-kitchen':
@@ -385,11 +352,3 @@ Restaurant.propTypes = {
 };
 
 export default Restaurant;
-
-
-
-
-
-
-
-

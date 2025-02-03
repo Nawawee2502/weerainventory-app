@@ -1,7 +1,20 @@
-import { Box, Button, InputAdornment, TextField, Typography, Drawer, IconButton } from '@mui/material';
+import {
+    Box,
+    Button,
+    InputAdornment,
+    TextField,
+    Typography,
+    Drawer,
+    IconButton,
+    Stack,
+    Pagination
+} from '@mui/material';
 import React, { useState, useEffect } from 'react';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
 import SearchIcon from '@mui/icons-material/Search';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import { styled } from '@mui/material/styles';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
@@ -15,9 +28,18 @@ import 'react-datepicker/dist/react-datepicker.css';
 import { useDispatch } from "react-redux";
 import { searchProductName } from '../../../api/productrecordApi';
 import { unitAll } from '../../../api/productunitApi';
-import { addWh_stockcard } from '../../../api/warehouse/wh_stockcard';
 import { useFormik } from 'formik';
 import Swal from 'sweetalert2';
+import {
+    addKt_stockcard,
+    updateKt_stockcard,
+    deleteKt_stockcard,
+    queryKt_stockcard,
+    countKt_stockcard
+} from '../../../api/kitchen/kt_stockcardApi';
+import { kitchenAll } from '../../../api/kitchenApi';
+import { Checkbox } from '@mui/material';
+// import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
     [`&.${tableCellClasses.head}`]: {
@@ -38,141 +60,381 @@ const StyledTableRow = styled(TableRow)(({ theme }) => ({
     },
 }));
 
+const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
+    <Box sx={{ position: 'relative', display: 'inline-block', width: '100%' }}>
+        <TextField
+            value={value}
+            onClick={onClick}
+            placeholder={placeholder || "MM/DD/YYYY"}
+            ref={ref}
+            size="small"
+            sx={{
+                '& .MuiInputBase-root': {
+                    height: '38px',
+                    width: '100%',
+                    backgroundColor: '#fff',
+                },
+                '& .MuiOutlinedInput-input': {
+                    cursor: 'pointer',
+                    paddingRight: '40px',
+                }
+            }}
+            InputProps={{
+                readOnly: true,
+                endAdornment: (
+                    <InputAdornment position="end">
+                        <CalendarTodayIcon sx={{ color: '#754C27', cursor: 'pointer' }} />
+                    </InputAdornment>
+                ),
+            }}
+        />
+    </Box>
+));
+
+// Date Utility Functions
+const convertToLasVegasTime = (date) => {
+    if (!date) return new Date();
+    const newDate = new Date(date);
+    newDate.setHours(0, 0, 0, 0);
+    return new Date(newDate.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
+};
+
 export default function BeginningInventory() {
     const dispatch = useDispatch();
     const [openDrawer, setOpenDrawer] = useState(false);
-    const [startDate, setStartDate] = useState(new Date());
-    const [searchTerm, setSearchTerm] = useState('');
     const [searchResults, setSearchResults] = useState([]);
     const [showDropdown, setShowDropdown] = useState(false);
     const [units, setUnits] = useState([]);
+    const [kitchens, setKitchens] = useState([]);
+    const [stockcards, setStockcards] = useState([]);
     const [selectedProduct, setSelectedProduct] = useState(null);
+    const [page, setPage] = useState(1);
+    const [count, setCount] = useState(0);
+    const [itemsPerPage] = useState(5);
+    const [productSearchTerm, setProductSearchTerm] = useState('');
+    const [tableSearchTerm, setTableSearchTerm] = useState('');
+    const [filterDate, setFilterDate] = useState(() => convertToLasVegasTime(new Date()));
+    const [searchTerm, setSearchTerm] = useState('');
+    const [selected, setSelected] = useState([]);
+    const [kitchenSearchTerm, setKitchenSearchTerm] = useState('');
+    const [showKitchenDropdown, setShowKitchenDropdown] = useState(false);
+    const [filteredKitchens, setFilteredKitchens] = useState([]);
 
-    const formik = useFormik({
-        initialValues: {
-            date: new Date(),
-            product_code: '',
-            product_name: '',
-            unit_code: '',
-            amount: '',
-            unit_price: '',
-        },
-        validate: values => {
-            const errors = {};
-
-            if (!values.product_code) {
-                errors.product_code = 'Product is required';
-            }
-            if (!values.unit_code) {
-                errors.unit_code = 'Unit is required';
-            }
-            if (!values.amount || values.amount <= 0) {
-                errors.amount = 'Amount must be greater than 0';
-            }
-            if (!values.unit_price || values.unit_price <= 0) {
-                errors.unit_price = 'Unit price must be greater than 0';
-            }
-
-            return errors;
-        },
-        onSubmit: (values) => {
-            const year = values.date.getFullYear();
-            const month = (values.date.getMonth() + 1).toString().padStart(2, '0');
-            const day = values.date.getDate().toString().padStart(2, '0');
-
-            const stockcardData = {
-                myear: year,
-                monthh: month,
-                product_code: values.product_code,
-                unit_code: values.unit_code,
-                refno: 'BEG',
-                rdate: values.date.toLocaleDateString('en-GB'),
-                trdate: `${year}${month}${day}`,
-                beg1: Number(values.amount),
-                in1: 0,
-                out1: 0,
-                upd1: 0,
-                uprice: Number(values.unit_price),
-                beg1_amt: Number(values.amount) * Number(values.unit_price),
-                in1_amt: 0,
-                out1_amt: 0,
-                upd1_amt: 0
-            };
-
-            Swal.fire({
-                title: 'Saving...',
-                allowOutsideClick: false,
-                didOpen: () => Swal.showLoading()
-            });
-
-            dispatch(addWh_stockcard(stockcardData))
-                .unwrap()
-                .then(() => {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Saved successfully',
-                        showConfirmButton: false,
-                        timer: 1500
-                    });
-                    setOpenDrawer(false);
-                    resetForm();
-                })
-                .catch((err) => {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Error',
-                        text: err.message
-                    });
-                });
-        },
-    });
 
     useEffect(() => {
-        let offset = 0;
-        let limit = 100;
-        dispatch(unitAll({ offset, limit }))
-            .unwrap()
-            .then((res) => {
-                setUnits(res.data);
-            })
-            .catch((err) => console.log(err.message));
+        loadData(page);
+    }, [filterDate, tableSearchTerm, page]);
+
+    useEffect(() => {
+        const loadUnits = async () => {
+            try {
+                const response = await dispatch(unitAll({ offset: 0, limit: 100 })).unwrap();
+                setUnits(response.data);
+            } catch (err) {
+                console.error('Error loading units:', err);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error Loading Units',
+                    text: err.message || 'Failed to load units',
+                    confirmButtonColor: '#754C27'
+                });
+            }
+        };
+        loadUnits();
     }, [dispatch]);
 
-    const handleSearchChange = (e) => {
-        const value = e.target.value;
-        setSearchTerm(value);
+    useEffect(() => {
+        const loadKitchens = async () => {
+            try {
+                const response = await dispatch(kitchenAll({
+                    offset: 0,
+                    limit: 100
+                })).unwrap();
+                setKitchens(response.data);
+            } catch (err) {
+                console.error('Error loading kitchens:', err);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error Loading Kitchens',
+                    text: err.message || 'Failed to load kitchens',
+                    confirmButtonColor: '#754C27'
+                });
+            }
+        };
+        loadKitchens();
+    }, [dispatch]);
 
-        if (value.length > 0) {
-            dispatch(searchProductName({ product_name: value }))
-                .unwrap()
-                .then((res) => {
-                    if (res.data) {
-                        const sortedResults = [...res.data].sort((a, b) => {
-                            const aExact = a.product_name.toLowerCase() === value.toLowerCase();
-                            const bExact = b.product_name.toLowerCase() === value.toLowerCase();
-                            if (aExact && !bExact) return -1;
-                            if (!aExact && bExact) return 1;
-                            return a.product_name.length - b.product_name.length;
-                        });
-                        setSearchResults(sortedResults);
-                        setShowDropdown(true);
-                    }
-                })
-                .catch((err) => console.log(err.message));
-        } else {
-            setSearchResults([]);
-            setShowDropdown(false);
+    useEffect(() => {
+        loadData(page);
+    }, [filterDate, tableSearchTerm, kitchenSearchTerm, page]);
+
+    const initialValues = {
+        date: convertToLasVegasTime(new Date()),
+        product_code: '',
+        product_name: '',
+        unit_code: '',
+        kitchen_code: '',
+        amount: '',
+        unit_price: '',
+        isEditing: false,
+        refno: '',
+        myear: '',
+        monthh: ''
+    };
+
+    const validationSchema = {
+        validate: values => {
+            const errors = {};
+            if (!values.product_code) errors.product_code = 'Product is required';
+            if (!values.unit_code) errors.unit_code = 'Unit is required';
+            if (!values.kitchen_code) errors.kitchen_code = 'Kitchen is required';
+            if (!values.amount || values.amount <= 0) errors.amount = 'Amount must be greater than 0';
+            if (!values.unit_price || values.unit_price <= 0) errors.unit_price = 'Unit price must be greater than 0';
+            if (!values.date) errors.date = 'Date is required';  // เพิ่มการ validate วันที่
+            return errors;
         }
     };
 
-    const handleProductSelect = (product) => {
-        setSelectedProduct(product);
-        formik.setFieldValue('product_code', product.product_code);
-        formik.setFieldValue('product_name', product.product_name);
-        formik.setFieldValue('unit_code', product.productUnit2.unit_code);
-        formik.setFieldValue('unit_price', product.retail_unit_price);
-        setSearchTerm(product.product_name);
-        setShowDropdown(false);
+    const formik = useFormik({
+        initialValues,
+        validate: validationSchema.validate,
+        validateOnChange: false,
+        onSubmit: async (values) => {
+            try {
+                const year = values.date.getFullYear();
+                const month = (values.date.getMonth() + 1).toString().padStart(2, '0');
+                const day = values.date.getDate().toString().padStart(2, '0');
+
+                // Calculate amounts
+                const amount = Number(values.amount) || 0;
+                const unitPrice = Number(values.unit_price) || 0;
+                const totalAmount = amount * unitPrice;
+
+                const stockcardData = {
+                    myear: values.isEditing ? values.myear : year.toString(),
+                    monthh: values.isEditing ? values.monthh : month,
+                    kitchen_code: values.kitchen_code,  // ตรวจสอบว่ามีค่าแน่ๆ
+                    product_code: values.product_code,
+                    unit_code: values.unit_code,
+                    refno: values.isEditing ? values.refno : 'BEG',
+                    rdate: `${month}/${day}/${year}`,
+                    trdate: `${year}${month}${day}`,
+                    beg1: amount,
+                    in1: 0,
+                    out1: 0,
+                    upd1: 0,
+                    uprice: unitPrice,
+                    beg1_amt: totalAmount,
+                    in1_amt: 0,
+                    out1_amt: 0,
+                    upd1_amt: 0,
+                    balance: amount,  // เพิ่ม balance
+                    balance_amount: totalAmount  // เพิ่ม balance_amount
+                };
+
+                console.log('Submitting stockcard data:', stockcardData); // เพิ่ม log เพื่อตรวจสอบ
+
+                const action = values.isEditing ? updateKt_stockcard : addKt_stockcard;
+                const result = await dispatch(action(stockcardData)).unwrap();
+
+                if (result.result) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: values.isEditing ? 'Updated successfully' : 'Saved successfully',
+                        showConfirmButton: false,
+                        timer: 1500
+                    });
+
+                    setOpenDrawer(false);
+                    resetForm();
+                    loadData(page);
+                }
+            } catch (error) {
+                console.error('Submit error:', error); // เพิ่ม log เพื่อตรวจสอบ error
+                if (error.type === 'DUPLICATE_RECORD') {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Duplicate Entry',
+                        text: error.message,
+                        confirmButtonColor: '#754C27'
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: error.message || 'An unexpected error occurred',
+                        confirmButtonColor: '#754C27'
+                    });
+                }
+            }
+        }
+    });
+
+    const handleKitchenSearch = (e) => {
+        const value = e.target.value;
+        setKitchenSearchTerm(value);
+
+        if (value) {
+            const filtered = kitchens.filter(kitchen =>
+                kitchen.kitchen_name.toLowerCase().includes(value.toLowerCase())
+            );
+            setFilteredKitchens(filtered);
+            setShowKitchenDropdown(true);
+        } else {
+            setFilteredKitchens([]);
+            setShowKitchenDropdown(false);
+        }
+    };
+
+    const loadData = async (pageNumber = 1) => {
+        try {
+            const offset = (pageNumber - 1) * itemsPerPage;
+            const formattedDate = filterDate ? formatDate(filterDate) : null;
+
+            const [stockcardsRes, countRes] = await Promise.all([
+                dispatch(queryKt_stockcard({
+                    offset,
+                    limit: itemsPerPage,
+                    ...(formattedDate && { rdate: formattedDate }),
+                    ...(tableSearchTerm && { product_name: tableSearchTerm }),
+                    // เปลี่ยนจาก kitchen_name เป็น kitchen_code
+                    ...(kitchenSearchTerm && { kitchen_code: kitchenSearchTerm })
+                })).unwrap(),
+                dispatch(countKt_stockcard({
+                    ...(formattedDate && { rdate: formattedDate }),
+                    ...(tableSearchTerm && { product_name: tableSearchTerm }),
+                    // เปลี่ยนจาก kitchen_name เป็น kitchen_code
+                    ...(kitchenSearchTerm && { kitchen_code: kitchenSearchTerm })
+                })).unwrap()
+            ]);
+
+            if (stockcardsRes.result && Array.isArray(stockcardsRes.data)) {
+                setStockcards(stockcardsRes.data);
+                const totalPages = Math.ceil(countRes.data / itemsPerPage);
+                setCount(totalPages);
+            } else {
+                setStockcards([]);
+                setCount(0);
+            }
+        } catch (error) {
+            console.error('Error loading data:', error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error Loading Data',
+                text: error.message || 'Failed to load stockcard data',
+                confirmButtonColor: '#754C27'
+            });
+        }
+    };
+
+    const handleEdit = async (row) => {
+        try {
+            const productData = {
+                product_code: row.product_code,
+                product_name: row.tbl_product?.product_name || '',
+                productUnit2: {
+                    unit_code: row.unit_code,
+                    unit_name: row.tbl_unit?.unit_name || ''  // เพิ่ม unit_name
+                },
+                retail_unit_price: row.uprice
+            };
+
+            const [month, day, year] = row.rdate.split('/');
+            const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+            date.setHours(0, 0, 0, 0);
+
+            // Set form values
+            formik.setValues({
+                date,
+                product_code: row.product_code,
+                product_name: row.tbl_product?.product_name || '',
+                unit_code: row.unit_code,
+                kitchen_code: row.kitchen_code,
+                amount: row.beg1,
+                unit_price: row.uprice,
+                isEditing: true,
+                refno: row.refno,
+                myear: row.myear,
+                monthh: row.monthh
+            });
+
+            setProductSearchTerm(row.tbl_product?.product_name || '');
+            setSearchTerm(row.tbl_product?.product_name || '');  // เพิ่มบรรทัดนี้
+            setSelectedProduct(productData);
+            setOpenDrawer(true);
+        } catch (err) {
+            console.error('Error editing record:', err);
+            Swal.fire({
+                icon: 'error',
+                title: 'Edit Error',
+                text: err.message || 'Failed to edit record',
+                confirmButtonColor: '#754C27'
+            });
+        }
+    };
+
+    const handleDelete = async (row) => {
+        try {
+            const result = await Swal.fire({
+                title: 'Are you sure?',
+                text: "You won't be able to revert this!",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#754C27',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Yes, delete it!'
+            });
+
+            if (result.isConfirmed) {
+                await dispatch(deleteKt_stockcard({
+                    refno: row.refno,
+                    myear: row.myear,
+                    monthh: row.monthh,
+                    product_code: row.product_code
+                })).unwrap();
+
+                await Swal.fire({
+                    icon: 'success',
+                    title: 'Deleted!',
+                    text: 'Record has been deleted.',
+                    confirmButtonColor: '#754C27'
+                });
+
+                await loadData(page);
+            }
+        } catch (err) {
+            console.error('Error deleting record:', err);
+            Swal.fire({
+                icon: 'error',
+                title: 'Delete Error',
+                text: err.message || 'Failed to delete record',
+                confirmButtonColor: '#754C27'
+            });
+        }
+    };
+
+    const handleDateChange = (date) => {
+        if (!date) return;
+        const vegasDate = convertToLasVegasTime(date);
+        setFilterDate(vegasDate);
+        setPage(1);
+        loadData(1);
+    };
+
+    const formatDate = (date) => {
+        if (!date) return "";
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${month}/${day}/${year}`;
+    };
+
+    const resetForm = () => {
+        formik.resetForm();
+        setProductSearchTerm('');
+        setSearchTerm('');  // เพิ่มบรรทัดนี้
+        setSelectedProduct(null);
+        setShowDropdown(false);  // เพิ่มบรรทัดนี้
     };
 
     const toggleDrawer = (open) => () => {
@@ -182,18 +444,155 @@ export default function BeginningInventory() {
         }
     };
 
-    const resetForm = () => {
-        formik.resetForm();
-        setSearchTerm('');
-        setSelectedProduct(null);
-        setStartDate(new Date());
+    // Search Handlers
+    const handleSearchChange = async (e) => {
+        const value = e.target.value;
+        setSearchTerm(value);
+        setProductSearchTerm(value);
+
+        if (value.length > 0) {
+            try {
+                const response = await dispatch(searchProductName({ product_name: value })).unwrap();
+                if (response.data) {
+                    const sortedResults = [...response.data].sort((a, b) => {
+                        const aExact = a.product_name.toLowerCase() === value.toLowerCase();
+                        const bExact = b.product_name.toLowerCase() === value.toLowerCase();
+                        if (aExact && !bExact) return -1;
+                        if (!aExact && bExact) return 1;
+                        return a.product_name.length - b.product_name.length;
+                    });
+                    setSearchResults(sortedResults);
+                    setShowDropdown(true);
+                }
+            } catch (err) {
+                console.error('Error searching products:', err);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Search Error',
+                    text: err.message || 'Failed to search products',
+                    confirmButtonColor: '#754C27'
+                });
+            }
+        } else {
+            setSearchResults([]);
+            setShowDropdown(false);
+        }
     };
 
+    // Table search handler
+    const handleTableSearch = (e) => {
+        setTableSearchTerm(e.target.value);
+        setPage(1); // Reset to first page when searching
+    };
+
+    const clearFilters = () => {
+        setTableSearchTerm('');
+        const today = convertToLasVegasTime(new Date());
+        setFilterDate(today);
+        setPage(1);
+        loadData(1);
+    };
+
+    const handleProductSelect = (product) => {
+        // Update formik values
+        const newValues = {
+            ...formik.values,
+            product_code: product.product_code,
+            product_name: product.product_name,
+            unit_code: product.productUnit2?.unit_code || '',
+            unit_price: product.retail_unit_price || ''
+        };
+
+        formik.resetForm({ values: newValues });
+        setSelectedProduct(product);
+        setProductSearchTerm(product.product_name);
+        setSearchTerm(product.product_name);  // เพิ่มบรรทัดนี้
+        setShowDropdown(false);
+    };
+
+    // Calculation Functions
     const calculateTotal = () => {
         const amount = Number(formik.values.amount) || 0;
         const unitPrice = Number(formik.values.unit_price) || 0;
         return (amount * unitPrice).toFixed(2);
     };
+
+    // Handle checkbox selection
+    const handleCheckboxChange = (event, stockcard) => {
+        const selectedIndex = selected.findIndex(item =>
+            item.refno === stockcard.refno &&
+            item.product_code === stockcard.product_code
+        );
+        let newSelected = [];
+
+        if (selectedIndex === -1) {
+            newSelected = [...selected, stockcard];
+        } else {
+            newSelected = [
+                ...selected.slice(0, selectedIndex),
+                ...selected.slice(selectedIndex + 1),
+            ];
+        }
+        setSelected(newSelected);
+    };
+
+    // Handle select all
+    const handleSelectAllClick = (event) => {
+        if (event.target.checked) {
+            setSelected(stockcards);
+        } else {
+            setSelected([]);
+        }
+    };
+
+    const handleBatchDelete = async () => {
+        if (selected.length === 0) return;
+
+        try {
+            const result = await Swal.fire({
+                title: 'Are you sure?',
+                text: `You are about to delete ${selected.length} items`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#754C27',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Yes, delete them!'
+            });
+
+            if (result.isConfirmed) {
+                // Delete each selected item
+                for (const item of selected) {
+                    await dispatch(deleteKt_stockcard({
+                        refno: item.refno,
+                        myear: item.myear,
+                        monthh: item.monthh,
+                        product_code: item.product_code
+                    })).unwrap();
+                }
+
+                // Clear selection and reload data
+                setSelected([]);
+                await loadData(page);
+
+                await Swal.fire({
+                    icon: 'success',
+                    title: 'Deleted!',
+                    text: `Successfully deleted ${selected.length} items`,
+                    confirmButtonColor: '#754C27',
+                    timer: 1500
+                });
+            }
+        } catch (error) {
+            console.error('Error in batch delete:', error);
+            await Swal.fire({
+                icon: 'error',
+                title: 'Delete Error',
+                text: error.message || 'Failed to delete selected items',
+                confirmButtonColor: '#754C27'
+            });
+        }
+    };
+
 
     return (
         <>
@@ -216,34 +615,170 @@ export default function BeginningInventory() {
                     </Typography>
                 </Button>
 
-                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mt: '48px', width: '60%' }}>
-                    <Typography sx={{ fontSize: '16px', fontWeight: '600', mr: '24px' }}>
-                        Beginning Inventory Search
+                {/* Replace existing search box with this */}
+                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mt: '48px', width: '90%', gap: '20px' }}>
+                    <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>
+                        Search
                     </Typography>
-                    <TextField
-                        placeholder="Search"
+                    <Box sx={{ position: 'relative', }}>
+                        <TextField
+                            value={tableSearchTerm}
+                            onChange={async (e) => {
+                                const value = e.target.value;
+                                setTableSearchTerm(value);
+
+                                if (value.trim()) {
+                                    try {
+                                        const response = await dispatch(searchProductName({ product_name: value })).unwrap();
+                                        setSearchResults(response.data || []);
+                                        setShowDropdown(true);
+                                    } catch (err) {
+                                        console.error('Error searching products:', err);
+                                    }
+                                } else {
+                                    setSearchResults([]);
+                                    setShowDropdown(false);
+                                }
+                            }}
+                            placeholder="Search Product"
+                            sx={{
+                                '& .MuiInputBase-root': { height: '38px' },
+                                '& .MuiOutlinedInput-input': { padding: '8.5px 14px' }
+                            }}
+                            InputProps={{
+                                startAdornment: (
+                                    <InputAdornment position="start">
+                                        <SearchIcon sx={{ color: '#5A607F' }} />
+                                    </InputAdornment>
+                                )
+                            }}
+                        />
+                        {showDropdown && searchResults.length > 0 && (
+                            <Box sx={{
+                                position: 'absolute',
+                                top: '100%',
+                                left: 0,
+                                right: 0,
+                                backgroundColor: 'white',
+                                boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                                borderRadius: '4px',
+                                zIndex: 1000,
+                                maxHeight: '200px',
+                                overflowY: 'auto',
+                                mt: '4px'
+                            }}>
+                                {searchResults.map((product) => (
+                                    <Box
+                                        key={product.product_code}
+                                        onClick={() => {
+                                            setTableSearchTerm(product.product_name);
+                                            setShowDropdown(false);
+                                            loadData(page);
+                                        }}
+                                        sx={{
+                                            p: 1.5,
+                                            cursor: 'pointer',
+                                            '&:hover': {
+                                                backgroundColor: '#f5f5f5'
+                                            },
+                                            borderBottom: '1px solid #eee'
+                                        }}
+                                    >
+                                        <Typography sx={{ fontSize: '14px', fontWeight: '600' }}>
+                                            {product.product_name}
+                                        </Typography>
+                                    </Box>
+                                ))}
+                            </Box>
+                        )}
+                    </Box>
+                    <Box
+                        component="select"
+                        value={kitchenSearchTerm}
+                        onChange={(e) => {
+                            setKitchenSearchTerm(e.target.value);
+                        }}
                         sx={{
-                            '& .MuiInputBase-root': { height: '38px', width: '100%' },
-                            '& .MuiOutlinedInput-input': { padding: '8.5px 14px' },
-                            width: '40%'
+                            height: '38px',
+                            width: '25%',
+                            borderRadius: '4px',
+                            border: '1px solid rgba(0, 0, 0, 0.23)',
+                            padding: '0 14px',
+                            backgroundColor: '#fff'
                         }}
-                        InputProps={{
-                            startAdornment: (
-                                <InputAdornment position="start">
-                                    <SearchIcon sx={{ color: '#5A607F' }} />
-                                </InputAdornment>
-                            ),
+                    >
+                        <option value="">All Kitchens</option>
+                        {kitchens.map((kitchen) => (
+                            <option key={kitchen.kitchen_code} value={kitchen.kitchen_code}>
+                                {kitchen.kitchen_name}
+                            </option>
+                        ))}
+                    </Box>
+                    <Box sx={{ width: '200px' }}>
+                        <DatePicker
+                            selected={filterDate}
+                            onChange={handleDateChange}
+                            dateFormat="MM/dd/yyyy"
+                            placeholderText="Filter by date"
+                            customInput={<CustomInput />}
+                        />
+                    </Box>
+                    <Button
+                        onClick={clearFilters}
+                        variant="outlined"
+                        sx={{
+                            height: '38px',
+                            width: '120px',
+                            borderColor: '#754C27',
+                            color: '#754C27',
+                            '&:hover': {
+                                borderColor: '#5d3a1f',
+                                backgroundColor: 'rgba(117, 76, 39, 0.04)'
+                            }
                         }}
-                    />
+                    >
+                        Clear
+                    </Button>
                 </Box>
 
-                <TableContainer component={Paper} sx={{ width: '60%', mt: '24px' }}>
+                <Box sx={{ width: '80%', mt: '24px' }}>
+                    <Button
+                        variant="contained"
+                        color="error"
+                        onClick={handleBatchDelete}
+                        sx={{ mt: 2 }}
+                        disabled={selected.length === 0}
+                    >
+                        Delete Selected ({selected.length})
+                    </Button>
+                </Box>
+
+                <TableContainer component={Paper} sx={{ width: '80%', mt: '24px' }}>
                     <Table aria-label="customized table">
                         <TableHead>
                             <TableRow>
+                                <StyledTableCell padding="checkbox">
+                                    <Checkbox
+                                        color="primary"
+                                        checked={stockcards.length > 0 && selected.length === stockcards.length}
+                                        indeterminate={selected.length > 0 && selected.length < stockcards.length}
+                                        onChange={handleSelectAllClick}
+                                        sx={{
+                                            color: '#FFFFFF',
+                                            '&.Mui-checked': {
+                                                color: '#FFFFFF',
+                                            },
+                                            '&.MuiCheckbox-indeterminate': {
+                                                color: '#FFFFFF',
+                                            }
+                                        }}
+                                    />
+                                </StyledTableCell>
                                 <StyledTableCell width='1%'>No.</StyledTableCell>
+                                <StyledTableCell align="center">Refno</StyledTableCell>
                                 <StyledTableCell align="center">Product Code</StyledTableCell>
                                 <StyledTableCell align="center">Product Name</StyledTableCell>
+                                <StyledTableCell align="center">Kitchen Name</StyledTableCell>
                                 <StyledTableCell align="center">Amount</StyledTableCell>
                                 <StyledTableCell align="center">Unit Price</StyledTableCell>
                                 <StyledTableCell align="center">Total</StyledTableCell>
@@ -252,10 +787,95 @@ export default function BeginningInventory() {
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {/* Table data */}
+                            {stockcards.map((row, index) => {
+                                const isSelected = selected.some(item =>
+                                    item.refno === row.refno &&
+                                    item.product_code === row.product_code
+                                );
+
+                                return (
+                                    <StyledTableRow
+                                        key={`${row.refno}-${row.product_code}`}
+                                        selected={isSelected}
+                                    >
+                                        <StyledTableCell padding="checkbox">
+                                            <Checkbox
+                                                color="primary"
+                                                checked={isSelected}
+                                                onChange={(event) => handleCheckboxChange(event, row)}
+                                                sx={{
+                                                    '&.Mui-checked': {
+                                                        color: '#754C27',
+                                                    }
+                                                }}
+                                            />
+                                        </StyledTableCell>
+                                        <StyledTableCell>
+                                            {(page - 1) * itemsPerPage + index + 1}
+                                        </StyledTableCell>
+                                        <StyledTableCell align="center">
+                                            {row.refno}
+                                        </StyledTableCell>
+                                        <StyledTableCell align="center">
+                                            {row.product_code}
+                                        </StyledTableCell>
+                                        <StyledTableCell align="center">
+                                            {row.tbl_product?.product_name || ''}
+                                        </StyledTableCell>
+                                        <StyledTableCell align="center">
+                                            {row.tbl_kitchen?.kitchen_name || ''}
+                                        </StyledTableCell>
+                                        <StyledTableCell align="center">
+                                            {row.beg1}
+                                        </StyledTableCell>
+                                        <StyledTableCell align="center">
+                                            {row.uprice?.toLocaleString('en-US', {
+                                                minimumFractionDigits: 2,
+                                                maximumFractionDigits: 2
+                                            })}
+                                        </StyledTableCell>
+                                        <StyledTableCell align="center">
+                                            {row.beg1_amt?.toLocaleString('en-US', {
+                                                minimumFractionDigits: 2,
+                                                maximumFractionDigits: 2
+                                            })}
+                                        </StyledTableCell>
+                                        <StyledTableCell align="center">
+                                            <IconButton
+                                                onClick={() => handleEdit(row)}
+                                                sx={{ border: '1px solid #AD7A2C', borderRadius: '7px' }}
+                                            >
+                                                <EditIcon sx={{ color: '#AD7A2C' }} />
+                                            </IconButton>
+                                        </StyledTableCell>
+                                        <StyledTableCell align="center">
+                                            <IconButton
+                                                onClick={() => handleDelete(row)}
+                                                sx={{ border: '1px solid #F62626', borderRadius: '7px' }}
+                                            >
+                                                <DeleteIcon sx={{ color: '#F62626' }} />
+                                            </IconButton>
+                                        </StyledTableCell>
+                                    </StyledTableRow>
+                                );
+                            })}
                         </TableBody>
                     </Table>
                 </TableContainer>
+
+                <Stack spacing={2} sx={{ mt: 2, display: 'flex', alignItems: 'center' }}>
+                    <Pagination
+                        count={count}
+                        page={page}
+                        onChange={(event, value) => {
+                            setPage(value);
+                            loadData(value);
+                        }}
+                        shape="rounded"
+                        showFirstButton
+                        showLastButton
+                    />
+                </Stack>
             </Box>
 
             <Drawer
@@ -391,6 +1011,45 @@ export default function BeginningInventory() {
                                 </Box>
 
                                 <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
+                                    Kitchen
+                                </Typography>
+                                <Box
+                                    component="select"
+                                    name="kitchen_code"
+                                    value={formik.values.kitchen_code}
+                                    onChange={formik.handleChange}
+                                    onBlur={formik.handleBlur}
+                                    sx={{
+                                        mt: '8px',
+                                        width: '100%',
+                                        height: '40px',
+                                        borderRadius: '10px',
+                                        padding: '0 14px',
+                                        border: formik.touched.kitchen_code && formik.errors.kitchen_code
+                                            ? '1px solid #d32f2f'
+                                            : '1px solid rgba(0, 0, 0, 0.23)',
+                                        fontSize: '16px',
+                                        backgroundColor: '#ffffff',
+                                        '&:focus': {
+                                            outline: 'none',
+                                            borderColor: '#754C27',
+                                        },
+                                    }}
+                                >
+                                    <option value="">Select Kitchen</option>
+                                    {kitchens.map((kitchen) => (
+                                        <option key={kitchen.kitchen_code} value={kitchen.kitchen_code}>
+                                            {kitchen.kitchen_name}
+                                        </option>
+                                    ))}
+                                </Box>
+                                {formik.touched.kitchen_code && formik.errors.kitchen_code && (
+                                    <Typography color="error" variant="caption" sx={{ ml: 1 }}>
+                                        {formik.errors.kitchen_code}
+                                    </Typography>
+                                )}
+
+                                <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
                                     Unit
                                 </Typography>
                                 <Box
@@ -480,7 +1139,10 @@ export default function BeginningInventory() {
                                 </Typography>
                                 <TextField
                                     size="small"
-                                    value={calculateTotal()}
+                                    value={Number(calculateTotal()).toLocaleString('en-US', {
+                                        minimumFractionDigits: 2,
+                                        maximumFractionDigits: 2
+                                    })}
                                     disabled
                                     sx={{
                                         mt: '8px',

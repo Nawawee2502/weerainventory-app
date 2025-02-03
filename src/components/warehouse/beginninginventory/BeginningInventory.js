@@ -38,6 +38,7 @@ import {
 import { useFormik } from 'formik';
 import Swal from 'sweetalert2';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+import { Checkbox } from '@mui/material';
 
 // Styled Components
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
@@ -120,7 +121,9 @@ export default function BeginningInventory() {
     const [productSearchTerm, setProductSearchTerm] = useState('');
     const [tableSearchTerm, setTableSearchTerm] = useState('');
     const [filterDate, setFilterDate] = useState(() => convertToLasVegasTime(new Date()));
-    const [loading, setLoading] = useState(false); 
+    const [loading, setLoading] = useState(false);
+    const [selected, setSelected] = useState([]);
+
 
     // Initial Form Values
     const initialValues = {
@@ -251,13 +254,14 @@ export default function BeginningInventory() {
             .catch((err) => console.log(err.message));
     }, [dispatch]);
 
+
+
     const loadData = async (pageNumber = 1) => {
         try {
-            setLoading(true);
             const offset = (pageNumber - 1) * itemsPerPage;
             const formattedDate = filterDate ? formatDate(filterDate) : null;
 
-            const [res, countRes] = await Promise.all([
+            const [stockcardsRes, countRes] = await Promise.all([
                 dispatch(queryWh_stockcard({
                     offset,
                     limit: itemsPerPage,
@@ -270,28 +274,14 @@ export default function BeginningInventory() {
                 })).unwrap()
             ]);
 
-            if (res.result && Array.isArray(res.data)) {
-                const resultData = res.data.map((item, index) => ({
-                    ...item,
-                    id: offset + index + 1
-                }));
-                setStockcards(resultData);
-            }
-
-            if (countRes.result) {
+            if (stockcardsRes.result && Array.isArray(stockcardsRes.data)) {
                 const totalPages = Math.ceil(countRes.data / itemsPerPage);
                 setCount(totalPages);
+                setStockcards(stockcardsRes.data);
             }
-        } catch (err) {
-            console.error('Error loading data:', err);
-            Swal.fire({
-                icon: 'error',
-                title: 'Error Loading Data',
-                text: err.message || 'An unknown error occurred',
-                confirmButtonColor: '#754C27'
-            });
-        } finally {
-            setLoading(false);
+        } catch (error) {
+            console.error('Error loading data:', error);
+            // แสดง error message ถ้าต้องการ
         }
     };
 
@@ -335,6 +325,7 @@ export default function BeginningInventory() {
 
     const handleTableSearch = (e) => {
         setTableSearchTerm(e.target.value);
+        setSelected([]);
         setPage(1);
     };
 
@@ -368,9 +359,9 @@ export default function BeginningInventory() {
 
     const clearFilters = () => {
         setTableSearchTerm('');
-        const vegasDate = convertToLasVegasTime(new Date());
-        setFilterDate(vegasDate);
+        setFilterDate(convertToLasVegasTime(new Date()));
         setPage(1);
+        setSelected([]); // Clear selection when filters are cleared
         loadData(1);
     };
 
@@ -378,6 +369,8 @@ export default function BeginningInventory() {
         setPage(value);
         loadData(value);
     };
+
+
 
     const handleEdit = async (row) => {
         try {
@@ -466,6 +459,80 @@ export default function BeginningInventory() {
         const amount = Number(formik.values.amount) || 0;
         const unitPrice = Number(formik.values.unit_price) || 0;
         return (amount * unitPrice).toFixed(2);
+    };
+
+    const handleBatchDelete = async () => {
+        if (selected.length === 0) return;
+
+        try {
+            const result = await Swal.fire({
+                title: 'Are you sure?',
+                text: `You are about to delete ${selected.length} items`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#754C27',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Yes, delete them!'
+            });
+
+            if (result.isConfirmed) {
+                // Delete each selected item
+                for (const item of selected) {
+                    await dispatch(deleteWh_stockcard({
+                        refno: item.refno,
+                        myear: item.myear,
+                        monthh: item.monthh,
+                        product_code: item.product_code
+                    })).unwrap();
+                }
+
+                // Clear selection and reload data
+                setSelected([]);
+                await loadData(page);
+
+                await Swal.fire({
+                    icon: 'success',
+                    title: 'Deleted!',
+                    text: `Successfully deleted ${selected.length} items`,
+                    confirmButtonColor: '#754C27',
+                    timer: 1500
+                });
+            }
+        } catch (error) {
+            console.error('Error in batch delete:', error);
+            await Swal.fire({
+                icon: 'error',
+                title: 'Delete Error',
+                text: error.message || 'Failed to delete selected items',
+                confirmButtonColor: '#754C27'
+            });
+        }
+    };
+
+    const handleSelectAllClick = (event) => {
+        if (event.target.checked) {
+            setSelected(stockcards);
+        } else {
+            setSelected([]);
+        }
+    };
+
+    const handleCheckboxChange = (event, stockcard) => {
+        const selectedIndex = selected.findIndex(item =>
+            item.refno === stockcard.refno &&
+            item.product_code === stockcard.product_code
+        );
+        let newSelected = [];
+
+        if (selectedIndex === -1) {
+            newSelected = [...selected, stockcard];
+        } else {
+            newSelected = [
+                ...selected.slice(0, selectedIndex),
+                ...selected.slice(selectedIndex + 1),
+            ];
+        }
+        setSelected(newSelected);
     };
 
     // Render UI
@@ -560,11 +627,40 @@ export default function BeginningInventory() {
                     </Button>
                 </Box>
 
+                <Box sx={{ width: '80%', mt: '24px' }}>
+                    <Button
+                        variant="contained"
+                        color="error"
+                        onClick={handleBatchDelete}
+                        sx={{ mt: 2 }}
+                        disabled={selected.length === 0}
+                    >
+                        Delete Selected ({selected.length})
+                    </Button>
+                </Box>
+
                 {/* Table */}
                 <TableContainer component={Paper} sx={{ width: '80%', mt: '24px' }}>
                     <Table>
                         <TableHead>
                             <TableRow>
+                                <StyledTableCell padding="checkbox">
+                                    <Checkbox
+                                        color="primary"
+                                        checked={stockcards.length > 0 && selected.length === stockcards.length}
+                                        indeterminate={selected.length > 0 && selected.length < stockcards.length}
+                                        onChange={handleSelectAllClick}
+                                        sx={{
+                                            color: '#FFFFFF',
+                                            '&.Mui-checked': {
+                                                color: '#FFFFFF',
+                                            },
+                                            '&.MuiCheckbox-indeterminate': {
+                                                color: '#FFFFFF',
+                                            }
+                                        }}
+                                    />
+                                </StyledTableCell>
                                 <StyledTableCell width='1%'>No.</StyledTableCell>
                                 <StyledTableCell align="center">Product Code</StyledTableCell>
                                 <StyledTableCell align="center">Product Name</StyledTableCell>
@@ -576,44 +672,66 @@ export default function BeginningInventory() {
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {stockcards.map((row) => (
-                                <StyledTableRow key={row.id}>
-                                    <StyledTableCell>{row.id}</StyledTableCell>
-                                    <StyledTableCell align="center">{row.product_code}</StyledTableCell>
-                                    <StyledTableCell align="center">
-                                        {row.tbl_product?.product_name || row.product_code}
-                                    </StyledTableCell>
-                                    <StyledTableCell align="center">{row.beg1}</StyledTableCell>
-                                    <StyledTableCell align="center">
-                                        {row.uprice?.toLocaleString('en-US', {
-                                            minimumFractionDigits: 2,
-                                            maximumFractionDigits: 2
-                                        })}
-                                    </StyledTableCell>
-                                    <StyledTableCell align="center">
-                                        {row.beg1_amt?.toLocaleString('en-US', {
-                                            minimumFractionDigits: 2,
-                                            maximumFractionDigits: 2
-                                        })}
-                                    </StyledTableCell>
-                                    <StyledTableCell align="center">
-                                        <IconButton
-                                            onClick={() => handleEdit(row)}
-                                            sx={{ border: '1px solid #AD7A2C', borderRadius: '7px' }}
-                                        >
-                                            <EditIcon sx={{ color: '#AD7A2C' }} />
-                                        </IconButton>
-                                    </StyledTableCell>
-                                    <StyledTableCell align="center">
-                                        <IconButton
-                                            onClick={() => handleDelete(row)}
-                                            sx={{ border: '1px solid #F62626', borderRadius: '7px' }}
-                                        >
-                                            <DeleteIcon sx={{ color: '#F62626' }} />
-                                        </IconButton>
-                                    </StyledTableCell>
-                                </StyledTableRow>
-                            ))}
+                            {stockcards.map((row, index) => {
+                                const isSelected = selected.some(item =>
+                                    item.refno === row.refno &&
+                                    item.product_code === row.product_code
+                                );
+
+                                return (
+                                    <StyledTableRow
+                                        key={row.id}
+                                        selected={isSelected}
+                                    >
+                                        <StyledTableCell padding="checkbox">
+                                            <Checkbox
+                                                color="primary"
+                                                checked={isSelected}
+                                                onChange={(event) => handleCheckboxChange(event, row)}
+                                                sx={{
+                                                    '&.Mui-checked': {
+                                                        color: '#754C27',
+                                                    }
+                                                }}
+                                            />
+                                        </StyledTableCell>
+                                        <StyledTableCell>{row.id}</StyledTableCell>
+                                        <StyledTableCell align="center">{row.product_code}</StyledTableCell>
+                                        <StyledTableCell align="center">
+                                            {row.tbl_product?.product_name || row.product_code}
+                                        </StyledTableCell>
+                                        <StyledTableCell align="center">{row.beg1}</StyledTableCell>
+                                        <StyledTableCell align="center">
+                                            {row.uprice?.toLocaleString('en-US', {
+                                                minimumFractionDigits: 2,
+                                                maximumFractionDigits: 2
+                                            })}
+                                        </StyledTableCell>
+                                        <StyledTableCell align="center">
+                                            {row.beg1_amt?.toLocaleString('en-US', {
+                                                minimumFractionDigits: 2,
+                                                maximumFractionDigits: 2
+                                            })}
+                                        </StyledTableCell>
+                                        <StyledTableCell align="center">
+                                            <IconButton
+                                                onClick={() => handleEdit(row)}
+                                                sx={{ border: '1px solid #AD7A2C', borderRadius: '7px' }}
+                                            >
+                                                <EditIcon sx={{ color: '#AD7A2C' }} />
+                                            </IconButton>
+                                        </StyledTableCell>
+                                        <StyledTableCell align="center">
+                                            <IconButton
+                                                onClick={() => handleDelete(row)}
+                                                sx={{ border: '1px solid #F62626', borderRadius: '7px' }}
+                                            >
+                                                <DeleteIcon sx={{ color: '#F62626' }} />
+                                            </IconButton>
+                                        </StyledTableCell>
+                                    </StyledTableRow>
+                                );
+                            })}
                         </TableBody>
                     </Table>
                 </TableContainer>

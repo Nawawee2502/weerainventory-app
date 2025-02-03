@@ -67,7 +67,7 @@ const demoTheme = createTheme({
 function Warehouse(props) {
     const { window } = props;
     const [pathname, setPathname] = React.useState('/beginning-inventory');
-    const [currentTitle, setCurrentTitle] = React.useState('Warehouse Beginning Inventory');
+    const [currentTitle, setCurrentTitle] = React.useState('Warehouse - Beginning Inventory');
     let navigate = useNavigate();
 
     const NAVIGATION = React.useMemo(() => {
@@ -89,7 +89,7 @@ function Warehouse(props) {
         if (permissions.menu_setwh_purchase_order_to_supplier === 'Y') {
             menu.push({
                 segment: 'purchase-order-to-supplier',
-                title: 'Purchase Order to Supplier',
+                title: 'Purchase Order To Supplier',
                 icon: <ReceiptLongOutlinedIcon />,
             });
         }
@@ -130,7 +130,7 @@ function Warehouse(props) {
             });
         }
 
-        // Daily Closing (Stock Adjustment)
+        // Daily Closing
         if (permissions.menu_setwh_daily_closing === 'Y') {
             menu.push({
                 segment: 'daily-closing',
@@ -148,7 +148,7 @@ function Warehouse(props) {
                 children: [
                     {
                         segment: 'purchase-order-to-supplier',
-                        title: 'Purchase Order to Supplier',
+                        title: 'Purchase Order',
                         icon: <CircleIcon fontSize='small' />,
                     },
                     {
@@ -200,17 +200,17 @@ function Warehouse(props) {
             const reportsMenu = NAVIGATION.find(item => item.segment === 'reports');
             if (reportsMenu && reportsMenu.children) {
                 const subMenu = reportsMenu.children.find(item => item.segment === reportSegment);
-                if (subMenu) return subMenu.title;
+                if (subMenu) return `Warehouse - ${subMenu.title}`;
             }
-            return 'Reports';
+            return 'Warehouse - Reports';
         }
 
         // For other main menu items
         const segment = path.substring(1);
         const mainMenu = NAVIGATION.find(item => item.segment === segment);
-        if (mainMenu) return mainMenu.title;
+        if (mainMenu) return `Warehouse - ${mainMenu.title}`;
 
-        return 'Beginning Inventory';
+        return 'Warehouse - Beginning Inventory';
     };
 
     function SidebarFooter({ mini }) {

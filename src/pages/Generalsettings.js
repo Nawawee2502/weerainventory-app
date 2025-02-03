@@ -19,6 +19,7 @@ import Branch from '../components/generalsettings/Branch';
 import ComissaryKitchen from '../components/generalsettings/Comissarykitchen';
 import Supplier from '../components/generalsettings/Supplier';
 import ProductRecord from '../components/generalsettings/Productrecord';
+import ProductImage from '../components/generalsettings/ProductImage';
 import { useNavigate } from "react-router-dom";
 
 const Search = styled('div')(({ theme }) => ({
@@ -309,6 +310,9 @@ export default function GeneralSettings() {
                                     {permissions.menu_setgen_product === 'Y' &&
                                         <Tab label="Product record" value="3" />}
 
+                                    {permissions.menu_setgen_product === 'Y' &&
+                                        <Tab label="Product image" value="7" />}
+
                                     {permissions.menu_setgen_branch === 'Y' &&
                                         <Tab label="Restaurant" value="4" />}
 
@@ -342,6 +346,9 @@ export default function GeneralSettings() {
 
                             {permissions.menu_setgen_product === 'Y' &&
                                 <TabPanel value="3"><ProductRecord /></TabPanel>}
+
+                            {permissions.menu_setgen_product === 'Y' &&
+                                <TabPanel value="7"><ProductImage /></TabPanel>}
 
                             {permissions.menu_setgen_branch === 'Y' &&
                                 <TabPanel value="4"><Branch /></TabPanel>}

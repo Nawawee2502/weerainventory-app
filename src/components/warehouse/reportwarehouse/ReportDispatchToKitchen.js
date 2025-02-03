@@ -27,10 +27,10 @@ export default function ReportDispatchToKitchen() {
 
     const formatDisplayDate = (date) => {
         if (!date) return "";
-        const day = String(date.getDate()).padStart(2, '0');
         const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
         const year = date.getFullYear();
-        return `${day}/${month}/${year}`;
+        return `${month}/${day}/${year}`;
     };
 
     const formatDate = (date) => {
@@ -257,9 +257,9 @@ export default function ReportDispatchToKitchen() {
                                     selectsStart
                                     startDate={startDate}
                                     endDate={endDate}
-                                    dateFormat="dd/MM/yyyy"
+                                    dateFormat="MM/dd/yyyy"
                                     isClearable
-                                    placeholderText="Select start date"
+                                    placeholderText="MM/DD/YYYY"
                                     customInput={
                                         <TextField
                                             size="small"
@@ -290,9 +290,9 @@ export default function ReportDispatchToKitchen() {
                                     startDate={startDate}
                                     endDate={endDate}
                                     minDate={startDate}
-                                    dateFormat="dd/MM/yyyy"
+                                    dateFormat="MM/dd/yyyy"
                                     isClearable
-                                    placeholderText="Select end date"
+                                    placeholderText="MM/DD/YYYY"
                                     customInput={
                                         <TextField
                                             size="small"

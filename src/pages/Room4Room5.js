@@ -3,31 +3,22 @@ import PropTypes from 'prop-types';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import { createTheme } from '@mui/material/styles';
-import DashboardIcon from '@mui/icons-material/Dashboard';
-import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import Button from '@mui/material/Button';
 import { AppProvider } from '@toolpad/core/AppProvider';
 import { DashboardLayout } from '@toolpad/core/DashboardLayout';
 import { useNavigate } from "react-router-dom";
-import HomePurchaseOrderToSupplier from '../components/warehouse/purchaseordertosupplier/HomePurchaseOrdertoSupplier';
 import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined';
 import ReceiptOutlinedIcon from '@mui/icons-material/ReceiptOutlined';
-import LocalShippingOutlinedIcon from '@mui/icons-material/LocalShippingOutlined';
-import CountertopsOutlinedIcon from '@mui/icons-material/CountertopsOutlined';
 import HouseSidingOutlinedIcon from '@mui/icons-material/HouseSidingOutlined';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import CircleIcon from '@mui/icons-material/Circle';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import WarehouseIcon from '@mui/icons-material/Warehouse';
 import RequestQuoteIcon from '@mui/icons-material/RequestQuote';
 import ListAltIcon from '@mui/icons-material/ListAlt';
 import MoveToInboxIcon from '@mui/icons-material/MoveToInbox';
 import DescriptionIcon from '@mui/icons-material/Description';
 import StoreIcon from '@mui/icons-material/Store';
-
-
-
 
 import HomePurchaseOrdertoWarehouse from '../components/room4room5/purchaseordertowarehouse/HomePurchaseOrdertoWarehouse';
 import HomeReceiptFromSupplier from '../components/room4room5/receiptfromsupplier/HomeReceiptFromSupplier';
@@ -47,58 +38,57 @@ import ReportDispatchToRestaurant from '../components/room4room5/report/ReportDi
 import ReportStockAdjustment from '../components/room4room5/report/ReportStockAdjustment';
 import ReportMonthlyStockCard from '../components/room4room5/report/ReportMonthlyStockCard';
 import ReportMonthlyStockBalance from '../components/room4room5/report/ReportMonthlyStockBalance';
-
 import BeginningInventory from '../components/room4room5/beginninginventory/BeginningInventory';
 
 const NAVIGATION = [
     {
         segment: 'beginning-inventory',
-        title: 'Kitchen BeginningInventory',
-        icon: <StoreIcon/>,
+        title: 'Beginning Inventory',
+        icon: <StoreIcon />,
     },
     {
         segment: 'purchase-order-to-warehouse',
-        title: 'Kitchen Purchase Order to Warehouse',
+        title: 'Purchase Order to Warehouse',
         icon: <ListAltIcon />,
     },
     {
         segment: 'receipt-from-supplier',
-        title: 'Kitchen Receipt From Supplier',
+        title: 'Receipt From Supplier',
         icon: <ReceiptOutlinedIcon />,
     },
     {
         segment: 'receipt-from-warehouse',
-        title: 'Kitchen Receipt From Warehouse',
+        title: 'Receipt From Warehouse',
         icon: <MoveToInboxIcon />,
     },
     {
         segment: 'goods-requisition',
-        title: 'Kitchen Goods Requisition',
+        title: 'Goods Requisition',
         icon: <RequestQuoteIcon />,
     },
     {
         segment: 'production-receipt',
-        title: 'Kitchen Production Receipt',
+        title: 'Production Receipt',
         icon: <ReceiptLongOutlinedIcon />,
     },
     {
         segment: 'transfer-to-warehouse',
-        title: 'Kitchen Transfer to Warehouse',
+        title: 'Transfer to Warehouse',
         icon: <DescriptionIcon />,
     },
     {
         segment: 'dispatch-to-restaurant',
-        title: 'Kitchen Dispatch to Restaurant',
+        title: 'Dispatch to Restaurant',
         icon: <HouseSidingOutlinedIcon />,
     },
     {
-        segment: 'stock-adjustment',
-        title: 'Kitchen Stock Adjustment',
+        segment: 'daily-closing',
+        title: 'Daily Closing',
         icon: <Inventory2OutlinedIcon />,
     },
     {
         segment: 'reports',
-        title: 'Kitchen Reports',
+        title: 'Reports',
         icon: <BarChartIcon />,
         children: [
             {
@@ -108,7 +98,7 @@ const NAVIGATION = [
             },
             {
                 segment: 'receipt-from-supplier',
-                title: 'Receipt From Supplie',
+                title: 'Receipt From Supplier',
                 icon: <CircleIcon fontSize='small' />,
             },
             {
@@ -137,8 +127,8 @@ const NAVIGATION = [
                 icon: <CircleIcon fontSize='small' />,
             },
             {
-                segment: 'stock-adjustment',
-                title: 'Stock Adjustment',
+                segment: 'daily-closing',
+                title: 'Daily Closing',
                 icon: <CircleIcon fontSize='small' />,
             },
             {
@@ -188,7 +178,7 @@ const demoTheme = createTheme({
 function Room4Room5(props) {
     const { window } = props;
     const [pathname, setPathname] = React.useState('/beginning-inventory');
-    const [currentTitle, setCurrentTitle] = React.useState('Kitchen BeginningInventory');
+    const [currentTitle, setCurrentTitle] = React.useState('Kitchen - Beginning Inventory');
     let navigate = useNavigate();
 
     const handleDashboard = () => {
@@ -197,19 +187,23 @@ function Room4Room5(props) {
     };
 
     const findMenuTitle = (path) => {
-        const segment = path.substring(1);
-
-        const mainMenu = NAVIGATION.find(item => item.segment === segment);
-        if (mainMenu) return mainMenu.title;
-
-        for (const menu of NAVIGATION) {
-            if (menu.children) {
-                const subMenu = menu.children.find(item => item.segment === segment);
-                if (subMenu) return subMenu.title;
+        // For reports with path format /reports/xxx
+        if (path.startsWith('/reports/')) {
+            const reportSegment = path.substring('/reports/'.length);
+            const reportsMenu = NAVIGATION.find(item => item.segment === 'reports');
+            if (reportsMenu && reportsMenu.children) {
+                const subMenu = reportsMenu.children.find(item => item.segment === reportSegment);
+                if (subMenu) return `Kitchen - ${subMenu.title}`;
             }
+            return 'Kitchen - Reports';
         }
 
-        return 'Kitchen BeginningInventory'; // เปลี่ยน default return
+        // For other main menu items
+        const segment = path.substring(1);
+        const mainMenu = NAVIGATION.find(item => item.segment === segment);
+        if (mainMenu) return `Kitchen - ${mainMenu.title}`;
+
+        return 'Kitchen - Beginning Inventory';
     };
 
     function SidebarFooter({ mini }) {
@@ -278,7 +272,7 @@ function Room4Room5(props) {
             case '/transfer-to-warehouse':
                 return <HomeTransferToWarehouse />;
             case '/dispatch-to-restaurant':
-                return <HomeDispatchToRestaurant/>;
+                return <HomeDispatchToRestaurant />;
             case '/stock-adjustment':
                 return <HomeStockAdjustment />;
             case '/reports/purchase-order-to-warehouse':
@@ -295,7 +289,7 @@ function Room4Room5(props) {
                 return <ReportTransferToWarehouse />;
             case '/reports/dispatch-to-restaurant':
                 return <ReportDispatchToRestaurant />;
-            case '/reports/stock-adjustment':
+            case '/reports/daily-closing':
                 return <ReportStockAdjustment />;
             case '/reports/monthly-stock-card':
                 return <ReportMonthlyStockCard />

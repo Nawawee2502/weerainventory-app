@@ -32,10 +32,10 @@ export default function ReportPurchaseordertosupplier() {
 
     const formatDisplayDate = (date) => {
         if (!date) return "";
-        const day = String(date.getDate()).padStart(2, '0');
         const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
         const year = date.getFullYear();
-        return `${day}/${month}/${year}`;
+        return `${month}/${day}/${year}`;
     };
 
     useEffect(() => {
@@ -345,9 +345,9 @@ export default function ReportPurchaseordertosupplier() {
                                     selectsStart
                                     startDate={startDate}
                                     endDate={endDate}
-                                    dateFormat="dd/MM/yyyy"
+                                    dateFormat="MM/dd/yyyy"
                                     isClearable
-                                    placeholderText="Select start date"
+                                    placeholderText="MM/DD/YYYY"
                                     customInput={
                                         <TextField
                                             size="small"
@@ -362,7 +362,6 @@ export default function ReportPurchaseordertosupplier() {
                                                     borderRadius: '10px',
                                                     bgcolor: 'white'
                                                 },
-
                                             }}
                                         />
                                     }
@@ -379,9 +378,9 @@ export default function ReportPurchaseordertosupplier() {
                                     startDate={startDate}
                                     endDate={endDate}
                                     minDate={startDate}
-                                    dateFormat="dd/MM/yyyy"
+                                    dateFormat="MM/dd/yyyy"
                                     isClearable
-                                    placeholderText="Select end date"
+                                    placeholderText="MM/DD/YYYY"
                                     customInput={
                                         <TextField
                                             size="small"
@@ -396,7 +395,6 @@ export default function ReportPurchaseordertosupplier() {
                                                     borderRadius: '10px',
                                                     bgcolor: 'white'
                                                 },
-
                                             }}
                                         />
                                     }
