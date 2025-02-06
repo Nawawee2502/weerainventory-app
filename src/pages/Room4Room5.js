@@ -127,11 +127,6 @@ const NAVIGATION = [
                 icon: <CircleIcon fontSize='small' />,
             },
             {
-                segment: 'daily-closing',
-                title: 'Daily Closing',
-                icon: <CircleIcon fontSize='small' />,
-            },
-            {
                 segment: 'monthly-stock-card',
                 title: 'Monthly Stock Card',
                 icon: <CircleIcon fontSize='small' />,
@@ -289,8 +284,6 @@ function Room4Room5(props) {
                 return <ReportTransferToWarehouse />;
             case '/reports/dispatch-to-restaurant':
                 return <ReportDispatchToRestaurant />;
-            case '/reports/daily-closing':
-                return <ReportStockAdjustment />;
             case '/reports/monthly-stock-card':
                 return <ReportMonthlyStockCard />
             case '/reports/monthly-stock-balance':

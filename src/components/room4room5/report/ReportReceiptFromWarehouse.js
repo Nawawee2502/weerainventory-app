@@ -452,7 +452,7 @@ export default function ReportReceiptFromWarehouse() {
                                     Date
                                 </Typography>
                                 <Typography sx={{ fontWeight: '700', color: '#AD7A2C' }}>
-                                    Commissary Kitchen
+                                    Kitchen
                                 </Typography>
                             </Box>
                             <Box sx={{ ml: '8px' }}>

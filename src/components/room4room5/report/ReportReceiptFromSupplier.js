@@ -343,7 +343,7 @@ export default function ReportReceiptFromSupplier() {
                             </Grid2>
                             <Grid2 item size={{ xs: 12, md: 6 }}>
                                 <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
-                                    Commissary Kitchen
+                                    Kitchen
                                 </Typography>
                                 <Box
                                     component="select"
