@@ -175,3 +175,43 @@ export const searchProductName = createAsyncThunk(
   }
 );
 
+export const updateProductImage = createAsyncThunk(
+  "product/updateImage",
+  async ({ product_code, image }, { dispatch }) => {
+    try {
+      const formData = new FormData();
+      formData.append('product_img', image);
+      formData.append('product_code', product_code);
+
+      const res = await axios.post(`${BASE_URL}/api/updateproductimage`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      return res.data;
+    } catch (error) {
+      console.error('Error in updateProductImage:', error);
+      throw error;
+    }
+  }
+);
+
+export const searchProductsForImage = createAsyncThunk(
+  "product/searchForImage",
+  async ({ typeproduct_code, product_name, offset = 0, limit = 10 }, { dispatch }) => {
+    try {
+      const res = await axios.post(BASE_URL + "/api/searchproductsimage", {
+        typeproduct_code,
+        product_name,
+        offset,
+        limit
+      });
+      return res.data;
+    } catch (error) {
+      console.error(error.message);
+      throw error;
+    }
+  }
+);
+
