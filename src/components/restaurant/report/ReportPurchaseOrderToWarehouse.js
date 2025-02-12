@@ -1,27 +1,250 @@
-import * as React from 'react';
-import { useState } from 'react';
+import React from 'react';
+import { useState, useEffect } from 'react';
+import { createRoot } from 'react-dom/client';
 import { Box, Typography, TextField, Grid2, Button } from '@mui/material';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { Checkbox, Switch, Divider } from '@mui/material';
+import { useDispatch } from 'react-redux';
+import { Br_powAlljoindt } from '../../../api/restaurant/br_powApi';
+import { exportToExcelPow } from './ExportExcelPOW';
+import { branchAll } from '../../../api/branchApi';
+import { supplierAll } from '../../../api/supplierApi';
+import { exportToPdfPow } from './ExportPdfPOW';
+import PrintLayout from './PrintPreviewPOW';
+import Swal from 'sweetalert2';
 
 export default function ReportPurchaseOrderToWarehouse() {
-    const [startDate, setStartDate] = useState(new Date());
-    const [endDate, setEndtDate] = useState(new Date());
+    const today = new Date();
+    const [powData, setPowData] = useState([]);
+    const [excludePrice, setExcludePrice] = useState(false);
+    const [startDate, setStartDate] = useState(today);
+    const [endDate, setEndDate] = useState(today);
+    const [selectedBranch, setSelectedBranch] = useState('');
+    const [selectedSupplier, setSelectedSupplier] = useState('');
+    const [searchProduct, setSearchProduct] = useState('');
+    const [branches, setBranches] = useState([]);
+    const [suppliers, setSuppliers] = useState([]);
+    const dispatch = useDispatch();
 
-    
-    
-    const months = Array.from({ length: 12 }, (_, i) =>
-        new Date(0, i).toLocaleString("en-US", { month: "long" })
-      );
-      
+    const formatDisplayDate = (date) => {
+        if (!date) return "";
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${month}/${day}/${year}`;
+    };
+
+    useEffect(() => {
+        handleSearch();
+    }, []);
+
+    const formatDate = (date) => {
+        if (!date) return null;
+        return `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
+    };
+
+    const fetchData = async (params) => {
+        try {
+            const response = await dispatch(Br_powAlljoindt(params)).unwrap();
+            console.log("API Response:", response);
+
+            if (response.data) {
+                const flattenedData = response.data.flatMap(order =>
+                    order.br_powdts.map(detail => ({
+                        date: order.rdate,
+                        refno: order.refno,
+                        branch: order.tbl_branch?.branch_name,
+                        supplier: order.tbl_supplier?.supplier_name,
+                        product_id: detail.product_code,
+                        product_name: detail.tbl_product?.product_name,
+                        quantity: detail.qty,
+                        unit_price: detail.uprice,
+                        unit_code: detail.tbl_unit?.unit_name,
+                        amount: detail.amt,
+                        total: order.total,
+                        user_code: order.user?.username
+                    }))
+                );
+                setPowData(flattenedData);
+            } else {
+                setPowData([]);
+            }
+        } catch (error) {
+            console.error("Error fetching data:", error);
+            setPowData([]);
+        }
+    };
+
+    useEffect(() => {
+        const params = {
+            offset: 0,
+            limit: 10000,
+            rdate1: formatDate(today),
+            rdate2: formatDate(today)
+        };
+
+        fetchData(params);
+
+        dispatch(branchAll({ offset: 0, limit: 1000 }))
+            .unwrap()
+            .then(res => {
+                setBranches(res.data);
+            })
+            .catch(err => console.error("Error fetching branches:", err));
+
+        dispatch(supplierAll({ offset: 0, limit: 1000 }))
+            .unwrap()
+            .then(res => {
+                setSuppliers(res.data);
+            })
+            .catch(err => console.error("Error fetching suppliers:", err));
+    }, []);
+
+    const handleDateChange = (type, date) => {
+        if (type === 'start') {
+            setStartDate(date);
+            if (date && endDate) {
+                const params = {
+                    offset: 0,
+                    limit: 10000,
+                    rdate1: formatDate(date),
+                    rdate2: formatDate(endDate)
+                };
+                console.log("Search with params:", params);
+                fetchData(params);
+            }
+        } else {
+            setEndDate(date);
+            if (startDate && date) {
+                const params = {
+                    offset: 0,
+                    limit: 10000,
+                    rdate1: formatDate(startDate),
+                    rdate2: formatDate(date)
+                };
+                console.log("Search with params:", params);
+                fetchData(params);
+            }
+        }
+    };
+
+    const handleSearch = (productSearch = searchProduct) => {
+        let params = {
+            offset: 0,
+            limit: 10000
+        };
+
+        if (startDate && endDate) {
+            params.rdate1 = formatDate(startDate);
+            params.rdate2 = formatDate(endDate);
+        }
+
+        if (selectedBranch) params.branch_code = selectedBranch;
+        if (selectedSupplier) params.supplier_code = selectedSupplier;
+        if (productSearch) params.product_code = productSearch;
+
+        fetchData(params);
+    };
+
+    const handlePrint = () => {
+        if (powData.length === 0) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'No Data',
+                text: 'There is no data to print',
+                confirmButtonColor: '#754C27'
+            });
+            return;
+        }
+
+        const printWindow = window.open('', '_blank');
+        const printDoc = printWindow.document;
+
+        printDoc.write(`
+            <html>
+                <head>
+                    <style>
+                        @media print {
+                            body { margin: 0; }
+                            @page { size: landscape; }
+                        }
+                        table { page-break-inside: auto; }
+                        tr { page-break-inside: avoid; page-break-after: auto; }
+                        thead { display: table-header-group; }
+                        tfoot { display: table-footer-group; }
+                        .page-number {
+                            position: fixed;
+                            bottom: 10px;
+                            right: 10px;
+                            font-size: 12px;
+                        }
+                        body {
+                            -webkit-print-color-adjust: exact !important;
+                            print-color-adjust: exact !important;
+                        }
+                        .page-container {
+                            position: relative;
+                            min-height: 100vh;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="page-container">
+                        <div id="print-content"></div>
+                        <div class="page-number">1</div>
+                    </div>
+                </body>
+            </html>
+        `);
+
+        const root = createRoot(printDoc.getElementById('print-content'));
+        root.render(
+            <PrintLayout
+                data={powData}
+                excludePrice={excludePrice}
+                startDate={startDate}
+                endDate={endDate}
+            />
+        );
+
+        printWindow.setTimeout(() => {
+            printWindow.print();
+            printWindow.close();
+        }, 1000);
+    };
+
+    const handleExportExcel = () => {
+        if (powData.length === 0) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'No Data',
+                text: 'There is no data to export to Excel',
+                confirmButtonColor: '#754C27'
+            });
+            return;
+        }
+        exportToExcelPow(powData, excludePrice, startDate, endDate);
+    };
+
+    const handleExportPdf = () => {
+        if (powData.length === 0) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'No Data',
+                text: 'There is no data to export to PDF',
+                confirmButtonColor: '#754C27'
+            });
+            return;
+        }
+        exportToPdfPow(powData, excludePrice, startDate, endDate);
+    };
 
     return (
         <Box sx={{
             width: '100%',
             display: 'flex',
             justifyContent: 'center',
-            bgcolor: 'white',
             flexDirection: 'column',
             alignItems: 'center',
             bgcolor: '#F8F8F8'
@@ -31,31 +254,31 @@ export default function ReportPurchaseOrderToWarehouse() {
                 mt: '10px',
                 flexDirection: 'column'
             }}>
-                <Box
-                    sx={{
-                        display: 'flex',
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        flexDirection: 'column',
-                        bgcolor: '#FFFFFF',
-                        height: '100%',
-                        p: '16px',
-                        position: 'relative',
-                        zIndex: 2,
-                        mb: '50px',
-                        bgcolor: '#F8F8F8'
-                    }}
-                >
-                     <Box sx={{ width: '90%', mt: '24px' }}>
+                <Box sx={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    flexDirection: 'column',
+                    bgcolor: '#F8F8F8',
+                    height: '100%',
+                    p: '16px',
+                    position: 'relative',
+                    zIndex: 2,
+                    mb: '50px'
+                }}>
+                    <Box sx={{ width: '90%', mt: '24px' }}>
                         <Grid2 container spacing={2}>
-                            <Grid2 item size={{ xs: 12, md: 6 }}>
+                            <Grid2 item xs={12} md={6}>
                                 <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
                                     From Date
                                 </Typography>
                                 <DatePicker
                                     selected={startDate}
-                                    onChange={(date) => setStartDate(date)}
-                                    dateFormat="dd/MM/yyyy"
+                                    onChange={(date) => handleDateChange('start', date)}
+                                    selectsStart
+                                    startDate={startDate}
+                                    endDate={endDate}
+                                    dateFormat="MM/dd/yyyy"
                                     customInput={
                                         <TextField
                                             size="small"
@@ -68,20 +291,26 @@ export default function ReportPurchaseOrderToWarehouse() {
                                                 },
                                                 '& .MuiOutlinedInput-root': {
                                                     borderRadius: '10px',
+                                                    bgcolor: 'white'
                                                 },
                                             }}
                                         />
                                     }
                                 />
                             </Grid2>
-                            <Grid2 item size={{ xs: 12, md: 6 }}>
+
+                            <Grid2 item xs={12} md={6}>
                                 <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
                                     To Date
                                 </Typography>
                                 <DatePicker
-                                    selected={startDate}
-                                    onChange={(date) => setStartDate(date)}
-                                    dateFormat="dd/MM/yyyy"
+                                    selected={endDate}
+                                    onChange={(date) => handleDateChange('end', date)}
+                                    selectsEnd
+                                    startDate={startDate}
+                                    endDate={endDate}
+                                    minDate={startDate}
+                                    dateFormat="MM/dd/yyyy"
                                     customInput={
                                         <TextField
                                             size="small"
@@ -94,23 +323,63 @@ export default function ReportPurchaseOrderToWarehouse() {
                                                 },
                                                 '& .MuiOutlinedInput-root': {
                                                     borderRadius: '10px',
+                                                    bgcolor: 'white'
                                                 },
                                             }}
                                         />
                                     }
                                 />
                             </Grid2>
-                            <Grid2 item size={{ xs: 12, md: 6 }}>
+
+                            <Grid2 item xs={12} md={6}>
+                                <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
+                                    Branch
+                                </Typography>
+                                <Box
+                                    component="select"
+                                    value={selectedBranch}
+                                    onChange={(e) => {
+                                        setSelectedBranch(e.target.value);
+                                        handleSearch();
+                                    }}
+                                    sx={{
+                                        mt: '8px',
+                                        width: '100%',
+                                        height: '40px',
+                                        borderRadius: '10px',
+                                        padding: '0 14px',
+                                        border: '1px solid rgba(0, 0, 0, 0.23)',
+                                        fontSize: '16px',
+                                        bgcolor: 'white',
+                                        '&:focus': {
+                                            outline: 'none',
+                                            borderColor: '#754C27',
+                                        },
+                                        '& option': {
+                                            fontSize: '16px',
+                                        },
+                                    }}
+                                >
+                                    <option value="">Select a Branch</option>
+                                    {branches.map(branch => (
+                                        <option key={branch.branch_code} value={branch.branch_code}>
+                                            {branch.branch_name}
+                                        </option>
+                                    ))}
+                                </Box>
+                            </Grid2>
+
+                            <Grid2 item xs={12} md={6}>
                                 <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
                                     Supplier
                                 </Typography>
                                 <Box
                                     component="select"
-                                    // value={selectedSupplier}
-                                    // onChange={(e) => {
-                                    //     setSelectedSupplier(e.target.value);
-                                    //     handleSearch();
-                                    // }}
+                                    value={selectedSupplier}
+                                    onChange={(e) => {
+                                        setSelectedSupplier(e.target.value);
+                                        handleSearch();
+                                    }}
                                     sx={{
                                         mt: '8px',
                                         width: '100%',
@@ -119,6 +388,7 @@ export default function ReportPurchaseOrderToWarehouse() {
                                         padding: '0 14px',
                                         border: '1px solid rgba(0, 0, 0, 0.23)',
                                         fontSize: '16px',
+                                        bgcolor: 'white',
                                         '&:focus': {
                                             outline: 'none',
                                             borderColor: '#754C27',
@@ -127,50 +397,17 @@ export default function ReportPurchaseOrderToWarehouse() {
                                             fontSize: '16px',
                                         },
                                     }}
-                                    id="supplier"
                                 >
-                                    <option value="">Select a supplier</option>
-                                    {/* {suppliers.map(supplier => (
+                                    <option value="">Select a Supplier</option>
+                                    {suppliers.map(supplier => (
                                         <option key={supplier.supplier_code} value={supplier.supplier_code}>
                                             {supplier.supplier_name}
                                         </option>
-                                    ))} */}
+                                    ))}
                                 </Box>
                             </Grid2>
-                            <Grid2 item size={{ xs: 12, md: 6 }}>
-                                <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
-                                    Restaurant
-                                </Typography>
-                                <Box
-                                    component="select"
-                                    // value={selectedSupplier}
-                                    // onChange={(e) => {
-                                    //     setSelectedSupplier(e.target.value);
-                                    //     handleSearch();
-                                    // }}
-                                    sx={{
-                                        mt: '8px',
-                                        width: '100%',
-                                        height: '40px',
-                                        borderRadius: '10px',
-                                        padding: '0 14px',
-                                        border: '1px solid rgba(0, 0, 0, 0.23)',
-                                        fontSize: '16px',
-                                        '&:focus': {
-                                            outline: 'none',
-                                            borderColor: '#754C27',
-                                        },
-                                        '& option': {
-                                            fontSize: '16px',
-                                        },
-                                    }}
-                                    id="supplier"
-                                >
-                                    <option value="">Select a Restaurant</option>
-                                   
-                                </Box>
-                            </Grid2>
-                            <Grid2 item size={{ xs: 12, md: 12 }}>
+
+                            <Grid2 item xs={12} md={12}>
                                 <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
                                     Product
                                 </Typography>
@@ -178,15 +415,29 @@ export default function ReportPurchaseOrderToWarehouse() {
                                     <TextField
                                         size="small"
                                         fullWidth
-                                        placeholder="Search..."
+                                        value={searchProduct}
+                                        onChange={(e) => {
+                                            setSearchProduct(e.target.value);
+                                            if (e.target.value === '') {
+                                                handleSearch('');
+                                            }
+                                        }}
+                                        onKeyPress={(e) => {
+                                            if (e.key === 'Enter') {
+                                                handleSearch(searchProduct);
+                                            }
+                                        }}
+                                        placeholder="Search product name..."
                                         sx={{
                                             '& .MuiOutlinedInput-root': {
                                                 borderRadius: '10px',
+                                                bgcolor: 'white'
                                             },
                                         }}
                                     />
                                     <Button
                                         variant="contained"
+                                        onClick={() => handleSearch(searchProduct)}
                                         sx={{
                                             bgcolor: '#754C27',
                                             color: 'white',
@@ -202,14 +453,9 @@ export default function ReportPurchaseOrderToWarehouse() {
                                 </Box>
                             </Grid2>
                         </Grid2>
-
-
                     </Box>
                 </Box>
-
-
             </Box>
-
 
             <Box
                 sx={{
@@ -218,13 +464,13 @@ export default function ReportPurchaseOrderToWarehouse() {
                     p: '12px',
                     borderRadius: '24px',
                     mb: '24px',
-                    position: 'relative', // เพิ่มเพื่อให้สามารถวาง Box หัวข้อแบบ absolute ได้
+                    position: 'relative',
                     mt: '20px'
                 }}
             >
                 <Box sx={{
                     position: 'absolute',
-                    top: '-20px', // ปรับตำแหน่งให้อยู่ด้านบนของ Box หลัก
+                    top: '-20px',
                     left: '50%',
                     transform: 'translateX(-50%)',
                     bgcolor: '#EAB86C',
@@ -246,33 +492,39 @@ export default function ReportPurchaseOrderToWarehouse() {
                                     Date
                                 </Typography>
                                 <Typography sx={{ fontWeight: '700', color: '#AD7A2C' }}>
-                                    Supplier
+                                    Branch
                                 </Typography>
                                 <Typography sx={{ fontWeight: '700', color: '#AD7A2C' }}>
-                                    Shop
+                                    Supplier
                                 </Typography>
                             </Box>
                             <Box sx={{ ml: '8px' }}>
                                 <Typography>
-                                    23/08/2567 - 25/08/2567
+                                    {startDate && endDate
+                                        ? `${formatDisplayDate(startDate)} - ${formatDisplayDate(endDate)}`
+                                        : "Not specified"}
                                 </Typography>
                                 <Typography>
-                                    Eleanor Pena
+                                    {branches.find(b => b.branch_code === selectedBranch)?.branch_name || "Not selected"}
                                 </Typography>
                                 <Typography>
-                                    Weera Thai
+                                    {suppliers.find(s => s.supplier_code === selectedSupplier)?.supplier_name || "Not selected"}
                                 </Typography>
                             </Box>
                         </Box>
                         <Box sx={{ display: 'flex', gap: 2, flexDirection: 'column' }}>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <Switch />
+                                <Switch
+                                    checked={excludePrice}
+                                    onChange={(e) => setExcludePrice(e.target.checked)}
+                                />
                                 <Typography sx={{ fontWeight: '500', color: '#7E84A3' }}>
                                     Exclude price in file
                                 </Typography>
                             </Box>
                             <Box>
                                 <Button
+                                    onClick={handlePrint}
                                     variant="outlined"
                                     sx={{
                                         color: '#754C27',
@@ -282,9 +534,24 @@ export default function ReportPurchaseOrderToWarehouse() {
                                         }
                                     }}
                                 >
-                                    Export (Excel)
+                                    Print
                                 </Button>
                                 <Button
+                                    onClick={handleExportExcel}
+                                    variant="outlined"
+                                    sx={{
+                                        color: '#754C27',
+                                        borderColor: '#754C27',
+                                        '&:hover': {
+                                            borderColor: '#5c3c1f',
+                                        },
+                                        ml: '24px'
+                                    }}
+                                >
+                                    Excel
+                                </Button>
+                                <Button
+                                    onClick={handleExportPdf}
                                     variant="outlined"
                                     sx={{
                                         color: '#754C27',
@@ -298,29 +565,25 @@ export default function ReportPurchaseOrderToWarehouse() {
                                     PDF
                                 </Button>
                             </Box>
-
                         </Box>
                     </Box>
                     <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', mb: '12px' }}>
                         <table style={{ width: '100%', marginTop: '24px' }}>
                             <thead>
                                 <tr>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left' }}>
-                                        <Checkbox />
-                                    </th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color:'#754C27' }}>No.</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color:'#754C27' }}>Date</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color:'#754C27' }}>Ref.no</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color:'#754C27' }}>Supplier</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color:'#754C27' }}>Restaurant</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color:'#754C27' }}>ID</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color:'#754C27' }}>Product Name</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color:'#754C27' }}>Quantity</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color:'#754C27' }}>UnitPrice</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color:'#754C27' }}>Unit</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color:'#754C27' }}>Amount</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color:'#754C27' }}>Total</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color:'#754C27' }}>Username </th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>No.</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Date</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Ref.no</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Branch</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Supplier</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Product ID</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Product Name</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Quantity</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Unit Price</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Unit</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Amount</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Total</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Username</th>
                                 </tr>
                                 <tr>
                                     <td colSpan="15">
@@ -329,7 +592,23 @@ export default function ReportPurchaseOrderToWarehouse() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {/* Table data will go here */}
+                                {powData.map((row, index) => (
+                                    <tr key={`${row.refno}-${row.product_id}`}>
+                                        <td style={{ padding: '12px 16px' }}>{index + 1}</td>
+                                        <td style={{ padding: '12px 16px' }}>{row.date}</td>
+                                        <td style={{ padding: '12px 16px' }}>{row.refno}</td>
+                                        <td style={{ padding: '12px 16px' }}>{row.branch}</td>
+                                        <td style={{ padding: '12px 16px' }}>{row.supplier}</td>
+                                        <td style={{ padding: '12px 16px' }}>{row.product_id}</td>
+                                        <td style={{ padding: '12px 16px' }}>{row.product_name}</td>
+                                        <td style={{ padding: '12px 16px' }}>{row.quantity}</td>
+                                        <td style={{ padding: '12px 16px' }}>{Number(row.unit_price).toFixed(2)}</td>
+                                        <td style={{ padding: '12px 16px' }}>{row.unit_code}</td>
+                                        <td style={{ padding: '12px 16px' }}>{Number(row.amount).toFixed(2)}</td>
+                                        <td style={{ padding: '12px 16px' }}>{Number(row.total).toFixed(2)}</td>
+                                        <td style={{ padding: '12px 16px' }}>{row.user_code}</td>
+                                    </tr>
+                                ))}
                             </tbody>
                         </table>
                     </Box>

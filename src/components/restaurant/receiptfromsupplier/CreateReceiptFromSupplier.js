@@ -76,16 +76,16 @@ function CreateBranchReceiptFromSupplier({ onBack }) {
     const [quantities, setQuantities] = useState({});
     const [units, setUnits] = useState({});
     const [totals, setTotals] = useState({});
-    const [taxableAmount, setTaxableAmount] = useState(0);
-    const [nonTaxableAmount, setNonTaxableAmount] = useState(0);
-    const [total, setTotal] = useState(0);
     const [instantSaving, setInstantSaving] = useState(0);
-    const [deliverySurcharge, setDeliverySurcharge] = useState(0);
-    const [saleTax, setSaleTax] = useState(0);
-    const [totalDue, setTotalDue] = useState(0);
     const [expiryDates, setExpiryDates] = useState({});
     const [temperatures, setTemperatures] = useState({});
     const [customPrices, setCustomPrices] = useState({});
+    const [taxableAmount, setTaxableAmount] = useState(0);
+    const [nonTaxableAmount, setNonTaxableAmount] = useState(0);
+    const [total, setTotal] = useState(0);
+    const [deliverySurcharge, setDeliverySurcharge] = useState(0);
+    const [saleTax, setSaleTax] = useState(0);
+    const [totalDue, setTotalDue] = useState(0);
     const TAX_RATE = 0.07;
 
     const userDataJson = localStorage.getItem("userData2");
@@ -194,7 +194,6 @@ function CreateBranchReceiptFromSupplier({ onBack }) {
     const calculateOrderTotals = () => {
         let newTaxable = 0;
         let newNonTaxable = 0;
-        let newInstantSaving = 0;
         let newTotal = 0;
 
         products.forEach(product => {
@@ -213,15 +212,13 @@ function CreateBranchReceiptFromSupplier({ onBack }) {
             }
 
             newTotal += lineTotal;
-            newInstantSaving += Number(product.instant_saving1 || 0);
         });
 
         const newSaleTax = newTaxable * TAX_RATE;
-        const newTotalDue = newTotal + newSaleTax + deliverySurcharge - newInstantSaving;
+        const newTotalDue = newTotal + newSaleTax + deliverySurcharge;
 
         setTaxableAmount(newTaxable);
         setNonTaxableAmount(newNonTaxable);
-        setInstantSaving(newInstantSaving);
         setSaleTax(newSaleTax);
         setTotal(newTotal);
         setTotalDue(newTotalDue);
@@ -275,7 +272,6 @@ function CreateBranchReceiptFromSupplier({ onBack }) {
                         product.bulk_unit_price :
                         product.retail_unit_price),
                 tax1: product.tax1,
-                instant_saving1: Number(product.instant_saving1) || 0,
                 temperature1: temperatures[product.product_code] || '',
                 amt: product.amount || 0
             }));
@@ -283,11 +279,7 @@ function CreateBranchReceiptFromSupplier({ onBack }) {
             const footerData = {
                 taxable: taxableAmount,
                 nontaxable: nonTaxableAmount,
-                total: total,
-                instant_saving: instantSaving,
-                delivery_surcharge: deliverySurcharge,
-                sale_tax: saleTax,
-                total_due: totalDue
+                total: total
             };
 
             const result = await dispatch(addBr_rfs({
@@ -552,7 +544,6 @@ function CreateBranchReceiptFromSupplier({ onBack }) {
                                         <th style={{ padding: '12px', textAlign: 'left', color: '#754C27', backgroundColor: '#f5f5f5' }}>Product Code</th>
                                         <th style={{ padding: '12px', textAlign: 'left', color: '#754C27', backgroundColor: '#f5f5f5' }}>Product Name</th>
                                         <th style={{ padding: '12px', textAlign: 'center', color: '#754C27', backgroundColor: '#f5f5f5' }}>Tax</th>
-                                        <th style={{ padding: '12px', textAlign: 'center', color: '#754C27', backgroundColor: '#f5f5f5' }}>Instant Saving</th>
                                         <th style={{ padding: '12px', textAlign: 'right', color: '#754C27', backgroundColor: '#f5f5f5' }}>Amount</th>
                                         <th style={{ padding: '12px', textAlign: 'center', color: '#754C27', backgroundColor: '#f5f5f5' }}>Unit</th>
                                         <th style={{ padding: '12px', textAlign: 'right', color: '#754C27', backgroundColor: '#f5f5f5' }}>Unit Price</th>
@@ -578,26 +569,6 @@ function CreateBranchReceiptFromSupplier({ onBack }) {
                                                 <td style={{ padding: '12px' }}>{product.product_name}</td>
                                                 <td style={{ padding: '12px', textAlign: 'center' }}>
                                                     {product.tax1 === 'Y' ? 'Yes' : 'No'}
-                                                </td>
-                                                <td style={{ padding: '12px', textAlign: 'center' }}>
-                                                    <input
-                                                        type="number"
-                                                        value={product.instant_saving1 || 0}
-                                                        onChange={(e) => {
-                                                            const newValue = Number(e.target.value);
-                                                            if (!isNaN(newValue) && newValue >= 0) {
-                                                                product.instant_saving1 = newValue;
-                                                                calculateOrderTotals();
-                                                            }
-                                                        }}
-                                                        style={{
-                                                            width: '80px',
-                                                            padding: '4px',
-                                                            textAlign: 'right',
-                                                            border: '1px solid #ddd',
-                                                            borderRadius: '4px'
-                                                        }}
-                                                    />
                                                 </td>
                                                 <td style={{ padding: '12px', textAlign: 'right' }}>
                                                     <input
@@ -724,12 +695,10 @@ function CreateBranchReceiptFromSupplier({ onBack }) {
                                     justifyContent: 'space-between'
                                 }}>
                                     <Box>
-                                        <Typography sx={{ color: '#FFFFFF' }}>Instance Saving</Typography>
                                         <Typography sx={{ color: '#FFFFFF' }}>Delivery Surcharge</Typography>
                                         <Typography sx={{ color: '#FFFFFF' }}>Sale Tax</Typography>
                                     </Box>
                                     <Box>
-                                        <Typography sx={{ color: '#FFFFFF' }}>${instantSaving.toFixed(2)}</Typography>
                                         <Box sx={{ display: 'flex', alignItems: 'center' }}>
                                             <TextField
                                                 type="number"
