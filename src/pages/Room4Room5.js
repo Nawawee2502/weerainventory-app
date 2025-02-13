@@ -28,6 +28,7 @@ import HomeProductionReceipt from '../components/room4room5/productionreceipt/Ho
 import HomeTransferToWarehouse from '../components/room4room5/transfertowarehouse/HomeTransferToWarehouse';
 import HomeDispatchToRestaurant from '../components/room4room5/dispatchtorestaurant/HomeDispatchToRestaurant';
 import HomeStockAdjustment from '../components/room4room5/stockadjustment/HomeStockAdjustment';
+import HomeDailyClosing from '../components/room4room5/dailyclosing/Dailyclosing';
 import ReportPurchaseOrderToWarehouse from '../components/room4room5/report/ReportPurchaseOrderToWarehouse';
 import ReportReceiptFromSupplier from '../components/room4room5/report/ReportReceiptFromSupplier';
 import ReportReceiptFromWarehouse from '../components/room4room5/report/ReportReceiptFromWarehouse';
@@ -39,106 +40,6 @@ import ReportStockAdjustment from '../components/room4room5/report/ReportStockAd
 import ReportMonthlyStockCard from '../components/room4room5/report/ReportMonthlyStockCard';
 import ReportMonthlyStockBalance from '../components/room4room5/report/ReportMonthlyStockBalance';
 import BeginningInventory from '../components/room4room5/beginninginventory/BeginningInventory';
-
-const NAVIGATION = [
-    {
-        segment: 'beginning-inventory',
-        title: 'Beginning Inventory',
-        icon: <StoreIcon />,
-    },
-    {
-        segment: 'purchase-order-to-warehouse',
-        title: 'Purchase Order to Warehouse',
-        icon: <ListAltIcon />,
-    },
-    {
-        segment: 'receipt-from-supplier',
-        title: 'Receipt From Supplier',
-        icon: <ReceiptOutlinedIcon />,
-    },
-    {
-        segment: 'receipt-from-warehouse',
-        title: 'Receipt From Warehouse',
-        icon: <MoveToInboxIcon />,
-    },
-    {
-        segment: 'goods-requisition',
-        title: 'Goods Requisition',
-        icon: <RequestQuoteIcon />,
-    },
-    {
-        segment: 'production-receipt',
-        title: 'Production Receipt',
-        icon: <ReceiptLongOutlinedIcon />,
-    },
-    {
-        segment: 'transfer-to-warehouse',
-        title: 'Transfer to Warehouse',
-        icon: <DescriptionIcon />,
-    },
-    {
-        segment: 'dispatch-to-restaurant',
-        title: 'Dispatch to Restaurant',
-        icon: <HouseSidingOutlinedIcon />,
-    },
-    {
-        segment: 'daily-closing',
-        title: 'Daily Closing',
-        icon: <Inventory2OutlinedIcon />,
-    },
-    {
-        segment: 'reports',
-        title: 'Reports',
-        icon: <BarChartIcon />,
-        children: [
-            {
-                segment: 'purchase-order-to-warehouse',
-                title: 'Purchase Order to Warehouse',
-                icon: <CircleIcon fontSize='small' />,
-            },
-            {
-                segment: 'receipt-from-supplier',
-                title: 'Receipt From Supplier',
-                icon: <CircleIcon fontSize='small' />,
-            },
-            {
-                segment: 'receipt-from-warehouse',
-                title: 'Receipt From Warehouse',
-                icon: <CircleIcon fontSize='small' />,
-            },
-            {
-                segment: 'goods-requisition',
-                title: 'Goods Requisition',
-                icon: <CircleIcon fontSize='small' />,
-            },
-            {
-                segment: 'production-receipt',
-                title: 'Production Receipt',
-                icon: <CircleIcon fontSize='small' />,
-            },
-            {
-                segment: 'transfer-to-warehouse',
-                title: 'Transfer to Warehouse',
-                icon: <CircleIcon fontSize='small' />,
-            },
-            {
-                segment: 'dispatch-to-restaurant',
-                title: 'Dispatch to Restaurant',
-                icon: <CircleIcon fontSize='small' />,
-            },
-            {
-                segment: 'monthly-stock-card',
-                title: 'Monthly Stock Card',
-                icon: <CircleIcon fontSize='small' />,
-            },
-            {
-                segment: 'monthly-stock-balance',
-                title: 'Monthly Stock Balance',
-                icon: <CircleIcon fontSize='small' />,
-            },
-        ],
-    },
-];
 
 const demoTheme = createTheme({
     breakpoints: {
@@ -176,13 +77,172 @@ function Room4Room5(props) {
     const [currentTitle, setCurrentTitle] = React.useState('Kitchen - Beginning Inventory');
     let navigate = useNavigate();
 
+    const NAVIGATION = React.useMemo(() => {
+        const userData = JSON.parse(localStorage.getItem('userData2'));
+        const permissions = userData?.tbl_typeuserpermission || {};
+
+        const menu = [];
+
+        // Beginning Inventory
+        if (permissions.menu_setkt_beginninginventory === 'Y') {
+            menu.push({
+                segment: 'beginning-inventory',
+                title: 'Beginning Inventory',
+                icon: <StoreIcon />,
+            });
+        }
+
+        // Purchase Order to Warehouse
+        if (permissions.menu_setkt_purchase_order_to_wh === 'Y') {
+            menu.push({
+                segment: 'purchase-order-to-warehouse',
+                title: 'Purchase Order to Warehouse',
+                icon: <ListAltIcon />,
+            });
+        }
+
+        // Receipt From Supplier
+        if (permissions.menu_setkt_receipt_from_supplier === 'Y') {
+            menu.push({
+                segment: 'receipt-from-supplier',
+                title: 'Receipt From Supplier',
+                icon: <ReceiptOutlinedIcon />,
+            });
+        }
+
+        // Receipt From Warehouse
+        if (permissions.menu_setkt_receipt_from_wh === 'Y') {
+            menu.push({
+                segment: 'receipt-from-warehouse',
+                title: 'Receipt From Warehouse',
+                icon: <MoveToInboxIcon />,
+            });
+        }
+
+        // Goods Requisition
+        if (permissions.menu_setkt_goods_requisition === 'Y') {
+            menu.push({
+                segment: 'goods-requisition',
+                title: 'Goods Requisition',
+                icon: <RequestQuoteIcon />,
+            });
+        }
+
+        // Production Receipt
+        if (permissions.menu_setkt_product_receipt === 'Y') {
+            menu.push({
+                segment: 'production-receipt',
+                title: 'Production Receipt',
+                icon: <ReceiptLongOutlinedIcon />,
+            });
+        }
+
+        // Transfer to Warehouse
+        if (permissions.menu_setkt_transfer_to_wh === 'Y') {
+            menu.push({
+                segment: 'transfer-to-warehouse',
+                title: 'Transfer to Warehouse',
+                icon: <DescriptionIcon />,
+            });
+        }
+
+        // Dispatch to Restaurant
+        if (permissions.menu_setkt_dispatch_to_branch === 'Y') {
+            menu.push({
+                segment: 'dispatch-to-restaurant',
+                title: 'Dispatch to Restaurant',
+                icon: <HouseSidingOutlinedIcon />,
+            });
+        }
+
+        // Stock Adjustment
+        if (permissions.menu_setkt_stock_adjustment === 'Y') {
+            menu.push({
+                segment: 'stock-adjustment',
+                title: 'Stock Adjustment',
+                icon: <Inventory2OutlinedIcon />,
+            });
+        }
+
+        // Daily Closing
+        if (permissions.menu_setkt_dailyclosing === 'Y') {
+            menu.push({
+                segment: 'daily-closing',
+                title: 'Daily Closing',
+                icon: <Inventory2OutlinedIcon />,
+            });
+        }
+
+        // Reports
+        if (permissions.menu_setkt_report === 'Y') {
+            menu.push({
+                segment: 'reports',
+                title: 'Reports',
+                icon: <BarChartIcon />,
+                children: [
+                    {
+                        segment: 'purchase-order-to-warehouse',
+                        title: 'Purchase Order to Warehouse',
+                        icon: <CircleIcon fontSize='small' />,
+                    },
+                    {
+                        segment: 'receipt-from-supplier',
+                        title: 'Receipt From Supplier',
+                        icon: <CircleIcon fontSize='small' />,
+                    },
+                    {
+                        segment: 'receipt-from-warehouse',
+                        title: 'Receipt From Warehouse',
+                        icon: <CircleIcon fontSize='small' />,
+                    },
+                    {
+                        segment: 'goods-requisition',
+                        title: 'Goods Requisition',
+                        icon: <CircleIcon fontSize='small' />,
+                    },
+                    {
+                        segment: 'production-receipt',
+                        title: 'Production Receipt',
+                        icon: <CircleIcon fontSize='small' />,
+                    },
+                    {
+                        segment: 'transfer-to-warehouse',
+                        title: 'Transfer to Warehouse',
+                        icon: <CircleIcon fontSize='small' />,
+                    },
+                    {
+                        segment: 'dispatch-to-restaurant',
+                        title: 'Dispatch to Restaurant',
+                        icon: <CircleIcon fontSize='small' />,
+                    },
+                    {
+                        segment: 'stock-adjustment',
+                        title: 'Stock Adjustment',
+                        icon: <CircleIcon fontSize='small' />,
+                    },
+                    {
+                        segment: 'monthly-stock-card',
+                        title: 'Monthly Stock Card',
+                        icon: <CircleIcon fontSize='small' />,
+                    },
+                    {
+                        segment: 'monthly-stock-balance',
+                        title: 'Monthly Stock Balance',
+                        icon: <CircleIcon fontSize='small' />,
+                    },
+                ],
+            });
+        }
+
+        return menu;
+    }, []);
+
     const handleDashboard = () => {
         navigate('/dashboard');
         setCurrentTitle('Dashboard');
     };
 
     const findMenuTitle = (path) => {
-        // For reports with path format /reports/xxx
         if (path.startsWith('/reports/')) {
             const reportSegment = path.substring('/reports/'.length);
             const reportsMenu = NAVIGATION.find(item => item.segment === 'reports');
@@ -193,7 +253,6 @@ function Room4Room5(props) {
             return 'Kitchen - Reports';
         }
 
-        // For other main menu items
         const segment = path.substring(1);
         const mainMenu = NAVIGATION.find(item => item.segment === segment);
         if (mainMenu) return `Kitchen - ${mainMenu.title}`;
@@ -252,24 +311,13 @@ function Room4Room5(props) {
 
     const demoWindow = window !== undefined ? window() : undefined;
 
-    const renderContent = () => {
-        switch (pathname) {
-            case '/purchase-order-to-warehouse':
-                return <HomePurchaseOrdertoWarehouse />;
-            case '/receipt-from-supplier':
-                return <HomeReceiptFromSupplier />;
-            case '/receipt-from-warehouse':
-                return <HomeReceiptFromWarehouse />;
-            case '/goods-requisition':
-                return <HomeGoodsRequisition />;
-            case '/production-receipt':
-                return <HomeProductionReceipt />;
-            case '/transfer-to-warehouse':
-                return <HomeTransferToWarehouse />;
-            case '/dispatch-to-restaurant':
-                return <HomeDispatchToRestaurant />;
-            case '/stock-adjustment':
-                return <HomeStockAdjustment />;
+    const renderReportContent = (path) => {
+        const userData = JSON.parse(localStorage.getItem('userData2'));
+        const permissions = userData?.tbl_typeuserpermission || {};
+
+        if (permissions.menu_setkt_report !== 'Y') return null;
+
+        switch (path) {
             case '/reports/purchase-order-to-warehouse':
                 return <ReportPurchaseOrderToWarehouse />;
             case '/reports/receipt-from-supplier':
@@ -284,12 +332,55 @@ function Room4Room5(props) {
                 return <ReportTransferToWarehouse />;
             case '/reports/dispatch-to-restaurant':
                 return <ReportDispatchToRestaurant />;
+            case '/reports/stock-adjustment':
+                return <ReportStockAdjustment />;
             case '/reports/monthly-stock-card':
-                return <ReportMonthlyStockCard />
+                return <ReportMonthlyStockCard />;
             case '/reports/monthly-stock-balance':
                 return <ReportMonthlyStockBalance />;
             default:
-                return <BeginningInventory />;
+                return null;
+        }
+    };
+
+    const renderContent = () => {
+        const userData = JSON.parse(localStorage.getItem('userData2'));
+        const permissions = userData?.tbl_typeuserpermission || {};
+
+        switch (pathname) {
+            case '/beginning-inventory':
+                return permissions.menu_setkt_beginninginventory === 'Y' ? <BeginningInventory /> : null;
+            case '/purchase-order-to-warehouse':
+                return permissions.menu_setkt_purchase_order_to_wh === 'Y' ? <HomePurchaseOrdertoWarehouse /> : null;
+            case '/receipt-from-supplier':
+                return permissions.menu_setkt_receipt_from_supplier === 'Y' ? <HomeReceiptFromSupplier /> : null;
+            case '/receipt-from-warehouse':
+                return permissions.menu_setkt_receipt_from_wh === 'Y' ? <HomeReceiptFromWarehouse /> : null;
+            case '/goods-requisition':
+                return permissions.menu_setkt_goods_requisition === 'Y' ? <HomeGoodsRequisition /> : null;
+            case '/production-receipt':
+                return permissions.menu_setkt_product_receipt === 'Y' ? <HomeProductionReceipt /> : null;
+            case '/transfer-to-warehouse':
+                return permissions.menu_setkt_transfer_to_wh === 'Y' ? <HomeTransferToWarehouse /> : null;
+            case '/dispatch-to-restaurant':
+                return permissions.menu_setkt_dispatch_to_branch === 'Y' ? <HomeDispatchToRestaurant /> : null;
+            case '/stock-adjustment':
+                return permissions.menu_setkt_stock_adjustment === 'Y' ? <HomeStockAdjustment /> : null;
+            case '/daily-closing':
+                return permissions.menu_setkt_dailyclosing === 'Y' ? <HomeDailyClosing /> : null;
+            case '/reports/purchase-order-to-warehouse':
+            case '/reports/receipt-from-supplier':
+            case '/reports/receipt-from-warehouse':
+            case '/reports/goods-requisition':
+            case '/reports/production-receipt':
+            case '/reports/transfer-to-warehouse':
+            case '/reports/dispatch-to-restaurant':
+            case '/reports/stock-adjustment':
+            case '/reports/monthly-stock-card':
+            case '/reports/monthly-stock-balance':
+                return renderReportContent(pathname);
+            default:
+                return permissions.menu_setkt_beginninginventory === 'Y' ? <BeginningInventory /> : null;
         }
     };
 

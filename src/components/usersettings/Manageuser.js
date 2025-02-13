@@ -25,7 +25,8 @@ import {
     deleteUser,
     showUser,
     searchUser,
-    getLastUserCode
+    getLastUserCode,
+    countUser
 } from '../../api/loginApi';
 import { branchAll } from '../../api/branchApi';
 import { kitchenAll } from '../../api/kitchenApi';
@@ -142,17 +143,19 @@ export default function ManageUser() {
                 limit: itemsPerPage
             })).unwrap();
 
-            console.log('Fetched users:', res.data); // เพิ่ม log
-
             if (res.data && Array.isArray(res.data)) {
                 const paginatedData = res.data.map((user, index) => ({
                     ...user,
                     id: offset + index + 1
                 }));
                 setUsers(paginatedData);
-                setCount(Math.ceil(res.data.length / itemsPerPage));
-            } else {
-                console.error('Invalid data format received:', res.data);
+
+                // เพิ่มการเรียกใช้ countUser เพื่อดึงจำนวน records ทั้งหมด
+                const countRes = await dispatch(countUser()).unwrap();
+                if (countRes.result) {
+                    const totalPages = Math.ceil(countRes.data / itemsPerPage);
+                    setCount(totalPages);
+                }
             }
         } catch (error) {
             console.error('Error fetching users:', error);
@@ -340,7 +343,12 @@ export default function ManageUser() {
                 username: values.username,
                 email: values.email,
                 typeuser_code: values.typeuser_code,
-                line_uid: values.line_uid
+                line_uid: values.line_uid,
+                // เพิ่มการส่งค่า branch_code และ kitchen_code
+                branch_code: values.branch_access_type === 'select' ? values.branch_code :
+                    values.branch_access_type === 'all' ? 'All' : 'No',
+                kitchen_code: values.kitchen_access_type === 'select' ? values.kitchen_code :
+                    values.kitchen_access_type === 'all' ? 'All' : 'No'
             };
 
             // เพิ่ม password เฉพาะเมื่อมีการกรอกค่าใหม่
@@ -929,7 +937,6 @@ export default function ManageUser() {
                                     )}
                                 </FormControl>
 
-                                // หลัง User Type ในส่วน Edit Drawer
                                 <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: 2 }}>
                                     Kitchen Access
                                 </Typography>

@@ -66,6 +66,8 @@ const initialValues = {
     menu_setwh_receipt_from_kitchen: 'N',
     menu_setwh_dispatch_to_kitchen: 'N',
     menu_setwh_dispatch_to_branch: 'N',
+    menu_setwh_beginninginventory: 'N',
+    menu_setwh_daily_closing: 'N',
     menu_setwh_report: 'N',
     // Kitchen
     menu_setkt_purchase_order_to_wh: 'N',
@@ -76,6 +78,8 @@ const initialValues = {
     menu_setkt_transfer_to_wh: 'N',
     menu_setkt_dispatch_to_branch: 'N',
     menu_setkt_stock_adjustment: 'N',
+    menu_setkt_beginninginventory: 'N',
+    menu_setkt_dailyclosing: 'N',
     menu_setkt_report: 'N',
     // Branch
     menu_setbr_minmum_stock: 'N',
@@ -85,6 +89,8 @@ const initialValues = {
     menu_setbr_receipt_from_kitchen: 'N',
     menu_setbr_receipt_from_supplier: 'N',
     menu_setbr_goods_requisition: 'N',
+    menu_setbr_beginninginventory: 'N',
+    menu_setbr_dailyclosing: 'N',
     menu_setbr_report: 'N'
 };
 
@@ -705,6 +711,15 @@ export default function UserPermission() {
                                         <FormControlLabel
                                             control={
                                                 <Checkbox
+                                                    checked={formik.values.menu_setwh_beginninginventory === 'Y'}
+                                                    onChange={handleCheckboxChangeFormik('menu_setwh_beginninginventory')}
+                                                />
+                                            }
+                                            label="Beginning Inventory"
+                                        />
+                                        <FormControlLabel
+                                            control={
+                                                <Checkbox
                                                     checked={formik.values.menu_setwh_purchase_order_to_supplier === 'Y'}
                                                     onChange={handleCheckboxChangeFormik('menu_setwh_purchase_order_to_supplier')}
                                                 />
@@ -750,6 +765,15 @@ export default function UserPermission() {
                                         <FormControlLabel
                                             control={
                                                 <Checkbox
+                                                    checked={formik.values.menu_setwh_daily_closing === 'Y'}
+                                                    onChange={handleCheckboxChangeFormik('menu_setwh_daily_closing')}
+                                                />
+                                            }
+                                            label="Daily Closing"
+                                        />
+                                        <FormControlLabel
+                                            control={
+                                                <Checkbox
                                                     checked={formik.values.menu_setwh_report === 'Y'}
                                                     onChange={handleCheckboxChangeFormik('menu_setwh_report')}
                                                 />
@@ -767,6 +791,16 @@ export default function UserPermission() {
                                         Kitchen
                                     </Typography>
                                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                        <FormControlLabel
+                                            control={
+                                                <Checkbox
+                                                    checked={formik.values.menu_setkt_beginninginventory === 'Y'}
+                                                    onChange={handleCheckboxChangeFormik('menu_setkt_beginninginventory')}
+                                                />
+                                            }
+                                            label="Beginning Inventory"
+                                        />
+
                                         <FormControlLabel
                                             control={
                                                 <Checkbox
@@ -842,6 +876,15 @@ export default function UserPermission() {
                                         <FormControlLabel
                                             control={
                                                 <Checkbox
+                                                    checked={formik.values.menu_setkt_dailyclosing === 'Y'}
+                                                    onChange={handleCheckboxChangeFormik('menu_setkt_dailyclosing')}
+                                                />
+                                            }
+                                            label="Daily Closing"
+                                        />
+                                        <FormControlLabel
+                                            control={
+                                                <Checkbox
                                                     checked={formik.values.menu_setkt_report === 'Y'}
                                                     onChange={handleCheckboxChangeFormik('menu_setkt_report')}
                                                 />
@@ -860,6 +903,16 @@ export default function UserPermission() {
                                         Restaurant
                                     </Typography>
                                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                        <FormControlLabel
+                                            control={
+                                                <Checkbox
+                                                    checked={formik.values.menu_setbr_beginninginventory === 'Y'}
+                                                    onChange={handleCheckboxChangeFormik('menu_setbr_beginninginventory')}
+                                                />
+                                            }
+                                            label="Beginning Inventory"
+                                        />
+
                                         <FormControlLabel
                                             control={
                                                 <Checkbox
@@ -922,6 +975,15 @@ export default function UserPermission() {
                                                 />
                                             }
                                             label="Goods Requisition"
+                                        />
+                                        <FormControlLabel
+                                            control={
+                                                <Checkbox
+                                                    checked={formik.values.menu_setbr_dailyclosing === 'Y'}
+                                                    onChange={handleCheckboxChangeFormik('menu_setbr_dailyclosing')}
+                                                />
+                                            }
+                                            label="Daily Closing"
                                         />
                                         <FormControlLabel
                                             control={

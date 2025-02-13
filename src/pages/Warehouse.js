@@ -77,7 +77,7 @@ function Warehouse(props) {
         const menu = [];
 
         // Beginning Inventory
-        if (permissions.menu_setwarehouse === 'Y') {
+        if (permissions.menu_setwh_beginninginventory === 'Y') {
             menu.push({
                 segment: 'beginning-inventory',
                 title: 'Beginning Inventory',

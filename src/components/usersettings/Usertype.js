@@ -677,6 +677,7 @@ export default function UserType() {
                         </Box>
                         <Box sx={{ mt: '24px' }} >
                             <Button variant='contained'
+                                onClick={handleCancelCreate}
                                 sx={{
                                     width: '100px',
                                     bgcolor: '#F62626',
@@ -808,6 +809,7 @@ export default function UserType() {
                         </Box>
                         <Box sx={{ mt: '24px' }} >
                             <Button variant='contained'
+                            onClick={handleCancelEdit}
                                 sx={{
                                     width: '100px',
                                     bgcolor: '#F62626',

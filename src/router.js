@@ -9,6 +9,7 @@ import UserSettings from "./pages/Usersettings";
 import Warehouse from "./pages/Warehouse";
 import Restaurant from "./pages/Restaurant"
 import Room4Room5 from "./pages/Room4Room5"
+import HomePage from "./pages/liff/Login";
 
 const ProtectedRoute = ({ children }) => {
   const isAuthenticated = useSelector((state) => state.authentication.token);
@@ -80,6 +81,12 @@ const Router = () => {
           <ProtectedRoute>
             <Room4Room5 />
           </ProtectedRoute>
+        } />
+
+        <Route path="/liff" element={
+          <>
+            <HomePage />
+          </>
         } />
       </Routes>
     </BrowserRouter>

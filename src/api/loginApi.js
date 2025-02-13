@@ -172,3 +172,16 @@ export const checkAuth = createAsyncThunk(
     }
   }
 );
+
+export const countUser = createAsyncThunk(
+  "user/count",
+  async () => {
+    try {
+      const res = await axios.post(BASE_URL + "/api/countUser");
+      return res.data;
+    } catch (error) {
+      console.error("Error counting users:", error.message);
+      throw error;
+    }
+  }
+);

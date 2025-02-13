@@ -18,6 +18,8 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import RequestQuoteIcon from '@mui/icons-material/RequestQuote';
 import ListAltIcon from '@mui/icons-material/ListAlt';
 import MoveToInboxIcon from '@mui/icons-material/MoveToInbox';
+import InventoryIcon from '@mui/icons-material/Inventory';
+import EventNoteIcon from '@mui/icons-material/EventNote';
 
 import HomeSetMinimumStock from '../components/restaurant/setminimumstock/HomeSetMinimumStock';
 import HomePurchaseOrdertoWarehouse from '../components/restaurant/purchaseordertowarehouse/HomePurchaseOrdertoWarehouse';
@@ -32,6 +34,8 @@ import ReportReceiptFromSupplier from '../components/restaurant/report/ReportRec
 import ReportGoodsRequisition from '../components/restaurant/report/ReportGoodsRequisition';
 import ReportMonthlyStockCard from '../components/restaurant/report/ReportMonthlyStockCard';
 import ReportMonthlyStockBalance from '../components/restaurant/report/ReportMonthlyStockBalance';
+import HomeDailyClosing from '../components/restaurant/dailyclosing/Dailyclosing';
+import HomeBeginningInventory from '../components/restaurant/beginninginventory/Beginninginventory';
 
 const demoTheme = createTheme({
     breakpoints: {
@@ -74,6 +78,15 @@ function Restaurant(props) {
         const permissions = userData?.tbl_typeuserpermission || {};
 
         const menu = [];
+
+        // Beginning Inventory
+        if (permissions.menu_setbr_beginninginventory === 'Y') {
+            menu.push({
+                segment: 'beginning-inventory',
+                title: 'Beginning Inventory',
+                icon: <InventoryIcon />,
+            });
+        }
 
         // Set Minimum Stock
         if (permissions.menu_setbr_minmum_stock === 'Y') {
@@ -126,6 +139,15 @@ function Restaurant(props) {
                 segment: 'goods-requisition',
                 title: 'Goods Requisition',
                 icon: <RequestQuoteIcon />,
+            });
+        }
+
+        // Daily Closing
+        if (permissions.menu_setbr_dailyclosing === 'Y') {
+            menu.push({
+                segment: 'daily-closing',
+                title: 'Daily Closing',
+                icon: <EventNoteIcon />,
             });
         }
 
@@ -278,6 +300,8 @@ function Restaurant(props) {
         const permissions = userData?.tbl_typeuserpermission || {};
 
         switch (pathname) {
+            case '/beginning-inventory':
+                return permissions.menu_setbr_beginninginventory === 'Y' ? <HomeBeginningInventory /> : null;
             case '/set-minimum-stock':
                 return permissions.menu_setbr_minmum_stock === 'Y' ? <HomeSetMinimumStock /> : null;
             case '/purchase-order-to-warehouse':
@@ -290,6 +314,8 @@ function Restaurant(props) {
                 return permissions.menu_setbr_receipt_from_supplier === 'Y' ? <HomeReceiptFromSupplier /> : null;
             case '/goods-requisition':
                 return permissions.menu_setbr_goods_requisition === 'Y' ? <HomeGoodsRequisition /> : null;
+            case '/daily-closing':
+                return permissions.menu_setbr_dailyclosing === 'Y' ? <HomeDailyClosing /> : null;
             case '/reports/purchase-order-to-warehouse':
             case '/reports/receipt-from-warehouse':
             case '/reports/receipt-from-kitchen':
