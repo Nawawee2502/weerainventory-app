@@ -12,10 +12,14 @@ import Room4Room5 from "./pages/Room4Room5"
 import HomePage from "./pages/liff/Login";
 
 const ProtectedRoute = ({ children }) => {
-  const isAuthenticated = useSelector((state) => state.authentication.token);
-  const userData = localStorage.getItem('userData2');
+  // เช็คเฉพาะ userData แทนการเช็คทั้ง token และ userData2
+  const userData = localStorage.getItem('userData');
 
-  if (!isAuthenticated && !userData) {
+  if (!userData) {
+    // ลบข้อมูล authentication ทั้งหมดเพื่อป้องกันการ redirect วนซ้ำ
+    localStorage.removeItem('token');
+    localStorage.removeItem('userData');
+    localStorage.removeItem('userData2');
     return <Navigate to="/" replace />;
   }
 
@@ -23,11 +27,20 @@ const ProtectedRoute = ({ children }) => {
 };
 
 const PublicRoute = ({ children }) => {
-  const isAuthenticated = useSelector((state) => state.authentication.token);
-  const userData = localStorage.getItem('userData2');
+  // เช็คเฉพาะ userData เช่นกัน
+  const userData = localStorage.getItem('userData');
 
-  if (isAuthenticated || userData) {
-    return <Navigate to="/dashboard" replace />;
+  if (userData) {
+    try {
+      // ตรวจสอบความถูกต้องของ userData
+      JSON.parse(userData);
+      return <Navigate to="/dashboard" replace />;
+    } catch (error) {
+      // ถ้า userData ไม่ถูกต้อง ให้ลบทิ้ง
+      localStorage.removeItem('token');
+      localStorage.removeItem('userData');
+      localStorage.removeItem('userData2');
+    }
   }
 
   return children;
@@ -82,12 +95,8 @@ const Router = () => {
             <Room4Room5 />
           </ProtectedRoute>
         } />
-
-        <Route path="/liff" element={
-          <>
-            <HomePage />
-          </>
-        } />
+        {/* LIFF route ไม่ต้องมีการ protect */}
+        <Route path="/liff" element={<HomePage />} />
       </Routes>
     </BrowserRouter>
   );

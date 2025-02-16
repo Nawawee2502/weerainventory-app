@@ -1,72 +1,63 @@
-import { useEffect } from "react";
-import { useDispatch, useSelector } from "react-redux";
-import { useNavigate } from "react-router-dom";
-import { useFormik } from "formik";
-import Avatar from "@mui/material/Avatar";
+import React, { useState, useEffect } from "react";
+import { useDispatch } from "react-redux";
+import axios from 'axios';
 import Button from "@mui/material/Button";
-import CssBaseline from "@mui/material/CssBaseline";
 import TextField from "@mui/material/TextField";
-import FormControlLabel from "@mui/material/FormControlLabel";
-import Checkbox from "@mui/material/Checkbox";
-import Link from "@mui/material/Link";
-import Paper from "@mui/material/Paper";
 import Box from "@mui/material/Box";
 import Grid from "@mui/material/Grid";
-import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 import Typography from "@mui/material/Typography";
-import { createTheme, ThemeProvider } from "@mui/material/styles";
-import { errorHelper } from "../components/handle-input-error";
-import { showUser } from "../api/loginApi"
-
-import { addToken } from "../store/reducers/authentication";
-
-import { login } from "../api/loginApi";
-
-function Copyright(props) {
-  return (
-    <Typography
-      variant="body2"
-      color="text.secondary"
-      align="center"
-      {...props}
-    >
-      {"Copyright © "}
-      <Link color="inherit" href="https://www.facebook.com/ideasoft999/">
-        ideasoft
-      </Link>{" "}
-      {new Date().getFullYear()}
-      {"."}
-    </Typography>
-  );
-}
-
-// TODO remove, this demo shouldn't need to reset the theme.
-
-const defaultTheme = createTheme();
+import { useFormik } from "formik";
+import { addToken, addUserData, addUserData2 } from "../store/reducers/authentication";
 
 export default function Login() {
-  //const isAuth = useSelector((state) => state.authentication.token);
-  const isAuth = useSelector((state) => state.authentication.token);
-  let navigate = useNavigate();
+  const [needsLineLogin, setNeedsLineLogin] = useState(false);
   const dispatch = useDispatch();
+  const BASE_URL = process.env.REACT_APP_URL_API;
+  const LINE_LOGIN_URL = `https://access.line.me/oauth2/v2.1/authorize?response_type=code&client_id=2006891227&redirect_uri=https://weerainventory.com/liff&state=weera&scope=profile%20openid%20email`;
 
   useEffect(() => {
-    console.log('----------isAuth-----');
-    console.log(isAuth);
-    console.log('----------isAuth2-----');
-    dispatch(showUser())
-      .unwrap()
-      .then((res) => {
-        console.log("----------// TOKEN KEY //-------------");
-        console.log(res.tokenKey);
-      })
-      .catch((err) => err.message);
-    if (isAuth) {
-      navigate("/dashboard");
-    } else {
-      navigate("/");
-    }
-  }, [isAuth, navigate]);
+    const handleLineCallback = async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const code = urlParams.get('code');
+
+      if (code) {
+        try {
+          // Get LINE UID
+          const lineResponse = await axios.post(`${BASE_URL}/api/callback`, { code });
+
+          if (lineResponse.data.success) {
+            const tempUserData = JSON.parse(localStorage.getItem('tempUserData'));
+
+            if (tempUserData) {
+              // Update user with LINE UID
+              const updateResponse = await axios.post(`${BASE_URL}/api/updateLineUID`, {
+                user_code: tempUserData.user_code,
+                line_uid: lineResponse.data.line_uid
+              });
+
+              if (updateResponse.data.success) {
+                // Store authentication data
+                localStorage.setItem('token', updateResponse.data.tokenKey);
+                localStorage.setItem('userData', JSON.stringify(updateResponse.data.data));
+                localStorage.setItem('userData2', JSON.stringify(updateResponse.data.userData2));
+
+                // Clean up temp data
+                localStorage.removeItem('tempUserData');
+
+                // Redirect to dashboard
+                window.location.replace('/dashboard');
+              }
+            }
+          }
+        } catch (error) {
+          console.error('LINE login error:', error);
+          alert('Error connecting with LINE');
+        }
+      }
+    };
+
+    handleLineCallback();
+  }, [BASE_URL]);
 
   const formik = useFormik({
     initialValues: {
@@ -74,266 +65,160 @@ export default function Login() {
       password: "",
     },
     validate: (values) => {
-      let errors = {};
-
-      if (!values.username) {
-        errors.username = 'Username cannot be empty';
-      }
-
-      if (!values.password) {
-        errors.password = 'Password cannot be empty';
-      }
-
+      const errors = {};
+      if (!values.username) errors.username = 'Username required';
+      if (!values.password) errors.password = 'Password required';
       return errors;
     },
-    onSubmit: (values) => {
-      dispatch(login(values))
-        .unwrap()
-        .then((res) => {
-          console.log("----------// TOKEN KEY //-------------");
-          console.log(res.tokenKey);
-        })
-        .catch((err) => err.message);
-    },
+    onSubmit: async (values) => {
+      try {
+        const response = await axios.post(`${BASE_URL}/api/login`, {
+          username: values.username,
+          password: values.password
+        });
+
+        if (response.data.success) {
+          if (response.data.requireLineLogin) {
+            setNeedsLineLogin(true);
+            // Store temp user data
+            localStorage.setItem('tempUserData', JSON.stringify(response.data.tempUserData));
+            // Redirect to LINE login
+            window.location.href = LINE_LOGIN_URL;
+            return;
+          }
+
+          // User already has LINE UID, proceed with login
+          localStorage.setItem('token', response.data.tokenKey);
+          localStorage.setItem('userData', JSON.stringify(response.data.data));
+          localStorage.setItem('userData2', JSON.stringify(response.data.userData2));
+
+          dispatch(addToken(response.data.tokenKey));
+          dispatch(addUserData(response.data.data));
+          dispatch(addUserData2(response.data.userData2));
+
+          window.location.replace('/dashboard');
+        }
+      } catch (error) {
+        console.error('Login error:', error);
+        alert(error.response?.data?.message || 'Login error');
+      }
+    }
   });
 
-
-
-
+  // Show loading state while processing LINE callback
+  if (window.location.search.includes('code')) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-gray-900 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Processing login...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <ThemeProvider theme={defaultTheme}>
-      <CssBaseline />
-      {/* <Box sx={{ width: '100%' }}> */}
-      {/* <Grid container component="main" sx={{ height: "100vh", width: '100%' }}>
+    <Grid container sx={{ height: '100vh' }}>
+      {/* Left side with logo */}
+      <Grid item md={6} sm={12} xs={12}
+        sx={{
+          bgcolor: '#1D2A3A',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}
+      >
+        <Box sx={{ width: '50%' }}>
+          <img
+            src='logologin.png'
+            alt="Logo"
+            style={{ width: '100%' }}
+          />
+        </Box>
+      </Grid>
 
-          <Grid
-            item
-            // xs={false}
-            // sm={4}
-            md={6}
-            sx={{
-              bgcolor: '#1D2A3A'
-            }}
-          >
+      {/* Right side with login form */}
+      <Grid item md={6} sm={12} xs={12}
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}
+      >
+        <Box
+          component="form"
+          onSubmit={formik.handleSubmit}
+          sx={{ width: '70%' }}
+        >
+          <Typography sx={{
+            fontSize: '36px',
+            fontWeight: '600',
+            background: 'linear-gradient(135deg, #F49300 0%, #754C27 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+          }}>
+            {needsLineLogin ? 'Connect LINE Account' : 'Sign In'}
+          </Typography>
 
-          </Grid>
-          <Grid item md={6} component={Paper} elevation={6} square>
-            <Box
+          {!needsLineLogin && (
+            <Button
+              fullWidth
+              variant="contained"
+              href={LINE_LOGIN_URL}
               sx={{
-                my: 8,
-                mx: 4,
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
+                mt: 3,
+                mb: 2,
+                bgcolor: '#00B900',
+                '&:hover': {
+                  bgcolor: '#009900'
+                }
               }}
             >
-              <Avatar sx={{ m: 1, bgcolor: "secondary.main" }}>
-                <LockOutlinedIcon />
-              </Avatar>
-              <Typography component="h1" variant="h5">
-                เข้าสู่ระบบ
-              </Typography>
-              <Box
-                component="form"
-                noValidate
-                sx={{ mt: 1 }}
-                onSubmit={formik.handleSubmit}
-              >
-                <TextField
-                  margin="normal"
-                  required
-                  fullWidth
-                  id="username"
-                  label="Username"
-                  name="username"
-                  autoComplete="username"
-                  autoFocus
-                  {...formik.getFieldProps("username")}
-                  {...errorHelper(formik, "username")}
-                />
-                <TextField
-                  margin="normal"
-                  required
-                  fullWidth
-                  name="password"
-                  label="Password"
-                  type="password"
-                  id="password"
-                  autoComplete="current-password"
-                  {...formik.getFieldProps("password")}
-                  {...errorHelper(formik, "password")}
-                />
-                <FormControlLabel
-                  control={<Checkbox value="remember" color="primary" />}
-                  label="Remember me"
-                />
-                <Button
-                  type="submit"
-                  fullWidth
-                  variant="contained"
-                  sx={{ mt: 3, mb: 2 }}
-                >
-                  เข้าสู่ระบบ
-                </Button>
-                <Button
+              Login with LINE8
+            </Button>
+          )}
 
-                  fullWidth
-                  variant="contained"
-                  sx={{ mt: 3, mb: 2 }}
-                >
-                  userShow
-                </Button>
-                <Grid container>
-                  <Grid item xs>
-                    <Link href="#" variant="body2">
-                      ลืมรหัสผ่าน?
-                    </Link>
-                  </Grid>
-                  <Grid item>
-                    <Link href="SignUp" variant="body2">
-                      {"Don't have an account? Sign Up"}
-                    </Link>
-                  </Grid>
-                </Grid>
-                <Copyright sx={{ mt: 5 }} />
-              </Box>
-            </Box>
-          </Grid>
-        </Grid> */}
-      <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <meta http-equiv="X-UA-Compatible" content="ie=edge" />
-        <title>My Awesome Website</title>
-      </head>
-      <Grid container sx={{ height: '100vh', width: '100%' }}>
-        <Grid item md={6} sm={12} xs={12}
-          sx={{
-            bgcolor: '#1D2A3A',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            flexDirection: 'column'
-          }}
-        >
-          <Box sx={{ mt: '-100px', width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-            <img
-              src='logologin.png'
-              style={{
-                width: '50%',
-              }}
-            />
-          </Box>
-        </Grid>
-        <Grid item md={6} sm={12} xs={12}
-          sx={{
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            flexDirection: 'column'
-          }}
-        >
-          <Box
-            component="form"
-            noValidate
-            onSubmit={formik.handleSubmit}
+          <Typography sx={{ color: '#8392AB', mt: 2 }}>
+            {needsLineLogin ? 'Please sign in to connect your LINE account' : 'Or sign in with your account'}
+          </Typography>
+
+          <TextField
+            fullWidth
+            label="Username"
+            margin="normal"
+            {...formik.getFieldProps('username')}
+            error={formik.touched.username && Boolean(formik.errors.username)}
+            helperText={formik.touched.username && formik.errors.username}
+          />
+
+          <TextField
+            fullWidth
+            label="Password"
+            type="password"
+            margin="normal"
+            {...formik.getFieldProps('password')}
+            error={formik.touched.password && Boolean(formik.errors.password)}
+            helperText={formik.touched.password && formik.errors.password}
+          />
+
+          <Button
+            type="submit"
+            fullWidth
+            variant="contained"
             sx={{
-              width: '70%',
-              display: 'flex',
-              justifyContent: 'center',
-              // alignItems: 'center',
-              flexDirection: 'column'
+              mt: 3,
+              mb: 2,
+              background: 'linear-gradient(135deg, #F49300 0%, #754C27 100%)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #F49300 0%, #754C27 100%)',
+                opacity: 0.9
+              }
             }}
           >
-            <Typography sx={{
-              fontSize: '36px',
-              fontWeight: '600',
-              background: 'linear-gradient(135deg, #F49300 0%, #754C27 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-            }}>
-              Sign in
-            </Typography>
-            <Typography sx={{
-              fontSize: '14px',
-              color: '#8392AB'
-            }}>
-              Enter your username and password to sign in.
-            </Typography>
-            <Typography sx={{
-              fontSize: '14px',
-              color: '#1D2A3A',
-              fontWeight: '600',
-              mt: '36px'
-            }}>
-              Username
-            </Typography>
-            <TextField
-              size="small"
-              placeholder="Username"
-              sx={{
-                mt: '8px',
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: '10px', // Set border-radius here
-                },
-              }}
-              autoFocus
-              {...formik.getFieldProps("username")}
-              {...errorHelper(formik, "username")}
-            />
-            <Typography sx={{
-              fontSize: '14px',
-              color: '#1D2A3A',
-              fontWeight: '600',
-              mt: '24px'
-            }}>
-              Password
-            </Typography>
-            <TextField
-              size="small"
-              placeholder="Password"
-              sx={{
-                mt: '8px',
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: '10px',
-                },
-              }}
-              {...formik.getFieldProps("password")}
-              {...errorHelper(formik, "password")}
-            />
-            <Button
-              variant="contained"
-              type="submit"
-              sx={{
-                background: 'linear-gradient(135deg, #F49300 0%, #754C27 100%)',
-                color: '#fff',
-                mt: '16px',
-                height: '40px',
-                borderRadius: '10px',
-                textTransform: 'none',
-                '&:hover': {
-                  background: 'linear-gradient(135deg, #F49300 0%, #754C27 100%)',
-                },
-              }}>
-              Sign in
-            </Button>
-            <Box sx={{ display: 'flex', fontSize: '14px', color: '#8392AB', mt: '16px' }}>
-              Don’t have an account?
-              <Typography sx={{
-                fontWeight: '600',
-                background: 'linear-gradient(135deg, #F49300 0%, #754C27 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                ml: '8px'
-              }}>
-                Sign up
-              </Typography>
-            </Box>
-
-          </Box>
-        </Grid>
+            {needsLineLogin ? 'Connect Account' : 'Sign In'}
+          </Button>
+        </Box>
       </Grid>
-    </ThemeProvider>
+    </Grid>
   );
 }

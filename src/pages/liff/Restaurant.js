@@ -1,24 +1,5 @@
-// import React from 'react';
-// import LayoutsLiff from '../../layouts/LineLiffLayout';
-
-// const WarehousePage = () => {
-//   return (
-//     <LayoutsLiff>
-//         <h1>Welcome to LINE LOGIN</h1>
-//     </LayoutsLiff>
-//   );
-// };
-
-// export default WarehousePage;
-
-
-
-
-
-
-
 import React, { useState } from "react";
-import { Link } from "react-router-dom";  // นำเข้า Link จาก react-router-dom
+import { Link } from "react-router-dom";  
 import ListAltIcon from "@mui/icons-material/ListAlt";
 import HomeIcon from "@mui/icons-material/Home";
 import StorefrontIcon from "@mui/icons-material/Storefront";
@@ -30,22 +11,26 @@ import NotificationsIcon from '@mui/icons-material/Notifications';
 import IconButton from '@mui/material/IconButton';
 import Badge from '@mui/material/Badge';
 
-const WareHouse = () => {
-  const [activeTab, setActiveTab] = useState("Warehouse");
+
+
+const Menu = () => {
+  const [activeTab, setActiveTab] = useState("Restaurant");
 
   const menuItems = [
-    { label: "Goods Receipt from Supplier", icon: <ListAltIcon style={{ color: "#fff" }} />, to: "/Goods-Receipt-from-Supplier" },
-    { label: "Stock Count", icon: <ListAltIcon style={{ color: "#fff" }} />, to: "/Stock-Count" },
-    // { label: "Goods Receipt Warehouse", icon: <ListAltIcon style={{ color: "#fff" }} />, to: "/goods-receipt-warehouse" },
-    // { label: "Goods Receipt Kitchen", icon: <ListAltIcon style={{ color: "#fff" }} />, to: "/goods-receipt-kitchen" },
-    // { label: "Bill of Landing Branch", icon: <ListAltIcon style={{ color: "#fff" }} />, to: "/bill-of-landing-branch" },
+    { label: "Inventory Update", icon: <ListAltIcon style={{ color: "#fff" }} />, to: "/InventoryUpdate" },
+    { label: "Purchase order Warehouse", icon: <ListAltIcon style={{ color: "#fff" }} />, to: "/purchase-order-warehouse" },
+    { label: "Goods Receipt Warehouse", icon: <ListAltIcon style={{ color: "#fff" }} />, to: "/goods-receipt-warehouse" },
+    { label: "Goods Receipt Kitchen", icon: <ListAltIcon style={{ color: "#fff" }} />, to: "/goods-receipt-kitchen" },
+    { label: "Goods Receipt Supplier", icon: <ListAltIcon style={{ color: "#fff" }} />, to: "/goods-receipt-supplier" },
+    { label: "Goods Requisition", icon: <ListAltIcon style={{ color: "#fff" }} />, to: "/goods-requisition" },
+    { label: "Bill of Landing Restaurant", icon: <ListAltIcon style={{ color: "#fff" }} />, to: "/bill-of-landing-branch" },
   ];
 
   const footerItems = [
     { label: "Home", icon: <HomeIcon />, to: "" },
-    { label: "Restaurant", icon: <StorefrontIcon />, to: "/liffRestaurant" },
+    { label: "Restaurant", icon: <StorefrontIcon />, to: "/liffrestaurant" },
     { label: "Warehouse", icon: <WarehouseIcon />, to: "/liffWarehouse" },
-    { label: "Kitchen", icon: <RestaurantMenuIcon />, to: "/liffKitchen" },
+    { label: "Kitchen", icon: <RestaurantMenuIcon />, to: "/liffkitchen" },
     { label: "Profile", icon: <AccountCircleIcon />, to: "" },
   ];
 
@@ -66,7 +51,7 @@ const WareHouse = () => {
         >
           <ArrowBackIcon style={{ fontSize: "24px" }} />
         </button>
-        <h2 style={{ margin: 10, fontSize: "20px", fontWeight: "bold",paddingtop: "70px" }}>WareHouse</h2>
+        <h2 style={{ margin: 10, fontSize: "20px", fontWeight: "bold",paddingtop:'70px' }}>Restaurant</h2>
         
          <div
           style={{
@@ -165,4 +150,4 @@ const WareHouse = () => {
   );
 };
 
-export default WareHouse;
+export default Menu;
