@@ -94,13 +94,27 @@ export const Kt_grfByRefno = createAsyncThunk(
     }
 );
 
+// Added searchKt_grfrefno to match br_grf structure
+export const searchKt_grfrefno = createAsyncThunk(
+    "kt_grf/searchRefno",
+    async (refno, { dispatch }) => {
+        try {
+            const res = await axios.post(BASE_URL + "/api/searchKt_grfrefno", { refno });
+            return res.data;
+        } catch (error) {
+            throw error;
+        }
+    }
+);
+
+// Modified Kt_grfrefno to match Br_grfrefno parameters
 export const Kt_grfrefno = createAsyncThunk(
     "kt_grf/getRefno",
-    async ({ month, year }, { dispatch }) => {
+    async ({ kitchen_code, date }, { dispatch }) => {
         try {
             const res = await axios.post(BASE_URL + "/api/Kt_grfrefno", {
-                month,
-                year
+                kitchen_code,
+                date
             });
             return res.data;
         } catch (error) {

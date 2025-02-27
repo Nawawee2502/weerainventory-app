@@ -124,9 +124,12 @@ export const kt_powAllrdate = createAsyncThunk(
 // Get next reference number
 export const kt_powRefno = createAsyncThunk(
     "kt_pow/getRefno",
-    async (_, { dispatch }) => {
+    async ({ date, kitchen_code }, { dispatch }) => {  // Notice the underscore ignores any parameters
         try {
-            const res = await axios.post(BASE_URL + "/api/Kt_powrefno");
+            const res = await axios.post(BASE_URL + "/api/Kt_powrefno", {
+                date,
+                kitchen_code
+            });
             return res.data;
         } catch (error) {
             console.error('Get KT POW Refno Error:', error.message);

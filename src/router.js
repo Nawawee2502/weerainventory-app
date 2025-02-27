@@ -10,6 +10,9 @@ import Warehouse from "./pages/Warehouse";
 import Restaurant from "./pages/Restaurant"
 import Room4Room5 from "./pages/Room4Room5"
 import HomePage from "./pages/liff/Login";
+import MKitchen from "./pages/liff/Kitchen";
+import MRestaurant from "./pages/liff/Restaurant";
+import MWareHouse from "./pages/liff/Warehouse";
 
 const ProtectedRoute = ({ children }) => {
   // เช็คเฉพาะ userData แทนการเช็คทั้ง token และ userData2
@@ -93,6 +96,21 @@ const Router = () => {
         <Route path="/kitchen" element={
           <ProtectedRoute>
             <Room4Room5 />
+          </ProtectedRoute>
+        } />
+        <Route path="/mkitchen" element={
+          <ProtectedRoute>
+            <MKitchen />
+          </ProtectedRoute>
+        } />
+        <Route path="/mrestaurant" element={
+          <ProtectedRoute>
+            <MRestaurant />
+          </ProtectedRoute>
+        } />
+        <Route path="/mwarehouse" element={
+          <ProtectedRoute>
+            <MWareHouse />
           </ProtectedRoute>
         } />
         {/* LIFF route ไม่ต้องมีการ protect */}

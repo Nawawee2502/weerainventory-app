@@ -1,5 +1,3 @@
-
-
 import { createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
 const BASE_URL = `${process.env.REACT_APP_URL_API}`;
@@ -9,6 +7,7 @@ export const addKt_rfw = createAsyncThunk(
     "kt_rfw/add",
     async (req, { dispatch }) => {
         try {
+            // Note: The headerData structure is modified to remove supplier_code
             const res = await axios.post(BASE_URL + "/api/addKt_rfw", {
                 headerData: req.headerData,
                 productArrayData: req.productArrayData,
@@ -24,20 +23,10 @@ export const addKt_rfw = createAsyncThunk(
 
 export const updateKt_rfw = createAsyncThunk(
     "kt_rfw/update",
-    async ({ refno, rdate, trdate, myear, monthh, kitchen_code, taxable, nontaxable, total, user_code }, { dispatch }) => {
+    async (orderData, { dispatch }) => {
         try {
-            const res = await axios.post(BASE_URL + "/api/updateKt_rfw", {
-                refno,
-                rdate,
-                trdate,
-                myear,
-                monthh,
-                kitchen_code,
-                taxable,
-                nontaxable,
-                total,
-                user_code
-            });
+            // Note: We're passing the entire orderData object now, not destructuring
+            const res = await axios.post(BASE_URL + "/api/updateKt_rfw", orderData);
             return res.data;
         } catch (error) {
             console.error('Update KT RFW Error:', error.message);
@@ -92,6 +81,7 @@ export const Kt_rfwAlljoindt = createAsyncThunk(
             if (rdate2) payload.rdate2 = rdate2;
             if (kitchen_code) payload.kitchen_code = kitchen_code;
             if (product_code) payload.product_code = product_code;
+            // Removed supplier_code since it doesn't exist in the table
 
             const res = await axios.post(BASE_URL + "/api/Kt_rfwAlljoindt", payload);
             return res.data;
@@ -149,9 +139,12 @@ export const searchKt_rfwrefno = createAsyncThunk(
 
 export const Kt_rfwrefno = createAsyncThunk(
     "kt_rfw/getRefno",
-    async (_, { dispatch }) => {
+    async ({ month, year }, { dispatch }) => {
         try {
-            const res = await axios.post(BASE_URL + "/api/Kt_rfwrefno");
+            const res = await axios.post(BASE_URL + "/api/Kt_rfwrefno", {
+                month,
+                year
+            });
             return res.data;
         } catch (error) {
             console.error('Get KT RFW Refno Error:', error.message);

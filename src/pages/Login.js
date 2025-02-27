@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { useDispatch } from "react-redux";
 import axios from 'axios';
 import Button from "@mui/material/Button";
@@ -10,54 +10,8 @@ import { useFormik } from "formik";
 import { addToken, addUserData, addUserData2 } from "../store/reducers/authentication";
 
 export default function Login() {
-  const [needsLineLogin, setNeedsLineLogin] = useState(false);
   const dispatch = useDispatch();
   const BASE_URL = process.env.REACT_APP_URL_API;
-  const LINE_LOGIN_URL = `https://access.line.me/oauth2/v2.1/authorize?response_type=code&client_id=2006891227&redirect_uri=https://weerainventory.com/liff&state=weera&scope=profile%20openid%20email`;
-
-  useEffect(() => {
-    const handleLineCallback = async () => {
-      const urlParams = new URLSearchParams(window.location.search);
-      const code = urlParams.get('code');
-
-      if (code) {
-        try {
-          // Get LINE UID
-          const lineResponse = await axios.post(`${BASE_URL}/api/callback`, { code });
-
-          if (lineResponse.data.success) {
-            const tempUserData = JSON.parse(localStorage.getItem('tempUserData'));
-
-            if (tempUserData) {
-              // Update user with LINE UID
-              const updateResponse = await axios.post(`${BASE_URL}/api/updateLineUID`, {
-                user_code: tempUserData.user_code,
-                line_uid: lineResponse.data.line_uid
-              });
-
-              if (updateResponse.data.success) {
-                // Store authentication data
-                localStorage.setItem('token', updateResponse.data.tokenKey);
-                localStorage.setItem('userData', JSON.stringify(updateResponse.data.data));
-                localStorage.setItem('userData2', JSON.stringify(updateResponse.data.userData2));
-
-                // Clean up temp data
-                localStorage.removeItem('tempUserData');
-
-                // Redirect to dashboard
-                window.location.replace('/dashboard');
-              }
-            }
-          }
-        } catch (error) {
-          console.error('LINE login error:', error);
-          alert('Error connecting with LINE');
-        }
-      }
-    };
-
-    handleLineCallback();
-  }, [BASE_URL]);
 
   const formik = useFormik({
     initialValues: {
@@ -78,44 +32,22 @@ export default function Login() {
         });
 
         if (response.data.success) {
-          if (response.data.requireLineLogin) {
-            setNeedsLineLogin(true);
-            // Store temp user data
-            localStorage.setItem('tempUserData', JSON.stringify(response.data.tempUserData));
-            // Redirect to LINE login
-            window.location.href = LINE_LOGIN_URL;
-            return;
-          }
-
-          // User already has LINE UID, proceed with login
+          // Store authentication data
           localStorage.setItem('token', response.data.tokenKey);
-          localStorage.setItem('userData', JSON.stringify(response.data.data));
-          localStorage.setItem('userData2', JSON.stringify(response.data.userData2));
+          localStorage.setItem('userData2', JSON.stringify(response.data.data));
 
+          // Update Redux store
           dispatch(addToken(response.data.tokenKey));
           dispatch(addUserData(response.data.data));
-          dispatch(addUserData2(response.data.userData2));
 
+          // Redirect to dashboard
           window.location.replace('/dashboard');
         }
       } catch (error) {
-        console.error('Login error:', error);
-        alert(error.response?.data?.message || 'Login error');
+        alert(error.response?.data?.message || 'Login failed');
       }
     }
   });
-
-  // Show loading state while processing LINE callback
-  if (window.location.search.includes('code')) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-gray-900 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Processing login...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <Grid container sx={{ height: '100vh' }}>
@@ -157,29 +89,7 @@ export default function Login() {
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
           }}>
-            {needsLineLogin ? 'Connect LINE Account' : 'Sign In'}
-          </Typography>
-
-          {!needsLineLogin && (
-            <Button
-              fullWidth
-              variant="contained"
-              href={LINE_LOGIN_URL}
-              sx={{
-                mt: 3,
-                mb: 2,
-                bgcolor: '#00B900',
-                '&:hover': {
-                  bgcolor: '#009900'
-                }
-              }}
-            >
-              Login with LINE8
-            </Button>
-          )}
-
-          <Typography sx={{ color: '#8392AB', mt: 2 }}>
-            {needsLineLogin ? 'Please sign in to connect your LINE account' : 'Or sign in with your account'}
+            Sign In
           </Typography>
 
           <TextField
@@ -215,7 +125,7 @@ export default function Login() {
               }
             }}
           >
-            {needsLineLogin ? 'Connect Account' : 'Sign In'}
+            Sign In
           </Button>
         </Box>
       </Grid>

@@ -108,11 +108,11 @@ export const searchBr_grfrefno = createAsyncThunk(
 
 export const Br_grfrefno = createAsyncThunk(
     "br_grf/getRefno",
-    async ({ month, year }, { dispatch }) => {
+    async ({ branch_code, date }, { dispatch }) => {
         try {
             const res = await axios.post(BASE_URL + "/api/Br_grfrefno", {
-                month,
-                year
+                branch_code,
+                date
             });
             return res.data;
         } catch (error) {

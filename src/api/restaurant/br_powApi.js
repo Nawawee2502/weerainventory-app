@@ -111,9 +111,13 @@ export const searchBr_powrefno = createAsyncThunk(
 
 export const Br_powrefno = createAsyncThunk(
     "br_pow/getRefno",
-    async (_, { dispatch }) => {
+    async ({ branch_code, supplier_code, date }, { dispatch }) => {
         try {
-            const res = await axios.post(BASE_URL + "/api/Br_powrefno");
+            const res = await axios.post(BASE_URL + "/api/Br_powrefno", {
+                branch_code,
+                supplier_code,
+                date
+            });
             return res.data;
         } catch (error) {
             throw error;

@@ -62,6 +62,22 @@ export const deleteKt_grfdt = createAsyncThunk(
     }
 );
 
+// Added Kt_grfdtAllinnerjoin to match br_grfdt structure
+export const Kt_grfdtAllinnerjoin = createAsyncThunk(
+    "kt_grfdt/readAllInner",
+    async ({ offset, limit }, { dispatch }) => {
+        try {
+            const res = await axios.post(BASE_URL + "/api/Kt_grfdtAllinnerjoin", {
+                offset,
+                limit
+            });
+            return res.data;
+        } catch (error) {
+            throw error;
+        }
+    }
+);
+
 export const Kt_grfdtAlljoindt = createAsyncThunk(
     "kt_grfdt/readAll",
     async (refno, { dispatch }) => {

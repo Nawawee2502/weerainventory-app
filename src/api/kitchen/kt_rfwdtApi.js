@@ -1,18 +1,22 @@
-
 import { createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
 const BASE_URL = `${process.env.REACT_APP_URL_API}`;
 
 export const addKt_rfwdt = createAsyncThunk(
     "kt_rfwdt/add",
-    async ({ refno, product_code, qty, price, amount }, { dispatch }) => {
+    async ({ refno, product_code, qty, unit_code, uprice, tax1, amt, expire_date, texpire_date, temperature1 }, { dispatch }) => {
         try {
             const res = await axios.post(BASE_URL + "/api/addKt_rfwdt", {
                 refno,
                 product_code,
                 qty,
-                price,
-                amount
+                unit_code,
+                uprice,
+                tax1,
+                amt,
+                expire_date,
+                texpire_date,
+                temperature1
             });
             return res.data;
         } catch (error) {
@@ -24,14 +28,19 @@ export const addKt_rfwdt = createAsyncThunk(
 
 export const updateKt_rfwdt = createAsyncThunk(
     "kt_rfwdt/update",
-    async ({ refno, product_code, qty, price, amount }, { dispatch }) => {
+    async (productData, { dispatch }) => {
         try {
             const res = await axios.post(BASE_URL + "/api/updateKt_rfwdt", {
-                refno,
-                product_code,
-                qty,
-                price,
-                amount
+                refno: productData.refno,
+                product_code: productData.product_code,
+                qty: productData.qty,
+                unit_code: productData.unit_code,
+                uprice: productData.uprice,
+                tax1: productData.tax1,
+                amt: productData.amt,
+                expire_date: productData.expire_date,
+                texpire_date: productData.texpire_date,
+                temperature1: productData.temperature1
             });
             return res.data;
         } catch (error) {
@@ -58,11 +67,12 @@ export const deleteKt_rfwdt = createAsyncThunk(
 );
 
 export const Kt_rfwdtAllinnerjoin = createAsyncThunk(
-    "kt_rfwdt/allinnerjoin",
-    async ({ refno }, { dispatch }) => {
+    "kt_rfwdt/readAllInner",
+    async ({ offset, limit }, { dispatch }) => {
         try {
             const res = await axios.post(BASE_URL + "/api/Kt_rfwdtAllinnerjoin", {
-                refno
+                offset,
+                limit
             });
             return res.data;
         } catch (error) {
@@ -88,12 +98,10 @@ export const countKt_rfwdt = createAsyncThunk(
 );
 
 export const Kt_rfwdtAlljoindt = createAsyncThunk(
-    "kt_rfwdt/alljoindt",
-    async ({ refno }, { dispatch }) => {
+    "kt_rfwdt/readAll",
+    async (refno, { dispatch }) => {
         try {
-            const res = await axios.post(BASE_URL + "/api/Kt_rfwdtAlljoindt", {
-                refno
-            });
+            const res = await axios.post(BASE_URL + "/api/Kt_rfwdtAlljoindt", { refno });
             return res.data;
         } catch (error) {
             console.error('Get All KT RFWDT Join Error:', error.message);

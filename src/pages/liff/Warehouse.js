@@ -18,7 +18,7 @@
 
 
 import React, { useState } from "react";
-import { Link } from "react-router-dom";  // นำเข้า Link จาก react-router-dom
+import { Link, useNavigate } from "react-router-dom";
 import ListAltIcon from "@mui/icons-material/ListAlt";
 import HomeIcon from "@mui/icons-material/Home";
 import StorefrontIcon from "@mui/icons-material/Storefront";
@@ -30,8 +30,13 @@ import NotificationsIcon from '@mui/icons-material/Notifications';
 import IconButton from '@mui/material/IconButton';
 import Badge from '@mui/material/Badge';
 
-const WareHouse = () => {
+const MWareHouse = () => {
   const [activeTab, setActiveTab] = useState("Warehouse");
+  const navigate = useNavigate();
+
+  const handleBack = () => {
+    navigate('/dashboard');
+  };
 
   const menuItems = [
     { label: "Goods Receipt from Supplier", icon: <ListAltIcon style={{ color: "#fff" }} />, to: "/Goods-Receipt-from-Supplier" },
@@ -42,11 +47,9 @@ const WareHouse = () => {
   ];
 
   const footerItems = [
-    { label: "Home", icon: <HomeIcon />, to: "" },
-    { label: "Restaurant", icon: <StorefrontIcon />, to: "/liffRestaurant" },
-    { label: "Warehouse", icon: <WarehouseIcon />, to: "/liffWarehouse" },
-    { label: "Kitchen", icon: <RestaurantMenuIcon />, to: "/liffKitchen" },
-    { label: "Profile", icon: <AccountCircleIcon />, to: "" },
+    { label: "Restaurant", icon: <StorefrontIcon />, to: "/MRestaurant" },
+    { label: "Warehouse", icon: <WarehouseIcon />, to: "/MWarehouse" },
+    { label: "Kitchen", icon: <RestaurantMenuIcon />, to: "/MKitchen" },
   ];
 
   return (
@@ -64,11 +67,14 @@ const WareHouse = () => {
             cursor: "pointer",
           }}
         >
-          <ArrowBackIcon style={{ fontSize: "24px" }} />
+          <ArrowBackIcon
+            onClick={handleBack}
+            style={{ fontSize: "24px" }}
+          />
         </button>
-        <h2 style={{ margin: 10, fontSize: "20px", fontWeight: "bold",paddingtop: "70px" }}>WareHouse</h2>
-        
-         <div
+        <h2 style={{ margin: 10, fontSize: "20px", fontWeight: "bold", paddingtop: "70px" }}>WareHouse</h2>
+
+        <div
           style={{
             position: "absolute",
             right: "16px",
@@ -82,15 +88,15 @@ const WareHouse = () => {
             alignItems: "center",
           }}
         >
-        <IconButton
-        size="large"
-        aria-label="show 11 new notifications"
-        color="inherit"
-    >
-        <Badge badgeContent={11} color="error">
-            <NotificationsIcon sx={{ color: '#979797' }} />
-        </Badge>
-    </IconButton>
+          <IconButton
+            size="large"
+            aria-label="show 11 new notifications"
+            color="inherit"
+          >
+            <Badge badgeContent={11} color="error">
+              <NotificationsIcon sx={{ color: '#979797' }} />
+            </Badge>
+          </IconButton>
 
         </div>
       </header>
@@ -165,4 +171,4 @@ const WareHouse = () => {
   );
 };
 
-export default WareHouse;
+export default MWareHouse;

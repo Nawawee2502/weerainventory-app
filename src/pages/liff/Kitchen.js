@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";  // นำเข้า Link จาก react-router-dom
+import { useNavigate } from "react-router-dom";
 import ListAltIcon from "@mui/icons-material/ListAlt";
 import HomeIcon from "@mui/icons-material/Home";
 import StorefrontIcon from "@mui/icons-material/Storefront";
@@ -11,32 +11,79 @@ import NotificationsIcon from '@mui/icons-material/Notifications';
 import IconButton from '@mui/material/IconButton';
 import Badge from '@mui/material/Badge';
 
-const Kitchen = () => {
+// Import Components (ต้องสร้างหรือนำเข้าในโปรเจกต์จริง)
+import HomePurchaseOrderWarehouse from "../../components/mobile/kitchen/purchaseorderwarehouse/HomePurchaseOrderWarehouse";
+import HomeKitchenRequisition from "../../components/mobile/kitchen/goodsrequisition/HomeGoodsRequisition";
+import HomeGoodsReceiptWarehouse from "../../components/mobile/kitchen/goodsreceiptwarehouse/HomeGoodsReceiptWarehouse";
+// import HomeBillOfLading from "../../components/mobile/kitchen/billoflading/HomeBillOfLading";
+// import HomeGoodsReceiptProduction from "../../components/mobile/kitchen/goodsreceiptproduction/HomeGoodsReceiptProduction";
+// import HomeWarehouseTransferOrder from "../../components/mobile/kitchen/warehousetransferorder/HomeWarehouseTransferOrder";
+// import HomeInvoiceToRestaurant from "../../components/mobile/kitchen/invoicetorestaurant/HomeInvoiceToRestaurant";
+// import HomeInventoryUpdate from "../../components/mobile/kitchen/inventoryupdate/HomeInventoryUpdate";
+
+const MKitchen = () => {
   const [activeTab, setActiveTab] = useState("Kitchen");
+  const [currentPage, setCurrentPage] = useState(null);
+  const navigate = useNavigate();
+
+  const handleBack = () => {
+    if (currentPage) {
+      setCurrentPage(null);
+    } else {
+      navigate('/dashboard');
+    }
+  };
 
   const menuItems = [
-    { label: "Purchase order Warehouse", icon: <ListAltIcon style={{ color: "#fff" }} />, to: "/Purchase-order-Warehouse-kt" },
-    { label: "Goods Receipt Warehouse", icon: <ListAltIcon style={{ color: "#fff" }} />, to: "/goods-receipt-warehouse-kt" },
-    { label: "Bill of Lading", icon: <ListAltIcon style={{ color: "#fff" }} />, to: "/bill-of-landing-kt" },
-    { label: "Goods Receipt Production", icon: <ListAltIcon style={{ color: "#fff" }} />, to: "/goods-receipt-production" },
-    { label: "Warehouse Transfer Order", icon: <ListAltIcon style={{ color: "#fff" }} />, to: "/warehouse-transfer-order" },
-    { label: "Invoice to Restaurant", icon: <ListAltIcon style={{ color: "#fff" }} />, to: "/invoice-to-branch" },
-    { label: "Inventory Update", icon: <ListAltIcon style={{ color: "#fff" }} />, to: "/inventory-update-kitchen" },
+    {
+      label: "Purchase Order to Warehouse",
+      icon: <ListAltIcon style={{ color: "#fff" }} />,
+      component: <HomePurchaseOrderWarehouse />
+    },
+    {
+      label: "Goods Receipt Warehouse",
+      icon: <ListAltIcon style={{ color: "#fff" }} />,
+      component: <HomeGoodsReceiptWarehouse />
+    },
+    {
+      label: "Goods Requisition",
+      icon: <ListAltIcon style={{ color: "#fff" }} />,
+      component: <HomeKitchenRequisition />
+    },
+    // {
+    //   label: "Goods Receipt Production",
+    //   icon: <ListAltIcon style={{ color: "#fff" }} />,
+    //   component: <HomeGoodsReceiptProduction />
+    // },
+    // {
+    //   label: "Warehouse Transfer Order",
+    //   icon: <ListAltIcon style={{ color: "#fff" }} />,
+    //   component: <HomeWarehouseTransferOrder />
+    // },
+    // {
+    //   label: "Invoice to Restaurant",
+    //   icon: <ListAltIcon style={{ color: "#fff" }} />,
+    //   component: <HomeInvoiceToRestaurant />
+    // },
+    // {
+    //   label: "Inventory Update",
+    //   icon: <ListAltIcon style={{ color: "#fff" }} />,
+    //   component: <HomeInventoryUpdate />
+    // },
   ];
 
   const footerItems = [
-    { label: "Home", icon: <HomeIcon />, to: "" },
-    { label: "Restaurant", icon: <StorefrontIcon />, to: "/liffrestaurant" },
-    { label: "Warehouse", icon: <WarehouseIcon />, to: "/liffWarehouse" },
-    { label: "Kitchen", icon: <RestaurantMenuIcon />, to: "/liffKitchen" },
-    { label: "Profile", icon: <AccountCircleIcon />, to: "" },
+    { label: "Restaurant", icon: <StorefrontIcon />, to: "/Mrestaurant" },
+    { label: "Warehouse", icon: <WarehouseIcon />, to: "/MWarehouse" },
+    { label: "Kitchen", icon: <RestaurantMenuIcon />, to: "/Mkitchen" },
   ];
 
   return (
     <div style={{ fontFamily: "Arial, sans-serif", backgroundColor: "#f7f7f7", minHeight: "100vh" }}>
       {/* Header */}
-      <header style={{ padding: "33px", backgroundColor: "#fff", borderBottom: "1px solid #ddd", textAlign: "center", position: "relative" }}>
+      <header style={{ padding: "40px", backgroundColor: "#fff", borderBottom: "1px solid #ddd", textAlign: "center", position: "relative" }}>
         <button
+          onClick={handleBack}
           style={{
             position: "absolute",
             left: "16px",
@@ -49,9 +96,11 @@ const Kitchen = () => {
         >
           <ArrowBackIcon style={{ fontSize: "24px" }} />
         </button>
-        <h2 style={{ margint: 0, fontSize: "20px", fontWeight: "bold",paddingtop: "60px" }}>Commissary Kitchen</h2>
-        
-         <div
+        <h2 style={{ margin: 10, fontSize: "20px", fontWeight: "bold", paddingtop: '70px' }}>
+          {currentPage?.label || "Commissary Kitchen"}
+        </h2>
+
+        <div
           style={{
             position: "absolute",
             right: "16px",
@@ -65,29 +114,35 @@ const Kitchen = () => {
             alignItems: "center",
           }}
         >
-        <IconButton
-        size="large"
-        aria-label="show 11 new notifications"
-        color="inherit"
-    >
-        <Badge badgeContent={11} color="error">
-            <NotificationsIcon sx={{ color: '#979797' }} />
-        </Badge>
-    </IconButton>
-
+          <IconButton
+            size="large"
+            aria-label="show 11 new notifications"
+            color="inherit"
+          >
+            <Badge badgeContent={11} color="error">
+              <NotificationsIcon sx={{ color: '#979797' }} />
+            </Badge>
+          </IconButton>
         </div>
       </header>
 
-      {/* Section Title */}
-      <div style={{ padding: "16px", paddingTop: "12px" }}>
-        <h3 style={{ fontSize: "16px", fontWeight: "bold", marginBottom: "12px", color: "#555" }}>
-          Menu
-        </h3>
+      {/* Main Content */}
+      {currentPage ? (
+        // Show selected page component
+        <div style={{ padding: "16px" }}>
+          {currentPage.component}
+        </div>
+      ) : (
+        // Show menu list
+        <div style={{ padding: "16px", paddingTop: "12px" }}>
+          <h3 style={{ fontSize: "16px", fontWeight: "bold", marginBottom: "12px", color: "#555" }}>
+            Menu
+          </h3>
 
-        {/* Menu List */}
-        {menuItems.map((item, index) => (
-          <Link to={item.to} key={index} style={{ textDecoration: 'none' }}>
+          {menuItems.map((item, index) => (
             <div
+              key={index}
+              onClick={() => setCurrentPage(item)}
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -115,37 +170,55 @@ const Kitchen = () => {
               </div>
               <span style={{ fontSize: "16px", color: "#333" }}>{item.label}</span>
             </div>
-          </Link>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Footer Navigation */}
-      <footer style={{ position: "fixed", bottom: 0, left: 0, right: 0, display: "flex", justifyContent: "space-around", padding: "12px 0", backgroundColor: "#fff", borderTop: "1px solid #ddd", boxShadow: "0 -2px 4px rgba(0, 0, 0, 0.1)" }}>
+      <footer style={{
+        position: "fixed",
+        bottom: 0,
+        left: 0,
+        right: 0,
+        display: "flex",
+        justifyContent: "space-around",
+        padding: "12px 0",
+        backgroundColor: "#fff",
+        borderTop: "1px solid #ddd",
+        boxShadow: "0 -2px 4px rgba(0, 0, 0, 0.1)"
+      }}>
         {footerItems.map((item) => (
-          <Link to={item.to} key={item.label} style={{ textDecoration: 'none' }}>
-            <div
-              onClick={() => setActiveTab(item.label)}
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "pointer",
-                color: activeTab === item.label ? "#EAB86C" : "#6b4226", // น้ำตาลเข้มและเหลือง
-              }}
-            >
-              <div style={{ fontSize: "24px", color: activeTab === item.label ? "#EAB86C" : "#6b4226" }}>
-                {React.cloneElement(item.icon, {
-                  style: { color: activeTab === item.label ? "#EAB86C" : "#6b4226" },
-                })}
-              </div>
-              <span style={{ fontSize: "12px" }}>{item.label}</span>
+          <div
+            key={item.label}
+            onClick={() => {
+              setActiveTab(item.label);
+              if (item.to !== "/Mkitchen") {
+                navigate(item.to);
+              }
+            }}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              color: activeTab === item.label ? "#EAB86C" : "#6b4226",
+            }}
+          >
+            <div style={{
+              fontSize: "24px",
+              color: activeTab === item.label ? "#EAB86C" : "#6b4226"
+            }}>
+              {React.cloneElement(item.icon, {
+                style: { color: activeTab === item.label ? "#EAB86C" : "#6b4226" },
+              })}
             </div>
-          </Link>
+            <span style={{ fontSize: "12px" }}>{item.label}</span>
+          </div>
         ))}
       </footer>
     </div>
   );
 };
 
-export default Kitchen;
+export default MKitchen;

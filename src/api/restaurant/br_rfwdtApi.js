@@ -15,9 +15,6 @@ export const addBr_rfwdt = createAsyncThunk(
                 uprice,
                 tax1,
                 amt,
-                expire_date,
-                texpire_date,
-                temperature1
             });
             return res.data;
         } catch (error) {
@@ -38,9 +35,6 @@ export const updateBr_rfwdt = createAsyncThunk(
                 uprice: productData.uprice,
                 tax1: productData.tax1,
                 amt: productData.amt,
-                expire_date: productData.expire_date,
-                texpire_date: productData.texpire_date,
-                temperature1: productData.temperature1
             });
             return res.data;
         } catch (error) {
