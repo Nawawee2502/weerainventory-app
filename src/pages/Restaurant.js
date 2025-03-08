@@ -35,7 +35,7 @@ import ReportGoodsRequisition from '../components/restaurant/report/ReportGoodsR
 import ReportMonthlyStockCard from '../components/restaurant/report/ReportMonthlyStockCard';
 import ReportMonthlyStockBalance from '../components/restaurant/report/ReportMonthlyStockBalance';
 import HomeDailyClosing from '../components/restaurant/dailyclosing/Dailyclosing';
-import HomeBeginningInventory from '../components/restaurant/beginninginventory/Beginninginventory';
+import BeginningInventory from '../components/restaurant/beginninginventory/Beginninginventory';
 
 const demoTheme = createTheme({
     breakpoints: {
@@ -69,9 +69,6 @@ const demoTheme = createTheme({
 
 function Restaurant(props) {
     const { window } = props;
-    const [pathname, setPathname] = React.useState('/set-minimum-stock');
-    const [currentTitle, setCurrentTitle] = React.useState('Restaurant - Set Minimum Stock');
-    let navigate = useNavigate();
 
     const NAVIGATION = React.useMemo(() => {
         const userData = JSON.parse(localStorage.getItem('userData2'));
@@ -200,6 +197,13 @@ function Restaurant(props) {
         return menu;
     }, []);
 
+    const firstMenuItem = NAVIGATION[0]?.segment || '/set-minimum-stock';
+    const [pathname, setPathname] = React.useState(`/${firstMenuItem}`);
+    const [currentTitle, setCurrentTitle] = React.useState(`Restaurant - ${NAVIGATION[0]?.title || 'Set Minimum Stock'}`);
+    let navigate = useNavigate();
+
+
+
     const handleDashboard = () => {
         navigate('/dashboard');
         setCurrentTitle('Dashboard');
@@ -301,7 +305,7 @@ function Restaurant(props) {
 
         switch (pathname) {
             case '/beginning-inventory':
-                return permissions.menu_setbr_beginninginventory === 'Y' ? <HomeBeginningInventory /> : null;
+                return permissions.menu_setbr_beginninginventory === 'Y' ? <BeginningInventory /> : null;
             case '/set-minimum-stock':
                 return permissions.menu_setbr_minmum_stock === 'Y' ? <HomeSetMinimumStock /> : null;
             case '/purchase-order-to-warehouse':

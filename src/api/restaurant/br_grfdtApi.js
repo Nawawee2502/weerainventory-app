@@ -77,7 +77,7 @@ export const Br_grfdtAllinnerjoin = createAsyncThunk(
 
 export const Br_grfdtAlljoindt = createAsyncThunk(
     "br_grfdt/readAll",
-    async (refno, { dispatch }) => {
+    async ({ refno }, { dispatch }) => {  // เปลี่ยนจาก refno เป็น { refno }
         try {
             const res = await axios.post(BASE_URL + "/api/Br_grfdtAlljoindt", { refno });
             return res.data;

@@ -12,6 +12,7 @@ import { supplierAll } from '../../../api/supplierApi';
 import { branchAll } from '../../../api/branchApi';
 import Swal from 'sweetalert2';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+import { format } from 'date-fns';
 
 const formatDate = (date) => {
     if (!date) return "";
@@ -64,7 +65,7 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
 function CreateBranchReceiptFromSupplier({ onBack }) {
     const dispatch = useDispatch();
     const [startDate, setStartDate] = useState(new Date());
-    const [lastRefNo, setLastRefNo] = useState('');
+    const [refNo, setRefNo] = useState(''); // Manual reference number input
     const [supplier, setSupplier] = useState([]);
     const [branch, setBranch] = useState([]);
     const [saveSupplier, setSaveSupplier] = useState('');
@@ -86,70 +87,115 @@ function CreateBranchReceiptFromSupplier({ onBack }) {
     const [deliverySurcharge, setDeliverySurcharge] = useState(0);
     const [saleTax, setSaleTax] = useState(0);
     const [totalDue, setTotalDue] = useState(0);
+    const [isLoading, setIsLoading] = useState(false);
     const TAX_RATE = 0.07;
 
     const userDataJson = localStorage.getItem("userData2");
     const userData2 = JSON.parse(userDataJson);
 
     useEffect(() => {
-        const currentDate = new Date();
-        handleGetLastRefNo(currentDate);
-
-        let offset = 0;
-        let limit = 100;
-
-        dispatch(branchAll({ offset, limit }))
-            .unwrap()
-            .then((res) => setBranch(res.data))
-            .catch((err) => console.log(err.message));
-
-        dispatch(supplierAll({ offset, limit }))
-            .unwrap()
-            .then((res) => setSupplier(res.data))
-            .catch((err) => console.log(err.message));
+        loadInitialData();
     }, [dispatch]);
 
-    const handleGetLastRefNo = async (selectedDate) => {
+    const loadInitialData = async () => {
         try {
-            const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
-            const year = selectedDate.getFullYear().toString().slice(-2);
+            let offset = 0;
+            let limit = 100;
 
-            const res = await dispatch(Br_rfsrefno({
-                month,
-                year
-            })).unwrap();
-
-            if (!res.data || !res.data.refno) {
-                setLastRefNo(`BRFS${year}${month}001`);
-                return;
+            const branchRes = await dispatch(branchAll({ offset, limit })).unwrap();
+            if (branchRes.data) {
+                setBranch(branchRes.data);
             }
 
-            const lastRefNo = res.data.refno;
-            const lastRefMonth = lastRefNo.substring(6, 8);
-            const lastRefYear = lastRefNo.substring(4, 6);
-
-            if (lastRefMonth !== month || lastRefYear !== year) {
-                setLastRefNo(`BRFS${year}${month}001`);
-                return;
+            const supplierRes = await dispatch(supplierAll({ offset, limit })).unwrap();
+            if (supplierRes.data) {
+                setSupplier(supplierRes.data);
             }
-
-            const lastNumber = parseInt(lastRefNo.slice(-3));
-            const newNumber = lastNumber + 1;
-            setLastRefNo(`BRFS${year}${month}${String(newNumber).padStart(3, '0')}`);
-
         } catch (err) {
-            console.error("Error generating refno:", err);
-            const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
-            const year = selectedDate.getFullYear().toString().slice(-2);
-            setLastRefNo(`BRFS${year}${month}001`);
+            console.error("Error loading initial data:", err);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Failed to load initial data'
+            });
         }
     };
 
+    // Handle manual reference number changes
+    const handleRefNoChange = (e) => {
+        setRefNo(e.target.value);
+    };
+
+    // Improved handleProductSelect function with better warning message
+    const handleProductSelect = (product) => {
+        // Check if product already exists in the list
+        if (products.some(p => p.product_code === product.product_code)) {
+            // More detailed warning message with consistent styling
+            Swal.fire({
+                icon: 'warning',
+                title: 'Duplicate Product',
+                text: `${product.product_name} is already in your receipt. Please adjust the amount instead.`,
+                confirmButtonColor: '#754C27'
+            });
+            setSearchTerm('');
+            setShowDropdown(false);
+            return;
+        }
+
+        // If not a duplicate, proceed with adding the product
+        product.amount = 0;
+        setProducts([...products, product]);
+        setQuantities(prev => ({ ...prev, [product.product_code]: 1 }));
+        setUnits(prev => ({ ...prev, [product.product_code]: product.productUnit1.unit_code }));
+        setExpiryDates(prev => ({ ...prev, [product.product_code]: new Date() }));
+        setTemperatures(prev => ({ ...prev, [product.product_code]: '38' }));
+        calculateOrderTotals();
+        setSearchTerm('');
+        setShowDropdown(false);
+    };
+
+    // Updated handleSearchChange with Enter key functionality
     const handleSearchChange = (e) => {
         const value = e.target.value;
         setSearchTerm(value);
 
-        if (value.length > 0) {
+        // Add Enter key functionality
+        if (e.key === 'Enter' && value.trim() !== '') {
+            // Search for exact match
+            dispatch(searchProductName({ product_name: value }))
+                .unwrap()
+                .then((res) => {
+                    if (res.data && res.data.length > 0) {
+                        // Find exact match or use the first result
+                        const exactMatch = res.data.find(
+                            product => product.product_name.toLowerCase() === value.toLowerCase()
+                        );
+                        const selectedProduct = exactMatch || res.data[0];
+
+                        // Check for duplicate
+                        if (products.some(p => p.product_code === selectedProduct.product_code)) {
+                            Swal.fire({
+                                icon: 'warning',
+                                title: 'Duplicate Product',
+                                text: `${selectedProduct.product_name} is already in your receipt. Please adjust the amount instead.`,
+                                confirmButtonColor: '#754C27'
+                            });
+                        } else {
+                            // Add product if not a duplicate
+                            selectedProduct.amount = 0;
+                            setProducts([...products, selectedProduct]);
+                            setQuantities(prev => ({ ...prev, [selectedProduct.product_code]: 1 }));
+                            setUnits(prev => ({ ...prev, [selectedProduct.product_code]: selectedProduct.productUnit1.unit_code }));
+                            setExpiryDates(prev => ({ ...prev, [selectedProduct.product_code]: new Date() }));
+                            setTemperatures(prev => ({ ...prev, [selectedProduct.product_code]: '38' }));
+                            calculateOrderTotals();
+                        }
+                        setSearchTerm('');
+                        setShowDropdown(false);
+                    }
+                })
+                .catch((err) => console.log(err.message));
+        } else if (value.length > 0) {
             dispatch(searchProductName({ product_name: value }))
                 .unwrap()
                 .then((res) => {
@@ -163,18 +209,6 @@ function CreateBranchReceiptFromSupplier({ onBack }) {
             setSearchResults([]);
             setShowDropdown(false);
         }
-    };
-
-    const handleProductSelect = (product) => {
-        product.amount = 0;
-        setProducts([...products, product]);
-        setQuantities(prev => ({ ...prev, [product.product_code]: 1 }));
-        setUnits(prev => ({ ...prev, [product.product_code]: product.productUnit1.unit_code }));
-        setExpiryDates(prev => ({ ...prev, [product.product_code]: new Date() }));
-        setTemperatures(prev => ({ ...prev, [product.product_code]: '38' }));
-        calculateOrderTotals();
-        setSearchTerm('');
-        setShowDropdown(false);
     };
 
     const handleDeleteProduct = (productCode) => {
@@ -234,17 +268,28 @@ function CreateBranchReceiptFromSupplier({ onBack }) {
     };
 
     const handleSave = async () => {
+        if (!refNo) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Missing Information',
+                text: 'Please enter a reference number.',
+                timer: 1500
+            });
+            return;
+        }
+
         if (!saveSupplier || !saveBranch || products.length === 0) {
             Swal.fire({
                 icon: 'warning',
                 title: 'Missing Information',
-                text: 'Please fill in all required fields.',
+                text: 'Please select a supplier, branch, and add at least one product.',
                 timer: 1500
             });
             return;
         }
 
         try {
+            setIsLoading(true);
             Swal.fire({
                 title: 'Saving...',
                 allowOutsideClick: false,
@@ -252,7 +297,7 @@ function CreateBranchReceiptFromSupplier({ onBack }) {
             });
 
             const headerData = {
-                refno: lastRefNo,
+                refno: refNo, // Use manually entered reference number
                 rdate: formatDate(startDate),
                 supplier_code: saveSupplier,
                 branch_code: saveBranch,
@@ -263,7 +308,7 @@ function CreateBranchReceiptFromSupplier({ onBack }) {
             };
 
             const productArrayData = products.map(product => ({
-                refno: lastRefNo,
+                refno: refNo, // Use manually entered reference number
                 product_code: product.product_code,
                 qty: product.amount || 0,
                 unit_code: units[product.product_code] || product.productUnit1.unit_code,
@@ -306,6 +351,8 @@ function CreateBranchReceiptFromSupplier({ onBack }) {
                 text: error.message || 'Error saving data',
                 confirmButtonColor: '#754C27'
             });
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -326,6 +373,7 @@ function CreateBranchReceiptFromSupplier({ onBack }) {
         setTotal(0);
         setTotalDue(0);
         setCustomPrices({});
+        setRefNo(''); // Reset manual reference number
     };
 
 
@@ -365,10 +413,10 @@ function CreateBranchReceiptFromSupplier({ onBack }) {
                                     Ref.no
                                 </Typography>
                                 <TextField
-                                    value={lastRefNo}
-                                    disabled
+                                    value={refNo}
+                                    onChange={handleRefNoChange}
+                                    placeholder="Enter reference number"
                                     size="small"
-                                    placeholder='Reference Number'
                                     sx={{
                                         mt: '8px',
                                         width: '100%',
@@ -388,7 +436,6 @@ function CreateBranchReceiptFromSupplier({ onBack }) {
                                     selected={startDate}
                                     onChange={(date) => {
                                         setStartDate(date);
-                                        handleGetLastRefNo(date);
                                     }}
                                     dateFormat="MM/dd/yyyy"
                                     customInput={<CustomInput />}
@@ -466,17 +513,15 @@ function CreateBranchReceiptFromSupplier({ onBack }) {
 
                         <Divider sx={{ my: 3 }} />
 
-                        <Box sx={{ display: 'flex', flexDirection: 'row', width: '100%', p: '24px 0px' }}>
-                            <Typography sx={{ fontSize: '20px', fontWeight: '600' }}>
-                                Current Order
-                            </Typography>
-                            <Typography sx={{ ml: 'auto' }}>
+                        <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', ml: 4, mb: 4 }}>
+                            <Typography sx={{ mr: 2 }}>
                                 Product Search
                             </Typography>
-                            <Box sx={{ position: 'relative', width: '50%', ml: '12px' }}>
+                            <Box sx={{ position: 'relative', flex: 1 }}>
                                 <TextField
                                     value={searchTerm}
                                     onChange={handleSearchChange}
+                                    onKeyDown={handleSearchChange}
                                     placeholder="Search products..."
                                     size="small"
                                     fullWidth
@@ -520,20 +565,6 @@ function CreateBranchReceiptFromSupplier({ onBack }) {
                                     </Box>
                                 )}
                             </Box>
-                            <Button
-                                onClick={resetForm}
-                                sx={{
-                                    ml: 'auto',
-                                    bgcolor: '#E2EDFB',
-                                    borderRadius: '6px',
-                                    width: '105px',
-                                    '&:hover': {
-                                        bgcolor: '#d0e0f7'
-                                    }
-                                }}
-                            >
-                                Clear All
-                            </Button>
                         </Box>
 
                         <Box sx={{ overflowX: 'auto' }}>

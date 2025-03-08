@@ -70,14 +70,13 @@ export default function CreateBranchPurchaseOrder({ onBack }) {
     const [nonTaxableAmount, setNonTaxableAmount] = useState(0);
     const [total, setTotal] = useState(0);
     const [expiryDates, setExpiryDates] = useState({});
+    const [isLoading, setIsLoading] = useState(false);
 
     const TAX_RATE = 0.07;
     const userDataJson = localStorage.getItem("userData2");
     const userData2 = JSON.parse(userDataJson);
 
     useEffect(() => {
-        const currentDate = new Date();
-        handleGetLastRefNo(currentDate);
         loadBranches();
         loadSuppliers();
     }, []);
@@ -112,67 +111,70 @@ export default function CreateBranchPurchaseOrder({ onBack }) {
         }
     };
 
-    const handleGetLastRefNo = async (selectedDate) => {
+    // Adjusted to match mobile version's refno generation logic
+    const handleGetLastRefNo = async (selectedDate, selectedBranch, selectedSupplier) => {
         try {
-            const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
-            const year = selectedDate.getFullYear().toString().slice(-2);
-
-            const res = await dispatch(Br_powrefno()).unwrap();
-
-            if (!res.data || !res.data.refno) {
-                setLastRefNo(`BPOW${year}${month}001`);
+            if (!selectedBranch || !selectedSupplier) {
+                setLastRefNo('');
                 return;
             }
 
-            const lastRefNo = res.data.refno;
-            const lastRefMonth = lastRefNo.substring(6, 8);
-            const lastRefYear = lastRefNo.substring(4, 6);
+            const res = await dispatch(Br_powrefno({
+                branch_code: selectedBranch,
+                supplier_code: selectedSupplier,
+                date: selectedDate
+            })).unwrap();
 
-            if (lastRefMonth !== month || lastRefYear !== year) {
-                setLastRefNo(`BPOW${year}${month}001`);
-                return;
+            if (res.result && res.data?.refno) {
+                setLastRefNo(res.data.refno);
+            } else {
+                throw new Error('Failed to generate reference number');
             }
-
-            const lastNumber = parseInt(lastRefNo.slice(-3));
-            const newNumber = lastNumber + 1;
-            setLastRefNo(`BPOW${year}${month}${String(newNumber).padStart(3, '0')}`);
 
         } catch (err) {
             console.error("Error generating refno:", err);
-            const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
-            const year = selectedDate.getFullYear().toString().slice(-2);
-            setLastRefNo(`BPOW${year}${month}001`);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Failed to generate reference number'
+            });
         }
     };
 
-    const handleSearchChange = async (e) => {
-        const value = e.target.value;
-        setSearchTerm(value);
-
-        if (value.length > 0) {
-            try {
-                const response = await dispatch(searchProductName({ product_name: value })).unwrap();
-                if (response.data) {
-                    setSearchResults(response.data);
-                    setShowDropdown(true);
-                }
-            } catch (err) {
-                console.error('Error searching products:', err);
-            }
+    // Update supplier selection handler
+    const handleSupplierChange = (event) => {
+        const newSupplierCode = event.target.value;
+        setSaveSupplier(newSupplierCode);
+        if (newSupplierCode && saveBranch) {  // Only call if we have both codes
+            handleGetLastRefNo(startDate, saveBranch, newSupplierCode);
         } else {
-            setSearchResults([]);
-            setShowDropdown(false);
+            setLastRefNo('');
         }
     };
 
+    // Update branch selection handler
+    const handleBranchChange = (event) => {
+        const newBranchCode = event.target.value;
+        setSaveBranch(newBranchCode);
+        if (newBranchCode && saveSupplier) {  // Only call if we have both codes
+            handleGetLastRefNo(startDate, newBranchCode, saveSupplier);
+        } else {
+            setLastRefNo('');
+        }
+    };
+
+    // Improved handleProductSelect function with better warning message
     const handleProductSelect = (product) => {
         if (products.some(p => p.product_code === product.product_code)) {
+            // More detailed warning message with consistent styling
             Swal.fire({
                 icon: 'warning',
-                title: 'Product already exists',
-                timer: 1500,
-                showConfirmButton: false
+                title: 'Duplicate Product',
+                text: `${product.product_name} is already in your purchase order. Please adjust the quantity instead.`,
+                confirmButtonColor: '#754C27'
             });
+            setSearchTerm('');
+            setShowDropdown(false);
             return;
         }
 
@@ -202,6 +204,78 @@ export default function CreateBranchPurchaseOrder({ onBack }) {
 
         setSearchTerm('');
         setShowDropdown(false);
+    };
+
+    // Updated handleSearchChange with Enter key functionality
+    const handleSearchChange = async (e) => {
+        const value = e.target.value;
+        setSearchTerm(value);
+
+        // Add Enter key functionality
+        if (e.key === 'Enter' && value.trim() !== '') {
+            try {
+                const response = await dispatch(searchProductName({ product_name: value })).unwrap();
+                if (response.data && response.data.length > 0) {
+                    // Find exact match or use the first result
+                    const exactMatch = response.data.find(
+                        product => product.product_name.toLowerCase() === value.toLowerCase()
+                    );
+                    const selectedProduct = exactMatch || response.data[0];
+
+                    // Check for duplicate
+                    if (products.some(p => p.product_code === selectedProduct.product_code)) {
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Duplicate Product',
+                            text: `${selectedProduct.product_name} is already in your purchase order. Please adjust the quantity instead.`,
+                            confirmButtonColor: '#754C27'
+                        });
+                    } else {
+                        // Add product if not a duplicate
+                        const productCode = selectedProduct.product_code;
+                        const initialQuantity = 1;
+                        const initialUnitCode = selectedProduct.productUnit1.unit_code;
+                        const initialUnitPrice = selectedProduct.bulk_unit_price;
+                        const initialAmount = initialQuantity * initialUnitPrice;
+                        const isTaxable = selectedProduct.tax1 === 'Y';
+
+                        setProducts(prev => [...prev, selectedProduct]);
+                        setQuantities(prev => ({ ...prev, [productCode]: initialQuantity }));
+                        setUnits(prev => ({ ...prev, [productCode]: initialUnitCode }));
+                        setUnitPrices(prev => ({ ...prev, [productCode]: initialUnitPrice }));
+                        setTotals(prev => ({ ...prev, [productCode]: initialAmount }));
+                        setExpiryDates(prev => ({ ...prev, [productCode]: new Date() }));
+
+                        if (isTaxable) {
+                            setTaxableAmount(prev => prev + initialAmount);
+                        } else {
+                            setNonTaxableAmount(prev => prev + initialAmount);
+                        }
+
+                        const newTotalAmount = isTaxable ?
+                            initialAmount * (1 + TAX_RATE) : initialAmount;
+                        setTotal(prev => prev + newTotalAmount);
+                    }
+                    setSearchTerm('');
+                    setShowDropdown(false);
+                }
+            } catch (err) {
+                console.error('Error searching products:', err);
+            }
+        } else if (value.length > 0) {
+            try {
+                const response = await dispatch(searchProductName({ product_name: value })).unwrap();
+                if (response.data) {
+                    setSearchResults(response.data);
+                    setShowDropdown(true);
+                }
+            } catch (err) {
+                console.error('Error searching products:', err);
+            }
+        } else {
+            setSearchResults([]);
+            setShowDropdown(false);
+        }
     };
 
     const calculateProductTotal = (productCode, quantity, price, isTaxable) => {
@@ -315,7 +389,7 @@ export default function CreateBranchPurchaseOrder({ onBack }) {
     };
 
     const handleSave = async () => {
-        if (!saveBranch || !saveSupplier || products.length === 0) {
+        if (!saveBranch || !saveSupplier || products.length === 0 || !lastRefNo) {
             Swal.fire({
                 icon: 'warning',
                 title: 'Missing Information',
@@ -326,6 +400,7 @@ export default function CreateBranchPurchaseOrder({ onBack }) {
         }
 
         try {
+            setIsLoading(true);
             Swal.fire({
                 title: 'Saving purchase order...',
                 allowOutsideClick: false,
@@ -343,8 +418,8 @@ export default function CreateBranchPurchaseOrder({ onBack }) {
                 monthh: format(startDate, 'MM'),
                 myear: startDate.getFullYear(),
                 user_code: userData2?.user_code,
-                taxable: taxableAmount,
-                nontaxable: nonTaxableAmount
+                taxable: taxableAmount.toString(),
+                nontaxable: nonTaxableAmount.toString()
             };
 
             const productArrayData = products.map(product => ({
@@ -363,9 +438,9 @@ export default function CreateBranchPurchaseOrder({ onBack }) {
                 headerData,
                 productArrayData,
                 footerData: {
-                    total,
-                    taxable: taxableAmount,
-                    nontaxable: nonTaxableAmount,
+                    total: total.toString(),
+                    taxable: taxableAmount.toString(),
+                    nontaxable: nonTaxableAmount.toString(),
                 }
             })).unwrap();
 
@@ -387,6 +462,8 @@ export default function CreateBranchPurchaseOrder({ onBack }) {
                 text: error.message || 'Failed to create purchase order',
                 confirmButtonColor: '#754C27'
             });
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -402,6 +479,7 @@ export default function CreateBranchPurchaseOrder({ onBack }) {
         setNonTaxableAmount(0);
         setTotal(0);
         setExpiryDates({});
+        setLastRefNo('');
     };
 
     return (
@@ -429,7 +507,7 @@ export default function CreateBranchPurchaseOrder({ onBack }) {
                             Ref.no
                         </Typography>
                         <TextField
-                            value={lastRefNo}
+                            value={lastRefNo || "Please select supplier and branch first"}
                             disabled
                             size="small"
                             sx={{
@@ -437,7 +515,11 @@ export default function CreateBranchPurchaseOrder({ onBack }) {
                                 width: '100%',
                                 '& .MuiOutlinedInput-root': {
                                     borderRadius: '10px',
-                                    fontWeight: '700'
+                                    fontWeight: '700',
+                                    // Show red text when no refno is available
+                                    '& .Mui-disabled': {
+                                        WebkitTextFillColor: !lastRefNo ? '#d32f2f' : 'rgba(0, 0, 0, 0.38)',
+                                    }
                                 }
                             }}
                         />
@@ -451,7 +533,9 @@ export default function CreateBranchPurchaseOrder({ onBack }) {
                             selected={startDate}
                             onChange={(date) => {
                                 setStartDate(date);
-                                handleGetLastRefNo(date);
+                                if (saveBranch && saveSupplier) {
+                                    handleGetLastRefNo(date, saveBranch, saveSupplier);
+                                }
                             }}
                             dateFormat="MM/dd/yyyy"
                             customInput={<CustomInput />}
@@ -465,7 +549,7 @@ export default function CreateBranchPurchaseOrder({ onBack }) {
                         <Box
                             component="select"
                             value={saveBranch}
-                            onChange={(e) => setSaveBranch(e.target.value)}
+                            onChange={(e) => handleBranchChange(e)}
                             sx={{
                                 mt: 1,
                                 width: '100%',
@@ -496,7 +580,7 @@ export default function CreateBranchPurchaseOrder({ onBack }) {
                         <Box
                             component="select"
                             value={saveSupplier}
-                            onChange={(e) => setSaveSupplier(e.target.value)}
+                            onChange={(e) => handleSupplierChange(e)}
                             sx={{
                                 mt: 1,
                                 width: '100%',
@@ -524,9 +608,6 @@ export default function CreateBranchPurchaseOrder({ onBack }) {
                 <Divider sx={{ my: 3 }} />
 
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                    <Typography sx={{ fontSize: '20px', fontWeight: '600' }}>
-                        Current Order
-                    </Typography>
                     <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', ml: 4 }}>
                         <Typography sx={{ mr: 2 }}>
                             Product Search
@@ -535,6 +616,7 @@ export default function CreateBranchPurchaseOrder({ onBack }) {
                             <TextField
                                 value={searchTerm}
                                 onChange={handleSearchChange}
+                                onKeyDown={handleSearchChange}
                                 placeholder="Search products..."
                                 size="small"
                                 fullWidth
@@ -710,6 +792,7 @@ export default function CreateBranchPurchaseOrder({ onBack }) {
                     onClick={handleSave}
                     variant="contained"
                     fullWidth
+                    disabled={isLoading || !lastRefNo}
                     sx={{
                         mt: 2,
                         bgcolor: '#754C27',
@@ -720,7 +803,7 @@ export default function CreateBranchPurchaseOrder({ onBack }) {
                         height: '48px'
                     }}
                 >
-                    Save
+                    {isLoading ? 'Saving...' : 'Save'}
                 </Button>
             </Box>
         </Box>

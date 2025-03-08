@@ -1,4 +1,8 @@
-import { Box, Button, InputAdornment, TextField, Typography, tableCellClasses, TableContainer, Table, TableHead, TableRow, TableCell, TableBody, Paper, Checkbox, IconButton, Switch } from '@mui/material';
+import {
+    Box, Button, InputAdornment, TextField, Typography, tableCellClasses,
+    TableContainer, Table, TableHead, TableRow, TableCell, TableBody, Paper,
+    Checkbox, IconButton, Switch
+} from '@mui/material';
 import React, { useState, useEffect } from 'react';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
 import SearchIcon from '@mui/icons-material/Search';
@@ -12,11 +16,10 @@ import "react-datepicker/dist/react-datepicker.css";
 import Stack from '@mui/material/Stack';
 import Pagination from '@mui/material/Pagination';
 import { useDispatch } from 'react-redux';
-import { Br_grfAlljoindt, deleteBr_grf } from '../../../api/restaurant/br_grfApi';
-import { branchAll } from '../../../api/branchApi';
-import { searchProductName } from '../../../api/productrecordApi';
+import { Kt_prfAlljoindt, deleteKt_prf } from '../../../../api/kitchen/kt_prfApi';
+import { kitchenAll } from '../../../../api/kitchenApi';
+import { searchProductName } from '../../../../api/productrecordApi';
 import Swal from 'sweetalert2';
-
 
 const formatDate = (date) => {
     if (!date) return "";
@@ -76,13 +79,13 @@ const StyledTableRow = styled(TableRow)(({ theme }) => ({
     },
 }));
 
-export default function GoodsRequisition({ onCreate, onEdit }) {
+export default function ProductReceipt({ onCreate, onEdit }) {
     const dispatch = useDispatch();
-    const [searchBranch, setSearchBranch] = useState("");
+    const [searchKitchen, setSearchKitchen] = useState("");
     const [searchProduct, setSearchProduct] = useState("");
     const [searchResults, setSearchResults] = useState([]);
     const [showDropdown, setShowDropdown] = useState(false);
-    const [branches, setBranches] = useState([]);
+    const [kitchens, setKitchens] = useState([]);
     const [filterDate, setFilterDate] = useState(new Date());
     const [selected, setSelected] = useState([]);
     const [page, setPage] = useState(1);
@@ -92,29 +95,29 @@ export default function GoodsRequisition({ onCreate, onEdit }) {
     const [excludePrice, setExcludePrice] = useState(false);
     const limit = 5;
 
-    // Load branches on component mount
+    // Load kitchens on component mount
     useEffect(() => {
-        const loadBranches = async () => {
+        const loadKitchens = async () => {
             try {
-                const response = await dispatch(branchAll({ offset: 0, limit: 100 })).unwrap();
+                const response = await dispatch(kitchenAll({ offset: 0, limit: 100 })).unwrap();
                 if (response.result && response.data) {
-                    setBranches(response.data);
+                    setKitchens(response.data);
                 }
             } catch (error) {
-                console.error('Error loading branches:', error);
+                console.error('Error loading kitchens:', error);
                 Swal.fire({
                     icon: 'error',
                     title: 'Error',
-                    text: 'Failed to load branches'
+                    text: 'Failed to load kitchens'
                 });
             }
         };
-        loadBranches();
+        loadKitchens();
     }, [dispatch]);
 
     useEffect(() => {
         fetchData();
-    }, [page, searchBranch, searchProduct, filterDate]);
+    }, [page, searchKitchen, searchProduct, filterDate]);
 
     const fetchData = async () => {
         try {
@@ -123,12 +126,12 @@ export default function GoodsRequisition({ onCreate, onEdit }) {
 
             const formattedDate = filterDate.toISOString().slice(0, 10).replace(/-/g, '');
 
-            const response = await dispatch(Br_grfAlljoindt({
+            const response = await dispatch(Kt_prfAlljoindt({
                 offset,
                 limit,
                 rdate1: formattedDate,
                 rdate2: formattedDate,
-                branch_code: searchBranch,
+                kitchen_code: searchKitchen,
                 product_code: searchProduct
             })).unwrap();
 
@@ -161,7 +164,7 @@ export default function GoodsRequisition({ onCreate, onEdit }) {
                 confirmButtonText: 'Yes, delete it!'
             }).then(async (result) => {
                 if (result.isConfirmed) {
-                    await dispatch(deleteBr_grf({ refno })).unwrap();
+                    await dispatch(deleteKt_prf({ refno })).unwrap();
                     Swal.fire(
                         'Deleted!',
                         'Record has been deleted.',
@@ -221,7 +224,7 @@ export default function GoodsRequisition({ onCreate, onEdit }) {
             }).then(async (result) => {
                 if (result.isConfirmed) {
                     await Promise.all(
-                        selected.map(refno => dispatch(deleteBr_grf({ refno })).unwrap())
+                        selected.map(refno => dispatch(deleteKt_prf({ refno })).unwrap())
                     );
                     Swal.fire(
                         'Deleted!',
@@ -241,8 +244,8 @@ export default function GoodsRequisition({ onCreate, onEdit }) {
         }
     };
 
-    const handleSearchBranchChange = (e) => {
-        setSearchBranch(e.target.value);
+    const handleSearchKitchenChange = (e) => {
+        setSearchKitchen(e.target.value);
         setPage(1);
     };
 
@@ -278,7 +281,7 @@ export default function GoodsRequisition({ onCreate, onEdit }) {
     };
 
     const clearFilters = () => {
-        setSearchBranch("");
+        setSearchKitchen("");
         setSearchProduct("");
         setFilterDate(new Date());
         setPage(1);
@@ -310,11 +313,11 @@ export default function GoodsRequisition({ onCreate, onEdit }) {
             </Button>
 
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mt: '48px', width: '90%', gap: '20px' }}>
-                {/* Branch Dropdown */}
+                {/* Kitchen Dropdown */}
                 <Box
                     component="select"
-                    value={searchBranch}
-                    onChange={handleSearchBranchChange}
+                    value={searchKitchen}
+                    onChange={handleSearchKitchenChange}
                     sx={{
                         height: '38px',
                         width: '25%',
@@ -324,10 +327,10 @@ export default function GoodsRequisition({ onCreate, onEdit }) {
                         backgroundColor: '#fff'
                     }}
                 >
-                    <option value="">All Branches</option>
-                    {branches.map((branch) => (
-                        <option key={branch.branch_code} value={branch.branch_code}>
-                            {branch.branch_name}
+                    <option value="">All Kitchens</option>
+                    {kitchens.map((kitchen) => (
+                        <option key={kitchen.kitchen_code} value={kitchen.kitchen_code}>
+                            {kitchen.kitchen_name}
                         </option>
                     ))}
                 </Box>
@@ -380,7 +383,7 @@ export default function GoodsRequisition({ onCreate, onEdit }) {
                             <StyledTableCell width='1%'>No.</StyledTableCell>
                             <StyledTableCell align="center">Ref.no</StyledTableCell>
                             <StyledTableCell align="center">Date</StyledTableCell>
-                            <StyledTableCell align="center">Branch</StyledTableCell>
+                            <StyledTableCell align="center">Kitchen</StyledTableCell>
                             <StyledTableCell align="center">Total Amount</StyledTableCell>
                             <StyledTableCell align="center">Username</StyledTableCell>
                             <StyledTableCell width='1%' align="center"></StyledTableCell>
@@ -413,8 +416,8 @@ export default function GoodsRequisition({ onCreate, onEdit }) {
                                         </StyledTableCell>
                                         <StyledTableCell align="center">{row.refno}</StyledTableCell>
                                         <StyledTableCell align="center">{row.rdate}</StyledTableCell>
-                                        <StyledTableCell align="center">{row.tbl_branch?.branch_name}</StyledTableCell>
-                                        <StyledTableCell align="center">{row.total.toFixed(2)}</StyledTableCell>
+                                        <StyledTableCell align="center">{row.tbl_kitchen?.kitchen_name}</StyledTableCell>
+                                        <StyledTableCell align="center">{row.total?.toFixed(2)}</StyledTableCell>
                                         <StyledTableCell align="center">{row.user?.username}</StyledTableCell>
                                         <StyledTableCell align="center">
                                             <IconButton

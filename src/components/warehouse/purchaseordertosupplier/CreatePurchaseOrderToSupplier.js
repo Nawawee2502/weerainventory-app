@@ -163,10 +163,24 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
     }
   };
 
-  // แก้ไขฟังก์ชัน handleProductSelect
+  // Add this to the handleProductSelect function
   const handleProductSelect = (product) => {
     setSearchTerm(product.product_name);
     setShowDropdown(false);
+
+    // Check if product already exists in the list
+    const productExists = products.some(p => p.product_code === product.product_code);
+
+    if (productExists) {
+      // Show warning if product already exists
+      Swal.fire({
+        icon: 'warning',
+        title: 'Duplicate Product',
+        text: `${product.product_name} is already in your order. Please adjust the quantity instead.`,
+        confirmButtonColor: '#754C27'
+      });
+      return; // Exit function early
+    }
 
     dispatch(searchProductName({ product_name: product.product_name }))
       .unwrap()
@@ -212,13 +226,7 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
       .catch((err) => console.log(err.message));
   };
 
-  useEffect(() => {
-    return () => {
-      setSearchResults([]);
-      setShowDropdown(false);
-    };
-  }, []);
-
+  // Also add a similar check to the searchWh function
   const searchWh = () => {
     dispatch(searchProductName({ product_name: searchTerm }))
       .unwrap()
@@ -231,6 +239,21 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
 
           // ถ้าเจอ exact match ใช้ตัวนั้น ถ้าไม่เจอใช้ตัวแรกของผลลัพธ์
           const selectedProduct = exactMatch || res.data[0];
+
+          // Check if product already exists in the list
+          const productExists = products.some(p => p.product_code === selectedProduct.product_code);
+
+          if (productExists) {
+            // Show warning if product already exists
+            Swal.fire({
+              icon: 'warning',
+              title: 'Duplicate Product',
+              text: `${selectedProduct.product_name} is already in your order. Please adjust the quantity instead.`,
+              confirmButtonColor: '#754C27'
+            });
+            setSearchTerm('');
+            return; // Exit function early
+          }
 
           whProduct = products;
           whProduct.push(selectedProduct);
@@ -264,6 +287,13 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
       })
       .catch((err) => console.log(err.message));
   };
+
+  useEffect(() => {
+    return () => {
+      setSearchResults([]);
+      setShowDropdown(false);
+    };
+  }, []);
 
 
   const handleDeleteWhProduct = (product_code) => {

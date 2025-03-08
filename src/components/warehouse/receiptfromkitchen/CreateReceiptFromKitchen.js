@@ -102,11 +102,79 @@ function CreateReceiptFromKitchen({ onBack }) {
             .catch((err) => console.log(err.message));
     }, [dispatch]);
 
+    // Updated handleProductSelect function with duplicate check
+    const handleProductSelect = (product) => {
+        // Check if product already exists in the list
+        const productExists = products.some(p => p.product_code === product.product_code);
+
+        if (productExists) {
+            // Show warning if product already exists
+            Swal.fire({
+                icon: 'warning',
+                title: 'Duplicate Product',
+                text: `${product.product_name} is already in your receipt. Please adjust the amount instead.`,
+                confirmButtonColor: '#754C27'
+            });
+            setSearchTerm('');
+            setShowDropdown(false);
+            return; // Exit function early
+        }
+
+        // If not a duplicate, proceed with adding the product
+        product.amount = 0;
+        setProducts([...products, product]);
+        setQuantities(prev => ({ ...prev, [product.product_code]: 1 }));
+        setUnits(prev => ({ ...prev, [product.product_code]: product.productUnit1.unit_code }));
+        setExpiryDates(prev => ({ ...prev, [product.product_code]: new Date() }));
+        setTemperatures(prev => ({ ...prev, [product.product_code]: '38' }));
+        calculateOrderTotals();
+        setSearchTerm('');
+        setShowDropdown(false);
+    };
+
+    // Also update the handleSearchChange function to add Enter key functionality
     const handleSearchChange = (e) => {
         const value = e.target.value;
         setSearchTerm(value);
 
-        if (value.length > 0) {
+        if (e.key === 'Enter' && value.trim() !== '') {
+            // Search for exact match
+            dispatch(searchProductName({ product_name: value }))
+                .unwrap()
+                .then((res) => {
+                    if (res.data && res.data.length > 0) {
+                        // Find exact match or use the first result
+                        const exactMatch = res.data.find(
+                            product => product.product_name.toLowerCase() === value.toLowerCase()
+                        );
+                        const selectedProduct = exactMatch || res.data[0];
+
+                        // Check for duplicate before adding
+                        const productExists = products.some(p => p.product_code === selectedProduct.product_code);
+
+                        if (productExists) {
+                            Swal.fire({
+                                icon: 'warning',
+                                title: 'Duplicate Product',
+                                text: `${selectedProduct.product_name} is already in your receipt. Please adjust the amount instead.`,
+                                confirmButtonColor: '#754C27'
+                            });
+                        } else {
+                            // Add product
+                            selectedProduct.amount = 0;
+                            setProducts([...products, selectedProduct]);
+                            setQuantities(prev => ({ ...prev, [selectedProduct.product_code]: 1 }));
+                            setUnits(prev => ({ ...prev, [selectedProduct.product_code]: selectedProduct.productUnit1.unit_code }));
+                            setExpiryDates(prev => ({ ...prev, [selectedProduct.product_code]: new Date() }));
+                            setTemperatures(prev => ({ ...prev, [selectedProduct.product_code]: '38' }));
+                            calculateOrderTotals();
+                        }
+                        setSearchTerm('');
+                        setShowDropdown(false);
+                    }
+                })
+                .catch((err) => console.log(err.message));
+        } else if (value.length > 0) {
             dispatch(searchProductName({ product_name: value }))
                 .unwrap()
                 .then((res) => {
@@ -120,18 +188,6 @@ function CreateReceiptFromKitchen({ onBack }) {
             setSearchResults([]);
             setShowDropdown(false);
         }
-    };
-
-    const handleProductSelect = (product) => {
-        product.amount = 0;
-        setProducts([...products, product]);
-        setQuantities(prev => ({ ...prev, [product.product_code]: 1 }));
-        setUnits(prev => ({ ...prev, [product.product_code]: product.productUnit1.unit_code }));
-        setExpiryDates(prev => ({ ...prev, [product.product_code]: new Date() }));
-        setTemperatures(prev => ({ ...prev, [product.product_code]: '38' }));
-        calculateOrderTotals(); // เปลี่ยนจาก updateTotals เป็น calculateOrderTotals
-        setSearchTerm('');
-        setShowDropdown(false);
     };
 
     const handleDeleteProduct = (productCode) => {

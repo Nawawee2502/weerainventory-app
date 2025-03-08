@@ -1,4 +1,8 @@
-import { Box, Button, InputAdornment, TextField, Typography, tableCellClasses, TableContainer, Table, TableHead, TableRow, TableCell, TableBody, Paper, Checkbox, IconButton, Switch } from '@mui/material';
+import {
+    Box, Button, InputAdornment, TextField, Typography, tableCellClasses,
+    TableContainer, Table, TableHead, TableRow, TableCell, TableBody, Paper,
+    Checkbox, IconButton, Switch
+} from '@mui/material';
 import React, { useState, useEffect } from 'react';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
 import SearchIcon from '@mui/icons-material/Search';
@@ -12,11 +16,11 @@ import "react-datepicker/dist/react-datepicker.css";
 import Stack from '@mui/material/Stack';
 import Pagination from '@mui/material/Pagination';
 import { useDispatch } from 'react-redux';
-import { Br_grfAlljoindt, deleteBr_grf } from '../../../api/restaurant/br_grfApi';
-import { branchAll } from '../../../api/branchApi';
-import { searchProductName } from '../../../api/productrecordApi';
+import { wh_rfsAlljoindt, deleteWh_rfs } from '../../../../api/warehouse/wh_rfsApi';
+import { supplierAll } from '../../../../api/supplierApi';
+import { branchAll } from '../../../../api/branchApi';
+import { searchProductName } from '../../../../api/productrecordApi';
 import Swal from 'sweetalert2';
-
 
 const formatDate = (date) => {
     if (!date) return "";
@@ -76,12 +80,14 @@ const StyledTableRow = styled(TableRow)(({ theme }) => ({
     },
 }));
 
-export default function GoodsRequisition({ onCreate, onEdit }) {
+export default function ReceiptFromSupplier({ onCreate, onEdit }) {
     const dispatch = useDispatch();
+    const [searchSupplier, setSearchSupplier] = useState("");
     const [searchBranch, setSearchBranch] = useState("");
     const [searchProduct, setSearchProduct] = useState("");
     const [searchResults, setSearchResults] = useState([]);
     const [showDropdown, setShowDropdown] = useState(false);
+    const [suppliers, setSuppliers] = useState([]);
     const [branches, setBranches] = useState([]);
     const [filterDate, setFilterDate] = useState(new Date());
     const [selected, setSelected] = useState([]);
@@ -92,29 +98,36 @@ export default function GoodsRequisition({ onCreate, onEdit }) {
     const [excludePrice, setExcludePrice] = useState(false);
     const limit = 5;
 
-    // Load branches on component mount
+    // Load suppliers and branches on component mount
     useEffect(() => {
-        const loadBranches = async () => {
+        const loadData = async () => {
             try {
-                const response = await dispatch(branchAll({ offset: 0, limit: 100 })).unwrap();
-                if (response.result && response.data) {
-                    setBranches(response.data);
+                // Fetch suppliers
+                const supplierResponse = await dispatch(supplierAll({ offset: 0, limit: 100 })).unwrap();
+                if (supplierResponse.result && supplierResponse.data) {
+                    setSuppliers(supplierResponse.data);
+                }
+
+                // Fetch branches
+                const branchResponse = await dispatch(branchAll({ offset: 0, limit: 100 })).unwrap();
+                if (branchResponse.result && branchResponse.data) {
+                    setBranches(branchResponse.data);
                 }
             } catch (error) {
-                console.error('Error loading branches:', error);
+                console.error('Error loading data:', error);
                 Swal.fire({
                     icon: 'error',
                     title: 'Error',
-                    text: 'Failed to load branches'
+                    text: 'Failed to load initial data'
                 });
             }
         };
-        loadBranches();
+        loadData();
     }, [dispatch]);
 
     useEffect(() => {
         fetchData();
-    }, [page, searchBranch, searchProduct, filterDate]);
+    }, [page, searchSupplier, searchBranch, searchProduct, filterDate]);
 
     const fetchData = async () => {
         try {
@@ -123,16 +136,22 @@ export default function GoodsRequisition({ onCreate, onEdit }) {
 
             const formattedDate = filterDate.toISOString().slice(0, 10).replace(/-/g, '');
 
-            const response = await dispatch(Br_grfAlljoindt({
+            const response = await dispatch(wh_rfsAlljoindt({
                 offset,
                 limit,
                 rdate1: formattedDate,
                 rdate2: formattedDate,
+                supplier_code: searchSupplier,
                 branch_code: searchBranch,
                 product_code: searchProduct
             })).unwrap();
 
             if (response.result && response.data) {
+                // Add debugging - show the structure of the first item
+                if (response.data.length > 0) {
+                    console.log("First row details:", response.data[0]);
+                }
+
                 setData(response.data);
                 const totalPages = Math.ceil(response.data.length / limit);
                 setCount(totalPages || 1);
@@ -161,7 +180,7 @@ export default function GoodsRequisition({ onCreate, onEdit }) {
                 confirmButtonText: 'Yes, delete it!'
             }).then(async (result) => {
                 if (result.isConfirmed) {
-                    await dispatch(deleteBr_grf({ refno })).unwrap();
+                    await dispatch(deleteWh_rfs({ refno })).unwrap();
                     Swal.fire(
                         'Deleted!',
                         'Record has been deleted.',
@@ -221,7 +240,7 @@ export default function GoodsRequisition({ onCreate, onEdit }) {
             }).then(async (result) => {
                 if (result.isConfirmed) {
                     await Promise.all(
-                        selected.map(refno => dispatch(deleteBr_grf({ refno })).unwrap())
+                        selected.map(refno => dispatch(deleteWh_rfs({ refno })).unwrap())
                     );
                     Swal.fire(
                         'Deleted!',
@@ -239,6 +258,11 @@ export default function GoodsRequisition({ onCreate, onEdit }) {
                 text: 'Failed to delete records'
             });
         }
+    };
+
+    const handleSearchSupplierChange = (e) => {
+        setSearchSupplier(e.target.value);
+        setPage(1);
     };
 
     const handleSearchBranchChange = (e) => {
@@ -278,6 +302,7 @@ export default function GoodsRequisition({ onCreate, onEdit }) {
     };
 
     const clearFilters = () => {
+        setSearchSupplier("");
         setSearchBranch("");
         setSearchProduct("");
         setFilterDate(new Date());
@@ -310,6 +335,28 @@ export default function GoodsRequisition({ onCreate, onEdit }) {
             </Button>
 
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mt: '48px', width: '90%', gap: '20px' }}>
+                {/* Supplier Dropdown */}
+                <Box
+                    component="select"
+                    value={searchSupplier}
+                    onChange={handleSearchSupplierChange}
+                    sx={{
+                        height: '38px',
+                        width: '20%',
+                        borderRadius: '4px',
+                        border: '1px solid rgba(0, 0, 0, 0.23)',
+                        padding: '0 14px',
+                        backgroundColor: '#fff'
+                    }}
+                >
+                    <option value="">All Suppliers</option>
+                    {suppliers.map((supplier) => (
+                        <option key={supplier.supplier_code} value={supplier.supplier_code}>
+                            {supplier.supplier_name}
+                        </option>
+                    ))}
+                </Box>
+
                 {/* Branch Dropdown */}
                 <Box
                     component="select"
@@ -317,7 +364,7 @@ export default function GoodsRequisition({ onCreate, onEdit }) {
                     onChange={handleSearchBranchChange}
                     sx={{
                         height: '38px',
-                        width: '25%',
+                        width: '20%',
                         borderRadius: '4px',
                         border: '1px solid rgba(0, 0, 0, 0.23)',
                         padding: '0 14px',
@@ -380,6 +427,7 @@ export default function GoodsRequisition({ onCreate, onEdit }) {
                             <StyledTableCell width='1%'>No.</StyledTableCell>
                             <StyledTableCell align="center">Ref.no</StyledTableCell>
                             <StyledTableCell align="center">Date</StyledTableCell>
+                            <StyledTableCell align="center">Supplier</StyledTableCell>
                             <StyledTableCell align="center">Branch</StyledTableCell>
                             <StyledTableCell align="center">Total Amount</StyledTableCell>
                             <StyledTableCell align="center">Username</StyledTableCell>
@@ -391,11 +439,11 @@ export default function GoodsRequisition({ onCreate, onEdit }) {
                     <TableBody>
                         {isLoading ? (
                             <TableRow>
-                                <TableCell colSpan={10} align="center">Loading...</TableCell>
+                                <TableCell colSpan={11} align="center">Loading...</TableCell>
                             </TableRow>
                         ) : data.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={10} align="center">No data found</TableCell>
+                                <TableCell colSpan={11} align="center">No data found</TableCell>
                             </TableRow>
                         ) : (
                             data.map((row, index) => {
@@ -413,8 +461,9 @@ export default function GoodsRequisition({ onCreate, onEdit }) {
                                         </StyledTableCell>
                                         <StyledTableCell align="center">{row.refno}</StyledTableCell>
                                         <StyledTableCell align="center">{row.rdate}</StyledTableCell>
+                                        <StyledTableCell align="center">{row.tbl_supplier?.supplier_name}</StyledTableCell>
                                         <StyledTableCell align="center">{row.tbl_branch?.branch_name}</StyledTableCell>
-                                        <StyledTableCell align="center">{row.total.toFixed(2)}</StyledTableCell>
+                                        <StyledTableCell align="center">{row.total?.toFixed(2)}</StyledTableCell>
                                         <StyledTableCell align="center">{row.user?.username}</StyledTableCell>
                                         <StyledTableCell align="center">
                                             <IconButton

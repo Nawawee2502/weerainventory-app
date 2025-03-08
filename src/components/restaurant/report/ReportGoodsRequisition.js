@@ -6,6 +6,7 @@ import 'react-datepicker/dist/react-datepicker.css';
 import { Switch, Divider } from '@mui/material';
 import { useDispatch } from 'react-redux';
 import { Br_grfAlljoindt } from '../../../api/restaurant/br_grfApi';
+import { Br_grfdtAlljoindt } from '../../../api/restaurant/br_grfdtApi';
 import { exportToExcelGrf } from './ExportExcelGRF';
 import { branchAll } from '../../../api/branchApi';
 import { exportToPdfGrf } from './ExportPdfGRF';
@@ -19,39 +20,73 @@ export default function ReportGoodsRequisition() {
     const [excludePrice, setExcludePrice] = useState(false);
     const [startDate, setStartDate] = useState(today);
     const [endDate, setEndDate] = useState(today);
-    const [searchProduct, setSearchProduct] = useState('');
-    const [branches, setBranches] = useState([]);  // เปลี่ยนจาก restaurants
-    const [selectedBranch, setSelectedBranch] = useState('');  // เปลี่ยนจาก selectedRestaurant
+    const [branches, setBranches] = useState([]);
+    const [selectedBranch, setSelectedBranch] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
 
-    const formatDate = date =>
-        date ? `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}` : null;
+    const formatDisplayDate = (date) => {
+        if (!date) return "";
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${month}/${day}/${year}`;
+    };
 
-    const formatDisplayDate = date =>
-        date ? `${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')}/${date.getFullYear()}` : "";
+    const formatDate = (date) => {
+        if (!date) return null;
+        return `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
+    };
 
+    // ฟังก์ชันเรียกข้อมูล
     const fetchData = async (params) => {
+        setIsLoading(true);
         try {
+            console.log("Fetching header data with params:", params);
             const response = await dispatch(Br_grfAlljoindt(params)).unwrap();
-            if (response.data) {
-                const flattenedData = response.data.flatMap(order =>
-                    order.br_grfdts.map(detail => ({
-                        date: order.rdate,
-                        refno: order.refno,
-                        restaurant: order.tbl_restaurant?.restaurant_name,
-                        product_id: detail.product_code,
-                        product_name: detail.tbl_product?.product_name,
-                        quantity: detail.qty,
-                        unit_price: detail.uprice,
-                        expireDate: detail.expiry_date,
-                        unit_code: detail.tbl_unit?.unit_name,
-                        amount: detail.amt,
-                        total: order.total,
-                        user_code: order.user?.username
-                    }))
-                );
-                setGrfData(flattenedData);
+            console.log("API Response for headers:", response);
+
+            if (response.result && Array.isArray(response.data)) {
+                // สร้างอาร์เรย์เพื่อเก็บข้อมูลสุดท้าย
+                let allDetailedData = [];
+
+                // ไล่ดึงข้อมูลรายละเอียดสำหรับแต่ละ refno
+                for (const order of response.data) {
+                    console.log("Fetching details for refno:", order.refno);
+                    try {
+                        const detailResponse = await dispatch(Br_grfdtAlljoindt({ refno: order.refno })).unwrap();
+                        console.log("Detail response for refno:", order.refno, detailResponse);
+
+                        if (detailResponse.result && detailResponse.data && Array.isArray(detailResponse.data)) {
+
+                            // แปลงข้อมูลรายละเอียดให้อยู่ในรูปแบบที่ต้องการ
+                            const orderDetails = detailResponse.data.map(detail => ({
+                                date: order.rdate,
+                                refno: order.refno,
+                                restaurant: order.tbl_branch?.branch_name || 'N/A',
+                                product_id: detail.product_code,
+                                product_name: detail.product_name || detail.tbl_product?.product_name || 'N/A',
+                                quantity: detail.qty,
+                                unit_price: detail.uprice,
+                                expireDate: detail.expire_date,
+                                unit_code: detail.unit_name || detail.tbl_unit?.unit_name || 'N/A',
+                                amount: detail.amt,
+                                total: order.total,
+                                user_code: order.user?.username || 'N/A'
+                            }));
+
+                            // เพิ่มข้อมูลรายละเอียดเข้าไปในอาร์เรย์รวม
+                            allDetailedData = [...allDetailedData, ...orderDetails];
+                        }
+                    } catch (detailError) {
+                        console.error("Error fetching details for refno:", order.refno, detailError);
+                    }
+                }
+
+                console.log("All detailed data:", allDetailedData);
+                setGrfData(allDetailedData);
             } else {
                 setGrfData([]);
+                console.warn("API response doesn't contain expected data array:", response);
             }
         } catch (error) {
             console.error("Error fetching data:", error);
@@ -62,57 +97,85 @@ export default function ReportGoodsRequisition() {
                 text: error.message || 'Failed to fetch data',
                 confirmButtonColor: '#754C27'
             });
+        } finally {
+            setIsLoading(false);
         }
     };
 
+    // useEffect สำหรับโหลดข้อมูลครั้งแรก
     useEffect(() => {
+        console.log("Initial loading...");
+
+        // สร้าง params ด้วยวันที่ปัจจุบัน
         const params = {
             offset: 0,
             limit: 10000,
             rdate1: formatDate(today),
             rdate2: formatDate(today)
         };
-        fetchData(params);
 
-        dispatch(branchAll({ offset: 0, limit: 1000 }))
-            .unwrap()
-            .then(res => setBranches(res.data))
-            .catch(err => {
-                console.error("Error fetching restaurants:", err);
+        console.log("Initial fetch params:", params);
+
+        // โหลดข้อมูล branches
+        const fetchBranches = async () => {
+            try {
+                const res = await dispatch(branchAll({ offset: 0, limit: 1000 })).unwrap();
+                console.log("Branches response:", res);
+                if (res.data && Array.isArray(res.data)) {
+                    setBranches(res.data);
+                } else {
+                    setBranches([]);
+                    console.warn("Branch API response doesn't contain expected data array");
+                }
+            } catch (err) {
+                console.error("Error fetching branches:", err);
+                setBranches([]);
                 Swal.fire({
                     icon: 'error',
                     title: 'Error',
                     text: 'Failed to fetch restaurants',
                     confirmButtonColor: '#754C27'
                 });
-            });
+            }
+        };
+
+        fetchBranches();
+        fetchData(params);
     }, []);
 
     const handleDateChange = (type, date) => {
         if (type === 'start') {
             setStartDate(date);
             if (date && endDate) {
-                fetchData({
+                console.log("Date range changed - start date:", date);
+                const params = {
                     offset: 0,
                     limit: 10000,
                     rdate1: formatDate(date),
-                    rdate2: formatDate(endDate)
-                });
+                    rdate2: formatDate(endDate),
+                    ...(selectedBranch && { branch_code: selectedBranch })
+                };
+                console.log("Fetching with params:", params);
+                fetchData(params);
             }
         } else {
             setEndDate(date);
             if (startDate && date) {
-                fetchData({
+                console.log("Date range changed - end date:", date);
+                const params = {
                     offset: 0,
                     limit: 10000,
                     rdate1: formatDate(startDate),
-                    rdate2: formatDate(date)
-                });
+                    rdate2: formatDate(date),
+                    ...(selectedBranch && { branch_code: selectedBranch })
+                };
+                console.log("Fetching with params:", params);
+                fetchData(params);
             }
         }
     };
 
-    const handleSearch = (productSearch = searchProduct) => {
+    const handleSearch = () => {
         const params = {
             offset: 0,
             limit: 10000,
@@ -120,9 +183,26 @@ export default function ReportGoodsRequisition() {
                 rdate1: formatDate(startDate),
                 rdate2: formatDate(endDate)
             }),
-            ...(selectedBranch && { branch_code: selectedBranch }),
-            ...(productSearch && { product_code: productSearch })
+            ...(selectedBranch && { branch_code: selectedBranch })
         };
+        console.log("Search params:", params);
+        fetchData(params);
+    };
+
+    const handleBranchChange = (e) => {
+        const newBranchCode = e.target.value;
+        setSelectedBranch(newBranchCode);
+
+        const params = {
+            offset: 0,
+            limit: 10000,
+            ...(startDate && endDate && {
+                rdate1: formatDate(startDate),
+                rdate2: formatDate(endDate)
+            }),
+            ...(newBranchCode && { branch_code: newBranchCode })
+        };
+
         fetchData(params);
     };
 
@@ -140,6 +220,16 @@ export default function ReportGoodsRequisition() {
         switch (type) {
             case 'print':
                 const printWindow = window.open('', '_blank');
+                if (!printWindow) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Pop-up was blocked. Please allow pop-ups for this site.',
+                        confirmButtonColor: '#754C27'
+                    });
+                    return;
+                }
+
                 const root = createRoot(printWindow.document.createElement('div'));
                 printWindow.document.body.appendChild(root.container);
 
@@ -190,6 +280,24 @@ export default function ReportGoodsRequisition() {
                 exportToPdfGrf(grfData, excludePrice, startDate, endDate);
                 break;
         }
+    };
+
+    // หาชื่อของร้านอาหาร/สาขาที่เลือก
+    const getSelectedBranchName = () => {
+        if (!selectedBranch || !Array.isArray(branches)) return "Not selected";
+        const branch = branches.find(b => b.branch_code === selectedBranch);
+        return branch ? branch.branch_name : "Not selected";
+    };
+
+    // คำนวณผลรวม
+    const calculateTotalAmount = () => {
+        if (!Array.isArray(grfData)) return 0;
+        return Number(grfData.reduce((sum, item) => sum + Number(item.amount || 0), 0)).toFixed(2);
+    };
+
+    const calculateTotalPrice = () => {
+        if (!Array.isArray(grfData)) return 0;
+        return Number(grfData.reduce((sum, item) => sum + Number(item.total || 0), 0)).toFixed(2);
     };
 
     return (
@@ -286,10 +394,7 @@ export default function ReportGoodsRequisition() {
                                 <Box
                                     component="select"
                                     value={selectedBranch}
-                                    onChange={(e) => {
-                                        setSelectedBranch(e.target.value);
-                                        handleSearch();
-                                    }}
+                                    onChange={handleBranchChange}
                                     sx={{
                                         mt: '8px',
                                         width: '100%',
@@ -309,7 +414,7 @@ export default function ReportGoodsRequisition() {
                                     }}
                                 >
                                     <option value="">Select a Restaurant</option>
-                                    {branches.map(branch => (
+                                    {Array.isArray(branches) && branches.map(branch => (
                                         <option key={branch.branch_code} value={branch.branch_code}>
                                             {branch.branch_name}
                                         </option>
@@ -317,37 +422,12 @@ export default function ReportGoodsRequisition() {
                                 </Box>
                             </Grid2>
 
-                            <Grid2 item size={{ xs: 12, md: 12 }}>
-                                <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
-                                    Product
-                                </Typography>
-                                <Box sx={{ display: 'flex', gap: 2, mt: 1 }}>
-                                    <TextField
-                                        size="small"
-                                        fullWidth
-                                        value={searchProduct}
-                                        onChange={(e) => {
-                                            setSearchProduct(e.target.value);
-                                            if (e.target.value === '') {
-                                                handleSearch('');
-                                            }
-                                        }}
-                                        onKeyPress={(e) => {
-                                            if (e.key === 'Enter') {
-                                                handleSearch(searchProduct);
-                                            }
-                                        }}
-                                        placeholder="Search product name..."
-                                        sx={{
-                                            '& .MuiOutlinedInput-root': {
-                                                borderRadius: '10px',
-                                                bgcolor: 'white'
-                                            },
-                                        }}
-                                    />
+                            <Grid2 item size={{ xs: 12, md: 6 }}>
+                                <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
                                     <Button
                                         variant="contained"
-                                        onClick={() => handleSearch(searchProduct)}
+                                        onClick={() => handleSearch()}
+                                        disabled={isLoading}
                                         sx={{
                                             bgcolor: '#754C27',
                                             color: 'white',
@@ -358,7 +438,7 @@ export default function ReportGoodsRequisition() {
                                             minWidth: '100px'
                                         }}
                                     >
-                                        Show
+                                        {isLoading ? 'Loading...' : 'Show'}
                                     </Button>
                                 </Box>
                             </Grid2>
@@ -410,7 +490,7 @@ export default function ReportGoodsRequisition() {
                                         : "Not specified"}
                                 </Typography>
                                 <Typography>
-                                    {branches.find(b => b.branch_code === selectedBranch)?.branch_name || "Not selected"}
+                                    {getSelectedBranchName()}
                                 </Typography>
                             </Box>
                         </Box>
@@ -429,6 +509,7 @@ export default function ReportGoodsRequisition() {
                                 <Button
                                     onClick={() => handleExport('print')}
                                     variant="outlined"
+                                    disabled={isLoading || !Array.isArray(grfData) || grfData.length === 0}
                                     sx={{
                                         color: '#754C27',
                                         borderColor: '#754C27',
@@ -442,6 +523,7 @@ export default function ReportGoodsRequisition() {
                                 <Button
                                     onClick={() => handleExport('excel')}
                                     variant="outlined"
+                                    disabled={isLoading || !Array.isArray(grfData) || grfData.length === 0}
                                     sx={{
                                         color: '#754C27',
                                         borderColor: '#754C27',
@@ -456,6 +538,7 @@ export default function ReportGoodsRequisition() {
                                 <Button
                                     onClick={() => handleExport('pdf')}
                                     variant="outlined"
+                                    disabled={isLoading || !Array.isArray(grfData) || grfData.length === 0}
                                     sx={{
                                         color: '#754C27',
                                         borderColor: '#754C27',
@@ -472,70 +555,82 @@ export default function ReportGoodsRequisition() {
                     </Box>
 
                     <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', mb: '12px' }}>
-                        <table style={{ width: '100%', marginTop: '24px' }}>
-                            <thead>
-                                <tr>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>No.</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Date</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Ref.no</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Restaurant</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Product ID</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Product Name</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Quantity</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Unit Price</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Expire Date</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Unit</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Amount</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Total</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Username</th>
-                                </tr>
-                                <tr>
-                                    <td colSpan="15">
-                                        <Divider sx={{ width: '100%', color: '#754C27', border: '1px solid #754C27' }} />
-                                    </td>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {grfData.map((row, index) => (
-                                    <tr key={`${row.refno}-${row.product_id}`}>
-                                        <td style={{ padding: '12px 16px' }}>{index + 1}</td>
-                                        <td style={{ padding: '12px 16px' }}>{row.date}</td>
-                                        <td style={{ padding: '12px 16px' }}>{row.refno}</td>
-                                        <td style={{ padding: '12px 16px' }}>{row.restaurant}</td>
-                                        <td style={{ padding: '12px 16px' }}>{row.product_id}</td>
-                                        <td style={{ padding: '12px 16px' }}>{row.product_name}</td>
-                                        <td style={{ padding: '12px 16px' }}>{row.quantity}</td>
-                                        <td style={{ padding: '12px 16px' }}>{Number(row.unit_price).toFixed(2)}</td>
-                                        <td style={{ padding: '12px 16px' }}>{row.expireDate}</td>
-                                        <td style={{ padding: '12px 16px' }}>{row.unit_code}</td>
-                                        <td style={{ padding: '12px 16px' }}>{Number(row.amount).toFixed(2)}</td>
-                                        <td style={{ padding: '12px 16px' }}>{Number(row.total).toFixed(2)}</td>
-                                        <td style={{ padding: '12px 16px' }}>{row.user_code}</td>
+                        {isLoading ? (
+                            <Typography sx={{ py: 4, textAlign: 'center' }}>Loading data...</Typography>
+                        ) : (
+                            <table style={{ width: '100%', marginTop: '24px' }}>
+                                <thead>
+                                    <tr>
+                                        <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>No.</th>
+                                        <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Date</th>
+                                        <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Ref.no</th>
+                                        <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Restaurant</th>
+                                        <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Product ID</th>
+                                        <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Product Name</th>
+                                        <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Quantity</th>
+                                        <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Unit Price</th>
+                                        <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Expire Date</th>
+                                        <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Unit</th>
+                                        <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Amount</th>
+                                        <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Total</th>
+                                        <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Username</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                            {grfData.length > 0 && (
-                                <tfoot>
                                     <tr>
                                         <td colSpan="15">
                                             <Divider sx={{ width: '100%', color: '#754C27', border: '1px solid #754C27' }} />
                                         </td>
                                     </tr>
-                                    <tr>
-                                        <td colSpan="10" style={{ textAlign: 'right', padding: '12px 16px', fontWeight: 'bold', color: '#754C27' }}>
-                                            Total:
-                                        </td>
-                                        <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>
-                                            {Number(grfData.reduce((sum, item) => sum + Number(item.amount || 0), 0)).toFixed(2)}
-                                        </td>
-                                        <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>
-                                            {Number(grfData.reduce((sum, item) => sum + Number(item.total || 0), 0)).toFixed(2)}
-                                        </td>
-                                        <td></td>
-                                    </tr>
-                                </tfoot>
-                            )}
-                        </table>
+                                </thead>
+                                <tbody>
+                                    {Array.isArray(grfData) && grfData.length > 0 ? (
+                                        grfData.map((row, index) => (
+                                            <tr key={`${row.refno}-${row.product_id}-${index}`}>
+                                                <td style={{ padding: '12px 16px' }}>{index + 1}</td>
+                                                <td style={{ padding: '12px 16px' }}>{row.date || 'N/A'}</td>
+                                                <td style={{ padding: '12px 16px' }}>{row.refno || 'N/A'}</td>
+                                                <td style={{ padding: '12px 16px' }}>{row.restaurant || 'N/A'}</td>
+                                                <td style={{ padding: '12px 16px' }}>{row.product_id || 'N/A'}</td>
+                                                <td style={{ padding: '12px 16px' }}>{row.product_name || 'N/A'}</td>
+                                                <td style={{ padding: '12px 16px' }}>{row.quantity || 0}</td>
+                                                <td style={{ padding: '12px 16px' }}>{row.unit_price ? Number(row.unit_price).toFixed(2) : '0.00'}</td>
+                                                <td style={{ padding: '12px 16px' }}>{row.expireDate || '-'}</td>
+                                                <td style={{ padding: '12px 16px' }}>{row.unit_code || '-'}</td>
+                                                <td style={{ padding: '12px 16px' }}>{row.amount ? Number(row.amount).toFixed(2) : '0.00'}</td>
+                                                <td style={{ padding: '12px 16px' }}>{row.total ? Number(row.total).toFixed(2) : '0.00'}</td>
+                                                <td style={{ padding: '12px 16px' }}>{row.user_code || 'N/A'}</td>
+                                            </tr>
+                                        ))
+                                    ) : (
+                                        <tr>
+                                            <td colSpan="13" style={{ textAlign: 'center', padding: '20px' }}>
+                                                {isLoading ? 'Loading data...' : 'No data available'}
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                                {Array.isArray(grfData) && grfData.length > 0 && (
+                                    <tfoot>
+                                        <tr>
+                                            <td colSpan="15">
+                                                <Divider sx={{ width: '100%', color: '#754C27', border: '1px solid #754C27' }} />
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td colSpan="10" style={{ textAlign: 'right', padding: '12px 16px', fontWeight: 'bold', color: '#754C27' }}>
+                                                Total:
+                                            </td>
+                                            <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>
+                                                {calculateTotalAmount()}
+                                            </td>
+                                            <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>
+                                                {calculateTotalPrice()}
+                                            </td>
+                                            <td></td>
+                                        </tr>
+                                    </tfoot>
+                                )}
+                            </table>
+                        )}
                     </Box>
                 </Box>
             </Box>

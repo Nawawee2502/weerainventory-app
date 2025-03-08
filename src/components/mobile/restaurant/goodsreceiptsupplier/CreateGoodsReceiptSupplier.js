@@ -18,7 +18,9 @@ import {
     TableBody,
     Select,
     MenuItem,
-    Pagination
+    Pagination,
+    Switch,
+    FormControlLabel
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SearchIcon from '@mui/icons-material/Search';
@@ -32,7 +34,7 @@ import { useDispatch } from "react-redux";
 import { searchProductName } from '../../../../api/productrecordApi';
 import { branchAll } from '../../../../api/branchApi';
 import { supplierAll } from '../../../../api/supplierApi';
-import { addBr_rfs, Br_rfsrefno } from '../../../../api/restaurant/br_rfsApi';
+import { addBr_rfs } from '../../../../api/restaurant/br_rfsApi';
 import Swal from 'sweetalert2';
 import { format } from 'date-fns';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
@@ -68,7 +70,7 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
 export default function CreateGoodsReceiptSupplier({ onBack }) {
     const dispatch = useDispatch();
     const [startDate, setStartDate] = useState(new Date());
-    const [lastRefNo, setLastRefNo] = useState('');
+    const [refNo, setRefNo] = useState(''); // Manual refNo input
     const [branches, setBranches] = useState([]);
     const [suppliers, setSuppliers] = useState([]);
     const [saveSupplier, setSaveSupplier] = useState('');
@@ -85,6 +87,9 @@ export default function CreateGoodsReceiptSupplier({ onBack }) {
     const [selectedProducts, setSelectedProducts] = useState([]);
     const [expiryDates, setExpiryDates] = useState({});
     const [imageErrors, setImageErrors] = useState({});
+    // New states for tax1 and temperature1
+    const [tax1Values, setTax1Values] = useState({});
+    const [temperatures, setTemperatures] = useState({});
 
     // Pagination state
     const [page, setPage] = useState(1);
@@ -96,9 +101,6 @@ export default function CreateGoodsReceiptSupplier({ onBack }) {
     const userData2 = JSON.parse(userDataJson);
 
     useEffect(() => {
-        const currentDate = new Date();
-        handleGetLastRefNo(currentDate);
-
         // Fetch branches
         dispatch(branchAll({ offset: 0, limit: 100 }))
             .unwrap()
@@ -156,40 +158,9 @@ export default function CreateGoodsReceiptSupplier({ onBack }) {
         setPaginatedProducts(filteredProducts.slice(startIndex, endIndex));
     }, [filteredProducts, page, productsPerPage]);
 
-    const handleGetLastRefNo = async (selectedDate) => {
-        try {
-            const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
-            const year = selectedDate.getFullYear().toString().slice(-2);
-
-            const res = await dispatch(Br_rfsrefno({
-                month: month,
-                year: year
-            })).unwrap();
-
-            if (!res.data || !res.data.refno) {
-                setLastRefNo(`BRFS${year}${month}001`);
-                return;
-            }
-
-            const lastRefNo = res.data.refno;
-            const lastRefMonth = lastRefNo.substring(6, 8);
-            const lastRefYear = lastRefNo.substring(4, 6);
-
-            if (lastRefMonth !== month || lastRefYear !== year) {
-                setLastRefNo(`BRFS${year}${month}001`);
-                return;
-            }
-
-            const lastNumber = parseInt(lastRefNo.slice(-3));
-            const newNumber = lastNumber + 1;
-            setLastRefNo(`BRFS${year}${month}${String(newNumber).padStart(3, '0')}`);
-
-        } catch (err) {
-            console.error("Error generating refno:", err);
-            const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
-            const year = selectedDate.getFullYear().toString().slice(-2);
-            setLastRefNo(`BRFS${year}${month}001`);
-        }
+    // Function to handle manual refNo changes
+    const handleRefNoChange = (event) => {
+        setRefNo(event.target.value);
     };
 
     // Function to render product image with error handling
@@ -274,12 +245,16 @@ export default function CreateGoodsReceiptSupplier({ onBack }) {
             const { [product.product_code]: ___, ...newPrices } = unitPrices;
             const { [product.product_code]: ____, ...newTotals } = totals;
             const { [product.product_code]: _____, ...newExpiryDates } = expiryDates;
+            const { [product.product_code]: ______, ...newTax1Values } = tax1Values;
+            const { [product.product_code]: _______, ...newTemperatures } = temperatures;
 
             setQuantities(newQuantities);
             setUnits(newUnits);
             setUnitPrices(newPrices);
             setTotals(newTotals);
             setExpiryDates(newExpiryDates);
+            setTax1Values(newTax1Values);
+            setTemperatures(newTemperatures);
 
             setTotal(Object.values(newTotals).reduce((sum, curr) => sum + curr, 0));
 
@@ -292,6 +267,8 @@ export default function CreateGoodsReceiptSupplier({ onBack }) {
             setUnits(prev => ({ ...prev, [product.product_code]: product.productUnit1.unit_code }));
             setUnitPrices(prev => ({ ...prev, [product.product_code]: product.bulk_unit_price }));
             setExpiryDates(prev => ({ ...prev, [product.product_code]: new Date() }));
+            setTax1Values(prev => ({ ...prev, [product.product_code]: 'N' })); // Default to 'N'
+            setTemperatures(prev => ({ ...prev, [product.product_code]: '38' })); // Default temperature
 
             // Calculate initial total
             const initialTotal = product.bulk_unit_price * 1;
@@ -334,7 +311,25 @@ export default function CreateGoodsReceiptSupplier({ onBack }) {
         setExpiryDates(prev => ({ ...prev, [productCode]: date }));
     };
 
+    const handleTax1Change = (productCode, checked) => {
+        setTax1Values(prev => ({ ...prev, [productCode]: checked ? 'Y' : 'N' }));
+    };
+
+    const handleTemperatureChange = (productCode, temp) => {
+        setTemperatures(prev => ({ ...prev, [productCode]: temp }));
+    };
+
     const handleSave = async () => {
+        if (!refNo) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Missing Information',
+                text: 'Please enter a reference number.',
+                timer: 1500
+            });
+            return;
+        }
+
         if (!saveSupplier || !saveBranch || products.length === 0) {
             Swal.fire({
                 icon: 'warning',
@@ -354,8 +349,12 @@ export default function CreateGoodsReceiptSupplier({ onBack }) {
                 }
             });
 
+            // Calculate taxable and non-taxable amounts
+            const { taxable, nonTaxable } = calculateTaxableAndNonTaxable();
+            const totalWithTax = total + calculateTax();
+
             const headerData = {
-                refno: lastRefNo,
+                refno: refNo, // Use the manually entered refNo
                 rdate: format(startDate, 'MM/dd/yyyy'),
                 supplier_code: saveSupplier,
                 branch_code: saveBranch,
@@ -363,6 +362,9 @@ export default function CreateGoodsReceiptSupplier({ onBack }) {
                 monthh: format(startDate, 'MM'),
                 myear: startDate.getFullYear(),
                 user_code: userData2?.user_code || '',
+                taxable: taxable,
+                nontaxable: nonTaxable,
+                total: total
             };
 
             const productArrayData = products.map(product => ({
@@ -371,16 +373,20 @@ export default function CreateGoodsReceiptSupplier({ onBack }) {
                 qty: quantities[product.product_code].toString(),
                 unit_code: units[product.product_code],
                 uprice: unitPrices[product.product_code].toString(),
+                tax1: tax1Values[product.product_code] || 'N',
                 amt: totals[product.product_code].toString(),
                 expire_date: format(expiryDates[product.product_code], 'MM/dd/yyyy'),
-                texpire_date: format(expiryDates[product.product_code], 'yyyyMMdd')
+                texpire_date: format(expiryDates[product.product_code], 'yyyyMMdd'),
+                temperature1: temperatures[product.product_code] || '38'
             }));
 
             const orderData = {
                 headerData,
                 productArrayData,
                 footerData: {
-                    total: total.toString()
+                    taxable: taxable,
+                    nontaxable: nonTaxable,
+                    total: totalWithTax
                 }
             };
 
@@ -389,7 +395,7 @@ export default function CreateGoodsReceiptSupplier({ onBack }) {
             await Swal.fire({
                 icon: 'success',
                 title: 'Created receipt successfully',
-                text: `Reference No: ${lastRefNo}`,
+                text: `Reference No: ${refNo}`,
                 showConfirmButton: false,
                 timer: 1500
             });
@@ -411,8 +417,8 @@ export default function CreateGoodsReceiptSupplier({ onBack }) {
     const calculateTax = () => {
         let taxableAmount = 0;
         products.forEach(product => {
-            if (product.tax1 === 'Y') {
-                const productCode = product.product_code;
+            const productCode = product.product_code;
+            if (tax1Values[productCode] === 'Y') {
                 const quantity = quantities[productCode] || 0;
                 const unitPrice = unitPrices[productCode] || 0;
                 taxableAmount += quantity * unitPrice;
@@ -421,7 +427,29 @@ export default function CreateGoodsReceiptSupplier({ onBack }) {
         return taxableAmount * 0.07;
     };
 
+    // Calculate taxable and non-taxable amounts
+    const calculateTaxableAndNonTaxable = () => {
+        let taxable = 0;
+        let nonTaxable = 0;
+
+        products.forEach(product => {
+            const productCode = product.product_code;
+            const quantity = quantities[productCode] || 0;
+            const unitPrice = unitPrices[productCode] || 0;
+            const lineTotal = quantity * unitPrice;
+
+            if (tax1Values[productCode] === 'Y') {
+                taxable += lineTotal;
+            } else {
+                nonTaxable += lineTotal;
+            }
+        });
+
+        return { taxable, nonTaxable };
+    };
+
     const resetForm = () => {
+        setRefNo(''); // Reset the manually entered refNo
         setProducts([]);
         setSelectedProducts([]);
         setQuantities({});
@@ -433,6 +461,8 @@ export default function CreateGoodsReceiptSupplier({ onBack }) {
         setSaveBranch('');
         setSearchTerm('');
         setExpiryDates({});
+        setTax1Values({});
+        setTemperatures({});
     };
 
     const handlePageChange = (event, value) => {
@@ -504,6 +534,12 @@ export default function CreateGoodsReceiptSupplier({ onBack }) {
                                     <Typography variant="h6" color="#D9A05B" mt={1}>
                                         ${product.bulk_unit_price.toFixed(2)}
                                     </Typography>
+                                    {/* Show if product is taxable from the tax1 field */}
+                                    {product.tax1 === 'Y' && (
+                                        <Typography variant="caption" color="success.main">
+                                            Taxable
+                                        </Typography>
+                                    )}
                                 </CardContent>
                                 {selectedProducts.includes(product.product_code) && (
                                     <CheckCircleIcon
@@ -541,9 +577,11 @@ export default function CreateGoodsReceiptSupplier({ onBack }) {
                     <Typography sx={{ fontSize: '16px', fontWeight: '600', mt: '18px' }}>
                         Ref.no
                     </Typography>
+                    {/* Manual entry for refNo */}
                     <TextField
-                        value={lastRefNo}
-                        disabled
+                        value={refNo}
+                        onChange={handleRefNoChange}
+                        placeholder="Enter reference number"
                         size="small"
                         sx={{
                             mt: '8px',
@@ -561,7 +599,6 @@ export default function CreateGoodsReceiptSupplier({ onBack }) {
                         selected={startDate}
                         onChange={(date) => {
                             setStartDate(date);
-                            handleGetLastRefNo(date);
                         }}
                         dateFormat="MM/dd/yyyy"
                         customInput={<CustomInput />}
@@ -646,7 +683,9 @@ export default function CreateGoodsReceiptSupplier({ onBack }) {
                                     <TableCell>Image</TableCell>
                                     <TableCell>Product Code</TableCell>
                                     <TableCell>Product Name</TableCell>
+                                    <TableCell>Tax</TableCell>
                                     <TableCell>Expiry Date</TableCell>
+                                    <TableCell>Temperature</TableCell>
                                     <TableCell>Quantity</TableCell>
                                     <TableCell>Unit</TableCell>
                                     <TableCell>Unit Price</TableCell>
@@ -673,12 +712,26 @@ export default function CreateGoodsReceiptSupplier({ onBack }) {
                                         </TableCell>
                                         <TableCell>{product.product_code}</TableCell>
                                         <TableCell>{product.product_name}</TableCell>
+                                        <TableCell>{product.tax1 === 'Y' ? 'Yes' : 'No'}</TableCell>
+
                                         <TableCell>
                                             <DatePicker
                                                 selected={expiryDates[product.product_code]}
                                                 onChange={(date) => handleExpiryDateChange(product.product_code, date)}
                                                 dateFormat="MM/dd/yyyy"
                                                 customInput={<CustomInput />}
+                                            />
+                                        </TableCell>
+                                        <TableCell>
+                                            <TextField
+                                                value={temperatures[product.product_code] || ''}
+                                                onChange={(e) => handleTemperatureChange(product.product_code, e.target.value)}
+                                                size="small"
+                                                type="number"
+                                                InputProps={{
+                                                    endAdornment: <InputAdornment position="end">°C</InputAdornment>,
+                                                }}
+                                                sx={{ width: '100px' }}
                                             />
                                         </TableCell>
                                         <TableCell>

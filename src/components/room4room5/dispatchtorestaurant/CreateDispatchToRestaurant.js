@@ -101,34 +101,34 @@ export default function CreateDispatchToRestaurant({ onBack }) {
             // Add month and year to the payload
             const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
             const year = selectedDate.getFullYear().toString().slice(-2);
-            
-            const res = await dispatch(kt_dpbrefno({ 
+
+            const res = await dispatch(kt_dpbrefno({
                 test: 10,
                 month: month,
                 year: year
             })).unwrap();
-    
+
             // Add logging to debug response
             console.log('Ref No Response:', res);
-    
+
             if (!res.data || !res.data.refno) {
                 setLastRefNo(`KTDPB${year}${month}001`);
                 return;
             }
-    
+
             const lastRefNo = res.data.refno;
             const lastRefMonth = lastRefNo.substring(6, 8);
             const lastRefYear = lastRefNo.substring(4, 6);
-    
+
             if (lastRefMonth !== month || lastRefYear !== year) {
                 setLastRefNo(`KTDPB${year}${month}001`);
                 return;
             }
-    
+
             const lastNumber = parseInt(lastRefNo.slice(-3));
             const newNumber = lastNumber + 1;
             setLastRefNo(`KTDPB${year}${month}${String(newNumber).padStart(3, '0')}`);
-    
+
         } catch (err) {
             console.error("Error generating refno:", err);
             const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
@@ -137,14 +137,18 @@ export default function CreateDispatchToRestaurant({ onBack }) {
         }
     };
 
+    // Improved handleProductSelect function with better warning message
     const handleProductSelect = (product) => {
         if (products.some(p => p.product_code === product.product_code)) {
+            // More detailed warning message with consistent styling
             Swal.fire({
                 icon: 'warning',
-                title: 'Product already exists',
-                timer: 1500,
-                showConfirmButton: false
+                title: 'Duplicate Product',
+                text: `${product.product_name} is already in your dispatch. Please adjust the quantity instead.`,
+                confirmButtonColor: '#754C27'
             });
+            setSearchTerm('');
+            setShowDropdown(false);
             return;
         }
 
@@ -160,11 +164,48 @@ export default function CreateDispatchToRestaurant({ onBack }) {
         calculateOrderTotals([...products, product]);
     };
 
+    // Updated handleSearchChange with Enter key functionality
     const handleSearchChange = (e) => {
         const value = e.target.value;
         setSearchTerm(value);
 
-        if (value.length > 0) {
+        // Add Enter key functionality
+        if (e.key === 'Enter' && value.trim() !== '') {
+            // Search for exact match
+            dispatch(searchProductName({ product_name: value }))
+                .unwrap()
+                .then((res) => {
+                    if (res.data && res.data.length > 0) {
+                        // Find exact match or use the first result
+                        const exactMatch = res.data.find(
+                            product => product.product_name.toLowerCase() === value.toLowerCase()
+                        );
+                        const selectedProduct = exactMatch || res.data[0];
+
+                        // Check for duplicate
+                        if (products.some(p => p.product_code === selectedProduct.product_code)) {
+                            Swal.fire({
+                                icon: 'warning',
+                                title: 'Duplicate Product',
+                                text: `${selectedProduct.product_name} is already in your dispatch. Please adjust the quantity instead.`,
+                                confirmButtonColor: '#754C27'
+                            });
+                        } else {
+                            // Add product if not a duplicate
+                            setProducts(prev => [...prev, selectedProduct]);
+                            setQuantities(prev => ({ ...prev, [selectedProduct.product_code]: 1 }));
+                            setUnits(prev => ({ ...prev, [selectedProduct.product_code]: selectedProduct.productUnit1.unit_code }));
+                            setExpiryDates(prev => ({ ...prev, [selectedProduct.product_code]: new Date() }));
+                            setTemperatures(prev => ({ ...prev, [selectedProduct.product_code]: "" }));
+                            setUnitPrices(prev => ({ ...prev, [selectedProduct.product_code]: selectedProduct.bulk_unit_price }));
+                            calculateOrderTotals([...products, selectedProduct]);
+                        }
+                        setSearchTerm('');
+                        setShowDropdown(false);
+                    }
+                })
+                .catch((err) => console.log(err.message));
+        } else if (value.length > 0) {
             dispatch(searchProductName({ product_name: value }))
                 .unwrap()
                 .then((res) => {
@@ -501,6 +542,7 @@ export default function CreateDispatchToRestaurant({ onBack }) {
                                 <TextField
                                     value={searchTerm}
                                     onChange={handleSearchChange}
+                                    onKeyDown={handleSearchChange}
                                     placeholder="Search"
                                     sx={{
                                         '& .MuiInputBase-root': {

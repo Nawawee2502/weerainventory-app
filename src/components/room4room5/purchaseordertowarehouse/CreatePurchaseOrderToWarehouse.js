@@ -148,11 +148,85 @@ export default function CreatePurchaseOrderToWinery({ onBack }) {
         }
     };
 
+    // Improved handleProductSelect function with duplicate checking
+    const handleProductSelect = (product) => {
+        // Check if product already exists in the list
+        if (products.some(p => p.product_code === product.product_code)) {
+            // Show warning with better styling and more helpful message
+            Swal.fire({
+                icon: 'warning',
+                title: 'Duplicate Product',
+                text: `${product.product_name} is already in your purchase order. Please adjust the quantity instead.`,
+                confirmButtonColor: '#754C27'
+            });
+            setSearchTerm('');
+            setShowDropdown(false);
+            return;
+        }
+
+        setSearchTerm(product.product_name);
+        setShowDropdown(false);
+
+        const newProducts = [...products, product];
+        setProducts(newProducts);
+
+        const initialQuantity = 1;
+        const initialUnitCode = product.productUnit1.unit_code;
+        const initialUnitPrice = product.productUnit1.unit_code === initialUnitCode
+            ? product.bulk_unit_price
+            : product.retail_unit_price;
+
+        const initialAmount = initialQuantity * initialUnitPrice;
+        const newTaxable = product.tax1 === 'Y' ? initialAmount : 0;
+        const newNonTaxable = product.tax1 === 'Y' ? 0 : initialAmount;
+
+        setTaxableAmount(prev => prev + newTaxable);
+        setNonTaxableAmount(prev => prev + newNonTaxable);
+        setTotal(prev => prev + (newTaxable * (1 + TAX_RATE)) + newNonTaxable);
+
+        setQuantities(prev => ({
+            ...prev,
+            [product.product_code]: initialQuantity
+        }));
+        setUnits(prev => ({
+            ...prev,
+            [product.product_code]: initialUnitCode
+        }));
+        setUnitPrices(prev => ({
+            ...prev,
+            [product.product_code]: initialUnitPrice
+        }));
+        setTotals(prev => ({
+            ...prev,
+            [product.product_code]: initialAmount
+        }));
+
+        setSearchTerm('');
+    };
+
+    // Updated handleSearchChange with Enter key functionality
     const handleSearchChange = async (e) => {
         const value = e.target.value;
         setSearchTerm(value);
 
-        if (value.length > 0) {
+        // Add Enter key functionality
+        if (e.key === 'Enter' && value.trim() !== '') {
+            try {
+                const response = await dispatch(searchProductName({ product_name: value })).unwrap();
+                if (response.data && response.data.length > 0) {
+                    // Find exact match or use the first result
+                    const exactMatch = response.data.find(
+                        product => product.product_name.toLowerCase() === value.toLowerCase()
+                    );
+                    const selectedProduct = exactMatch || response.data[0];
+
+                    // Handle product selection with duplicate check
+                    handleProductSelect(selectedProduct);
+                }
+            } catch (err) {
+                console.error('Error searching products:', err);
+            }
+        } else if (value.length > 0) {
             try {
                 const response = await dispatch(searchProductName({ product_name: value })).unwrap();
                 if (response.data) {
@@ -173,47 +247,6 @@ export default function CreatePurchaseOrderToWinery({ onBack }) {
             setSearchResults([]);
             setShowDropdown(false);
         }
-    };
-
-    const handleProductSelect = (product) => {
-        setSearchTerm(product.product_name);
-        setShowDropdown(false);
-    
-        const newProducts = [...products, product];
-        setProducts(newProducts);
-    
-        const initialQuantity = 1;
-        const initialUnitCode = product.productUnit1.unit_code;
-        const initialUnitPrice = product.productUnit1.unit_code === initialUnitCode
-            ? product.bulk_unit_price
-            : product.retail_unit_price;
-    
-        const initialAmount = initialQuantity * initialUnitPrice;
-        const newTaxable = product.tax1 === 'Y' ? initialAmount : 0;
-        const newNonTaxable = product.tax1 === 'Y' ? 0 : initialAmount;
-    
-        setTaxableAmount(prev => prev + newTaxable);
-        setNonTaxableAmount(prev => prev + newNonTaxable);
-        setTotal(prev => prev + (newTaxable * (1 + TAX_RATE)) + newNonTaxable);
-    
-        setQuantities(prev => ({
-            ...prev,
-            [product.product_code]: initialQuantity
-        }));
-        setUnits(prev => ({
-            ...prev,
-            [product.product_code]: initialUnitCode
-        }));
-        setUnitPrices(prev => ({
-            ...prev,
-            [product.product_code]: initialUnitPrice
-        }));
-        setTotals(prev => ({
-            ...prev,
-            [product.product_code]: initialAmount
-        }));
-    
-        setSearchTerm('');
     };
 
     const calculateProductTotal = (productCode, quantity, unitPrice, tax1) => {
@@ -488,6 +521,7 @@ export default function CreatePurchaseOrderToWinery({ onBack }) {
                             <TextField
                                 value={searchTerm}
                                 onChange={handleSearchChange}
+                                onKeyDown={handleSearchChange}
                                 onKeyUp={(e) => {
                                     if (e.key === 'Enter' && searchResults.length > 0) {
                                         handleProductSelect(searchResults[0]);

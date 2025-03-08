@@ -61,56 +61,65 @@ export default function CreateBranchGoodsRequisition({ onBack }) {
     const [showDropdown, setShowDropdown] = useState(false);
     const [expiryDates, setExpiryDates] = useState({});
     const [temperatures, setTemperatures] = useState({});
+    const [isLoading, setIsLoading] = useState(false);
     const userDataJson = localStorage.getItem("userData2");
     const userData2 = JSON.parse(userDataJson);
 
     useEffect(() => {
-        const currentDate = new Date();
-        const currentMonth = (currentDate.getMonth() + 1).toString().padStart(2, '0');
-        const currentYear = currentDate.getFullYear().toString().slice(-2);
-        handleGetLastRefNo(currentDate);
-
-        dispatch(branchAll({ offset: 0, limit: 100 }))
-            .unwrap()
-            .then((res) => {
-                setBranches(res.data);
-            })
-            .catch((err) => console.log(err.message));
+        loadBranches();
     }, [dispatch]);
 
-    const handleGetLastRefNo = async (selectedDate) => {
+    const loadBranches = async () => {
         try {
-            const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
-            const year = selectedDate.getFullYear().toString().slice(-2);
+            const response = await dispatch(branchAll({ offset: 0, limit: 100 })).unwrap();
+            setBranches(response.data || []);
+        } catch (err) {
+            console.error("Error loading branches:", err);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Failed to load branches'
+            });
+        }
+    };
+
+    // Updated refno generation to include branch code
+    const handleGetLastRefNo = async (selectedDate, selectedBranch) => {
+        try {
+            if (!selectedBranch) {
+                setLastRefNo('');
+                return;
+            }
 
             const res = await dispatch(Br_grfrefno({
-                month: month,
-                year: year
+                branch_code: selectedBranch,
+                date: selectedDate
             })).unwrap();
 
-            if (!res.data || !res.data.refno) {
-                setLastRefNo(`BRGRF${year}${month}001`);
-                return;
+            if (res.result && res.data?.refno) {
+                setLastRefNo(res.data.refno);
+            } else {
+                throw new Error('Failed to generate reference number');
             }
-
-            const lastRefNo = res.data.refno;
-            const lastRefMonth = lastRefNo.substring(6, 8);
-            const lastRefYear = lastRefNo.substring(4, 6);
-
-            if (lastRefMonth !== month || lastRefYear !== year) {
-                setLastRefNo(`BRGRF${year}${month}001`);
-                return;
-            }
-
-            const lastNumber = parseInt(lastRefNo.slice(-3));
-            const newNumber = lastNumber + 1;
-            setLastRefNo(`BRGRF${year}${month}${String(newNumber).padStart(3, '0')}`);
 
         } catch (err) {
             console.error("Error generating refno:", err);
-            const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
-            const year = selectedDate.getFullYear().toString().slice(-2);
-            setLastRefNo(`BRGRF${year}${month}001`);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Failed to generate reference number'
+            });
+        }
+    };
+
+    // Update branch selection handler
+    const handleBranchChange = (event) => {
+        const newBranchCode = event.target.value;
+        setSaveBranch(newBranchCode);
+        if (newBranchCode) {
+            handleGetLastRefNo(startDate, newBranchCode);
+        } else {
+            setLastRefNo('');
         }
     };
 
@@ -125,14 +134,18 @@ export default function CreateBranchGoodsRequisition({ onBack }) {
         });
     };
 
+    // Improved handleProductSelect function with better warning message
     const handleProductSelect = (product) => {
         if (products.some(p => p.product_code === product.product_code)) {
+            // More detailed warning message with consistent styling
             Swal.fire({
                 icon: 'warning',
-                title: 'Product already exists',
-                timer: 1500,
-                showConfirmButton: false
+                title: 'Duplicate Product',
+                text: `${product.product_name} is already in your requisition. Please adjust the quantity instead.`,
+                confirmButtonColor: '#754C27'
             });
+            setSearchTerm('');
+            setShowDropdown(false);
             return;
         }
 
@@ -153,11 +166,53 @@ export default function CreateBranchGoodsRequisition({ onBack }) {
         setShowDropdown(false);
     };
 
+    // Updated handleSearchChange with Enter key functionality
     const handleSearchChange = (e) => {
         const value = e.target.value;
         setSearchTerm(value);
 
-        if (value.length > 0) {
+        // Add Enter key functionality
+        if (e.key === 'Enter' && value.trim() !== '') {
+            // Search for exact match
+            dispatch(searchProductName({ product_name: value }))
+                .unwrap()
+                .then((res) => {
+                    if (res.data && res.data.length > 0) {
+                        // Find exact match or use the first result
+                        const exactMatch = res.data.find(
+                            product => product.product_name.toLowerCase() === value.toLowerCase()
+                        );
+                        const selectedProduct = exactMatch || res.data[0];
+
+                        // Check for duplicate
+                        if (products.some(p => p.product_code === selectedProduct.product_code)) {
+                            Swal.fire({
+                                icon: 'warning',
+                                title: 'Duplicate Product',
+                                text: `${selectedProduct.product_name} is already in your requisition. Please adjust the quantity instead.`,
+                                confirmButtonColor: '#754C27'
+                            });
+                        } else {
+                            // Add product if not a duplicate
+                            const productCode = selectedProduct.product_code;
+                            const initialQuantity = 1;
+                            const initialPrice = selectedProduct.bulk_unit_price;
+
+                            setProducts(prev => [...prev, selectedProduct]);
+                            setQuantities(prev => ({ ...prev, [productCode]: initialQuantity }));
+                            setUnits(prev => ({ ...prev, [productCode]: selectedProduct.productUnit1.unit_code }));
+                            setExpiryDates(prev => ({ ...prev, [productCode]: new Date() }));
+                            setTemperatures(prev => ({ ...prev, [productCode]: "" }));
+                            setUnitPrices(prev => ({ ...prev, [productCode]: initialPrice }));
+
+                            updateTotals(productCode, initialQuantity, initialPrice);
+                        }
+                        setSearchTerm('');
+                        setShowDropdown(false);
+                    }
+                })
+                .catch((err) => console.log(err.message));
+        } else if (value.length > 0) {
             dispatch(searchProductName({ product_name: value }))
                 .unwrap()
                 .then((res) => {
@@ -250,17 +305,18 @@ export default function CreateBranchGoodsRequisition({ onBack }) {
     };
 
     const handleSave = async () => {
-        if (!saveBranch || products.length === 0) {
+        if (!saveBranch || products.length === 0 || !lastRefNo) {
             Swal.fire({
                 icon: 'warning',
                 title: 'Missing Information',
-                text: 'Please fill in all required fields.',
+                text: 'Please select a branch and add at least one product.',
                 timer: 1500
             });
             return;
         }
 
         try {
+            setIsLoading(true);
             Swal.fire({
                 title: 'Saving requisition...',
                 allowOutsideClick: false,
@@ -312,12 +368,15 @@ export default function CreateBranchGoodsRequisition({ onBack }) {
             onBack();
 
         } catch (error) {
+            console.error("Error saving GRF:", error);
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
                 text: error.message || 'Error saving requisition',
                 confirmButtonText: 'OK'
             });
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -364,7 +423,7 @@ export default function CreateBranchGoodsRequisition({ onBack }) {
                                     Ref.no
                                 </Typography>
                                 <TextField
-                                    value={lastRefNo}
+                                    value={lastRefNo || "Please select branch first"}
                                     disabled
                                     size="small"
                                     placeholder='Ref.no'
@@ -373,7 +432,10 @@ export default function CreateBranchGoodsRequisition({ onBack }) {
                                         width: '100%',
                                         '& .MuiOutlinedInput-root': {
                                             borderRadius: '10px',
-                                            fontWeight: '700'
+                                            fontWeight: '700',
+                                            '& .Mui-disabled': {
+                                                WebkitTextFillColor: !lastRefNo ? '#d32f2f' : 'rgba(0, 0, 0, 0.38)',
+                                            }
                                         },
                                     }}
                                 />
@@ -386,7 +448,9 @@ export default function CreateBranchGoodsRequisition({ onBack }) {
                                     selected={startDate}
                                     onChange={(date) => {
                                         setStartDate(date);
-                                        handleGetLastRefNo(date);
+                                        if (saveBranch) {
+                                            handleGetLastRefNo(date, saveBranch);
+                                        }
                                     }}
                                     dateFormat="MM/dd/yyyy"
                                     customInput={<CustomInput />}
@@ -399,7 +463,7 @@ export default function CreateBranchGoodsRequisition({ onBack }) {
                                 <Box
                                     component="select"
                                     value={saveBranch}
-                                    onChange={(e) => setSaveBranch(e.target.value)}
+                                    onChange={(e) => handleBranchChange(e)}
                                     sx={{
                                         mt: '8px',
                                         width: '100%',
@@ -440,6 +504,7 @@ export default function CreateBranchGoodsRequisition({ onBack }) {
                                 <TextField
                                     value={searchTerm}
                                     onChange={handleSearchChange}
+                                    onKeyDown={handleSearchChange}
                                     placeholder="Search"
                                     sx={{
                                         '& .MuiInputBase-root': {
@@ -628,6 +693,7 @@ export default function CreateBranchGoodsRequisition({ onBack }) {
 
                         <Button
                             onClick={handleSave}
+                            disabled={isLoading || !lastRefNo}
                             sx={{
                                 width: '100%',
                                 height: '48px',
@@ -638,7 +704,7 @@ export default function CreateBranchGoodsRequisition({ onBack }) {
                                     bgcolor: '#5C3D1F'
                                 }
                             }}>
-                            Save
+                            {isLoading ? 'Saving...' : 'Save'}
                         </Button>
                     </Box>
                 </Box>

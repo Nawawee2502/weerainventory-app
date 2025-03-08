@@ -131,15 +131,18 @@ export default function CreateTransferWithdrawal({ onBack }) {
         });
     };
 
-    // Product Selection Handler
+    // Improved handleProductSelect function with better warning message
     const handleProductSelect = (product) => {
         if (products.some(p => p.product_code === product.product_code)) {
+            // More detailed warning message with consistent styling
             Swal.fire({
                 icon: 'warning',
-                title: 'Product already exists',
-                timer: 1500,
-                showConfirmButton: false
+                title: 'Duplicate Product',
+                text: `${product.product_name} is already in your transfer withdrawal. Please adjust the quantity instead.`,
+                confirmButtonColor: '#754C27'
             });
+            setSearchTerm('');
+            setShowDropdown(false);
             return;
         }
 
@@ -160,12 +163,52 @@ export default function CreateTransferWithdrawal({ onBack }) {
         setShowDropdown(false);
     };
 
-    // Product Search Handler
+    // Updated handleSearchChange with Enter key functionality
     const handleSearchChange = async (e) => {
         const value = e.target.value;
         setSearchTerm(value);
 
-        if (value.length > 0) {
+        // Add Enter key functionality
+        if (e.key === 'Enter' && value.trim() !== '') {
+            try {
+                const res = await dispatch(searchProductName({ product_name: value })).unwrap();
+                if (res.data && res.data.length > 0) {
+                    // Find exact match or use the first result
+                    const exactMatch = res.data.find(
+                        product => product.product_name.toLowerCase() === value.toLowerCase()
+                    );
+                    const selectedProduct = exactMatch || res.data[0];
+
+                    // Check for duplicate
+                    if (products.some(p => p.product_code === selectedProduct.product_code)) {
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Duplicate Product',
+                            text: `${selectedProduct.product_name} is already in your transfer withdrawal. Please adjust the quantity instead.`,
+                            confirmButtonColor: '#754C27'
+                        });
+                    } else {
+                        // Add product if not a duplicate
+                        const productCode = selectedProduct.product_code;
+                        const initialQuantity = 1;
+                        const initialPrice = selectedProduct.bulk_unit_price;
+
+                        setProducts(prev => [...prev, selectedProduct]);
+                        setQuantities(prev => ({ ...prev, [productCode]: initialQuantity }));
+                        setUnits(prev => ({ ...prev, [productCode]: selectedProduct.productUnit1.unit_code }));
+                        setExpiryDates(prev => ({ ...prev, [productCode]: new Date() }));
+                        setTemperatures(prev => ({ ...prev, [productCode]: "" }));
+                        setUnitPrices(prev => ({ ...prev, [productCode]: initialPrice }));
+
+                        updateTotals(productCode, initialQuantity, initialPrice);
+                    }
+                    setSearchTerm('');
+                    setShowDropdown(false);
+                }
+            } catch (err) {
+                console.error("Search error:", err);
+            }
+        } else if (value.length > 0) {
             try {
                 const res = await dispatch(searchProductName({ product_name: value })).unwrap();
                 if (res.data) {
@@ -449,6 +492,7 @@ export default function CreateTransferWithdrawal({ onBack }) {
                                 <TextField
                                     value={searchTerm}
                                     onChange={handleSearchChange}
+                                    onKeyDown={handleSearchChange}
                                     placeholder="Search products"
                                     sx={{
                                         '& .MuiInputBase-root': {

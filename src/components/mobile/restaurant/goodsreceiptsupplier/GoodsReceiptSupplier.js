@@ -89,6 +89,7 @@ export default function GoodsReceiptSupplier({ onCreate, onEdit }) {
   const [data, setData] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [excludePrice, setExcludePrice] = useState(false);
+  const [totalRecords, setTotalRecords] = useState(0);
   const limit = 5;
 
   // Load suppliers on component mount
@@ -120,7 +121,13 @@ export default function GoodsReceiptSupplier({ onCreate, onEdit }) {
       setIsLoading(true);
       const offset = (page - 1) * limit;
 
-      const formattedDate = filterDate.toISOString().slice(0, 10).replace(/-/g, '');
+      // Format date as YYYYMMDD for backend
+      const year = filterDate.getFullYear();
+      const month = String(filterDate.getMonth() + 1).padStart(2, '0');
+      const day = String(filterDate.getDate()).padStart(2, '0');
+      const formattedDate = `${year}${month}${day}`;
+
+      console.log('Fetching data with date:', formattedDate);
 
       const response = await dispatch(Br_rfsAlljoindt({
         offset,
@@ -131,17 +138,34 @@ export default function GoodsReceiptSupplier({ onCreate, onEdit }) {
         product_code: searchProduct
       })).unwrap();
 
-      if (response.result && response.data) {
-        setData(response.data);
-        const totalPages = Math.ceil(response.data.length / limit);
-        setCount(totalPages || 1);
+      if (response.result) {
+        setData(response.data || []);
+
+        // Use total count from backend for pagination
+        const totalCount = response.total || 0;
+        setTotalRecords(totalCount);
+
+        // Calculate total pages based on total count and limit
+        const totalPages = Math.ceil(totalCount / limit);
+        setCount(totalPages > 0 ? totalPages : 1);
+
+        console.log(`Retrieved ${response.data.length} records. Total: ${totalCount}, Pages: ${totalPages}`);
+      } else {
+        console.error('API returned result:false:', response);
+        setData([]);
+        setTotalRecords(0);
+        setCount(1);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
+      setData([]);
+      setTotalRecords(0);
+      setCount(1);
+
       Swal.fire({
         icon: 'error',
         title: 'Error',
-        text: 'Failed to fetch data'
+        text: 'Failed to fetch data: ' + (error.message || 'Unknown error')
       });
     } finally {
       setIsLoading(false);
@@ -331,61 +355,6 @@ export default function GoodsReceiptSupplier({ onCreate, onEdit }) {
           ))}
         </Box>
 
-        {/* Product Search with Autocomplete */}
-        <Box sx={{ position: 'relative' }}>
-          <TextField
-            value={searchProduct}
-            onChange={handleSearchProductChange}
-            placeholder="Search Product"
-            sx={{
-              '& .MuiInputBase-root': { height: '38px', width: '100%' },
-              '& .MuiOutlinedInput-input': { padding: '8.5px 14px' }
-            }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon sx={{ color: '#5A607F' }} />
-                </InputAdornment>
-              ),
-            }}
-          />
-          {showDropdown && searchResults.length > 0 && (
-            <Box sx={{
-              position: 'absolute',
-              top: '100%',
-              left: 0,
-              right: 0,
-              backgroundColor: 'white',
-              boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-              borderRadius: '4px',
-              zIndex: 1000,
-              maxHeight: '200px',
-              overflowY: 'auto',
-              mt: '4px'
-            }}>
-              {searchResults.map((product) => (
-                <Box
-                  key={product.product_code}
-                  onClick={() => {
-                    setSearchProduct(product.product_name);
-                    setShowDropdown(false);
-                    fetchData();
-                  }}
-                  sx={{
-                    p: 1.5,
-                    cursor: 'pointer',
-                    '&:hover': {
-                      backgroundColor: '#f5f5f5'
-                    },
-                    borderBottom: '1px solid #eee'
-                  }}
-                >
-                  <Typography>{product.product_name}</Typography>
-                </Box>
-              ))}
-            </Box>
-          )}
-        </Box>
         <Box sx={{ width: '200px' }}>
           <DatePicker
             selected={filterDate}
@@ -467,8 +436,8 @@ export default function GoodsReceiptSupplier({ onCreate, onEdit }) {
                     </StyledTableCell>
                     <StyledTableCell align="center">{row.refno}</StyledTableCell>
                     <StyledTableCell align="center">{row.rdate}</StyledTableCell>
-                    <StyledTableCell align="center">{row.supplier?.supplier_name}</StyledTableCell>
-                    <StyledTableCell align="center">{row.total.toFixed(2)}</StyledTableCell>
+                    <StyledTableCell align="center">{row.tbl_supplier?.supplier_name}</StyledTableCell>
+                    <StyledTableCell align="center">{Number(row.total).toFixed(2)}</StyledTableCell>
                     <StyledTableCell align="center">{row.user?.username}</StyledTableCell>
                     <StyledTableCell align="center">
                       <IconButton

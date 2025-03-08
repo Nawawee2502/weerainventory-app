@@ -118,12 +118,23 @@ export default function GoodsRequisition({ onCreate, onEdit }) {
     fetchData();
   }, [page, searchBranch, searchProduct, filterDate]);
 
+  // แก้ไขฟังก์ชัน fetchData
   const fetchData = async () => {
     try {
       setIsLoading(true);
       const offset = (page - 1) * limit;
 
-      const formattedDate = filterDate.toISOString().slice(0, 10).replace(/-/g, '');
+      // แก้ไขการจัดการวันที่เพื่อให้ทำงานได้ในทุก timezone
+      // 1. สร้างวันที่ในเวลาเที่ยงคืนของวันที่เลือกในโซนเวลาท้องถิ่น
+      const localDate = new Date(filterDate);
+      // 2. รีเซ็ตเวลาเป็น 00:00:00.000 ในโซนเวลาท้องถิ่น
+      localDate.setHours(0, 0, 0, 0);
+
+      // 3. สร้าง string format ที่เป็น YYYYMMDD โดยตรง
+      const year = localDate.getFullYear();
+      const month = String(localDate.getMonth() + 1).padStart(2, '0');
+      const day = String(localDate.getDate()).padStart(2, '0');
+      const formattedDate = `${year}${month}${day}`;
 
       const response = await dispatch(Br_grfAlljoindt({
         offset,
@@ -333,62 +344,6 @@ export default function GoodsRequisition({ onCreate, onEdit }) {
               {branch.branch_name}
             </option>
           ))}
-        </Box>
-
-        {/* Product Search with Autocomplete */}
-        <Box sx={{ position: 'relative' }}>
-          <TextField
-            value={searchProduct}
-            onChange={handleSearchProductChange}
-            placeholder="Search Product"
-            sx={{
-              '& .MuiInputBase-root': { height: '38px', width: '100%' },
-              '& .MuiOutlinedInput-input': { padding: '8.5px 14px' }
-            }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon sx={{ color: '#5A607F' }} />
-                </InputAdornment>
-              ),
-            }}
-          />
-          {showDropdown && searchResults.length > 0 && (
-            <Box sx={{
-              position: 'absolute',
-              top: '100%',
-              left: 0,
-              right: 0,
-              backgroundColor: 'white',
-              boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-              borderRadius: '4px',
-              zIndex: 1000,
-              maxHeight: '200px',
-              overflowY: 'auto',
-              mt: '4px'
-            }}>
-              {searchResults.map((product) => (
-                <Box
-                  key={product.product_code}
-                  onClick={() => {
-                    setSearchProduct(product.product_name);
-                    setShowDropdown(false);
-                    fetchData();
-                  }}
-                  sx={{
-                    p: 1.5,
-                    cursor: 'pointer',
-                    '&:hover': {
-                      backgroundColor: '#f5f5f5'
-                    },
-                    borderBottom: '1px solid #eee'
-                  }}
-                >
-                  <Typography>{product.product_name}</Typography>
-                </Box>
-              ))}
-            </Box>
-          )}
         </Box>
         <Box sx={{ width: '200px' }}>
           <DatePicker

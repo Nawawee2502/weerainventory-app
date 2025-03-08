@@ -182,7 +182,7 @@ export default function Dashboard() {
 
     // Navigation handlers - updated to respect mode preference
     const handleSettings = () => {
-        window.location.href = isMobileOrTablet ? '/msettings' : '/settings';
+        window.location.href = '/settings';
     };
 
     const handleRestaurant = () => {

@@ -124,7 +124,14 @@ export default function PurchaseOrderToWarehouse({ onCreate, onEdit }) {
         try {
             setIsLoading(true);
             const offset = (page - 1) * limit;
-            const formattedDate = filterDate.toISOString().slice(0, 10).replace(/-/g, '');
+
+            // Format date as YYYYMMDD for backend
+            const year = filterDate.getFullYear();
+            const month = String(filterDate.getMonth() + 1).padStart(2, '0');
+            const day = String(filterDate.getDate()).padStart(2, '0');
+            const formattedDate = `${year}${month}${day}`;
+
+            console.log('Fetching data with date:', formattedDate);
 
             const response = await dispatch(Br_powAlljoindt({
                 offset,
@@ -135,17 +142,32 @@ export default function PurchaseOrderToWarehouse({ onCreate, onEdit }) {
                 product_code: searchProduct
             })).unwrap();
 
-            if (response.result && response.data) {
-                setData(response.data);
-                const totalPages = Math.ceil(response.data.length / limit);
-                setCount(totalPages || 1);
+            if (response.result) {
+                // Update data array with received records
+                setData(response.data || []);
+
+                // Get the total count from the response and calculate pagination
+                const total = response.total || 0;
+
+                // Calculate total pages and update the count
+                const totalPages = Math.ceil(total / limit);
+                setCount(totalPages > 0 ? totalPages : 1);
+
+                console.log(`Retrieved ${response.data.length} records out of ${total} total. Pages: ${totalPages}`);
+            } else {
+                console.error('API returned result:false:', response);
+                setData([]);
+                setCount(1);
             }
         } catch (error) {
             console.error('Error fetching data:', error);
+            setData([]);
+            setCount(1);
+
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
-                text: 'Failed to fetch data'
+                text: 'Failed to fetch data: ' + (error.message || 'Unknown error')
             });
         } finally {
             setIsLoading(false);
@@ -293,24 +315,6 @@ export default function PurchaseOrderToWarehouse({ onCreate, onEdit }) {
                     ))}
                 </Box>
 
-                {/* Product Search */}
-                <TextField
-                    value={searchProduct}
-                    onChange={(e) => setSearchProduct(e.target.value)}
-                    placeholder="Search Product"
-                    sx={{
-                        width: '25%',
-                        '& .MuiInputBase-root': { height: '38px' }
-                    }}
-                    InputProps={{
-                        startAdornment: (
-                            <InputAdornment position="start">
-                                <SearchIcon sx={{ color: '#5A607F' }} />
-                            </InputAdornment>
-                        ),
-                    }}
-                />
-
                 {/* Date Picker */}
                 <Box sx={{ width: '200px' }}>
                     <DatePicker
@@ -361,7 +365,6 @@ export default function PurchaseOrderToWarehouse({ onCreate, onEdit }) {
                             <StyledTableCell align="center">Date</StyledTableCell>
                             <StyledTableCell align="center">Supplier</StyledTableCell>
                             <StyledTableCell align="center">Total Amount</StyledTableCell>
-                            <StyledTableCell align="center">Tax</StyledTableCell>
                             <StyledTableCell align="center">Username</StyledTableCell>
                             <StyledTableCell align="center">Actions</StyledTableCell>
                         </TableRow>
@@ -395,7 +398,6 @@ export default function PurchaseOrderToWarehouse({ onCreate, onEdit }) {
                                         <TableCell align="center">{row.rdate}</TableCell>
                                         <TableCell align="center">{row.tbl_supplier?.supplier_name}</TableCell>
                                         <TableCell align="center">${Number(row.total).toFixed(2)}</TableCell>
-                                        <TableCell align="center">${Number(row.tax1).toFixed(2)}</TableCell>
                                         <TableCell align="center">{row.user?.username}</TableCell>
                                         <TableCell align="center">
                                             <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>

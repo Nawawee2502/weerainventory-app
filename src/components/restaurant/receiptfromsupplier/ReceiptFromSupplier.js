@@ -1,4 +1,4 @@
-import { Box, Button, InputAdornment, TextField, Typography, tableCellClasses, TableContainer, Table, TableHead, TableRow, TableCell, TableBody, Paper, Checkbox, IconButton } from '@mui/material';
+import { Box, Button, InputAdornment, TextField, Typography, tableCellClasses, TableContainer, Table, TableHead, TableRow, TableCell, TableBody, Paper, Checkbox, IconButton, Switch } from '@mui/material';
 import React, { useState, useEffect } from 'react';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
 import SearchIcon from '@mui/icons-material/Search';
@@ -12,19 +12,25 @@ import "react-datepicker/dist/react-datepicker.css";
 import Stack from '@mui/material/Stack';
 import Pagination from '@mui/material/Pagination';
 import { useDispatch } from 'react-redux';
-import { supplierAll } from '../../../api/supplierApi';
-import { branchAll } from '../../../api/branchApi';
-import { searchProductName } from '../../../api/productrecordApi';
 import { Br_rfsAlljoindt, deleteBr_rfs } from '../../../api/restaurant/br_rfsApi';
+import { supplierAll } from '../../../api/supplierApi';
+import { searchProductName } from '../../../api/productrecordApi';
 import Swal from 'sweetalert2';
 
-// CustomInput and styled components remain the same...
+const formatDate = (date) => {
+    if (!date) return "";
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${month}/${day}/${year}`;
+};
+
 const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
     <Box sx={{ position: 'relative', display: 'inline-block', width: '100%' }}>
         <TextField
             value={value}
             onClick={onClick}
-            placeholder={placeholder || "MM/DD/YYYY"}
+            placeholder={placeholder}
             ref={ref}
             size="small"
             sx={{
@@ -68,58 +74,60 @@ const StyledTableRow = styled(TableRow)(({ theme }) => ({
         border: 0,
     },
 }));
+
 export default function ReceiptFromSupplier({ onCreate, onEdit }) {
     const dispatch = useDispatch();
     const [searchSupplier, setSearchSupplier] = useState("");
-    const [searchBranch, setSearchBranch] = useState("");
     const [searchProduct, setSearchProduct] = useState("");
     const [searchResults, setSearchResults] = useState([]);
     const [showDropdown, setShowDropdown] = useState(false);
     const [suppliers, setSuppliers] = useState([]);
-    const [branches, setBranches] = useState([]);
     const [filterDate, setFilterDate] = useState(new Date());
+    const [selected, setSelected] = useState([]);
     const [page, setPage] = useState(1);
     const [count, setCount] = useState(1);
     const [data, setData] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [excludePrice, setExcludePrice] = useState(false);
+    const [totalRecords, setTotalRecords] = useState(0);
     const limit = 5;
 
-    // Load initial data
+    // Load suppliers on component mount
     useEffect(() => {
-        const loadInitialData = async () => {
+        const loadSuppliers = async () => {
             try {
-                const [supplierResponse, branchResponse] = await Promise.all([
-                    dispatch(supplierAll({ offset: 0, limit: 100 })).unwrap(),
-                    dispatch(branchAll({ offset: 0, limit: 100 })).unwrap()
-                ]);
-
-                if (supplierResponse.result && supplierResponse.data) {
-                    setSuppliers(supplierResponse.data);
-                }
-                if (branchResponse.result && branchResponse.data) {
-                    setBranches(branchResponse.data);
+                const response = await dispatch(supplierAll({ offset: 0, limit: 100 })).unwrap();
+                if (response.result && response.data) {
+                    setSuppliers(response.data);
                 }
             } catch (error) {
-                console.error('Error loading initial data:', error);
+                console.error('Error loading suppliers:', error);
                 Swal.fire({
                     icon: 'error',
                     title: 'Error',
-                    text: 'Failed to load initial data'
+                    text: 'Failed to load suppliers'
                 });
             }
         };
-        loadInitialData();
+        loadSuppliers();
     }, [dispatch]);
 
     useEffect(() => {
         fetchData();
-    }, [page, searchSupplier, searchBranch, searchProduct, filterDate]);
+    }, [page, searchSupplier, searchProduct, filterDate]);
 
     const fetchData = async () => {
         try {
             setIsLoading(true);
             const offset = (page - 1) * limit;
-            const formattedDate = filterDate.toISOString().slice(0, 10).replace(/-/g, '');
+
+            // Format date as YYYYMMDD for backend
+            const year = filterDate.getFullYear();
+            const month = String(filterDate.getMonth() + 1).padStart(2, '0');
+            const day = String(filterDate.getDate()).padStart(2, '0');
+            const formattedDate = `${year}${month}${day}`;
+
+            console.log('Fetching data with date:', formattedDate);
 
             const response = await dispatch(Br_rfsAlljoindt({
                 offset,
@@ -127,21 +135,37 @@ export default function ReceiptFromSupplier({ onCreate, onEdit }) {
                 rdate1: formattedDate,
                 rdate2: formattedDate,
                 supplier_code: searchSupplier,
-                branch_code: searchBranch,
                 product_code: searchProduct
             })).unwrap();
 
-            if (response.result && response.data) {
-                setData(response.data);
-                const totalPages = Math.ceil(response.data.length / limit);
-                setCount(totalPages || 1);
+            if (response.result) {
+                setData(response.data || []);
+
+                // Use total count from backend for pagination
+                const totalCount = response.total || 0;
+                setTotalRecords(totalCount);
+
+                // Calculate total pages based on total count and limit
+                const totalPages = Math.ceil(totalCount / limit);
+                setCount(totalPages > 0 ? totalPages : 1);
+
+                console.log(`Retrieved ${response.data.length} records. Total: ${totalCount}, Pages: ${totalPages}`);
+            } else {
+                console.error('API returned result:false:', response);
+                setData([]);
+                setTotalRecords(0);
+                setCount(1);
             }
         } catch (error) {
             console.error('Error fetching data:', error);
+            setData([]);
+            setTotalRecords(0);
+            setCount(1);
+
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
-                text: 'Failed to fetch data'
+                text: 'Failed to fetch data: ' + (error.message || 'Unknown error')
             });
         } finally {
             setIsLoading(false);
@@ -150,26 +174,25 @@ export default function ReceiptFromSupplier({ onCreate, onEdit }) {
 
     const handleDelete = async (refno) => {
         try {
-            const result = await Swal.fire({
+            await Swal.fire({
                 title: 'Are you sure?',
                 text: "You won't be able to revert this!",
                 icon: 'warning',
                 showCancelButton: true,
-                confirmButtonColor: '#754C27',
+                confirmButtonColor: '#3085d6',
                 cancelButtonColor: '#d33',
                 confirmButtonText: 'Yes, delete it!'
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    await dispatch(deleteBr_rfs({ refno })).unwrap();
+                    Swal.fire(
+                        'Deleted!',
+                        'Record has been deleted.',
+                        'success'
+                    );
+                    fetchData();
+                }
             });
-
-            if (result.isConfirmed) {
-                await dispatch(deleteBr_rfs({ refno })).unwrap();
-                await Swal.fire({
-                    icon: 'success',
-                    title: 'Deleted!',
-                    text: 'Record has been deleted.',
-                    confirmButtonColor: '#754C27'
-                });
-                fetchData();
-            }
         } catch (error) {
             Swal.fire({
                 icon: 'error',
@@ -179,13 +202,70 @@ export default function ReceiptFromSupplier({ onCreate, onEdit }) {
         }
     };
 
-    const handleSearchSupplierChange = (e) => {
-        setSearchSupplier(e.target.value);
-        setPage(1);
+    const handleSelectAll = (event) => {
+        if (event.target.checked) {
+            const newSelected = data.map(row => row.refno);
+            setSelected(newSelected);
+        } else {
+            setSelected([]);
+        }
     };
 
-    const handleSearchBranchChange = (e) => {
-        setSearchBranch(e.target.value);
+    const handleSelectOne = (event, refno) => {
+        const selectedIndex = selected.indexOf(refno);
+        let newSelected = [];
+
+        if (selectedIndex === -1) {
+            newSelected = newSelected.concat(selected, refno);
+        } else if (selectedIndex === 0) {
+            newSelected = newSelected.concat(selected.slice(1));
+        } else if (selectedIndex === selected.length - 1) {
+            newSelected = newSelected.concat(selected.slice(0, -1));
+        } else if (selectedIndex > 0) {
+            newSelected = newSelected.concat(
+                selected.slice(0, selectedIndex),
+                selected.slice(selectedIndex + 1),
+            );
+        }
+
+        setSelected(newSelected);
+    };
+
+    const handleDeleteSelected = async () => {
+        try {
+            await Swal.fire({
+                title: 'Are you sure?',
+                text: "You won't be able to revert this!",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Yes, delete them!'
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    await Promise.all(
+                        selected.map(refno => dispatch(deleteBr_rfs({ refno })).unwrap())
+                    );
+                    Swal.fire(
+                        'Deleted!',
+                        'Records have been deleted.',
+                        'success'
+                    );
+                    setSelected([]);
+                    fetchData();
+                }
+            });
+        } catch (error) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Failed to delete records'
+            });
+        }
+    };
+
+    const handleSearchSupplierChange = (e) => {
+        setSearchSupplier(e.target.value);
         setPage(1);
     };
 
@@ -203,6 +283,11 @@ export default function ReceiptFromSupplier({ onCreate, onEdit }) {
                 }
             } catch (error) {
                 console.error('Error searching products:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Failed to search products'
+                });
             }
         } else {
             setSearchResults([]);
@@ -210,8 +295,20 @@ export default function ReceiptFromSupplier({ onCreate, onEdit }) {
         }
     };
 
+    const handleDateChange = (date) => {
+        setFilterDate(date);
+        setPage(1);
+    };
+
+    const clearFilters = () => {
+        setSearchSupplier("");
+        setSearchProduct("");
+        setFilterDate(new Date());
+        setPage(1);
+    };
+
     return (
-        <Box sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', p: '48px' }}>
+        <Box sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <Button
                 onClick={onCreate}
                 sx={{
@@ -223,6 +320,7 @@ export default function ReceiptFromSupplier({ onCreate, onEdit }) {
                     display: 'flex',
                     justifyContent: 'center',
                     alignItems: 'center',
+                    mt: '48px',
                     '&:hover': {
                         background: 'linear-gradient(180deg, #8C5D1E 0%, #5D3A1F 100%)',
                     }
@@ -257,118 +355,62 @@ export default function ReceiptFromSupplier({ onCreate, onEdit }) {
                     ))}
                 </Box>
 
-                {/* Branch Dropdown */}
-                <Box
-                    component="select"
-                    value={searchBranch}
-                    onChange={handleSearchBranchChange}
-                    sx={{
-                        height: '38px',
-                        width: '25%',
-                        borderRadius: '4px',
-                        border: '1px solid rgba(0, 0, 0, 0.23)',
-                        padding: '0 14px',
-                        backgroundColor: '#fff'
-                    }}
-                >
-                    <option value="">All Branches</option>
-                    {branches.map((branch) => (
-                        <option key={branch.branch_code} value={branch.branch_code}>
-                            {branch.branch_name}
-                        </option>
-                    ))}
-                </Box>
-
-                {/* Product Search */}
-                <Box sx={{ position: 'relative', width: '25%' }}>
-                    <TextField
-                        value={searchProduct}
-                        onChange={handleSearchProductChange}
-                        placeholder="Search Product"
-                        sx={{
-                            '& .MuiInputBase-root': { height: '38px' },
-                            '& .MuiOutlinedInput-input': { padding: '8.5px 14px' },
-                            width: '100%'
-                        }}
-                        InputProps={{
-                            startAdornment: (
-                                <InputAdornment position="start">
-                                    <SearchIcon sx={{ color: '#5A607F' }} />
-                                </InputAdornment>
-                            ),
-                        }}
-                    />
-                    {showDropdown && searchResults.length > 0 && (
-                        <Box sx={{
-                            position: 'absolute',
-                            top: '100%',
-                            left: 0,
-                            right: 0,
-                            backgroundColor: 'white',
-                            boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-                            borderRadius: '4px',
-                            zIndex: 1000,
-                            maxHeight: '200px',
-                            overflowY: 'auto',
-                            mt: '4px'
-                        }}>
-                            {searchResults.map((product) => (
-                                <Box
-                                    key={product.product_code}
-                                    onClick={() => {
-                                        setSearchProduct(product.product_name);
-                                        setShowDropdown(false);
-                                        fetchData();
-                                    }}
-                                    sx={{
-                                        p: 1.5,
-                                        cursor: 'pointer',
-                                        '&:hover': {
-                                            backgroundColor: '#f5f5f5'
-                                        },
-                                        borderBottom: '1px solid #eee'
-                                    }}
-                                >
-                                    <Typography>{product.product_name}</Typography>
-                                </Box>
-                            ))}
-                        </Box>
-                    )}
-                </Box>
-
-                {/* Date Picker */}
                 <Box sx={{ width: '200px' }}>
                     <DatePicker
                         selected={filterDate}
-                        onChange={(date) => {
-                            setFilterDate(date);
-                            setPage(1);
-                        }}
+                        onChange={handleDateChange}
                         dateFormat="MM/dd/yyyy"
-                        placeholderText="Filter by date"
+                        placeholderText="MM/DD/YYYY"
                         customInput={<CustomInput />}
+                        popperClassName="custom-popper"
                     />
+                </Box>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Switch
+                            checked={excludePrice}
+                            onChange={(e) => setExcludePrice(e.target.checked)}
+                        />
+                        <Typography sx={{ fontWeight: '500', color: '#7E84A3' }}>
+                            Exclude price in file
+                        </Typography>
+                    </Box>
                 </Box>
             </Box>
 
-            {/* Table */}
+            <Box sx={{ width: '100%', mt: '24px' }}>
+                <Button
+                    variant="contained"
+                    color="error"
+                    onClick={handleDeleteSelected}
+                    sx={{ mt: 2 }}
+                    disabled={selected.length === 0}
+                >
+                    Delete Selected ({selected.length})
+                </Button>
+            </Box>
+
             <TableContainer component={Paper} sx={{ width: '100%', mt: '24px' }}>
-                <Table aria-label="customized table">
+                <Table sx={{}} aria-label="customized table">
                     <TableHead>
                         <TableRow>
+                            <StyledTableCell sx={{ width: '1%', textAlign: 'center' }}>
+                                <Checkbox
+                                    checked={data.length > 0 && selected.length === data.length}
+                                    onChange={handleSelectAll}
+                                />
+                            </StyledTableCell>
                             <StyledTableCell width='1%'>No.</StyledTableCell>
                             <StyledTableCell align="center">Ref.no</StyledTableCell>
                             <StyledTableCell align="center">Date</StyledTableCell>
                             <StyledTableCell align="center">Supplier</StyledTableCell>
-                            <StyledTableCell align="center">Branch</StyledTableCell>
-                            <StyledTableCell align="center">Amount</StyledTableCell>
+                            <StyledTableCell align="center">Total Amount</StyledTableCell>
                             <StyledTableCell align="center">Username</StyledTableCell>
                             <StyledTableCell width='1%' align="center"></StyledTableCell>
                             <StyledTableCell width='1%' align="center"></StyledTableCell>
                             <StyledTableCell width='1%' align="center"></StyledTableCell>
                         </TableRow>
                     </TableHead>
-                    {/* แก้ไขส่วนของ TableBody */}
                     <TableBody>
                         {isLoading ? (
                             <TableRow>
@@ -379,43 +421,51 @@ export default function ReceiptFromSupplier({ onCreate, onEdit }) {
                                 <TableCell colSpan={10} align="center">No data found</TableCell>
                             </TableRow>
                         ) : (
-                            data.map((row, index) => (
-                                <StyledTableRow key={row.refno}>
-                                    <StyledTableCell>
-                                        {((page - 1) * limit) + index + 1}
-                                    </StyledTableCell>
-                                    <StyledTableCell align="center">{row.refno}</StyledTableCell>
-                                    <StyledTableCell align="center">{row.rdate}</StyledTableCell>
-                                    <StyledTableCell align="center">{row.tbl_supplier?.supplier_name}</StyledTableCell>
-                                    <StyledTableCell align="center">{row.tbl_branch?.branch_name}</StyledTableCell>
-                                    <StyledTableCell align="center">{row.total.toFixed(2)}</StyledTableCell>
-                                    <StyledTableCell align="center">{row.user?.username}</StyledTableCell>
-                                    <StyledTableCell align="center">
-                                        <IconButton
-                                            onClick={() => onEdit(row.refno)}
-                                            sx={{ border: '1px solid #AD7A2C', borderRadius: '7px' }}
-                                        >
-                                            <EditIcon sx={{ color: '#AD7A2C' }} />
-                                        </IconButton>
-                                    </StyledTableCell>
-                                    <StyledTableCell align="center">
-                                        <IconButton
-                                            onClick={() => handleDelete(row.refno)}
-                                            sx={{ border: '1px solid #F62626', borderRadius: '7px' }}
-                                        >
-                                            <DeleteIcon sx={{ color: '#F62626' }} />
-                                        </IconButton>
-                                    </StyledTableCell>
-                                    <StyledTableCell align="center">
-                                        <IconButton
-                                            onClick={() => {/* Add print functionality */ }}
-                                            sx={{ border: '1px solid #5686E1', borderRadius: '7px' }}
-                                        >
-                                            <PrintIcon sx={{ color: '#5686E1' }} />
-                                        </IconButton>
-                                    </StyledTableCell>
-                                </StyledTableRow>
-                            ))
+                            data.map((row, index) => {
+                                const isSelected = selected.indexOf(row.refno) !== -1;
+                                return (
+                                    <StyledTableRow key={row.refno}>
+                                        <StyledTableCell padding="checkbox">
+                                            <Checkbox
+                                                checked={isSelected}
+                                                onChange={(event) => handleSelectOne(event, row.refno)}
+                                            />
+                                        </StyledTableCell>
+                                        <StyledTableCell component="th" scope="row">
+                                            {((page - 1) * limit) + index + 1}
+                                        </StyledTableCell>
+                                        <StyledTableCell align="center">{row.refno}</StyledTableCell>
+                                        <StyledTableCell align="center">{row.rdate}</StyledTableCell>
+                                        <StyledTableCell align="center">{row.tbl_supplier?.supplier_name}</StyledTableCell>
+                                        <StyledTableCell align="center">{Number(row.total).toFixed(2)}</StyledTableCell>
+                                        <StyledTableCell align="center">{row.user?.username}</StyledTableCell>
+                                        <StyledTableCell align="center">
+                                            <IconButton
+                                                onClick={() => onEdit(row.refno)}
+                                                sx={{ border: '1px solid #AD7A2C', borderRadius: '7px' }}
+                                            >
+                                                <EditIcon sx={{ color: '#AD7A2C' }} />
+                                            </IconButton>
+                                        </StyledTableCell>
+                                        <StyledTableCell align="center">
+                                            <IconButton
+                                                onClick={() => handleDelete(row.refno)}
+                                                sx={{ border: '1px solid #F62626', borderRadius: '7px' }}
+                                            >
+                                                <DeleteIcon sx={{ color: '#F62626' }} />
+                                            </IconButton>
+                                        </StyledTableCell>
+                                        <StyledTableCell align="center">
+                                            <IconButton
+                                                onClick={() => {/* Add print functionality later */ }}
+                                                sx={{ border: '1px solid #5686E1', borderRadius: '7px' }}
+                                            >
+                                                <PrintIcon sx={{ color: '#5686E1' }} />
+                                            </IconButton>
+                                        </StyledTableCell>
+                                    </StyledTableRow>
+                                );
+                            })
                         )}
                     </TableBody>
                 </Table>

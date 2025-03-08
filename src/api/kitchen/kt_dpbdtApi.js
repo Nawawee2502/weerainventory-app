@@ -1,3 +1,8 @@
+import axios from "axios";
+import { createAsyncThunk } from "@reduxjs/toolkit";
+
+const BASE_URL = `${process.env.REACT_APP_URL_API}`;
+
 export const addKt_dpbdt = createAsyncThunk(
     "kt_dpbdt/add",
     async ({ refno, product_code, qty, unit_code, uprice, tax1, expire_date, texpire_date, temperature1, amt }, { dispatch }) => {
@@ -62,13 +67,17 @@ export const deleteKt_dpbdt = createAsyncThunk(
     }
 );
 
+// Changed the API endpoint to match the backend router registration
 export const Kt_dpbdtAlljoindt = createAsyncThunk(
     "kt_dpbdt/read",
     async (refno, { dispatch }) => {
         try {
-            const res = await axios.post(BASE_URL + "/api/Kt_dpbdtAlljoindt", { refno });
+            // Make sure we're sending refno as an object property
+            const payload = typeof refno === 'object' ? refno : { refno };
+            const res = await axios.post(BASE_URL + "/api/Kt_dpbdtAlljoindt", payload);
             return res.data;
         } catch (error) {
+            console.error("Error in Kt_dpbdtAlljoindt:", error);
             throw error;
         }
     }

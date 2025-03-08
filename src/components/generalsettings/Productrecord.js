@@ -256,19 +256,8 @@ export default function ProductRecord() {
                             showConfirmButton: false,
                         });
                         setTimeout(() => {
-                            refetchData();
-                            let offset = 0;
-                            let limit = 5;
-                            dispatch(productAll({ offset, limit }))
-                                .unwrap()
-                                .then((res) => {
-                                    console.log(res.data);
-                                    let resultData = res.data;
-                                    for (let indexArray = 0; indexArray < resultData.length; indexArray++) {
-                                        resultData[indexArray].id = indexArray + 1;
-                                    }
-                                    setProduct(resultData)
-                                });
+                            // Use current page instead of resetting to page 1
+                            refetchData(page);
                         }, 2000);
                     })
                     .catch((err) => {
@@ -291,6 +280,7 @@ export default function ProductRecord() {
         });
     };
 
+    // 2. Fix the handleDeleteSelected function
     const handleDeleteSelected = () => {
         Swal.fire({
             title: 'Are you sure you want to delete the selected products?',
@@ -314,12 +304,8 @@ export default function ProductRecord() {
                         });
                         setTimeout(() => {
                             setSelected([]);
-                            refetchData();
-                            let offset = 0;
-                            let limit = 5;
-                            dispatch(productAll({ offset, limit }))
-                                .unwrap()
-                                .then((res) => setProduct(res.data));
+                            // Use current page instead of resetting to page 1
+                            refetchData(page);
                         }, 2000);
                     })
                     .catch((err) => {
@@ -386,7 +372,8 @@ export default function ProductRecord() {
                     timer: 1500,
                     showConfirmButton: false
                 });
-                refetchData();
+                // Use current page instead of resetting to page 1
+                refetchData(page);
                 toggleEditDrawer(false)();
             })
             .catch((err) => {
@@ -482,6 +469,7 @@ export default function ProductRecord() {
 
             return errors;
         },
+        // Update the onSubmit function in formik configuration
         onSubmit: async (values, { setSubmitting }) => {
             try {
                 // Check validation errors
@@ -520,46 +508,71 @@ export default function ProductRecord() {
 
                 // Create product code and save
                 values.product_code = selectedTypeCode + nextRunningNumber;
-                await dispatch(addProduct(values)).unwrap();
 
-                // Show success message
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Success',
-                    text: 'Product added successfully',
-                    timer: 1500,
-                    showConfirmButton: false,
-                });
+                try {
+                    await dispatch(addProduct(values)).unwrap();
 
-                // Update data with current type selection
-                const [productResponse, countResponse] = await Promise.all([
-                    dispatch(productAlltypeproduct({
-                        typeproduct_code: selectedTypeProduct || null, // ใช้ค่า type ที่เลือกอยู่ปัจจุบัน
-                        offset: (page - 1) * itemsPerPage,
-                        limit: itemsPerPage
-                    })).unwrap(),
-                    dispatch(countProduct({
-                        typeproduct_code: selectedTypeProduct || null // ใช้ค่า type ที่เลือกอยู่ปัจจุบัน
-                    })).unwrap()
-                ]);
+                    // Show success message
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Success',
+                        text: 'Product added successfully',
+                        timer: 1500,
+                        showConfirmButton: false,
+                    });
 
-                // อัพเดทข้อมูลในตาราง
-                if (productResponse.data) {
-                    const productsWithIds = productResponse.data.map((item, index) => ({
-                        ...item,
-                        id: ((page - 1) * itemsPerPage) + index + 1
-                    }));
-                    setProductAllTypeproduct(productsWithIds);
+                    // Update data with current type selection
+                    const [productResponse, countResponse] = await Promise.all([
+                        dispatch(productAlltypeproduct({
+                            typeproduct_code: selectedTypeProduct || null,
+                            offset: (page - 1) * itemsPerPage,
+                            limit: itemsPerPage
+                        })).unwrap(),
+                        dispatch(countProduct({
+                            typeproduct_code: selectedTypeProduct || null
+                        })).unwrap()
+                    ]);
+
+                    // Update table data
+                    if (productResponse.data) {
+                        const productsWithIds = productResponse.data.map((item, index) => ({
+                            ...item,
+                            id: ((page - 1) * itemsPerPage) + index + 1
+                        }));
+                        setProductAllTypeproduct(productsWithIds);
+                    }
+
+                    // Update page count
+                    if (countResponse.data) {
+                        setCount(Math.ceil(countResponse.data / itemsPerPage));
+                    }
+
+                    formik.resetForm();
+                    setOpenDrawer(false);
+
+                } catch (err) {
+                    // Check for duplicate product name error
+                    if (err.message && err.message.includes('Product name already exists')) {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Duplicate Product Name',
+                            text: 'This product name already exists. Please use a different name.',
+                            confirmButtonText: 'OK',
+                            didOpen: () => {
+                                const container = Swal.getContainer();
+                                container.style.zIndex = "2000"; // กำหนดให้สูงกว่า z-index ของ Drawer
+                            }
+                        });
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: 'Failed to save product. Please try again.',
+                            timer: 3000,
+                            showConfirmButton: false,
+                        });
+                    }
                 }
-
-                // อัพเดทจำนวนหน้า
-                if (countResponse.data) {
-                    setCount(Math.ceil(countResponse.data / itemsPerPage));
-                }
-
-                formik.resetForm();
-                setOpenDrawer(false);
-
             } catch (err) {
                 console.error("Error adding product:", err);
                 Swal.fire({

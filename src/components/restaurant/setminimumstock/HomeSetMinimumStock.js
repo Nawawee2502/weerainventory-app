@@ -1,4 +1,4 @@
-import { Box, Button, InputAdornment, TextField, Typography, Drawer, IconButton, Checkbox, Select, MenuItem, FormControl, InputLabel } from '@mui/material';
+import { Box, Button, InputAdornment, TextField, Typography, Drawer, IconButton, Checkbox, Select, MenuItem, FormControl } from '@mui/material';
 import React, { useState, useEffect } from 'react';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
 import SearchIcon from '@mui/icons-material/Search';
@@ -10,19 +10,14 @@ import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Paper from '@mui/material/Paper';
-import DatePicker from 'react-datepicker';
-import 'react-datepicker/dist/react-datepicker.css';
 import { useDispatch } from "react-redux";
 import { searchProductName } from '../../../api/productrecordApi';
 import { unitAll } from '../../../api/productunitApi';
-import { addWh_stockcard } from '../../../api/warehouse/wh_stockcard';
+import { addBrMinStock, queryBrMinStock, deleteBrMinStock, updateBrMinStock, checkMinStockExists } from '../../../api/restaurant/br_minimum_stockApi';
 import { useFormik } from 'formik';
 import Swal from 'sweetalert2';
-import { Edit, Delete, Search, DeleteIcon } from '@mui/icons-material';
-import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
-import { branchAll } from '../../../api/branchApi'
-import { addBrMinStock, queryBrMinStock, deleteBrMinStock } from '../../../api/restaurant/br_minimum_stockApi';
-
+import { Edit, Delete } from '@mui/icons-material';
+import { branchAll } from '../../../api/branchApi';
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
     [`&.${tableCellClasses.head}`]: {
@@ -46,8 +41,6 @@ const StyledTableRow = styled(TableRow)(({ theme }) => ({
 export default function HomeSetMinimumStock() {
     const dispatch = useDispatch();
     const [openDrawer, setOpenDrawer] = useState(false);
-    const [startDate, setStartDate] = useState(new Date());
-    const [filterDate, setFilterDate] = useState(new Date());
     const [searchTerm, setSearchTerm] = useState('');
     const [searchResults, setSearchResults] = useState([]);
     const [showDropdown, setShowDropdown] = useState(false);
@@ -58,48 +51,8 @@ export default function HomeSetMinimumStock() {
     const [minStocks, setMinStocks] = useState([]);
     const [page, setPage] = useState(1);
     const [itemsPerPage] = useState(10);
-
-
-    // Custom DatePicker Input Component
-    const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
-        <Box sx={{ position: 'relative', display: 'inline-block', width: '100%' }}>
-            <TextField
-                value={value}
-                onClick={onClick}
-                placeholder={placeholder}
-                ref={ref}
-                size="small"
-                sx={{
-                    '& .MuiInputBase-root': {
-                        height: '38px',
-                        width: '100%',
-                        backgroundColor: '#fff',
-                    },
-                    '& .MuiOutlinedInput-input': {
-                        cursor: 'pointer',
-                        paddingRight: '40px',
-                    }
-                }}
-                InputProps={{
-                    readOnly: true,
-                    endAdornment: (
-                        <InputAdornment position="start">
-                            <CalendarTodayIcon
-                                sx={{
-                                    color: '#754C27',
-                                    cursor: 'pointer'
-                                }}
-                            />
-                        </InputAdornment>
-                    ),
-                }}
-            />
-        </Box>
-    ));
-
-    const handleDateChange = (date) => {
-        setFilterDate(date);
-    };
+    const [isEditing, setIsEditing] = useState(false);
+    const [editItem, setEditItem] = useState(null);
 
     const formik = useFormik({
         initialValues: {
@@ -136,25 +89,44 @@ export default function HomeSetMinimumStock() {
                     min_qty: values.min_qty
                 };
 
-                await dispatch(addBrMinStock(minStockData)).unwrap();
+                // Check for duplicates only when adding new records
+                if (!isEditing) {
+                    const checkResult = await dispatch(checkMinStockExists({
+                        product_code: values.product_code,
+                        branch_code: values.branch_code
+                    })).unwrap();
 
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Saved successfully',
-                    showConfirmButton: false,
-                    timer: 1500
-                });
+                    if (checkResult.exists) {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Duplicate Entry',
+                            text: 'This product is already set for this restaurant'
+                        });
+                        return;
+                    }
+                }
+
+                if (isEditing) {
+                    await dispatch(updateBrMinStock(minStockData)).unwrap();
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Updated successfully',
+                        showConfirmButton: false,
+                        timer: 1500
+                    });
+                } else {
+                    await dispatch(addBrMinStock(minStockData)).unwrap();
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Saved successfully',
+                        showConfirmButton: false,
+                        timer: 1500
+                    });
+                }
 
                 setOpenDrawer(false);
                 resetForm();
-                // Refresh data
-                if (selectedBranch) {
-                    dispatch(queryBrMinStock({
-                        offset: 0,
-                        limit: itemsPerPage,
-                        branch_code: selectedBranch
-                    }));
-                }
+                refreshData();
             } catch (error) {
                 Swal.fire({
                     icon: 'error',
@@ -165,11 +137,12 @@ export default function HomeSetMinimumStock() {
         }
     });
 
-    useEffect(() => {
+    const refreshData = () => {
         const offset = (page - 1) * itemsPerPage;
         dispatch(queryBrMinStock({
             offset,
-            limit: itemsPerPage
+            limit: itemsPerPage,
+            branch_code: selectedBranch || undefined
         }))
             .unwrap()
             .then((res) => {
@@ -185,17 +158,23 @@ export default function HomeSetMinimumStock() {
                     text: 'Failed to fetch minimum stocks'
                 });
             });
-    }, [page, dispatch, itemsPerPage]);
+    };
+
+    useEffect(() => {
+        refreshData();
+    }, [page, dispatch, itemsPerPage, selectedBranch]);
 
     useEffect(() => {
         let offset = 0;
         let limit = 100;
+
         dispatch(unitAll({ offset, limit }))
             .unwrap()
             .then((res) => {
                 setUnits(res.data);
             })
             .catch((err) => console.log(err.message));
+
         dispatch(branchAll({ offset: 0, limit: 100 }))
             .unwrap()
             .then((response) => {
@@ -238,7 +217,6 @@ export default function HomeSetMinimumStock() {
         formik.setFieldValue('product_code', product.product_code);
         formik.setFieldValue('product_name', product.product_name);
         formik.setFieldValue('unit_code', product.productUnit2.unit_code);
-        formik.setFieldValue('unit_price', product.retail_unit_price);
         setSearchTerm(product.product_name);
         setShowDropdown(false);
     };
@@ -254,8 +232,65 @@ export default function HomeSetMinimumStock() {
         formik.resetForm();
         setSearchTerm('');
         setSelectedProduct(null);
-        setStartDate(new Date());
+        setIsEditing(false);
+        setEditItem(null);
     };
+
+    const handleBranchChange = (e) => {
+        const branchCode = e.target.value;
+        setSelectedBranch(branchCode);
+
+        // Update restaurant in formik when branch changes
+        updateRestaurantFromBranch(branchCode);
+    };
+
+    const handleFormBranchChange = (e) => {
+        const branchCode = e.target.value;
+        formik.setFieldValue('branch_code', branchCode);
+
+        // Update restaurant in formik when branch changes in the form
+        updateRestaurantFromBranch(branchCode);
+    };
+
+    // Helper function to update restaurant based on branch
+    const updateRestaurantFromBranch = (branchCode) => {
+        if (branchCode) {
+            const selectedBranchData = branches.find(branch => branch.branch_code === branchCode);
+            if (selectedBranchData) {
+                formik.setFieldValue('restaurant', selectedBranchData.branch_name || '');
+            }
+        } else {
+            formik.setFieldValue('restaurant', '');
+        }
+    };
+
+    const handleEdit = (stock) => {
+        setIsEditing(true);
+        setEditItem(stock);
+        setSelectedProduct({
+            product_code: stock.product_code,
+            product_name: stock.tbl_product?.product_name,
+            productUnit2: { unit_code: stock.unit_code }
+        });
+
+        // Find branch details to get restaurant name
+        const branchData = branches.find(branch => branch.branch_code === stock.branch_code);
+        const restaurantName = branchData ? branchData.branch_name : '';
+
+        formik.setValues({
+            product_code: stock.product_code,
+            product_name: stock.tbl_product?.product_name,
+            unit_code: stock.unit_code,
+            branch_code: stock.branch_code,
+            min_qty: stock.min_qty,
+            restaurant: restaurantName
+        });
+
+        setSearchTerm(stock.tbl_product?.product_name);
+        setOpenDrawer(true);
+    };
+
+    
 
     const handleDelete = (product_code, branch_code) => {
         Swal.fire({
@@ -276,14 +311,7 @@ export default function HomeSetMinimumStock() {
                             'Minimum stock has been deleted.',
                             'success'
                         );
-                        // Refresh data
-                        if (selectedBranch) {
-                            dispatch(queryBrMinStock({
-                                offset: 0,
-                                limit: itemsPerPage,
-                                branch_code: selectedBranch
-                            }));
-                        }
+                        refreshData();
                     })
                     .catch((error) => {
                         Swal.fire(
@@ -294,6 +322,13 @@ export default function HomeSetMinimumStock() {
                     });
             }
         });
+    };
+
+    // Get restaurant name for a stock item based on branch code
+    const getRestaurantName = (branchCode) => {
+        if (!branchCode) return '';
+        const branch = branches.find(b => b.branch_code === branchCode);
+        return branch ? branch.branch_name : '';
     };
 
     return (
@@ -320,7 +355,7 @@ export default function HomeSetMinimumStock() {
                 <FormControl sx={{ width: '50%' }}>
                     <Select
                         value={selectedBranch}
-                        onChange={(e) => setSelectedBranch(e.target.value)}
+                        onChange={handleBranchChange}
                         displayEmpty
                         size="small"
                         sx={{
@@ -362,9 +397,6 @@ export default function HomeSetMinimumStock() {
                         gap: '20px'
                     }}
                 >
-                    {/* <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>
-                    Search
-                </Typography> */}
                     <TextField
                         value={searchTerm}
                         onChange={handleSearchChange}
@@ -387,35 +419,6 @@ export default function HomeSetMinimumStock() {
                             ),
                         }}
                     />
-
-                    <Box sx={{ width: '200px' }}>
-                        <DatePicker
-                            selected={filterDate}
-                            onChange={handleDateChange}
-                            dateFormat="dd/MM/yyyy"
-                            placeholderText="Filter by date"
-                            customInput={<CustomInput />}
-                            popperClassName="custom-popper"
-                        />
-                    </Box>
-                    {/* <Button
-                    onClick={clearFilters}
-                    variant="outlined"
-                    sx={{
-                        height: '38px',
-                        width: '120px',
-                        borderColor: '#754C27',
-                        color: '#754C27',
-                        '&:hover': {
-                            borderColor: '#5d3a1f',
-                            backgroundColor: 'rgba(117, 76, 39, 0.04)'
-                        }
-                    }}
-                >
-                    Clear
-                </Button> */}
-
-
                 </Box>
 
                 <TableContainer component={Paper} sx={{ width: '80%', mt: '24px' }}>
@@ -427,11 +430,12 @@ export default function HomeSetMinimumStock() {
                                         sx={{ color: '#FFF' }} />
                                 </StyledTableCell>
                                 <StyledTableCell width='1%'>No.</StyledTableCell>
-                                <StyledTableCell align="center">ID</StyledTableCell>
+                                <StyledTableCell align="center">Product Code</StyledTableCell>
                                 <StyledTableCell align="center">Product Name</StyledTableCell>
                                 <StyledTableCell align="center">Unit</StyledTableCell>
                                 <StyledTableCell align="center">Minimum Quantity</StyledTableCell>
-                                <StyledTableCell width='1%' align="center"></StyledTableCell>
+                                <StyledTableCell align="center">Restaurant</StyledTableCell>
+                                <StyledTableCell width='12%' align="center">Actions</StyledTableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
@@ -445,13 +449,22 @@ export default function HomeSetMinimumStock() {
                                     <StyledTableCell>{stock.tbl_product?.product_name}</StyledTableCell>
                                     <StyledTableCell>{stock.tbl_unit?.unit_name}</StyledTableCell>
                                     <StyledTableCell align="center">{stock.min_qty}</StyledTableCell>
+                                    <StyledTableCell>{getRestaurantName(stock.branch_code)}</StyledTableCell>
                                     <StyledTableCell align="center">
-                                        <IconButton
-                                            onClick={() => handleDelete(stock.product_code, stock.branch_code)}
-                                            sx={{ border: '1px solid #F62626', borderRadius: '7px' }}
-                                        >
-                                            <Delete sx={{ color: '#F62626' }} />
-                                        </IconButton>
+                                        <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
+                                            <IconButton
+                                                onClick={() => handleEdit(stock)}
+                                                sx={{ border: '1px solid #754C27', borderRadius: '7px' }}
+                                            >
+                                                <Edit sx={{ color: '#754C27' }} />
+                                            </IconButton>
+                                            <IconButton
+                                                onClick={() => handleDelete(stock.product_code, stock.branch_code)}
+                                                sx={{ border: '1px solid #F62626', borderRadius: '7px' }}
+                                            >
+                                                <Delete sx={{ color: '#F62626' }} />
+                                            </IconButton>
+                                        </Box>
                                     </StyledTableCell>
                                 </StyledTableRow>
                             ))}
@@ -517,12 +530,39 @@ export default function HomeSetMinimumStock() {
                         <form onSubmit={formik.handleSubmit} style={{ width: '80%' }}>
                             <Box sx={{ width: '100%', mt: '24px' }}>
                                 <Typography sx={{ display: 'flex', flexDirection: 'row', justifyContent: 'center', }}>
-                                    Product ID :
+                                    Product Code :
                                     <Box component="span" sx={{ color: '#754C27', ml: '12px' }}>
-                                        #11
+                                        {formik.values.product_code || "#"}
                                     </Box>
                                 </Typography>
 
+                                <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
+                                    Restaurant
+                                </Typography>
+                                <FormControl fullWidth sx={{ mt: 1 }}>
+                                    <Select
+                                        size="small"
+                                        name="branch_code"
+                                        value={formik.values.branch_code}
+                                        onChange={handleFormBranchChange}
+                                        error={formik.touched.branch_code && Boolean(formik.errors.branch_code)}
+                                        sx={{
+                                            borderRadius: '10px',
+                                        }}
+                                    >
+                                        <MenuItem value="">Select Restaurant</MenuItem>
+                                        {branches.map((branch) => (
+                                            <MenuItem key={branch.branch_code} value={branch.branch_code}>
+                                                {branch.branch_name}
+                                            </MenuItem>
+                                        ))}
+                                    </Select>
+                                    {formik.touched.branch_code && formik.errors.branch_code && (
+                                        <Typography color="error" variant="caption">
+                                            {formik.errors.branch_code}
+                                        </Typography>
+                                    )}
+                                </FormControl>
 
                                 <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
                                     Product Name
@@ -609,8 +649,8 @@ export default function HomeSetMinimumStock() {
                                 >
                                     <option value="">Unit</option>
                                     {selectedProduct && (
-                                        <option value={selectedProduct.productUnit2.unit_code}>
-                                            {selectedProduct.productUnit2.unit_name}
+                                        <option value={selectedProduct.productUnit2?.unit_code}>
+                                            {units.find(u => u.unit_code === selectedProduct.productUnit2?.unit_code)?.unit_name || ''}
                                         </option>
                                     )}
                                 </Box>
@@ -619,33 +659,7 @@ export default function HomeSetMinimumStock() {
                                         {formik.errors.unit_code}
                                     </Typography>
                                 )}
-                                <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
-                                    Branch
-                                </Typography>
-                                <FormControl fullWidth sx={{ mt: 1 }}>
-                                    <Select
-                                        size="small"
-                                        name="branch_code"
-                                        value={formik.values.branch_code}
-                                        onChange={formik.handleChange}
-                                        error={formik.touched.branch_code && Boolean(formik.errors.branch_code)}
-                                        sx={{
-                                            borderRadius: '10px',
-                                        }}
-                                    >
-                                        <MenuItem value="">Select Branch</MenuItem>
-                                        {branches.map((branch) => (
-                                            <MenuItem key={branch.branch_code} value={branch.branch_code}>
-                                                {branch.branch_name}
-                                            </MenuItem>
-                                        ))}
-                                    </Select>
-                                    {formik.touched.branch_code && formik.errors.branch_code && (
-                                        <Typography color="error" variant="caption">
-                                            {formik.errors.branch_code}
-                                        </Typography>
-                                    )}
-                                </FormControl>
+
                                 <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
                                     Minimum Quantity
                                 </Typography>
@@ -667,8 +681,6 @@ export default function HomeSetMinimumStock() {
                                         },
                                     }}
                                 />
-
-
                             </Box>
 
                             <Box sx={{ mt: '24px', display: 'flex', justifyContent: 'flex-end' }}>
@@ -698,7 +710,7 @@ export default function HomeSetMinimumStock() {
                                         ml: '24px'
                                     }}
                                 >
-                                    Save
+                                    {isEditing ? 'Update' : 'Save'}
                                 </Button>
                             </Box>
                         </form>

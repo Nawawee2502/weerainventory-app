@@ -1,49 +1,44 @@
-// import React from 'react';
-// import LayoutsLiff from '../../layouts/LineLiffLayout';
-
-// const WarehousePage = () => {
-//   return (
-//     <LayoutsLiff>
-//         <h1>Welcome to LINE LOGIN</h1>
-//     </LayoutsLiff>
-//   );
-// };
-
-// export default WarehousePage;
-
-
-
-
-
-
-
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import ListAltIcon from "@mui/icons-material/ListAlt";
-import HomeIcon from "@mui/icons-material/Home";
 import StorefrontIcon from "@mui/icons-material/Storefront";
 import WarehouseIcon from "@mui/icons-material/Warehouse";
 import RestaurantMenuIcon from "@mui/icons-material/RestaurantMenu";
-import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import IconButton from '@mui/material/IconButton';
 import Badge from '@mui/material/Badge';
 
+import HomeReceiptFromSupplier from "../../components/mobile/warehouse/goodsreceiptfromsupplier/HomeReceiptFromSupplier";
+// import HomeGoodsReceiptFromSupplier from "../../components/mobile/warehouse/goodsreceiptfromsupplier/HomeGoodsReceiptFromSupplier";
+// import HomeStockCount from "../../components/mobile/warehouse/stockcount/HomeStockCount";
+// เพิ่ม component อื่นๆ ที่จำเป็นสำหรับ Warehouse
+
 const MWareHouse = () => {
   const [activeTab, setActiveTab] = useState("Warehouse");
+  const [currentPage, setCurrentPage] = useState(null);
   const navigate = useNavigate();
 
   const handleBack = () => {
-    navigate('/dashboard');
+    if (currentPage) {
+      setCurrentPage(null);
+    } else {
+      navigate('/dashboard');
+    }
   };
 
   const menuItems = [
-    { label: "Goods Receipt from Supplier", icon: <ListAltIcon style={{ color: "#fff" }} />, to: "/Goods-Receipt-from-Supplier" },
-    { label: "Stock Count", icon: <ListAltIcon style={{ color: "#fff" }} />, to: "/Stock-Count" },
-    // { label: "Goods Receipt Warehouse", icon: <ListAltIcon style={{ color: "#fff" }} />, to: "/goods-receipt-warehouse" },
-    // { label: "Goods Receipt Kitchen", icon: <ListAltIcon style={{ color: "#fff" }} />, to: "/goods-receipt-kitchen" },
-    // { label: "Bill of Landing Branch", icon: <ListAltIcon style={{ color: "#fff" }} />, to: "/bill-of-landing-branch" },
+    {
+      label: "Goods Receipt from Supplier",
+      icon: <ListAltIcon style={{ color: "#fff" }} />,
+      component: <HomeReceiptFromSupplier />
+    },
+    // {
+    //   label: "Stock Count",
+    //   icon: <ListAltIcon style={{ color: "#fff" }} />,
+    //   component: <HomeStockCount />
+    // },
+    // สามารถเพิ่มรายการเมนูอื่นๆ ได้ตามต้องการ
   ];
 
   const footerItems = [
@@ -57,6 +52,7 @@ const MWareHouse = () => {
       {/* Header */}
       <header style={{ padding: "40px", backgroundColor: "#fff", borderBottom: "1px solid #ddd", textAlign: "center", position: "relative" }}>
         <button
+          onClick={handleBack}
           style={{
             position: "absolute",
             left: "16px",
@@ -67,12 +63,11 @@ const MWareHouse = () => {
             cursor: "pointer",
           }}
         >
-          <ArrowBackIcon
-            onClick={handleBack}
-            style={{ fontSize: "24px" }}
-          />
+          <ArrowBackIcon style={{ fontSize: "24px" }} />
         </button>
-        <h2 style={{ margin: 10, fontSize: "20px", fontWeight: "bold", paddingtop: "70px" }}>WareHouse</h2>
+        <h2 style={{ margin: 10, fontSize: "20px", fontWeight: "bold", paddingtop: "70px" }}>
+          {currentPage?.label || "WareHouse"}
+        </h2>
 
         <div
           style={{
@@ -97,20 +92,26 @@ const MWareHouse = () => {
               <NotificationsIcon sx={{ color: '#979797' }} />
             </Badge>
           </IconButton>
-
         </div>
       </header>
 
-      {/* Section Title */}
-      <div style={{ padding: "16px", paddingTop: "12px" }}>
-        <h3 style={{ fontSize: "16px", fontWeight: "bold", marginBottom: "12px", color: "#555" }}>
-          Menu
-        </h3>
+      {/* Main Content */}
+      {currentPage ? (
+        // Show selected page component
+        <div style={{ padding: "16px" }}>
+          {currentPage.component}
+        </div>
+      ) : (
+        // Show menu list
+        <div style={{ padding: "16px", paddingTop: "12px" }}>
+          <h3 style={{ fontSize: "16px", fontWeight: "bold", marginBottom: "12px", color: "#555" }}>
+            Menu
+          </h3>
 
-        {/* Menu List */}
-        {menuItems.map((item, index) => (
-          <Link to={item.to} key={index} style={{ textDecoration: 'none' }}>
+          {menuItems.map((item, index) => (
             <div
+              key={index}
+              onClick={() => setCurrentPage(item)}
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -138,33 +139,53 @@ const MWareHouse = () => {
               </div>
               <span style={{ fontSize: "16px", color: "#333" }}>{item.label}</span>
             </div>
-          </Link>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Footer Navigation */}
-      <footer style={{ position: "fixed", bottom: 0, left: 0, right: 0, display: "flex", justifyContent: "space-around", padding: "12px 0", backgroundColor: "#fff", borderTop: "1px solid #ddd", boxShadow: "0 -2px 4px rgba(0, 0, 0, 0.1)" }}>
+      <footer style={{
+        position: "fixed",
+        bottom: 0,
+        left: 0,
+        right: 0,
+        display: "flex",
+        justifyContent: "space-around",
+        padding: "12px 0",
+        backgroundColor: "#fff",
+        borderTop: "1px solid #ddd",
+        boxShadow: "0 -2px 4px rgba(0, 0, 0, 0.1)"
+      }}>
         {footerItems.map((item) => (
-          <Link to={item.to} key={item.label} style={{ textDecoration: 'none' }}>
-            <div
-              onClick={() => setActiveTab(item.label)}
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "pointer",
-                color: activeTab === item.label ? "#EAB86C" : "#6b4226", // น้ำตาลเข้มและเหลือง
-              }}
-            >
-              <div style={{ fontSize: "24px", color: activeTab === item.label ? "#EAB86C" : "#6b4226" }}>
-                {React.cloneElement(item.icon, {
-                  style: { color: activeTab === item.label ? "#EAB86C" : "#6b4226" },
-                })}
-              </div>
-              <span style={{ fontSize: "12px" }}>{item.label}</span>
+          <div
+            key={item.label}
+            onClick={() => {
+              setActiveTab(item.label);
+              if (item.to !== "/MWarehouse") {
+                navigate(item.to);
+              } else {
+                setCurrentPage(null);
+              }
+            }}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              color: activeTab === item.label ? "#EAB86C" : "#6b4226",
+            }}
+          >
+            <div style={{
+              fontSize: "24px",
+              color: activeTab === item.label ? "#EAB86C" : "#6b4226"
+            }}>
+              {React.cloneElement(item.icon, {
+                style: { color: activeTab === item.label ? "#EAB86C" : "#6b4226" },
+              })}
             </div>
-          </Link>
+            <span style={{ fontSize: "12px" }}>{item.label}</span>
+          </div>
         ))}
       </footer>
     </div>

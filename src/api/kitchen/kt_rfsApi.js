@@ -148,9 +148,12 @@ export const searchKt_rfsrefno = createAsyncThunk(
 
 export const Kt_rfsrefno = createAsyncThunk(
     "kt_rfs/getRefno",
-    async (_, { dispatch }) => {
+    async (params, { dispatch }) => {
         try {
-            const res = await axios.post(BASE_URL + "/api/Kt_rfsrefno");
+            // If month and year are provided, use them for a more targeted query
+            const queryParams = params ? params : {};
+
+            const res = await axios.post(BASE_URL + "/api/Kt_rfsrefno", queryParams);
             return res.data;
         } catch (error) {
             console.error('Get KT RFS Refno Error:', error.message);

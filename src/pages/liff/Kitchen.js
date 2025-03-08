@@ -15,6 +15,10 @@ import Badge from '@mui/material/Badge';
 import HomePurchaseOrderWarehouse from "../../components/mobile/kitchen/purchaseorderwarehouse/HomePurchaseOrderWarehouse";
 import HomeKitchenRequisition from "../../components/mobile/kitchen/goodsrequisition/HomeGoodsRequisition";
 import HomeGoodsReceiptWarehouse from "../../components/mobile/kitchen/goodsreceiptwarehouse/HomeGoodsReceiptWarehouse";
+import HomeGoodsReceiptSupplier from "../../components/mobile/kitchen/goodsreceiptsupplier/HomeGoodsReceiptSupplier";
+import HomeTransferToWarehouse from "../../components/mobile/kitchen/transfertowarehouse/HomeTransferToWarehouse";
+import HomeProductReceipt from "../../components/mobile/kitchen/productreceipt/HomeProductReceipt";
+import HomeDispatchToRestaurant from "../../components/mobile/kitchen/dispatchtorestaurant/HomeDispatchToRestaurant";
 // import HomeBillOfLading from "../../components/mobile/kitchen/billoflading/HomeBillOfLading";
 // import HomeGoodsReceiptProduction from "../../components/mobile/kitchen/goodsreceiptproduction/HomeGoodsReceiptProduction";
 // import HomeWarehouseTransferOrder from "../../components/mobile/kitchen/warehousetransferorder/HomeWarehouseTransferOrder";
@@ -50,26 +54,26 @@ const MKitchen = () => {
       icon: <ListAltIcon style={{ color: "#fff" }} />,
       component: <HomeKitchenRequisition />
     },
-    // {
-    //   label: "Goods Receipt Production",
-    //   icon: <ListAltIcon style={{ color: "#fff" }} />,
-    //   component: <HomeGoodsReceiptProduction />
-    // },
-    // {
-    //   label: "Warehouse Transfer Order",
-    //   icon: <ListAltIcon style={{ color: "#fff" }} />,
-    //   component: <HomeWarehouseTransferOrder />
-    // },
-    // {
-    //   label: "Invoice to Restaurant",
-    //   icon: <ListAltIcon style={{ color: "#fff" }} />,
-    //   component: <HomeInvoiceToRestaurant />
-    // },
-    // {
-    //   label: "Inventory Update",
-    //   icon: <ListAltIcon style={{ color: "#fff" }} />,
-    //   component: <HomeInventoryUpdate />
-    // },
+    {
+      label: "Goods Receipt Supplier",
+      icon: <ListAltIcon style={{ color: "#fff" }} />,
+      component: <HomeGoodsReceiptSupplier />
+    },
+    {
+      label: "Warehouse Transfer Order",
+      icon: <ListAltIcon style={{ color: "#fff" }} />,
+      component: <HomeTransferToWarehouse />
+    },
+    {
+      label: "Production Receipt",
+      icon: <ListAltIcon style={{ color: "#fff" }} />,
+      component: <HomeProductReceipt />
+    },
+    {
+      label: "Dispatch To Restaurant",
+      icon: <ListAltIcon style={{ color: "#fff" }} />,
+      component: <HomeDispatchToRestaurant />
+    },
   ];
 
   const footerItems = [

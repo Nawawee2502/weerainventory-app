@@ -535,6 +535,28 @@ export default function CreatePurchaseOrderToWarehouse({ onBack }) {
                     />
 
                     <Typography sx={{ fontSize: '16px', fontWeight: '600', mt: '18px' }}>
+                        Restaurant
+                    </Typography>
+                    <Select
+                        value={saveBranch}
+                        onChange={handleBranchChange}
+                        displayEmpty
+                        size="small"
+                        sx={{
+                            mt: '8px',
+                            width: '95%',
+                            borderRadius: '10px',
+                        }}
+                    >
+                        <MenuItem value=""><em>Select Restaurant</em></MenuItem>
+                        {branches.map((branch) => (
+                            <MenuItem key={branch.branch_code} value={branch.branch_code}>
+                                {branch.branch_name}
+                            </MenuItem>
+                        ))}
+                    </Select>
+
+                    <Typography sx={{ fontSize: '16px', fontWeight: '600', mt: '18px' }}>
                         Supplier
                     </Typography>
                     <Select
@@ -556,27 +578,7 @@ export default function CreatePurchaseOrderToWarehouse({ onBack }) {
                         ))}
                     </Select>
 
-                    <Typography sx={{ fontSize: '16px', fontWeight: '600', mt: '18px' }}>
-                        Restaurant
-                    </Typography>
-                    <Select
-                        value={saveBranch}
-                        onChange={handleBranchChange}
-                        displayEmpty
-                        size="small"
-                        sx={{
-                            mt: '8px',
-                            width: '95%',
-                            borderRadius: '10px',
-                        }}
-                    >
-                        <MenuItem value=""><em>Select Restaurant</em></MenuItem>
-                        {branches.map((branch) => (
-                            <MenuItem key={branch.branch_code} value={branch.branch_code}>
-                                {branch.branch_name}
-                            </MenuItem>
-                        ))}
-                    </Select>
+
 
                     <Divider sx={{ my: 2 }} />
 

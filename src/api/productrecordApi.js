@@ -6,7 +6,7 @@ const BASE_URL = `${process.env.REACT_APP_URL_API}`;
 
 export const addProduct = createAsyncThunk(
   "product/add",
-  async ({ product_code, product_name, typeproduct_code, bulk_unit_code, bulk_unit_price, retail_unit_code, retail_unit_price, unit_conversion_factor, tax1 }, { dispatch }) => {
+  async ({ product_code, product_name, typeproduct_code, bulk_unit_code, bulk_unit_price, retail_unit_code, retail_unit_price, unit_conversion_factor, tax1 }, { rejectWithValue }) => {
     try {
       const res = await axios.post(BASE_URL + "/api/addproduct", {
         product_code,
@@ -19,11 +19,12 @@ export const addProduct = createAsyncThunk(
         unit_conversion_factor,
         tax1,
       });
-      console.log(res.data);
+
       return res.data;
     } catch (error) {
-      console.error(error.message);
-      throw error;
+      console.error("Add product error:", error.response?.data || error.message);
+      // Return the error message from the API
+      return rejectWithValue(error.response?.data || { message: error.message });
     }
   }
 );
