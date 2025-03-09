@@ -29,7 +29,7 @@ const MWareHouse = () => {
 
   const menuItems = [
     {
-      label: "Goods Receipt from Supplier",
+      label: "Warehouse Goods Receipt from Supplier",
       icon: <ListAltIcon style={{ color: "#fff" }} />,
       component: <HomeReceiptFromSupplier />
     },

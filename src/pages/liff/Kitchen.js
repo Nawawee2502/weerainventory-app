@@ -40,37 +40,37 @@ const MKitchen = () => {
 
   const menuItems = [
     {
-      label: "Purchase Order to Warehouse",
+      label: "Kitchen Purchase Order to Warehouse",
       icon: <ListAltIcon style={{ color: "#fff" }} />,
       component: <HomePurchaseOrderWarehouse />
     },
     {
-      label: "Goods Receipt Warehouse",
+      label: "Kitchen Goods Receipt Warehouse",
       icon: <ListAltIcon style={{ color: "#fff" }} />,
       component: <HomeGoodsReceiptWarehouse />
     },
     {
-      label: "Goods Requisition",
+      label: "Kitchen Goods Requisition",
       icon: <ListAltIcon style={{ color: "#fff" }} />,
       component: <HomeKitchenRequisition />
     },
     {
-      label: "Goods Receipt Supplier",
+      label: "Kitchen Goods Receipt Supplier",
       icon: <ListAltIcon style={{ color: "#fff" }} />,
       component: <HomeGoodsReceiptSupplier />
     },
     {
-      label: "Warehouse Transfer Order",
+      label: "Kitchen Warehouse Transfer Order",
       icon: <ListAltIcon style={{ color: "#fff" }} />,
       component: <HomeTransferToWarehouse />
     },
     {
-      label: "Production Receipt",
+      label: "Kitchen Production Receipt",
       icon: <ListAltIcon style={{ color: "#fff" }} />,
       component: <HomeProductReceipt />
     },
     {
-      label: "Dispatch To Restaurant",
+      label: "Kitchen Dispatch To Restaurant",
       icon: <ListAltIcon style={{ color: "#fff" }} />,
       component: <HomeDispatchToRestaurant />
     },

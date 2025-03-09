@@ -43,27 +43,27 @@ const MRestaurant = () => {
     //   component: <InventoryUpdate />
     // },
     {
-      label: "Purchase order to Warehouse",
+      label: "Restaurant Purchase order to Warehouse",
       icon: <ListAltIcon style={{ color: "#fff" }} />,
       component: <HomePurchaseOrderToWarehouse />
     },
     {
-      label: "Goods Receipt Warehouse",
+      label: "Restaurant Goods Receipt Warehouse",
       icon: <ListAltIcon style={{ color: "#fff" }} />,
       component: <HomeGoodsReceiptWarehouse />
     },
     {
-      label: "Goods Receipt Kitchen",
+      label: "Restaurant Goods Receipt Kitchen",
       icon: <ListAltIcon style={{ color: "#fff" }} />,
       component: <HomeGoodsReceiptKitchen />
     },
     {
-      label: "Goods Receipt Supplier",
+      label: "Restaurant Goods Receipt Supplier",
       icon: <ListAltIcon style={{ color: "#fff" }} />,
       component: <HomeGoodsReceiptSupplier />
     },
     {
-      label: "Goods Requisition",
+      label: "Restaurant Goods Requisition",
       icon: <ListAltIcon style={{ color: "#fff" }} />,
       component: <HomeGoodsRequisition />
     },

@@ -80,10 +80,12 @@ const StyledTableRow = styled(TableRow)(({ theme }) => ({
 export default function GoodsReceiptKitchen({ onCreate, onEdit }) {
   const dispatch = useDispatch();
   const [searchBranch, setSearchBranch] = useState("");
+  const [searchKitchen, setSearchKitchen] = useState(""); // New state for kitchen search
   const [searchProduct, setSearchProduct] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [branches, setBranches] = useState([]);
+  const [kitchens, setKitchens] = useState([]); // New state for kitchens
   const [filterDate, setFilterDate] = useState(new Date());
   const [selected, setSelected] = useState([]);
   const [page, setPage] = useState(1);
@@ -93,7 +95,7 @@ export default function GoodsReceiptKitchen({ onCreate, onEdit }) {
   const [excludePrice, setExcludePrice] = useState(false);
   const limit = 5;
 
-  // Load branches on component mount
+  // Load branches and kitchens on component mount
   useEffect(() => {
     const loadBranches = async () => {
       try {
@@ -110,12 +112,30 @@ export default function GoodsReceiptKitchen({ onCreate, onEdit }) {
         });
       }
     };
+
+    const loadKitchens = async () => {
+      try {
+        const response = await dispatch(kitchenAll({ offset: 0, limit: 100 })).unwrap();
+        if (response.result && response.data) {
+          setKitchens(response.data);
+        }
+      } catch (error) {
+        console.error('Error loading kitchens:', error);
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'Failed to load kitchens'
+        });
+      }
+    };
+
     loadBranches();
+    loadKitchens(); // Load kitchens when component mounts
   }, [dispatch]);
 
   useEffect(() => {
     fetchData();
-  }, [page, searchBranch, searchProduct, filterDate]);
+  }, [page, searchBranch, searchKitchen, searchProduct, filterDate]); // Added searchKitchen to dependency array
 
   const fetchData = async () => {
     try {
@@ -130,6 +150,7 @@ export default function GoodsReceiptKitchen({ onCreate, onEdit }) {
         rdate1: formattedDate,
         rdate2: formattedDate,
         branch_code: searchBranch,
+        kitchen_code: searchKitchen, // Added kitchen_code parameter
         product_code: searchProduct
       })).unwrap();
 
@@ -247,6 +268,11 @@ export default function GoodsReceiptKitchen({ onCreate, onEdit }) {
     setPage(1);
   };
 
+  const handleSearchKitchenChange = (e) => {
+    setSearchKitchen(e.target.value);
+    setPage(1);
+  };
+
   const handleSearchProductChange = async (e) => {
     const value = e.target.value;
     setSearchProduct(value);
@@ -280,6 +306,7 @@ export default function GoodsReceiptKitchen({ onCreate, onEdit }) {
 
   const clearFilters = () => {
     setSearchBranch("");
+    setSearchKitchen("");
     setSearchProduct("");
     setFilterDate(new Date());
     setPage(1);
@@ -318,17 +345,39 @@ export default function GoodsReceiptKitchen({ onCreate, onEdit }) {
           onChange={handleSearchBranchChange}
           sx={{
             height: '38px',
-            width: '25%',
+            width: '20%',
             borderRadius: '4px',
             border: '1px solid rgba(0, 0, 0, 0.23)',
             padding: '0 14px',
             backgroundColor: '#fff'
           }}
         >
-          <option value="">All Branches</option>
+          <option value="">All Restaurant</option>
           {branches.map((branch) => (
             <option key={branch.branch_code} value={branch.branch_code}>
               {branch.branch_name}
+            </option>
+          ))}
+        </Box>
+
+        {/* Kitchen Dropdown */}
+        <Box
+          component="select"
+          value={searchKitchen}
+          onChange={handleSearchKitchenChange}
+          sx={{
+            height: '38px',
+            width: '20%',
+            borderRadius: '4px',
+            border: '1px solid rgba(0, 0, 0, 0.23)',
+            padding: '0 14px',
+            backgroundColor: '#fff'
+          }}
+        >
+          <option value="">All Kitchens</option>
+          {kitchens.map((kitchen) => (
+            <option key={kitchen.kitchen_code} value={kitchen.kitchen_code}>
+              {kitchen.kitchen_name}
             </option>
           ))}
         </Box>
@@ -381,7 +430,8 @@ export default function GoodsReceiptKitchen({ onCreate, onEdit }) {
               <StyledTableCell width='1%'>No.</StyledTableCell>
               <StyledTableCell align="center">Ref.no</StyledTableCell>
               <StyledTableCell align="center">Date</StyledTableCell>
-              <StyledTableCell align="center">Branch</StyledTableCell>
+              <StyledTableCell align="center">Restaurant</StyledTableCell>
+              <StyledTableCell align="center">Kitchen</StyledTableCell> 
               <StyledTableCell align="center">Total Amount</StyledTableCell>
               <StyledTableCell align="center">Username</StyledTableCell>
               <StyledTableCell width='1%' align="center"></StyledTableCell>
@@ -392,11 +442,11 @@ export default function GoodsReceiptKitchen({ onCreate, onEdit }) {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={10} align="center">Loading...</TableCell>
+                <TableCell colSpan={11} align="center">Loading...</TableCell> {/* Updated colspan to include new column */}
               </TableRow>
             ) : data.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={10} align="center">No data found</TableCell>
+                <TableCell colSpan={11} align="center">No data found</TableCell> {/* Updated colspan to include new column */}
               </TableRow>
             ) : (
               data.map((row, index) => {
@@ -415,6 +465,7 @@ export default function GoodsReceiptKitchen({ onCreate, onEdit }) {
                     <StyledTableCell align="center">{row.refno}</StyledTableCell>
                     <StyledTableCell align="center">{row.rdate}</StyledTableCell>
                     <StyledTableCell align="center">{row.tbl_branch?.branch_name}</StyledTableCell>
+                    <StyledTableCell align="center">{row.tbl_kitchen?.kitchen_name}</StyledTableCell> {/* Added Kitchen name */}
                     <StyledTableCell align="center">{row.total.toFixed(2)}</StyledTableCell>
                     <StyledTableCell align="center">{row.user?.username}</StyledTableCell>
                     <StyledTableCell align="center">

@@ -14,6 +14,7 @@ import Pagination from '@mui/material/Pagination';
 import { useDispatch } from 'react-redux';
 import { Br_rfsAlljoindt, deleteBr_rfs } from '../../../../api/restaurant/br_rfsApi';
 import { supplierAll } from '../../../../api/supplierApi';
+import { branchAll } from '../../../../api/branchApi'; // Import branch API
 import { searchProductName } from '../../../../api/productrecordApi';
 import Swal from 'sweetalert2';
 
@@ -78,10 +79,12 @@ const StyledTableRow = styled(TableRow)(({ theme }) => ({
 export default function GoodsReceiptSupplier({ onCreate, onEdit }) {
   const dispatch = useDispatch();
   const [searchSupplier, setSearchSupplier] = useState("");
+  const [searchBranch, setSearchBranch] = useState(""); // New state for branch search
   const [searchProduct, setSearchProduct] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [suppliers, setSuppliers] = useState([]);
+  const [branches, setBranches] = useState([]); // New state for branches
   const [filterDate, setFilterDate] = useState(new Date());
   const [selected, setSelected] = useState([]);
   const [page, setPage] = useState(1);
@@ -92,7 +95,7 @@ export default function GoodsReceiptSupplier({ onCreate, onEdit }) {
   const [totalRecords, setTotalRecords] = useState(0);
   const limit = 5;
 
-  // Load suppliers on component mount
+  // Load suppliers and branches on component mount
   useEffect(() => {
     const loadSuppliers = async () => {
       try {
@@ -109,12 +112,30 @@ export default function GoodsReceiptSupplier({ onCreate, onEdit }) {
         });
       }
     };
+    
+    const loadBranches = async () => {
+      try {
+        const response = await dispatch(branchAll({ offset: 0, limit: 100 })).unwrap();
+        if (response.result && response.data) {
+          setBranches(response.data);
+        }
+      } catch (error) {
+        console.error('Error loading branches:', error);
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'Failed to load branches'
+        });
+      }
+    };
+    
     loadSuppliers();
+    loadBranches(); // Load branches when component mounts
   }, [dispatch]);
 
   useEffect(() => {
     fetchData();
-  }, [page, searchSupplier, searchProduct, filterDate]);
+  }, [page, searchSupplier, searchBranch, searchProduct, filterDate]); // Added searchBranch to dependency array
 
   const fetchData = async () => {
     try {
@@ -135,6 +156,7 @@ export default function GoodsReceiptSupplier({ onCreate, onEdit }) {
         rdate1: formattedDate,
         rdate2: formattedDate,
         supplier_code: searchSupplier,
+        branch_code: searchBranch, // Added branch_code parameter
         product_code: searchProduct
       })).unwrap();
 
@@ -269,6 +291,11 @@ export default function GoodsReceiptSupplier({ onCreate, onEdit }) {
     setPage(1);
   };
 
+  const handleSearchBranchChange = (e) => {
+    setSearchBranch(e.target.value);
+    setPage(1);
+  };
+
   const handleSearchProductChange = async (e) => {
     const value = e.target.value;
     setSearchProduct(value);
@@ -302,6 +329,7 @@ export default function GoodsReceiptSupplier({ onCreate, onEdit }) {
 
   const clearFilters = () => {
     setSearchSupplier("");
+    setSearchBranch("");
     setSearchProduct("");
     setFilterDate(new Date());
     setPage(1);
@@ -340,7 +368,7 @@ export default function GoodsReceiptSupplier({ onCreate, onEdit }) {
           onChange={handleSearchSupplierChange}
           sx={{
             height: '38px',
-            width: '25%',
+            width: '20%',
             borderRadius: '4px',
             border: '1px solid rgba(0, 0, 0, 0.23)',
             padding: '0 14px',
@@ -351,6 +379,28 @@ export default function GoodsReceiptSupplier({ onCreate, onEdit }) {
           {suppliers.map((supplier) => (
             <option key={supplier.supplier_code} value={supplier.supplier_code}>
               {supplier.supplier_name}
+            </option>
+          ))}
+        </Box>
+
+        {/* Branch Dropdown */}
+        <Box
+          component="select"
+          value={searchBranch}
+          onChange={handleSearchBranchChange}
+          sx={{
+            height: '38px',
+            width: '20%',
+            borderRadius: '4px',
+            border: '1px solid rgba(0, 0, 0, 0.23)',
+            padding: '0 14px',
+            backgroundColor: '#fff'
+          }}
+        >
+          <option value="">All Restaurant</option>
+          {branches.map((branch) => (
+            <option key={branch.branch_code} value={branch.branch_code}>
+              {branch.branch_name}
             </option>
           ))}
         </Box>
@@ -404,6 +454,7 @@ export default function GoodsReceiptSupplier({ onCreate, onEdit }) {
               <StyledTableCell align="center">Ref.no</StyledTableCell>
               <StyledTableCell align="center">Date</StyledTableCell>
               <StyledTableCell align="center">Supplier</StyledTableCell>
+              <StyledTableCell align="center">Restaurant</StyledTableCell> {/* Added Branch column */}
               <StyledTableCell align="center">Total Amount</StyledTableCell>
               <StyledTableCell align="center">Username</StyledTableCell>
               <StyledTableCell width='1%' align="center"></StyledTableCell>
@@ -414,11 +465,11 @@ export default function GoodsReceiptSupplier({ onCreate, onEdit }) {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={10} align="center">Loading...</TableCell>
+                <TableCell colSpan={11} align="center">Loading...</TableCell> {/* Updated colspan to include new column */}
               </TableRow>
             ) : data.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={10} align="center">No data found</TableCell>
+                <TableCell colSpan={11} align="center">No data found</TableCell> {/* Updated colspan to include new column */}
               </TableRow>
             ) : (
               data.map((row, index) => {
@@ -437,6 +488,7 @@ export default function GoodsReceiptSupplier({ onCreate, onEdit }) {
                     <StyledTableCell align="center">{row.refno}</StyledTableCell>
                     <StyledTableCell align="center">{row.rdate}</StyledTableCell>
                     <StyledTableCell align="center">{row.tbl_supplier?.supplier_name}</StyledTableCell>
+                    <StyledTableCell align="center">{row.tbl_branch?.branch_name}</StyledTableCell> {/* Added Branch name */}
                     <StyledTableCell align="center">{Number(row.total).toFixed(2)}</StyledTableCell>
                     <StyledTableCell align="center">{row.user?.username}</StyledTableCell>
                     <StyledTableCell align="center">
