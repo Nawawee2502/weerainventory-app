@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Button, InputAdornment, TextField, Typography, IconButton, Grid2, Divider } from '@mui/material';
+import { Box, Button, InputAdornment, TextField, Typography, IconButton, Grid2, Divider, Autocomplete, CircularProgress } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SearchIcon from '@mui/icons-material/Search';
 import CancelIcon from '@mui/icons-material/Cancel';
@@ -10,122 +10,350 @@ import { searchProductName } from '../../../api/productrecordApi';
 import { Br_rfwrefno, addBr_rfw } from '../../../api/restaurant/br_rfwApi';
 import { branchAll } from '../../../api/branchApi';
 import { supplierAll } from '../../../api/supplierApi';
+import { Wh_dpbdtAlljoindt } from '../../../api/warehouse/wh_dpbdtApi';
+import { Wh_dpbByRefno, wh_dpbAlljoindt } from '../../../api/warehouse/wh_dpbApi';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import Swal from 'sweetalert2';
+import { format, parse } from 'date-fns';
 
-const formatDate = (date) => {
-    if (!date) return null;
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const year = date.getFullYear();
-    return `${month}/${day}/${year}`;
-};
-
-const formatTRDate = (date) => {
-    if (!date) return null;
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}${month}${day}`;
-};
+const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
+    <Box sx={{ position: 'relative', display: 'inline-block', width: '100%' }}>
+        <TextField
+            value={value}
+            onClick={onClick}
+            placeholder={placeholder || "MM/DD/YYYY"}
+            ref={ref}
+            size="small"
+            sx={{
+                '& .MuiInputBase-root': {
+                    height: '38px',
+                    width: '100%',
+                    backgroundColor: '#fff',
+                    borderRadius: '10px'
+                }
+            }}
+            InputProps={{
+                readOnly: true,
+                endAdornment: (
+                    <InputAdornment position="end">
+                        <CalendarTodayIcon sx={{ color: '#754C27', cursor: 'pointer' }} />
+                    </InputAdornment>
+                ),
+            }}
+        />
+    </Box>
+));
 
 export default function CreateReceiptFromWarehouse({ onBack }) {
     const dispatch = useDispatch();
     const [startDate, setStartDate] = useState(new Date());
+    const [lastRefNo, setLastRefNo] = useState('Please select dispatch to restaurant');
     const [branches, setBranches] = useState([]);
+    const [suppliers, setSuppliers] = useState([]);
+    const [saveSupplier, setSaveSupplier] = useState('');
     const [saveBranch, setSaveBranch] = useState('');
     const [products, setProducts] = useState([]);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [searchResults, setSearchResults] = useState([]);
-    const [showDropdown, setShowDropdown] = useState(false);
     const [quantities, setQuantities] = useState({});
     const [units, setUnits] = useState({});
     const [unitPrices, setUnitPrices] = useState({});
     const [totals, setTotals] = useState({});
+    const [total, setTotal] = useState(0);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [searchResults, setSearchResults] = useState([]);
+    const [showDropdown, setShowDropdown] = useState(false);
+    const [allProducts, setAllProducts] = useState([]);
+    const [filteredProducts, setFilteredProducts] = useState([]);
+    const [selectedProducts, setSelectedProducts] = useState([]);
     const [expiryDates, setExpiryDates] = useState({});
     const [temperatures, setTemperatures] = useState({});
+    const [imageErrors, setImageErrors] = useState({});
+    const [taxStatus, setTaxStatus] = useState({});
+    const [isLoading, setIsLoading] = useState(false);
     const [taxableAmount, setTaxableAmount] = useState(0);
     const [nonTaxableAmount, setNonTaxableAmount] = useState(0);
-    const [suppliers, setSuppliers] = useState([]);
-    const [saveSupplier, setSaveSupplier] = useState('');
-    const [total, setTotal] = useState(0);
-    const [refNo, setRefNo] = useState('');
+
+    // For dispatch selection
+    const [dispatchRefnos, setDispatchRefnos] = useState([]);
+    const [selectedDispatchRefno, setSelectedDispatchRefno] = useState('');
+    const [dispatchData, setDispatchData] = useState(null);
+    const [loadingDispatch, setLoadingDispatch] = useState(false);
 
     const TAX_RATE = 0.07;
     const userDataJson = localStorage.getItem("userData2");
-    const userData2 = JSON.parse(userDataJson);
+    const userData2 = JSON.parse(userDataJson || "{}");
 
     useEffect(() => {
-        loadBranches();
-        loadSuppliers();
         const currentDate = new Date();
-        handleGetLastRefNo(currentDate);
-    }, []);
+        // handleGetLastRefNo(currentDate);
 
-    const loadSuppliers = async () => {
+        // Load branches
+        dispatch(branchAll({ offset: 0, limit: 100 }))
+            .unwrap()
+            .then((res) => {
+                setBranches(res.data);
+            })
+            .catch((err) => console.log(err.message));
+
+        // Load suppliers
+        dispatch(supplierAll({ offset: 0, limit: 100 }))
+            .unwrap()
+            .then((res) => {
+                setSuppliers(res.data);
+            })
+            .catch((err) => console.log(err.message));
+
+        // Fetch available dispatches
+        fetchAvailableDispatches();
+
+        // Load initial products
+        dispatch(searchProductName({ product_name: '' }))
+            .unwrap()
+            .then((res) => {
+                if (res.data) {
+                    setAllProducts(res.data);
+                    setFilteredProducts(res.data);
+                }
+            })
+            .catch((err) => console.log(err.message));
+    }, [dispatch]);
+
+    // Fetch available dispatches from warehouse to branch
+    const fetchAvailableDispatches = async () => {
         try {
-            const response = await dispatch(supplierAll({ offset: 0, limit: 100 })).unwrap();
-            setSuppliers(response.data || []);
-        } catch (err) {
-            console.error('Error loading suppliers:', err);
-            Swal.fire({
-                icon: 'error',
-                title: 'Error Loading Suppliers',
-                text: err.message || 'Failed to load suppliers'
-            });
-        }
-    };
+            setIsLoading(true);
 
-    const loadBranches = async () => {
-        try {
-            const response = await dispatch(branchAll({ offset: 0, limit: 100 })).unwrap();
-            setBranches(response.data || []);
-        } catch (err) {
-            console.error('Error loading branches:', err);
-            Swal.fire({
-                icon: 'error',
-                title: 'Error Loading Branches',
-                text: err.message || 'Failed to load branches'
-            });
-        }
-    };
+            // Get dispatches from last 90 days
+            const today = new Date();
+            const ninetyDaysAgo = new Date();
+            ninetyDaysAgo.setDate(today.getDate() - 90);
 
-    const handleGetLastRefNo = async (selectedDate) => {
-        try {
-            const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
-            const year = selectedDate.getFullYear().toString().slice(-2);
+            // Format dates for API requirements
+            const rdate1 = format(ninetyDaysAgo, 'yyyyMMdd');
+            const rdate2 = format(today, 'yyyyMMdd');
 
-            const res = await dispatch(Br_rfwrefno({
-                month,
-                year
+            console.log(`Fetching dispatches from ${rdate1} to ${rdate2}`);
+
+            // Call API with properly specified parameters
+            const response = await dispatch(wh_dpbAlljoindt({
+                rdate1: rdate1,
+                rdate2: rdate2,
+                offset: 0,
+                limit: 100
             })).unwrap();
 
-            if (!res.data || !res.data.refno) {
-                setRefNo(`BRFW${year}${month}001`);
-                return;
+            // Process the response data
+            if (response && response.result && Array.isArray(response.data)) {
+                console.log(`Found ${response.data.length} dispatches`);
+
+                // Filter out invalid data entries
+                const validData = response.data.filter(item =>
+                    item && item.refno && (item.rdate || item.trdate)
+                );
+
+                // Transform data for Autocomplete
+                const dispatchOptions = validData.map(item => {
+                    // Use trdate as fallback if rdate doesn't exist
+                    const dateValue = item.rdate || item.trdate;
+                    let formattedDate = 'Unknown';
+
+                    // Safely parse date
+                    try {
+                        if (dateValue) {
+                            // Try different date formats
+                            if (dateValue.includes('/')) {
+                                formattedDate = format(parse(dateValue, 'MM/dd/yyyy', new Date()), 'MM/dd/yyyy');
+                            } else {
+                                // If dateValue is in yyyyMMdd format
+                                formattedDate = format(
+                                    parse(dateValue, 'yyyyMMdd', new Date()),
+                                    'MM/dd/yyyy'
+                                );
+                            }
+                        }
+                    } catch (e) {
+                        console.warn(`Date parsing error for ${dateValue}:`, e);
+                        formattedDate = 'Invalid date';
+                    }
+
+                    return {
+                        refno: item.refno,
+                        branch: item.tbl_branch?.branch_name || 'Unknown',
+                        date: dateValue || 'Unknown Date',
+                        formattedDate: formattedDate,
+                        total: item.total || '0'
+                    };
+                });
+
+                setDispatchRefnos(dispatchOptions);
+                console.log('Available dispatch options:', dispatchOptions);
+            } else {
+                console.warn('No dispatch data found or invalid response format:', response);
+                setDispatchRefnos([]);
             }
-
-            const lastRefNo = res.data.refno;
-            const lastRefMonth = lastRefNo.substring(6, 8);
-            const lastRefYear = lastRefNo.substring(4, 6);
-
-            if (lastRefMonth !== month || lastRefYear !== year) {
-                setRefNo(`BRFW${year}${month}001`);
-                return;
-            }
-
-            const lastNumber = parseInt(lastRefNo.slice(-3));
-            const newNumber = lastNumber + 1;
-            setRefNo(`BRFW${year}${month}${String(newNumber).padStart(3, '0')}`);
-
-        } catch (err) {
-            console.error('Error generating refno:', err);
-            const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
-            const year = selectedDate.getFullYear().toString().slice(-2);
-            setRefNo(`BRFW${year}${month}001`);
+        } catch (error) {
+            console.error("Error fetching available dispatches:", error);
+            setDispatchRefnos([]);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Failed to fetch available dispatches: ' + (error.message || 'Unknown error')
+            });
+        } finally {
+            setIsLoading(false);
         }
     };
 
+    // Handle selecting a dispatch
+    const handleDispatchSelection = async (refno) => {
+        if (!refno) {
+            resetForm();
+            return;
+        }
+
+        try {
+            setLoadingDispatch(true);
+            setSelectedDispatchRefno(refno);
+
+            // Fetch header data
+            const headerResponse = await dispatch(Wh_dpbByRefno({ refno })).unwrap();
+
+            if (headerResponse.result && headerResponse.data) {
+                const dispatchHeader = headerResponse.data;
+                setDispatchData(dispatchHeader);
+
+                // Set the lastRefNo to be the same as the dispatch refno
+                setLastRefNo(refno);
+
+                // Set branch from dispatch
+                setSaveBranch(dispatchHeader.branch_code || '');
+
+                // Fetch detail data
+                const detailResponse = await dispatch(Wh_dpbdtAlljoindt({ refno })).unwrap();
+
+                if (detailResponse.result && detailResponse.data && detailResponse.data.length > 0) {
+                    await processDispatchDetailData(detailResponse.data);
+                } else {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'No Items',
+                        text: 'This dispatch has no items.'
+                    });
+                }
+            }
+        } catch (error) {
+            console.error("Error loading dispatch data:", error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Failed to load dispatch data: ' + error.message
+            });
+        } finally {
+            setLoadingDispatch(false);
+        }
+    };
+
+    // Process dispatch detail data
+    const processDispatchDetailData = async (detailData) => {
+        try {
+            console.log('Processing dispatch detail data:', detailData);
+
+            // Extract product codes to mark as selected
+            const productCodes = detailData.map(item => item.product_code);
+            setSelectedProducts(productCodes);
+
+            // Set products array from detail data
+            const productsData = detailData.map(item => ({
+                ...item.tbl_product,
+                product_code: item.product_code,
+                product_name: item.tbl_product?.product_name || '',
+                tax1: item.tax1 || 'N'
+            }));
+
+            setProducts(productsData);
+
+            // Prepare state objects
+            const newQuantities = {};
+            const newUnits = {};
+            const newUnitPrices = {};
+            const newTotals = {};
+            const newExpiryDates = {};
+            const newTemperatures = {};
+            const newTaxStatus = {};
+
+            detailData.forEach((item) => {
+                const productCode = item.product_code;
+                if (!productCode) return;
+
+                newQuantities[productCode] = parseFloat(item.qty) || 1;
+                newUnits[productCode] = item.unit_code || '';
+                newUnitPrices[productCode] = parseFloat(item.uprice) || 0;
+                newTotals[productCode] = parseFloat(item.amt) || 0;
+                newTemperatures[productCode] = item.temperature1 || '38';
+                newTaxStatus[productCode] = item.tax1 || 'N';
+
+                // Parse expiry date or use current date + 30 days
+                if (item.expire_date) {
+                    try {
+                        newExpiryDates[productCode] = parse(item.expire_date, 'MM/dd/yyyy', new Date());
+                    } catch (e) {
+                        console.error("Expiry date parsing error:", e);
+                        const futureDate = new Date();
+                        futureDate.setDate(futureDate.getDate() + 30);
+                        newExpiryDates[productCode] = futureDate;
+                    }
+                } else {
+                    const futureDate = new Date();
+                    futureDate.setDate(futureDate.getDate() + 30);
+                    newExpiryDates[productCode] = futureDate;
+                }
+            });
+
+            // Update all states
+            setQuantities(newQuantities);
+            setUnits(newUnits);
+            setUnitPrices(newUnitPrices);
+            setTotals(newTotals);
+            setExpiryDates(newExpiryDates);
+            setTemperatures(newTemperatures);
+            setTaxStatus(newTaxStatus);
+
+            // Calculate and set total
+            const totalSum = Object.values(newTotals).reduce((sum, value) => sum + value, 0);
+            setTotal(totalSum);
+
+            // Calculate taxable and non-taxable amounts
+            let newTaxable = 0;
+            let newNonTaxable = 0;
+
+            detailData.forEach((item) => {
+                const productCode = item.product_code;
+                const amount = parseFloat(item.amt) || 0;
+
+                if (item.tax1 === 'Y') {
+                    newTaxable += amount;
+                } else {
+                    newNonTaxable += amount;
+                }
+            });
+
+            setTaxableAmount(newTaxable);
+            setNonTaxableAmount(newNonTaxable);
+
+            console.log('Detail processing complete', {
+                products: productsData,
+                quantities: newQuantities,
+                units: newUnits,
+                prices: newUnitPrices,
+                totals: newTotals
+            });
+
+        } catch (error) {
+            console.error('Error processing detail data:', error);
+            throw error;
+        }
+    };
+
+    // Product search handler
     const handleSearchChange = async (e) => {
         const value = e.target.value;
         setSearchTerm(value);
@@ -146,225 +374,418 @@ export default function CreateReceiptFromWarehouse({ onBack }) {
         }
     };
 
+    const handleGetLastRefNo = async (selectedDate) => {
+        try {
+            const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+            const year = selectedDate.getFullYear().toString().slice(-2);
+
+            const res = await dispatch(Br_rfwrefno({
+                month: month,
+                year: year
+            })).unwrap();
+
+            if (!res.data || !res.data.refno) {
+                setLastRefNo(`BRFW${year}${month}001`);
+                return;
+            }
+
+            const lastRefNo = res.data.refno;
+            const lastRefMonth = lastRefNo.substring(6, 8);
+            const lastRefYear = lastRefNo.substring(4, 6);
+
+            if (lastRefMonth !== month || lastRefYear !== year) {
+                setLastRefNo(`BRFW${year}${month}001`);
+                return;
+            }
+
+            const lastNumber = parseInt(lastRefNo.slice(-3));
+            const newNumber = lastNumber + 1;
+            setLastRefNo(`BRFW${year}${month}${String(newNumber).padStart(3, '0')}`);
+
+        } catch (err) {
+            console.error("Error generating refno:", err);
+            const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+            const year = selectedDate.getFullYear().toString().slice(-2);
+            setLastRefNo(`BRFW${year}${month}001`);
+        }
+    };
+
+    // Function to render product image with error handling
+    const renderProductImage = (product, size = 'small') => {
+        // If no image
+        if (!product?.product_img) {
+            return (
+                <Box sx={{
+                    width: size === 'small' ? '100%' : (size === 'table' ? '100%' : 200),
+                    height: size === 'small' ? 100 : (size === 'table' ? '100%' : 200),
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    bgcolor: '#f5f5f5',
+                    border: '1px solid #ddd',
+                    borderRadius: size === 'table' ? '4px' : '8px'
+                }}>
+                    <Typography variant="body2" color="text.secondary">No Image</Typography>
+                </Box>
+            );
+        }
+
+        // Check if this image has errored before
+        if (imageErrors[product.product_code]) {
+            return (
+                <Box sx={{
+                    width: size === 'small' ? '100%' : (size === 'table' ? '100%' : 200),
+                    height: size === 'small' ? 100 : (size === 'table' ? '100%' : 200),
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    bgcolor: '#f5f5f5',
+                    border: '1px solid #ddd',
+                    borderRadius: size === 'table' ? '4px' : '8px'
+                }}>
+                    <Typography variant="body2" color="text.secondary">Image Error</Typography>
+                </Box>
+            );
+        }
+
+        const baseUrl = process.env.REACT_APP_URL_API || 'http://localhost:4001';
+        const imageUrl = `${baseUrl}/public/images/${product.product_img}`;
+
+        return (
+            <Box sx={{
+                width: '100%',
+                height: size === 'small' ? 100 : (size === 'table' ? '100%' : 200),
+                position: 'relative',
+                overflow: 'hidden'
+            }}>
+                <img
+                    src={imageUrl}
+                    alt={product.product_name}
+                    style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                        borderRadius: size === 'table' ? '4px' : '8px 8px 0 0'
+                    }}
+                    onError={(e) => {
+                        console.error('Image load error:', imageUrl);
+                        setImageErrors(prev => ({
+                            ...prev,
+                            [product.product_code]: true
+                        }));
+                    }}
+                />
+            </Box>
+        );
+    };
+
+    // Product selection handler
     const handleProductSelect = (product) => {
         if (products.some(p => p.product_code === product.product_code)) {
+            // More detailed warning message with consistent styling
             Swal.fire({
                 icon: 'warning',
-                title: 'Product Already Added',
-                text: 'This product is already in your list'
+                title: 'Duplicate Product',
+                text: `${product.product_name} is already in your order. Please adjust the quantity instead.`,
+                confirmButtonColor: '#754C27'
             });
+            setSearchTerm('');
+            setShowDropdown(false);
             return;
         }
 
-        setSearchTerm('');
-        setShowDropdown(false);
-
-        const newProducts = [...products, product];
-        setProducts(newProducts);
-
+        const productCode = product.product_code;
         const initialQuantity = 1;
         const initialUnitCode = product.productUnit1.unit_code;
         const initialUnitPrice = product.bulk_unit_price;
+        const initialAmount = initialQuantity * initialUnitPrice;
+        const isTaxable = product.tax1 === 'Y';
 
-        setQuantities(prev => ({
-            ...prev,
-            [product.product_code]: initialQuantity
-        }));
-        setUnits(prev => ({
-            ...prev,
-            [product.product_code]: initialUnitCode
-        }));
-        setUnitPrices(prev => ({
-            ...prev,
-            [product.product_code]: initialUnitPrice
-        }));
-        setExpiryDates(prev => ({
-            ...prev,
-            [product.product_code]: new Date()
-        }));
-        setTemperatures(prev => ({
-            ...prev,
-            [product.product_code]: ''
-        }));
+        setProducts(prev => [...prev, product]);
+        setQuantities(prev => ({ ...prev, [productCode]: initialQuantity }));
+        setUnits(prev => ({ ...prev, [productCode]: initialUnitCode }));
+        setUnitPrices(prev => ({ ...prev, [productCode]: initialUnitPrice }));
+        setTotals(prev => ({ ...prev, [productCode]: initialAmount }));
+        setExpiryDates(prev => ({ ...prev, [productCode]: new Date() }));
+        setTemperatures(prev => ({ ...prev, [productCode]: '38' }));
+        setTaxStatus(prev => ({ ...prev, [productCode]: product.tax1 || 'N' }));
 
-        calculateProductTotal(product.product_code, initialQuantity, initialUnitPrice);
+        if (isTaxable) {
+            setTaxableAmount(prev => prev + initialAmount);
+        } else {
+            setNonTaxableAmount(prev => prev + initialAmount);
+        }
+
+        setTotal(prev => prev + initialAmount);
+
+        setSearchTerm('');
+        setShowDropdown(false);
     };
 
-    const calculateProductTotal = (productCode, quantity, unitPrice) => {
-        const amount = quantity * unitPrice;
-        setTotals(prev => {
-            const newTotals = { ...prev, [productCode]: amount };
-            let totalAmount = 0;
-            let newTaxable = 0;
-            let newNonTaxable = 0;
+    // Quantity change handler
+    const handleQuantityChange = (productCode, quantity) => {
+        const oldQuantity = quantities[productCode] || 0;
+        const price = unitPrices[productCode] || 0;
+        const oldAmount = oldQuantity * price;
+        const newAmount = quantity * price;
+        const diffAmount = newAmount - oldAmount;
 
-            products.forEach(product => {
-                const currentAmount = product.product_code === productCode
-                    ? amount
-                    : (newTotals[product.product_code] || 0);
+        setQuantities(prev => ({ ...prev, [productCode]: quantity }));
+        setTotals(prev => ({ ...prev, [productCode]: newAmount }));
 
-                totalAmount += currentAmount;
+        const product = products.find(p => p.product_code === productCode);
+        if (product && product.tax1 === 'Y') {
+            setTaxableAmount(prev => prev + diffAmount);
+        } else {
+            setNonTaxableAmount(prev => prev + diffAmount);
+        }
 
-                if (product.tax1 === 'Y') {
-                    newTaxable += currentAmount;
-                } else {
-                    newNonTaxable += currentAmount;
-                }
-            });
-
-            setTaxableAmount(newTaxable);
-            setNonTaxableAmount(newNonTaxable);
-            setTotal(totalAmount);
-
-            return newTotals;
-        });
+        setTotal(prev => prev + diffAmount);
     };
 
+    // Unit change handler
+    const handleUnitChange = (productCode, newUnit) => {
+        setUnits(prev => ({ ...prev, [productCode]: newUnit }));
+
+        const product = products.find(p => p.product_code === productCode);
+        if (!product) return;
+
+        const oldPrice = unitPrices[productCode] || 0;
+        const newPrice = newUnit === product.productUnit1?.unit_code
+            ? product.bulk_unit_price
+            : product.retail_unit_price;
+
+        const quantity = quantities[productCode] || 0;
+        const oldAmount = quantity * oldPrice;
+        const newAmount = quantity * newPrice;
+        const diffAmount = newAmount - oldAmount;
+
+        setUnitPrices(prev => ({ ...prev, [productCode]: newPrice }));
+        setTotals(prev => ({ ...prev, [productCode]: newAmount }));
+
+        if (product.tax1 === 'Y') {
+            setTaxableAmount(prev => prev + diffAmount);
+        } else {
+            setNonTaxableAmount(prev => prev + diffAmount);
+        }
+
+        setTotal(prev => prev + diffAmount);
+    };
+
+    // Expiry date change handler
+    const handleExpiryDateChange = (productCode, date) => {
+        setExpiryDates(prev => ({ ...prev, [productCode]: date }));
+    };
+
+    // Temperature change handler
+    const handleTemperatureChange = (productCode, temp) => {
+        setTemperatures(prev => ({ ...prev, [productCode]: temp }));
+    };
+
+    // Tax status change handler
+    const handleTaxStatusChange = (productCode, value) => {
+        const oldTaxStatus = taxStatus[productCode] || 'N';
+        const newTaxStatus = value;
+
+        if (oldTaxStatus !== newTaxStatus) {
+            const amount = totals[productCode] || 0;
+
+            if (oldTaxStatus === 'Y' && newTaxStatus === 'N') {
+                setTaxableAmount(prev => prev - amount);
+                setNonTaxableAmount(prev => prev + amount);
+            } else if (oldTaxStatus === 'N' && newTaxStatus === 'Y') {
+                setTaxableAmount(prev => prev + amount);
+                setNonTaxableAmount(prev => prev - amount);
+            }
+        }
+
+        setTaxStatus(prev => ({ ...prev, [productCode]: value }));
+    };
+
+    // Calculate tax
+    const calculateTax = () => {
+        return taxableAmount * 0.07;
+    };
+
+    // Delete product handler
+    const handleDeleteProduct = (productCode) => {
+        const product = products.find(p => p.product_code === productCode);
+        if (!product) return;
+
+        const amount = totals[productCode] || 0;
+        if (product.tax1 === 'Y' || taxStatus[productCode] === 'Y') {
+            setTaxableAmount(prev => prev - amount);
+        } else {
+            setNonTaxableAmount(prev => prev - amount);
+        }
+
+        setTotal(prev => prev - amount);
+
+        setProducts(prev => prev.filter(p => p.product_code !== productCode));
+
+        const newQuantities = { ...quantities };
+        delete newQuantities[productCode];
+        setQuantities(newQuantities);
+
+        const newUnits = { ...units };
+        delete newUnits[productCode];
+        setUnits(newUnits);
+
+        const newUnitPrices = { ...unitPrices };
+        delete newUnitPrices[productCode];
+        setUnitPrices(newUnitPrices);
+
+        const newTotals = { ...totals };
+        delete newTotals[productCode];
+        setTotals(newTotals);
+
+        const newExpiryDates = { ...expiryDates };
+        delete newExpiryDates[productCode];
+        setExpiryDates(newExpiryDates);
+
+        const newTemperatures = { ...temperatures };
+        delete newTemperatures[productCode];
+        setTemperatures(newTemperatures);
+
+        const newTaxStatus = { ...taxStatus };
+        delete newTaxStatus[productCode];
+        setTaxStatus(newTaxStatus);
+    };
+
+    // Save handler
     const handleSave = async () => {
-        if (!saveBranch || !saveSupplier || products.length === 0) {
+        if (!saveSupplier || !saveBranch || products.length === 0) {
             Swal.fire({
                 icon: 'warning',
                 title: 'Missing Information',
-                text: 'Please fill in all required fields'
+                text: 'Please select a supplier, branch, and add at least one product.',
+                timer: 1500
             });
             return;
         }
 
         try {
-            const headerData = {
-                refno: refNo,
-                rdate: formatDate(startDate),
-                branch_code: saveBranch,
-                supplier_code: saveSupplier,
-                trdate: formatTRDate(startDate),
-                monthh: String(startDate.getMonth() + 1).padStart(2, '0'),
-                myear: startDate.getFullYear().toString(),
-                user_code: userData2?.user_code,
-            };
-
-            const productArrayData = products.map(product => ({
-                refno: refNo,
-                product_code: product.product_code,
-                qty: quantities[product.product_code] || 0,
-                unit_code: units[product.product_code] || product.productUnit1.unit_code,
-                uprice: unitPrices[product.product_code] || 0,
-                tax1: product.tax1,
-                amt: totals[product.product_code] || 0,
-                expire_date: expiryDates[product.product_code] ? formatDate(expiryDates[product.product_code]) : null,
-                texpire_date: expiryDates[product.product_code] ? formatTRDate(expiryDates[product.product_code]) : null,
-                temperature1: temperatures[product.product_code] || ''
-            }));
-
-            const footerData = {
-                taxable: Number(taxableAmount),
-                nontaxable: Number(nonTaxableAmount),
-                total: Number(total)
-            };
-
             Swal.fire({
-                title: 'Saving...',
+                title: 'Saving receipt...',
                 allowOutsideClick: false,
-                didOpen: () => Swal.showLoading()
+                didOpen: () => {
+                    Swal.showLoading();
+                }
             });
 
-            const result = await dispatch(addBr_rfw({
+            const headerData = {
+                refno: lastRefNo,
+                rdate: format(startDate, 'MM/dd/yyyy'),
+                supplier_code: saveSupplier,
+                branch_code: saveBranch,
+                trdate: format(startDate, 'yyyyMMdd'),
+                monthh: format(startDate, 'MM'),
+                myear: startDate.getFullYear(),
+                user_code: userData2?.user_code || '',
+                taxable: taxableAmount,
+                nontaxable: nonTaxableAmount,
+                total: total
+            };
+
+            const productArrayData = products.map(product => {
+                const productCode = product.product_code;
+                return {
+                    refno: headerData.refno,
+                    product_code: productCode,
+                    qty: quantities[productCode]?.toString() || "1",
+                    unit_code: units[productCode] || product.productUnit1?.unit_code || '',
+                    uprice: unitPrices[productCode]?.toString() || "0",
+                    tax1: taxStatus[productCode] || 'N',
+                    amt: totals[productCode]?.toString() || "0",
+                    expire_date: format(expiryDates[productCode] || new Date(), 'MM/dd/yyyy'),
+                    texpire_date: format(expiryDates[productCode] || new Date(), 'yyyyMMdd'),
+                    temperature1: temperatures[productCode] || '38'
+                };
+            });
+
+            const footerData = {
+                taxable: taxableAmount,
+                nontaxable: nonTaxableAmount,
+                total: total + calculateTax()
+            };
+
+            await dispatch(addBr_rfw({
                 headerData,
                 productArrayData,
                 footerData
             })).unwrap();
 
-            if (result.result) {
-                await Swal.fire({
-                    icon: 'success',
-                    title: 'Success!',
-                    text: 'Receipt from warehouse created successfully',
-                    timer: 1500
-                });
-                resetForm();
-                onBack();
-            }
+            await Swal.fire({
+                icon: 'success',
+                title: 'Created receipt successfully',
+                text: `Reference No: ${lastRefNo}`,
+                showConfirmButton: false,
+                timer: 1500
+            });
+
+            resetForm();
+            onBack();
+
         } catch (error) {
-            console.error('Error saving RFW:', error);
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
-                text: error.message || 'Failed to create receipt'
+                text: error.message || 'Error saving receipt',
+                confirmButtonText: 'OK'
             });
         }
     };
 
-    const handleDeleteProduct = (productCode) => {
-        setProducts(prev => prev.filter(p => p.product_code !== productCode));
-        setQuantities(prev => {
-            const { [productCode]: _, ...rest } = prev;
-            return rest;
-        });
-        setUnits(prev => {
-            const { [productCode]: _, ...rest } = prev;
-            return rest;
-        });
-        setUnitPrices(prev => {
-            const { [productCode]: _, ...rest } = prev;
-            return rest;
-        });
-        setTotals(prev => {
-            const { [productCode]: _, ...rest } = prev;
-            return rest;
-        });
-        calculateOrderTotals();
-    };
-
-    const calculateOrderTotals = () => {
-        let newTaxable = 0;
-        let newNonTaxable = 0;
-        let subTotal = 0;
-
-        products.forEach(product => {
-            const quantity = quantities[product.product_code] || 0;
-            const unitPrice = unitPrices[product.product_code] || 0;
-            const amount = quantity * unitPrice;
-
-            subTotal += amount;
-
-            if (product.tax1 === 'Y') {
-                newTaxable += amount;
-            } else {
-                newNonTaxable += amount;
-            }
-        });
-
-        setTaxableAmount(newTaxable);
-        setNonTaxableAmount(newNonTaxable);
-        setTotal(subTotal);
-    };
-
-    const handleExpiryDateChange = (productCode, date) => {
-        setExpiryDates(prev => ({
-            ...prev,
-            [productCode]: date
-        }));
-    };
-
+    // Reset form
     const resetForm = () => {
         setProducts([]);
+        setSelectedProducts([]);
         setQuantities({});
         setUnits({});
         setUnitPrices({});
         setTotals({});
+        setTotal(0);
+        setSaveSupplier('');
+        setSaveBranch('');
+        setSearchTerm('');
         setExpiryDates({});
         setTemperatures({});
-        setSaveBranch('');
-        setSaveSupplier('');
+        setTaxStatus({});
+        setImageErrors({});
+        setSelectedDispatchRefno('');
+        setDispatchData(null);
         setTaxableAmount(0);
         setNonTaxableAmount(0);
-        setTotal(0);
     };
+
+    if (isLoading) {
+        return (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+                <CircularProgress sx={{ color: '#754C27' }} />
+                <Typography sx={{ ml: 2 }}>Loading data...</Typography>
+            </Box>
+        );
+    }
 
     return (
         <Box sx={{ width: '100%' }}>
             <Button onClick={onBack} startIcon={<ArrowBackIcon />} sx={{ mb: 2 }}>
                 Back to Receipt From Warehouse
             </Button>
+
+            {/* Status Information */}
+            <Box sx={{ mb: 2, p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
+                <Typography variant="subtitle2">
+                    <strong>Status:</strong> Creating new receipt |
+                    Products selected: {selectedProducts.length} |
+                    {selectedDispatchRefno && (
+                        <span> Based on dispatch: {selectedDispatchRefno} |</span>
+                    )}
+                    Supplier: {saveSupplier || 'None'} |
+                    Restaurant: {saveBranch || 'None'} |
+                    Total: ${total.toFixed(2)}
+                </Typography>
+            </Box>
 
             <Box sx={{
                 width: '100%',
@@ -373,13 +794,65 @@ export default function CreateReceiptFromWarehouse({ onBack }) {
                 border: '1px solid #E4E4E4',
                 p: 3
             }}>
+                {/* Dispatch Selection */}
+                <Box sx={{ marginBottom: "20px" }}>
+                    <Typography variant="subtitle1" fontWeight="bold" mb={1}>
+                        Select from Existing Dispatch
+                    </Typography>
+                    <Autocomplete
+                        options={dispatchRefnos}
+                        getOptionLabel={(option) =>
+                            typeof option === 'string'
+                                ? option
+                                : `${option.refno} - To: ${option.branch} (${option.formattedDate})`
+                        }
+                        onChange={(_, newValue) => handleDispatchSelection(newValue?.refno || '')}
+                        isOptionEqualToValue={(option, value) =>
+                            option.refno === (typeof value === 'string' ? value : value?.refno)
+                        }
+                        renderOption={(props, option) => (
+                            <Box component="li" {...props}>
+                                <Box>
+                                    <Typography variant="body1" fontWeight="bold">
+                                        {option.refno}
+                                    </Typography>
+                                    <Typography variant="body2" color="text.secondary">
+                                        To: {option.branch}
+                                    </Typography>
+                                    <Typography variant="caption" color="primary">
+                                        Date: {option.formattedDate}
+                                    </Typography>
+                                </Box>
+                            </Box>
+                        )}
+                        renderInput={(params) => (
+                            <TextField
+                                {...params}
+                                label="Search dispatch reference"
+                                placeholder="Select dispatch to create receipt from"
+                                variant="outlined"
+                                sx={{ mb: 2 }}
+                                InputProps={{
+                                    ...params.InputProps,
+                                    endAdornment: (
+                                        <>
+                                            {loadingDispatch ? <CircularProgress color="inherit" size={20} /> : null}
+                                            {params.InputProps.endAdornment}
+                                        </>
+                                    ),
+                                }}
+                            />
+                        )}
+                    />
+                </Box>
+
                 <Grid2 container spacing={2}>
-                    <Grid2 item xs={12} md={6}>
+                    <Grid2 item size={{ xs: 12, md: 6 }}>
                         <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
                             Ref.no
                         </Typography>
                         <TextField
-                            value={refNo}
+                            value={lastRefNo}
                             disabled
                             size="small"
                             placeholder="Reference number"
@@ -393,7 +866,7 @@ export default function CreateReceiptFromWarehouse({ onBack }) {
                         />
                     </Grid2>
 
-                    <Grid2 item xs={12} md={6}>
+                    <Grid2 item size={{ xs: 12, md: 6 }}>
                         <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
                             Date
                         </Typography>
@@ -404,31 +877,13 @@ export default function CreateReceiptFromWarehouse({ onBack }) {
                                 handleGetLastRefNo(date);
                             }}
                             dateFormat="MM/dd/yyyy"
-                            customInput={
-                                <TextField
-                                    size="small"
-                                    fullWidth
-                                    sx={{
-                                        mt: 1,
-                                        '& .MuiOutlinedInput-root': {
-                                            borderRadius: '10px'
-                                        }
-                                    }}
-                                    InputProps={{
-                                        endAdornment: (
-                                            <InputAdornment position="end">
-                                                <CalendarTodayIcon />
-                                            </InputAdornment>
-                                        )
-                                    }}
-                                />
-                            }
+                            customInput={<CustomInput />}
                         />
                     </Grid2>
 
-                    <Grid2 item xs={12} md={6}>
+                    <Grid2 item size={{ xs: 12, md: 6 }}>
                         <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
-                            Branch
+                            Restaurant
                         </Typography>
                         <Box
                             component="select"
@@ -447,7 +902,7 @@ export default function CreateReceiptFromWarehouse({ onBack }) {
                                 }
                             }}
                         >
-                            <option value="">Select Branch</option>
+                            <option value="">Select Restaurant</option>
                             {branches.map((branch) => (
                                 <option key={branch.branch_code} value={branch.branch_code}>
                                     {branch.branch_name}
@@ -456,7 +911,7 @@ export default function CreateReceiptFromWarehouse({ onBack }) {
                         </Box>
                     </Grid2>
 
-                    <Grid2 item xs={12} md={6}>
+                    <Grid2 item size={{ xs: 12, md: 6 }}>
                         <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
                             Supplier
                         </Typography>
@@ -485,7 +940,6 @@ export default function CreateReceiptFromWarehouse({ onBack }) {
                             ))}
                         </Box>
                     </Grid2>
-
                 </Grid2>
 
                 <Divider sx={{ my: 3 }} />
@@ -578,126 +1032,153 @@ export default function CreateReceiptFromWarehouse({ onBack }) {
                             </tr>
                         </thead>
                         <tbody>
-                            {products.map((product, index) => (
-                                <tr key={product.product_code}>
-                                    <td style={{ padding: '12px' }}>{index + 1}</td>
-                                    <td style={{ padding: '12px' }}>{product.product_code}</td>
-                                    <td style={{ padding: '12px' }}>{product.product_name}</td>
-                                    <td style={{ padding: '12px', textAlign: 'center' }}>
-                                        <DatePicker
-                                            selected={expiryDates[product.product_code]}
-                                            onChange={(date) => handleExpiryDateChange(product.product_code, date)}
-                                            dateFormat="MM/dd/yyyy"
-                                            customInput={
-                                                <TextField
-                                                    size="small"
-                                                    sx={{ width: '120px' }}
-                                                />
-                                            }
-                                        />
-                                    </td>
-                                    <td style={{ padding: '12px', textAlign: 'center' }}>
-                                        <TextField
-                                            size="small"
-                                            value={temperatures[product.product_code] || ''}
-                                            onChange={(e) => {
-                                                setTemperatures(prev => ({
-                                                    ...prev,
-                                                    [product.product_code]: e.target.value
-                                                }));
-                                            }}
-                                            sx={{ width: '80px' }}
-                                        />
-                                    </td>
-                                    <td style={{ padding: '12px', textAlign: 'right' }}>
-                                        <TextField
-                                            type="number"
-                                            size="small"
-                                            value={quantities[product.product_code] || 1}
-                                            onChange={(e) => {
-                                                const newValue = parseInt(e.target.value) || 1;
-                                                setQuantities(prev => ({
-                                                    ...prev,
-                                                    [product.product_code]: newValue
-                                                }));
-                                                calculateProductTotal(
-                                                    product.product_code,
-                                                    newValue,
-                                                    unitPrices[product.product_code]
-                                                );
-                                            }}
-                                            sx={{ width: '80px' }}
-                                            inputProps={{ min: 1 }}
-                                        />
-                                    </td>
-                                    <td style={{ padding: '12px', textAlign: 'center' }}>
-                                        <select
-                                            value={units[product.product_code] || product.productUnit1.unit_code}
-                                            onChange={(e) => {
-                                                const newUnit = e.target.value;
-                                                setUnits(prev => ({
-                                                    ...prev,
-                                                    [product.product_code]: newUnit
-                                                }));
-                                                calculateProductTotal(
-                                                    product.product_code,
-                                                    quantities[product.product_code],
-                                                    unitPrices[product.product_code]
-                                                );
-                                            }}
-                                            style={{
-                                                padding: '8px',
-                                                width: '100px',
-                                                borderRadius: '4px',
-                                                border: '1px solid rgba(0, 0, 0, 0.23)'
-                                            }}
-                                        >
-                                            <option value={product.productUnit1.unit_code}>
-                                                {product.productUnit1.unit_name}
-                                            </option>
-                                            <option value={product.productUnit2.unit_code}>
-                                                {product.productUnit2.unit_name}
-                                            </option>
-                                        </select>
-                                    </td>
-                                    <td style={{ padding: '12px', textAlign: 'right' }}>
-                                        <TextField
-                                            type="number"
-                                            size="small"
-                                            value={unitPrices[product.product_code] || 0}
-                                            onChange={(e) => {
-                                                const newPrice = parseFloat(e.target.value) || 0;
-                                                setUnitPrices(prev => ({
-                                                    ...prev,
-                                                    [product.product_code]: newPrice
-                                                }));
-                                                calculateProductTotal(
-                                                    product.product_code,
-                                                    quantities[product.product_code],
-                                                    newPrice
-                                                );
-                                            }}
-                                            sx={{ width: '100px' }}
-                                            inputProps={{ min: 0, step: "0.01" }}
-                                        />
-                                    </td>
-                                    <td style={{ padding: '12px', textAlign: 'center' }}>
-                                        {product.tax1 === 'Y' ? 'Yes' : 'No'}
-                                    </td>
-                                    <td style={{ padding: '12px', textAlign: 'right' }}>
-                                        {(totals[product.product_code] || 0).toFixed(2)}
-                                    </td>
-                                    <td style={{ padding: '12px', textAlign: 'center' }}>
-                                        <IconButton
-                                            onClick={() => handleDeleteProduct(product.product_code)}
-                                            size="small"
-                                            sx={{ color: 'error.main' }}
-                                        >
-                                            <CancelIcon />
-                                        </IconButton>
+                            {products.length === 0 ? (
+                                <tr>
+                                    <td colSpan="11" style={{ padding: '20px', textAlign: 'center', color: 'rgba(0, 0, 0, 0.6)' }}>
+                                        No products yet. Please select a dispatch from the dropdown or add products using the search.
                                     </td>
                                 </tr>
-                            ))}
+                            ) : (
+                                products.map((product, index) => (
+                                    <tr key={product.product_code}>
+                                        <td style={{ padding: '12px' }}>{index + 1}</td>
+                                        <td style={{ padding: '12px' }}>{product.product_code}</td>
+                                        <td style={{ padding: '12px' }}>{product.product_name}</td>
+                                        <td style={{ padding: '12px', textAlign: 'center' }}>
+                                            <DatePicker
+                                                selected={expiryDates[product.product_code]}
+                                                onChange={(date) => handleExpiryDateChange(product.product_code, date)}
+                                                dateFormat="MM/dd/yyyy"
+                                                customInput={
+                                                    <input
+                                                        style={{
+                                                            width: '110px',
+                                                            padding: '8px',
+                                                            textAlign: 'center',
+                                                            border: '1px solid #ddd',
+                                                            borderRadius: '4px'
+                                                        }}
+                                                    />
+                                                }
+                                            />
+                                        </td>
+                                        <td style={{ padding: '12px', textAlign: 'center' }}>
+                                            <input
+                                                type="text"
+                                                value={temperatures[product.product_code] || ''}
+                                                onChange={(e) => handleTemperatureChange(product.product_code, e.target.value)}
+                                                style={{
+                                                    width: '70px',
+                                                    padding: '8px',
+                                                    textAlign: 'center',
+                                                    border: '1px solid #ddd',
+                                                    borderRadius: '4px'
+                                                }}
+                                            />
+                                        </td>
+                                        <td style={{ padding: '12px', textAlign: 'right' }}>
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                value={quantities[product.product_code] || 1}
+                                                onChange={(e) => handleQuantityChange(product.product_code, parseInt(e.target.value))}
+                                                style={{
+                                                    width: '60px',
+                                                    padding: '8px',
+                                                    textAlign: 'right',
+                                                    border: '1px solid #ddd',
+                                                    borderRadius: '4px'
+                                                }}
+                                            />
+                                        </td>
+                                        <td style={{ padding: '12px' }}>
+                                            <select
+                                                value={units[product.product_code] || product.productUnit1?.unit_code}
+                                                onChange={(e) => handleUnitChange(product.product_code, e.target.value)}
+                                                style={{
+                                                    padding: '8px',
+                                                    width: '100px',
+                                                    borderRadius: '4px',
+                                                    border: '1px solid #ddd'
+                                                }}
+                                            >
+                                                {product.productUnit1 && (
+                                                    <option value={product.productUnit1.unit_code}>
+                                                        {product.productUnit1.unit_name}
+                                                    </option>
+                                                )}
+                                                {product.productUnit2 && (
+                                                    <option value={product.productUnit2.unit_code}>
+                                                        {product.productUnit2.unit_name}
+                                                    </option>
+                                                )}
+                                            </select>
+                                        </td>
+                                        <td style={{ padding: '12px', textAlign: 'right' }}>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                step="0.01"
+                                                value={unitPrices[product.product_code] || 0}
+                                                onChange={(e) => {
+                                                    const newPrice = parseFloat(e.target.value) || 0;
+                                                    const oldPrice = unitPrices[product.product_code] || 0;
+                                                    const quantity = quantities[product.product_code] || 0;
+                                                    const diffAmount = (newPrice - oldPrice) * quantity;
+
+                                                    setUnitPrices(prev => ({ ...prev, [product.product_code]: newPrice }));
+                                                    setTotals(prev => {
+                                                        const newTotal = (prev[product.product_code] || 0) + diffAmount;
+                                                        return { ...prev, [product.product_code]: newTotal };
+                                                    });
+
+                                                    if (taxStatus[product.product_code] === 'Y') {
+                                                        setTaxableAmount(prev => prev + diffAmount);
+                                                    } else {
+                                                        setNonTaxableAmount(prev => prev + diffAmount);
+                                                    }
+
+                                                    setTotal(prev => prev + diffAmount);
+                                                }}
+                                                style={{
+                                                    width: '100px',
+                                                    padding: '8px',
+                                                    textAlign: 'right',
+                                                    border: '1px solid #ddd',
+                                                    borderRadius: '4px'
+                                                }}
+                                            />
+                                        </td>
+                                        <td style={{ padding: '12px', textAlign: 'center' }}>
+                                            <select
+                                                value={taxStatus[product.product_code] || 'N'}
+                                                onChange={(e) => handleTaxStatusChange(product.product_code, e.target.value)}
+                                                style={{
+                                                    padding: '8px',
+                                                    width: '70px',
+                                                    borderRadius: '4px',
+                                                    border: '1px solid #ddd'
+                                                }}
+                                            >
+                                                <option value="Y">Yes</option>
+                                                <option value="N">No</option>
+                                            </select>
+                                        </td>
+                                        <td style={{ padding: '12px', textAlign: 'right' }}>
+                                            {(totals[product.product_code] || 0).toFixed(2)}
+                                        </td>
+                                        <td style={{ padding: '12px', textAlign: 'center' }}>
+                                            <IconButton
+                                                onClick={() => handleDeleteProduct(product.product_code)}
+                                                size="small"
+                                                sx={{ color: 'error.main' }}
+                                            >
+                                                <CancelIcon />
+                                            </IconButton>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
                         </tbody>
                     </table>
                 </Box>
@@ -717,10 +1198,14 @@ export default function CreateReceiptFromWarehouse({ onBack }) {
                         <Typography>Non-taxable</Typography>
                         <Typography>${nonTaxableAmount.toFixed(2)}</Typography>
                     </Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                        <Typography>Tax (7%)</Typography>
+                        <Typography>${calculateTax().toFixed(2)}</Typography>
+                    </Box>
                     <Divider sx={{ my: 1, borderColor: 'white' }} />
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
                         <Typography variant="h5" fontWeight="bold">Total</Typography>
-                        <Typography variant="h5" fontWeight="bold">${total.toFixed(2)}</Typography>
+                        <Typography variant="h5" fontWeight="bold">${(total + calculateTax()).toFixed(2)}</Typography>
                     </Box>
                 </Box>
 

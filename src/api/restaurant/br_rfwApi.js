@@ -134,3 +134,17 @@ export const searchBr_rfwRunno = createAsyncThunk(
         }
     }
 );
+
+export const Br_rfwUsedRefnos = createAsyncThunk(
+    "br_rfw/usedRefnos",
+    async (_, thunkAPI) => {
+        try {
+            const response = await axios.post(BASE_URL + "/api/rfw-used-refnos");
+            return response.data;
+        } catch (error) {
+            return thunkAPI.rejectWithValue(
+                error.response ? error.response.data : error.message
+            );
+        }
+    }
+);

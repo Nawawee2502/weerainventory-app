@@ -87,9 +87,14 @@ export default function CreateDispatchToBranch({ onBack }) {
 
     const handleGetLastRefNo = async (selectedDate) => {
         try {
-            const res = await dispatch(wh_dpbrefno({ test: 10 })).unwrap();
-            const year = selectedDate.getFullYear().toString().slice(-2);
+            // Pass the correct parameters
             const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+            const year = selectedDate.getFullYear().toString().slice(-2);
+
+            const res = await dispatch(wh_dpbrefno({
+                month: month,
+                year: year
+            })).unwrap();
 
             if (!res.data || !res.data.refno) {
                 setLastRefNo(`WDPB${year}${month}001`);
@@ -113,10 +118,13 @@ export default function CreateDispatchToBranch({ onBack }) {
             setLastYear(year);
         } catch (err) {
             console.error("Error generating refno:", err);
+            // Provide a fallback when API fails
+            const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+            const year = selectedDate.getFullYear().toString().slice(-2);
+            setLastRefNo(`WDPB${year}${month}001`);
         }
     };
 
-    // Improved handleProductSelect function with better warning message
     const handleProductSelect = (product) => {
         if (products.some(p => p.product_code === product.product_code)) {
             // More detailed warning message with consistent styling

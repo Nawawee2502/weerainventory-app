@@ -249,36 +249,47 @@ export default function BeginningInventory() {
     }, [dispatch]);
 
     // Load Stockcard Data
-    // Load Stockcard Data
     const loadStockcardData = async (pageNumber = 1) => {
         try {
             setLoading(true);
             const offset = (pageNumber - 1) * itemsPerPage;
             const formattedDate = filterDate ? formatDate(filterDate) : null;
 
-            // ขอรับข้อมูลทั้งหมดที่มี refno = 'BEG' เท่านั้น
+            // Fetch all stockcard data without refno filter in the API call
             const [stockcardsRes, countRes] = await Promise.all([
                 dispatch(Br_stockcardAll({
                     offset,
                     limit: itemsPerPage,
                     rdate: formattedDate,
-                    product_name: tableSearchTerm,
-                    refno: 'BEG'  // เพิ่มพารามิเตอร์นี้เพื่อกรองเฉพาะ BEG
+                    product_name: tableSearchTerm
+                    // No refno filter here
                 })).unwrap(),
                 dispatch(countBr_stockcard({
                     rdate: formattedDate,
-                    product_name: tableSearchTerm,
-                    refno: 'BEG'  // เพิ่มพารามิเตอร์นี้เพื่อกรองเฉพาะ BEG
+                    product_name: tableSearchTerm
+                    // No refno filter here
                 })).unwrap()
             ]);
 
             console.log("API Response:", stockcardsRes);
 
             if (stockcardsRes.result && Array.isArray(stockcardsRes.data)) {
-                // ไม่ต้องกรองอีกรอบเพราะเราส่ง refno = 'BEG' ไปแล้ว
-                const totalPages = Math.ceil(countRes.data / itemsPerPage);
+                // Filter the results to only show BEG records in the table
+                const begRecords = stockcardsRes.data.filter(record => record.refno === 'BEG');
+
+                // Calculate pagination based on filtered results
+                const filteredCount = begRecords.length;
+                const totalOriginalRecords = countRes.data;
+
+                // Adjust total count based on proportion of BEG records
+                // This is an estimate - may need adjustment based on actual data distribution
+                const estimatedTotalBegRecords = Math.ceil(totalOriginalRecords * (filteredCount / stockcardsRes.data.length || 1));
+
+                const totalPages = Math.max(1, Math.ceil(estimatedTotalBegRecords / itemsPerPage));
                 setCount(totalPages);
-                setStockcards(stockcardsRes.data);
+
+                // Set only BEG records to display in table
+                setStockcards(begRecords);
             }
         } catch (error) {
             console.error('Error loading stockcard data:', error);
@@ -682,7 +693,7 @@ export default function BeginningInventory() {
                                 <StyledTableCell width='1%'>No.</StyledTableCell>
                                 <StyledTableCell align="center">Product Code</StyledTableCell>
                                 <StyledTableCell align="center">Product Name</StyledTableCell>
-                                <StyledTableCell align="center">Branch</StyledTableCell>
+                                <StyledTableCell align="center">Restaurant</StyledTableCell>
                                 <StyledTableCell align="center">Amount</StyledTableCell>
                                 <StyledTableCell align="center">Unit Price</StyledTableCell>
                                 <StyledTableCell align="center">Total</StyledTableCell>
@@ -821,7 +832,7 @@ export default function BeginningInventory() {
                         justifyContent: 'center',
                     }}>
                         <Typography sx={{ fontWeight: '600', fontSize: '14px' }}>
-                            Branch Beginning Inventory
+                            Restaurant Beginning Inventory
                         </Typography>
                     </Box>
                     <Box sx={{
@@ -909,7 +920,7 @@ export default function BeginningInventory() {
                                 </Box>
 
                                 <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
-                                    Branch
+                                    Restaurant
                                 </Typography>
                                 <Box
                                     component="select"
@@ -933,7 +944,7 @@ export default function BeginningInventory() {
                                         },
                                     }}
                                 >
-                                    <option value="">Select Branch</option>
+                                    <option value="">Select Restaurant</option>
                                     {branches.map(branch => (
                                         <option key={branch.branch_code} value={branch.branch_code}>
                                             {branch.branch_name}

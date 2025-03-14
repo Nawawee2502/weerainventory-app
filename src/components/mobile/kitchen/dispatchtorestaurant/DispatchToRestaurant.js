@@ -376,7 +376,7 @@ export default function DispatchToRestaurant({ onCreate, onEdit }) {
                         backgroundColor: '#fff'
                     }}
                 >
-                    <option value="">All Branches</option>
+                    <option value="">All Restaurant</option>
                     {branches.map((branch) => (
                         <option key={branch.branch_code} value={branch.branch_code}>
                             {branch.branch_name}

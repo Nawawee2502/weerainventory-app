@@ -21,6 +21,14 @@ import HomeGoodsReceiptKitchen from "../../components/mobile/restaurant/goodsrec
 import HomeGoodsReceiptSupplier from "../../components/mobile/restaurant/goodsreceiptsupplier/HomeGoodsReceiptSupplier";
 import HomeGoodsReceiptWarehouse from "../../components/mobile/restaurant/goodsreceiptwarehouse/HomeGoodsReceiptWarehouse";
 import HomePurchaseOrderToWarehouse from "../../components/mobile/restaurant/purchaseorderwarehouse/HomePurchaseOrderToWarehouse";
+import MobileBranchBeginningInventory from "../../components/mobile/restaurant/beginninginventory/Beginninginventory";
+import HomeSetMinimumStock from "../../components/mobile/restaurant/setminimumstock/Setminimumstock";
+import GoodsAdjustment from "../../components/mobile/restaurant/goodsadjustment/GoodsAdjustment";
+import ReportMonthlyStockCard from "../../components/mobile/restaurant/report/ReportStockcard";
+import ReportMonthlyStockBalance from "../../components/mobile/restaurant/report/ReportStockBalance";
+import Dailyclosing from "../../components/mobile/restaurant/dailyclosing/Dailyclosing";
+import HomeRequestToKitchen from "../../components/mobile/restaurant/requesttokitchen/HomeRequestToKitchen";
+import HomeStockAdjustment from "../../components/mobile/restaurant/stockadjustment/HomeStockAdjustment";
 // import BillOfLandingBranch from "../../components/mobile/restaurant/billoflandingbranch/BillofLandingBranch";
 
 const MRestaurant = () => {
@@ -37,13 +45,28 @@ const MRestaurant = () => {
   };
 
   const menuItems = [
-    // {
-    //   label: "Inventory Update",
-    //   icon: <ListAltIcon style={{ color: "#fff" }} />,
-    //   component: <InventoryUpdate />
-    // },
     {
-      label: "Restaurant Purchase order to Warehouse",
+      label: "Restaurant Beginning Inventory",
+      icon: <ListAltIcon style={{ color: "#fff" }} />,
+      component: <MobileBranchBeginningInventory />
+    },
+    {
+      label: "Restaurant Set minimum stock",
+      icon: <ListAltIcon style={{ color: "#fff" }} />,
+      component: <HomeSetMinimumStock />
+    },
+    {
+      label: "Restaurant Request to kitchen",
+      icon: <ListAltIcon style={{ color: "#fff" }} />,
+      component: <HomeRequestToKitchen />
+    },
+    {
+      label: "Restaurant Goods Adjustment",
+      icon: <ListAltIcon style={{ color: "#fff" }} />,
+      component: <HomeStockAdjustment />
+    },
+    {
+      label: "Restaurant Request to Warehouse",
       icon: <ListAltIcon style={{ color: "#fff" }} />,
       component: <HomePurchaseOrderToWarehouse />
     },
@@ -66,6 +89,21 @@ const MRestaurant = () => {
       label: "Restaurant Goods Requisition",
       icon: <ListAltIcon style={{ color: "#fff" }} />,
       component: <HomeGoodsRequisition />
+    },
+    {
+      label: "Restaurant Dailyclosing",
+      icon: <ListAltIcon style={{ color: "#fff" }} />,
+      component: <Dailyclosing />
+    },
+    {
+      label: "Restaurant Report Stockcard",
+      icon: <ListAltIcon style={{ color: "#fff" }} />,
+      component: <ReportMonthlyStockCard />
+    },
+    {
+      label: "Restaurant Report Stockbalance",
+      icon: <ListAltIcon style={{ color: "#fff" }} />,
+      component: <ReportMonthlyStockBalance />
     },
     // {
     //   label: "Bill of Landing Restaurant",
@@ -129,52 +167,60 @@ const MRestaurant = () => {
       </header>
 
       {/* Main Content */}
-      {currentPage ? (
-        // Show selected page component
-        <div style={{ padding: "16px" }}>
-          {currentPage.component}
-        </div>
-      ) : (
-        // Show menu list
-        <div style={{ padding: "16px", paddingTop: "12px" }}>
-          <h3 style={{ fontSize: "16px", fontWeight: "bold", marginBottom: "12px", color: "#555" }}>
-            Menu
-          </h3>
+      <div style={{
+        padding: "16px",
+        paddingTop: currentPage ? "16px" : "12px",
+        paddingBottom: "80px",  // เพิ่ม padding ด้านล่างเพื่อให้มีพื้นที่สำหรับ footer 
+        overflowY: "auto",      // ให้สามารถเลื่อนได้ถ้าเนื้อหายาวเกินจอ
+        height: "calc(100vh - 165px)"  // ปรับความสูงให้เหมาะสมกับ header และ footer
+      }}>
+        {currentPage ? (
+          // Show selected page component
+          <div>
+            {currentPage.component}
+          </div>
+        ) : (
+          // Show menu list
+          <>
+            <h3 style={{ fontSize: "16px", fontWeight: "bold", marginBottom: "12px", color: "#555" }}>
+              Menu
+            </h3>
 
-          {menuItems.map((item, index) => (
-            <div
-              key={index}
-              onClick={() => setCurrentPage(item)}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                padding: "12px",
-                marginBottom: "8px",
-                backgroundColor: "#fff",
-                borderRadius: "8px",
-                boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                cursor: "pointer",
-              }}
-            >
+            {menuItems.map((item, index) => (
               <div
+                key={index}
+                onClick={() => setCurrentPage(item)}
                 style={{
-                  width: "40px",
-                  height: "40px",
-                  backgroundColor: "#f4b84d",
-                  borderRadius: "8px",
                   display: "flex",
-                  justifyContent: "center",
                   alignItems: "center",
-                  marginRight: "12px",
+                  padding: "12px",
+                  marginBottom: "8px",
+                  backgroundColor: "#fff",
+                  borderRadius: "8px",
+                  boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                  cursor: "pointer",
                 }}
               >
-                {item.icon}
+                <div
+                  style={{
+                    width: "40px",
+                    height: "40px",
+                    backgroundColor: "#f4b84d",
+                    borderRadius: "8px",
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    marginRight: "12px",
+                  }}
+                >
+                  {item.icon}
+                </div>
+                <span style={{ fontSize: "16px", color: "#333" }}>{item.label}</span>
               </div>
-              <span style={{ fontSize: "16px", color: "#333" }}>{item.label}</span>
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </>
+        )}
+      </div>
 
       {/* Footer Navigation */}
       <footer style={{
@@ -187,7 +233,8 @@ const MRestaurant = () => {
         padding: "12px 0",
         backgroundColor: "#fff",
         borderTop: "1px solid #ddd",
-        boxShadow: "0 -2px 4px rgba(0, 0, 0, 0.1)"
+        boxShadow: "0 -2px 4px rgba(0, 0, 0, 0.1)",
+        zIndex: 100  // เพิ่ม zIndex เพื่อให้แน่ใจว่า footer จะอยู่ด้านบนเสมอ
       }}>
         {footerItems.map((item) => (
           <div

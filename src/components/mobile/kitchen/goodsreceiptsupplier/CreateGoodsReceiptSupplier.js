@@ -34,7 +34,7 @@ import { useDispatch } from "react-redux";
 import { searchProductName } from '../../../../api/productrecordApi';
 import { kitchenAll } from '../../../../api/kitchenApi';
 import { supplierAll } from '../../../../api/supplierApi';
-import { addKt_rfs, Kt_rfsrefno } from '../../../../api/kitchen/kt_rfsApi';
+import { addKt_rfs } from '../../../../api/kitchen/kt_rfsApi';
 import Swal from 'sweetalert2';
 import { format } from 'date-fns';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
@@ -71,12 +71,9 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
 export default function CreateGoodsReceiptSupplier({ onBack }) {
     const dispatch = useDispatch();
 
-    // Loading state
-    const [isLoadingRefNo, setIsLoadingRefNo] = useState(false);
-
     // Form state
     const [startDate, setStartDate] = useState(new Date());
-    const [lastRefNo, setLastRefNo] = useState('');
+    const [refNo, setRefNo] = useState(''); // Manual refNo input
     const [saveSupplier, setSaveSupplier] = useState('');
     const [saveKitchen, setSaveKitchen] = useState('');
 
@@ -97,7 +94,7 @@ export default function CreateGoodsReceiptSupplier({ onBack }) {
     const [unitPrices, setUnitPrices] = useState({});
     const [totals, setTotals] = useState({});
     const [expiryDates, setExpiryDates] = useState({});
-    const [temperatures, setTemperatures] = useState({}); // New state for temperatures
+    const [temperatures, setTemperatures] = useState({});
     const [imageErrors, setImageErrors] = useState({});
     const [total, setTotal] = useState(0);
 
@@ -109,13 +106,10 @@ export default function CreateGoodsReceiptSupplier({ onBack }) {
 
     // Get user data
     const userDataJson = localStorage.getItem("userData2");
-    const userData2 = JSON.parse(userDataJson);
+    const userData2 = userDataJson ? JSON.parse(userDataJson) : null;
 
     // Load initial data
     useEffect(() => {
-        const currentDate = new Date();
-        handleGetLastRefNo(currentDate);
-
         // Fetch kitchens
         dispatch(kitchenAll({ offset: 0, limit: 100 }))
             .unwrap()
@@ -147,8 +141,8 @@ export default function CreateGoodsReceiptSupplier({ onBack }) {
     // Handle filtering and pagination
     useEffect(() => {
         const filtered = allProducts.filter(product =>
-            product.product_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            product.product_code.toLowerCase().includes(searchTerm.toLowerCase())
+            product.product_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            product.product_code?.toLowerCase().includes(searchTerm.toLowerCase())
         );
 
         // Sort products: selected ones first
@@ -173,46 +167,9 @@ export default function CreateGoodsReceiptSupplier({ onBack }) {
         setPaginatedProducts(filteredProducts.slice(startIndex, endIndex));
     }, [filteredProducts, page, productsPerPage]);
 
-    // Generate reference number based on date
-    const handleGetLastRefNo = async (selectedDate) => {
-        try {
-            setIsLoadingRefNo(true);
-            const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
-            const year = selectedDate.getFullYear().toString().slice(-2);
-            const prefix = `KTFS${year}${month}`;
-
-            // Get the last reference number from the database
-            const res = await dispatch(Kt_rfsrefno({ month, year })).unwrap();
-
-            // If no reference numbers exist yet, start with 001
-            if (!res.data || !res.data.refno) {
-                setLastRefNo(`${prefix}001`);
-                return;
-            }
-
-            const lastRefNo = res.data.refno;
-
-            // Check if the last reference number has the same year/month prefix
-            if (lastRefNo.startsWith(prefix)) {
-                // Extract the numerical part (last 3 digits)
-                const lastNumber = parseInt(lastRefNo.slice(-3));
-                // Increment and pad to 3 digits
-                const newNumber = lastNumber + 1;
-                setLastRefNo(`${prefix}${String(newNumber).padStart(3, '0')}`);
-            } else {
-                // If the month/year has changed, start with 001 for the new month
-                setLastRefNo(`${prefix}001`);
-            }
-        } catch (err) {
-            console.error("Error generating refno:", err);
-            // Fallback to a basic pattern if API call fails
-            const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
-            const year = selectedDate.getFullYear().toString().slice(-2);
-            const timestamp = new Date().getTime().toString().slice(-3);
-            setLastRefNo(`KTFS${year}${month}${timestamp}`);
-        } finally {
-            setIsLoadingRefNo(false);
-        }
+    // Handle manual refNo changes
+    const handleRefNoChange = (event) => {
+        setRefNo(event.target.value);
     };
 
     // Function to render product image with error handling
@@ -315,13 +272,13 @@ export default function CreateGoodsReceiptSupplier({ onBack }) {
 
             // Initialize associated state
             setQuantities(prev => ({ ...prev, [product.product_code]: 1 }));
-            setUnits(prev => ({ ...prev, [product.product_code]: product.productUnit1.unit_code }));
-            setUnitPrices(prev => ({ ...prev, [product.product_code]: product.bulk_unit_price }));
+            setUnits(prev => ({ ...prev, [product.product_code]: product.productUnit1?.unit_code || '' }));
+            setUnitPrices(prev => ({ ...prev, [product.product_code]: product.bulk_unit_price || 0 }));
             setExpiryDates(prev => ({ ...prev, [product.product_code]: new Date() }));
             setTemperatures(prev => ({ ...prev, [product.product_code]: "38" }));
 
             // Calculate initial total
-            const initialTotal = product.bulk_unit_price * 1;
+            const initialTotal = (product.bulk_unit_price || 0) * 1;
             setTotals(prev => ({ ...prev, [product.product_code]: initialTotal }));
             setTotal(prev => prev + initialTotal);
         }
@@ -335,7 +292,7 @@ export default function CreateGoodsReceiptSupplier({ onBack }) {
         setQuantities(prev => ({ ...prev, [productCode]: newQty }));
 
         // Update total
-        const price = unitPrices[productCode];
+        const price = unitPrices[productCode] || 0;
         const newTotal = newQty * price;
         setTotals(prev => ({ ...prev, [productCode]: newTotal }));
         setTotal(Object.values({ ...totals, [productCode]: newTotal }).reduce((a, b) => a + b, 0));
@@ -346,14 +303,16 @@ export default function CreateGoodsReceiptSupplier({ onBack }) {
         setUnits(prev => ({ ...prev, [productCode]: newUnit }));
 
         const product = products.find(p => p.product_code === productCode);
-        const newPrice = newUnit === product.productUnit1.unit_code
-            ? product.bulk_unit_price
-            : product.retail_unit_price;
+        if (!product) return;
+
+        const newPrice = newUnit === product.productUnit1?.unit_code
+            ? (product.bulk_unit_price || 0)
+            : (product.retail_unit_price || 0);
 
         setUnitPrices(prev => ({ ...prev, [productCode]: newPrice }));
 
         // Update total
-        const qty = quantities[productCode];
+        const qty = quantities[productCode] || 0;
         const newTotal = qty * newPrice;
         setTotals(prev => ({ ...prev, [productCode]: newTotal }));
         setTotal(Object.values({ ...totals, [productCode]: newTotal }).reduce((a, b) => a + b, 0));
@@ -383,6 +342,28 @@ export default function CreateGoodsReceiptSupplier({ onBack }) {
         return taxableAmount * 0.07;
     };
 
+    // Calculate taxable and non-taxable amounts
+    const calculateTaxableAndNonTaxable = () => {
+        let taxable = 0;
+        let nonTaxable = 0;
+
+        products.forEach(product => {
+            if (product.tax1 === 'Y') {
+                const productCode = product.product_code;
+                const quantity = quantities[productCode] || 0;
+                const unitPrice = unitPrices[productCode] || 0;
+                taxable += quantity * unitPrice;
+            } else {
+                const productCode = product.product_code;
+                const quantity = quantities[productCode] || 0;
+                const unitPrice = unitPrices[productCode] || 0;
+                nonTaxable += quantity * unitPrice;
+            }
+        });
+
+        return { taxable, nonTaxable };
+    };
+
     // Reset form
     const resetForm = () => {
         setProducts([]);
@@ -392,6 +373,7 @@ export default function CreateGoodsReceiptSupplier({ onBack }) {
         setUnitPrices({});
         setTotals({});
         setTotal(0);
+        setRefNo(''); // Reset the reference number field
         setSaveSupplier('');
         setSaveKitchen('');
         setSearchTerm('');
@@ -402,6 +384,16 @@ export default function CreateGoodsReceiptSupplier({ onBack }) {
     // Handle form submission
     const handleSave = async () => {
         // Validate form
+        if (!refNo) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Missing Information',
+                text: 'Please enter a reference number.',
+                timer: 1500
+            });
+            return;
+        }
+
         if (!saveSupplier || !saveKitchen || products.length === 0) {
             Swal.fire({
                 icon: 'warning',
@@ -421,70 +413,62 @@ export default function CreateGoodsReceiptSupplier({ onBack }) {
                 }
             });
 
-            // Prepare header data
+            // Calculate taxable and non-taxable amounts
+            const { taxable, nonTaxable } = calculateTaxableAndNonTaxable();
+            const saleTax = calculateTax();
+            const totalWithTax = total + saleTax;
+
+            // Prepare header data - FIXED: removed taxable/nontaxable from header
             const headerData = {
-                refno: lastRefNo,
+                refno: refNo, // Use manually entered reference number
                 rdate: format(startDate, 'MM/dd/yyyy'),
                 supplier_code: saveSupplier,
                 kitchen_code: saveKitchen,
                 trdate: format(startDate, 'yyyyMMdd'),
                 monthh: format(startDate, 'MM'),
                 myear: startDate.getFullYear(),
-                user_code: userData2?.user_code || '',
+                user_code: userData2?.user_code || ''
+                // Removed taxable and nontaxable from here
             };
 
             // Prepare product data
             const productArrayData = products.map(product => ({
                 refno: headerData.refno,
                 product_code: product.product_code,
-                qty: quantities[product.product_code].toString(),
-                unit_code: units[product.product_code],
-                uprice: unitPrices[product.product_code].toString(),
-                amt: totals[product.product_code].toString(),
+                qty: quantities[product.product_code] || 1,  // FIXED: Keep as number not string
+                unit_code: units[product.product_code] || product.productUnit1?.unit_code || '',
+                uprice: unitPrices[product.product_code] || 0,  // FIXED: Keep as number not string
+                amt: totals[product.product_code] || 0,  // FIXED: Keep as number not string
                 expire_date: format(expiryDates[product.product_code], 'MM/dd/yyyy'),
                 texpire_date: format(expiryDates[product.product_code], 'yyyyMMdd'),
                 tax1: product.tax1 || 'N',
-                temperature1: temperatures[product.product_code] || '' // Add temperature data
+                temperature1: temperatures[product.product_code] || ''
             }));
 
-            // Calculate tax amounts
-            const taxableAmount = productArrayData.reduce((sum, product) => {
-                if (product.tax1 === 'Y') {
-                    return sum + parseFloat(product.amt);
-                }
-                return sum;
-            }, 0);
-
-            const nontaxableAmount = productArrayData.reduce((sum, product) => {
-                if (product.tax1 !== 'Y') {
-                    return sum + parseFloat(product.amt);
-                }
-                return sum;
-            }, 0);
-
-            const saleTax = taxableAmount * 0.07;
-
-            // Prepare complete order data
+            // Prepare complete order data with correct structure
             const orderData = {
                 headerData,
                 productArrayData,
                 footerData: {
-                    taxable: taxableAmount.toString(),
-                    nontaxable: nontaxableAmount.toString(),
-                    total: total.toString(),
-                    sale_tax: saleTax.toString(),
-                    total_due: (total + saleTax).toString()
+                    taxable: taxable,     // FIXED: Keep taxable here only
+                    nontaxable: nonTaxable,  // FIXED: Keep nontaxable here only
+                    total: total,  // FIXED: total as number
+                    sale_tax: saleTax,  // FIXED: sale_tax as number
+                    total_due: totalWithTax  // FIXED: total_due as number
                 }
             };
 
+            console.log("Sending to server:", JSON.stringify(orderData, null, 2));
+
             // Submit the data
-            await dispatch(addKt_rfs(orderData)).unwrap();
+            const response = await dispatch(addKt_rfs(orderData)).unwrap();
+            console.log("Server response:", response);
 
             // Show success message
             await Swal.fire({
                 icon: 'success',
                 title: 'Created receipt successfully',
-                text: `Reference No: ${lastRefNo}`,
+                text: `Reference No: ${refNo}`,
                 showConfirmButton: false,
                 timer: 1500
             });
@@ -493,6 +477,7 @@ export default function CreateGoodsReceiptSupplier({ onBack }) {
             onBack();
 
         } catch (error) {
+            console.error("Error saving data:", error);
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
@@ -581,7 +566,7 @@ export default function CreateGoodsReceiptSupplier({ onBack }) {
                                             {product.product_code}
                                         </Typography>
                                         <Typography variant="h6" color="#D9A05B" mt={1}>
-                                            ${product.bulk_unit_price.toFixed(2)}
+                                            ${(product.bulk_unit_price || 0).toFixed(2)}
                                         </Typography>
                                     </CardContent>
                                     {selectedProducts.includes(product.product_code) && (
@@ -635,8 +620,9 @@ export default function CreateGoodsReceiptSupplier({ onBack }) {
                                 Ref.no
                             </Typography>
                             <TextField
-                                value={isLoadingRefNo ? "Generating..." : lastRefNo}
-                                disabled
+                                value={refNo}
+                                onChange={handleRefNoChange}
+                                placeholder="Enter reference number"
                                 size="small"
                                 fullWidth
                                 sx={{
@@ -644,13 +630,6 @@ export default function CreateGoodsReceiptSupplier({ onBack }) {
                                     '& .MuiOutlinedInput-root': {
                                         borderRadius: '10px',
                                     },
-                                }}
-                                InputProps={{
-                                    endAdornment: isLoadingRefNo ? (
-                                        <InputAdornment position="end">
-                                            <CircularProgress size={20} />
-                                        </InputAdornment>
-                                    ) : null,
                                 }}
                             />
                         </Grid>
@@ -663,7 +642,6 @@ export default function CreateGoodsReceiptSupplier({ onBack }) {
                                 selected={startDate}
                                 onChange={(date) => {
                                     setStartDate(date);
-                                    handleGetLastRefNo(date);
                                 }}
                                 dateFormat="MM/dd/yyyy"
                                 customInput={<CustomInput />}
@@ -817,6 +795,9 @@ export default function CreateGoodsReceiptSupplier({ onBack }) {
                                                     placeholder="Temperature"
                                                     size="small"
                                                     sx={{ width: 100 }}
+                                                    InputProps={{
+                                                        endAdornment: <InputAdornment position="end">°C</InputAdornment>,
+                                                    }}
                                                 />
                                             </TableCell>
                                             <TableCell>
@@ -843,16 +824,20 @@ export default function CreateGoodsReceiptSupplier({ onBack }) {
                                                     size="small"
                                                     sx={{ minWidth: 80 }}
                                                 >
-                                                    <MenuItem value={product.productUnit1.unit_code}>
-                                                        {product.productUnit1.unit_name}
-                                                    </MenuItem>
-                                                    <MenuItem value={product.productUnit2.unit_code}>
-                                                        {product.productUnit2.unit_name}
-                                                    </MenuItem>
+                                                    {product.productUnit1 && (
+                                                        <MenuItem value={product.productUnit1.unit_code}>
+                                                            {product.productUnit1.unit_name}
+                                                        </MenuItem>
+                                                    )}
+                                                    {product.productUnit2 && (
+                                                        <MenuItem value={product.productUnit2.unit_code}>
+                                                            {product.productUnit2.unit_name}
+                                                        </MenuItem>
+                                                    )}
                                                 </Select>
                                             </TableCell>
-                                            <TableCell>${unitPrices[product.product_code]?.toFixed(2)}</TableCell>
-                                            <TableCell>${totals[product.product_code]?.toFixed(2)}</TableCell>
+                                            <TableCell>${(unitPrices[product.product_code] || 0).toFixed(2)}</TableCell>
+                                            <TableCell>${(totals[product.product_code] || 0).toFixed(2)}</TableCell>
                                             <TableCell>
                                                 <IconButton
                                                     onClick={() => toggleSelectProduct(product)}

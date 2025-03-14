@@ -111,44 +111,44 @@ export default function CreateBranchPurchaseOrder({ onBack }) {
         }
     };
 
-    // Adjusted to match mobile version's refno generation logic
-    const handleGetLastRefNo = async (selectedDate, selectedBranch, selectedSupplier) => {
+    // Updated handleGetLastRefNo function to work with just branch_code
+    const handleGetLastRefNo = async (selectedDate, selectedBranch) => {
         try {
-            if (!selectedBranch || !selectedSupplier) {
+            if (!selectedBranch) {
                 setLastRefNo('');
                 return;
             }
 
-            const res = await dispatch(Br_powrefno({
-                branch_code: selectedBranch,
-                supplier_code: selectedSupplier,
-                date: selectedDate
-            })).unwrap();
+            // Generate reference number with just the branch code
+            const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+            const year = selectedDate.getFullYear().toString().slice(-2);
 
-            if (res.result && res.data?.refno) {
-                setLastRefNo(res.data.refno);
-            } else {
-                throw new Error('Failed to generate reference number');
+            // Try to get reference from API first
+            try {
+                const res = await dispatch(Br_powrefno({
+                    branch_code: selectedBranch,
+                    date: selectedDate
+                })).unwrap();
+
+                if (res.result && res.data?.refno) {
+                    setLastRefNo(res.data.refno);
+                    return;
+                }
+            } catch (err) {
+                console.warn("API call for reference number failed, generating locally", err);
             }
+
+            // Fallback: generate a reference number locally
+            const branchCode = selectedBranch.substring(0, 3).toUpperCase();
+            const newRefNo = `POW${branchCode}${year}${month}001`;
+            console.log("Generated local reference number:", newRefNo);
+            setLastRefNo(newRefNo);
 
         } catch (err) {
             console.error("Error generating refno:", err);
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: 'Failed to generate reference number'
-            });
-        }
-    };
-
-    // Update supplier selection handler
-    const handleSupplierChange = (event) => {
-        const newSupplierCode = event.target.value;
-        setSaveSupplier(newSupplierCode);
-        if (newSupplierCode && saveBranch) {  // Only call if we have both codes
-            handleGetLastRefNo(startDate, saveBranch, newSupplierCode);
-        } else {
-            setLastRefNo('');
+            const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+            const year = selectedDate.getFullYear().toString().slice(-2);
+            setLastRefNo(`POW${year}${month}001`);
         }
     };
 
@@ -156,10 +156,28 @@ export default function CreateBranchPurchaseOrder({ onBack }) {
     const handleBranchChange = (event) => {
         const newBranchCode = event.target.value;
         setSaveBranch(newBranchCode);
-        if (newBranchCode && saveSupplier) {  // Only call if we have both codes
-            handleGetLastRefNo(startDate, newBranchCode, saveSupplier);
+
+        // Generate refno as soon as branch is selected
+        if (newBranchCode) {
+            handleGetLastRefNo(startDate, newBranchCode);
         } else {
             setLastRefNo('');
+        }
+    };
+
+    // Update supplier selection handler (no longer affects refno)
+    const handleSupplierChange = (event) => {
+        const newSupplierCode = event.target.value;
+        setSaveSupplier(newSupplierCode);
+        // No longer calling handleGetLastRefNo here
+    };
+
+    // Update date change handler
+    const handleDateChange = (date) => {
+        setStartDate(date);
+        // Only need branch code to generate refno
+        if (saveBranch) {
+            handleGetLastRefNo(date, saveBranch);
         }
     };
 
@@ -507,20 +525,15 @@ export default function CreateBranchPurchaseOrder({ onBack }) {
                             Ref.no
                         </Typography>
                         <TextField
-                            value={lastRefNo || "Please select supplier and branch first"}
-                            disabled
+                            value={lastRefNo}
+                            disabled={lastRefNo !== 'Please select dispatch to restaurant'}
                             size="small"
                             sx={{
-                                mt: 1,
-                                width: '100%',
+                                mt: '8px',
+                                width: '95%',
                                 '& .MuiOutlinedInput-root': {
                                     borderRadius: '10px',
-                                    fontWeight: '700',
-                                    // Show red text when no refno is available
-                                    '& .Mui-disabled': {
-                                        WebkitTextFillColor: !lastRefNo ? '#d32f2f' : 'rgba(0, 0, 0, 0.38)',
-                                    }
-                                }
+                                },
                             }}
                         />
                     </Grid2>
@@ -533,8 +546,8 @@ export default function CreateBranchPurchaseOrder({ onBack }) {
                             selected={startDate}
                             onChange={(date) => {
                                 setStartDate(date);
-                                if (saveBranch && saveSupplier) {
-                                    handleGetLastRefNo(date, saveBranch, saveSupplier);
+                                if (saveBranch) { // Only need branch now
+                                    handleGetLastRefNo(date, saveBranch);
                                 }
                             }}
                             dateFormat="MM/dd/yyyy"
@@ -544,7 +557,7 @@ export default function CreateBranchPurchaseOrder({ onBack }) {
 
                     <Grid2 item size={{ xs: 12, md: 6 }}>
                         <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
-                            Branch
+                            Restaurant
                         </Typography>
                         <Box
                             component="select"
@@ -564,7 +577,7 @@ export default function CreateBranchPurchaseOrder({ onBack }) {
                                 },
                             }}
                         >
-                            <option value="">Select Branch</option>
+                            <option value="">Select Restaurant</option>
                             {branches.map((branch) => (
                                 <option key={branch.branch_code} value={branch.branch_code}>
                                     {branch.branch_name}

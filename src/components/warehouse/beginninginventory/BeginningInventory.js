@@ -118,6 +118,7 @@ export default function BeginningInventory() {
     const [page, setPage] = useState(1);
     const [count, setCount] = useState(0);
     const [itemsPerPage] = useState(5);
+    const [totalItems, setTotalItems] = useState(0);
     const [productSearchTerm, setProductSearchTerm] = useState('');
     const [tableSearchTerm, setTableSearchTerm] = useState('');
     const [filterDate, setFilterDate] = useState(() => convertToLasVegasTime(new Date()));
@@ -255,40 +256,99 @@ export default function BeginningInventory() {
     }, [dispatch]);
 
 
-
-    const loadData = async (pageNumber = 1) => {
+    // Load data function for warehouse beginning inventory
+    const loadData = async () => {
         try {
-            const offset = (pageNumber - 1) * itemsPerPage;
-            const formattedDate = filterDate ? formatDate(filterDate) : null;
+            setLoading(true);
+            const offset = (page - 1) * itemsPerPage;
+
+            // Date parameters
+            let dateParams = {};
+            if (filterDate) {
+                const formattedDate = formatDate(filterDate);
+                dateParams = { rdate: formattedDate };
+            }
+
+            console.log("Query params:", {
+                offset,
+                limit: itemsPerPage,
+                ...dateParams,
+                product_name: tableSearchTerm
+                // No refno filter here
+            });
 
             const [stockcardsRes, countRes] = await Promise.all([
                 dispatch(queryWh_stockcard({
                     offset,
                     limit: itemsPerPage,
-                    rdate: formattedDate,
+                    ...dateParams,
                     product_name: tableSearchTerm
+                    // No refno filter here
                 })).unwrap(),
                 dispatch(countWh_stockcard({
-                    rdate: formattedDate,
+                    ...dateParams,
                     product_name: tableSearchTerm
+                    // No refno filter here
                 })).unwrap()
             ]);
 
+            console.log("API Responses:", {
+                stockcardsData: stockcardsRes.data?.length,
+                countData: countRes.data
+            });
+
             if (stockcardsRes.result && Array.isArray(stockcardsRes.data)) {
-                const totalPages = Math.ceil(countRes.data / itemsPerPage);
+                // Filter results to only show BEG records in the table
+                const begRecords = stockcardsRes.data.filter(record => record.refno === 'BEG');
+
+                // Calculate pagination based on filtered results
+                const filteredCount = begRecords.length;
+                const totalOriginalRecords = countRes.data;
+
+                // Adjust total count based on proportion of BEG records
+                // This is an estimate - may need adjustment based on actual data distribution
+                const estimatedTotalBegRecords = Math.ceil(totalOriginalRecords * (filteredCount / stockcardsRes.data.length || 1));
+
+                // Make sure countRes.data is a valid number
+                const totalPages = Math.max(1, Math.ceil(estimatedTotalBegRecords / itemsPerPage));
+                console.log(`Filtered BEG records: ${filteredCount}, Estimated total BEG: ${estimatedTotalBegRecords}, Total pages: ${totalPages}`);
+
                 setCount(totalPages);
-                setStockcards(stockcardsRes.data);
+                setTotalItems(estimatedTotalBegRecords);
+
+                // Set only BEG records to display in table
+                setStockcards(begRecords);
+            } else {
+                console.error("Invalid response format:", stockcardsRes);
+                setStockcards([]);
+                setCount(1);
             }
         } catch (error) {
             console.error('Error loading data:', error);
-            // แสดง error message ถ้าต้องการ
+            Swal.fire({
+                icon: 'error',
+                title: 'Error Loading Data',
+                text: error.message || 'Failed to load stockcard data',
+                confirmButtonColor: '#754C27'
+            });
+            setStockcards([]);
+            setCount(1);
+        } finally {
+            setLoading(false);
         }
     };
 
-    // Load Data Effect
+    // แก้ไข useEffect
     useEffect(() => {
-        loadData(page);
-    }, [filterDate, tableSearchTerm, page]);
+        loadData();
+    }, [page, filterDate, tableSearchTerm, dispatch, itemsPerPage]);
+
+    // แก้ไขฟังก์ชัน handlePageChange
+    const handlePageChange = (event, value) => {
+        console.log(`Changing page from ${page} to ${value}`);
+        setPage(value);
+        // ไม่ต้องเรียก loadData ที่นี่ เพราะจะถูกเรียกโดย useEffect อยู่แล้ว
+    };
 
     const handleProductSearch = async (e) => {
         try {
@@ -363,11 +423,6 @@ export default function BeginningInventory() {
         setPage(1);
         setSelected([]); // Clear selection when filters are cleared
         loadData(1);
-    };
-
-    const handlePageChange = (event, value) => {
-        setPage(value);
-        loadData(value);
     };
 
 

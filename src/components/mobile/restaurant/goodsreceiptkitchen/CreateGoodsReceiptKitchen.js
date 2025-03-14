@@ -33,9 +33,10 @@ import { useDispatch } from "react-redux";
 import { searchProductName } from '../../../../api/productrecordApi';
 import { kitchenAll } from '../../../../api/kitchenApi';
 import { branchAll } from '../../../../api/branchApi';
-import { addBr_rfk, Br_rfkrefno } from '../../../../api/restaurant/br_rfkApi';
+import { addBr_rfk, Br_rfkrefno, Br_rfkUsedRefnos } from '../../../../api/restaurant/br_rfkApi';
 import { Kt_dpbdtAlljoindt } from '../../../../api/kitchen/kt_dpbdtApi';
 import { Kt_dpbByRefno, kt_dpbAlljoindt } from '../../../../api/kitchen/kt_dpbApi';
+
 import Swal from 'sweetalert2';
 import { format, parse } from 'date-fns';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
@@ -142,8 +143,13 @@ export default function CreateGoodsReceiptKitchen({ onBack }) {
             .catch((err) => console.log(err.message));
     }, [dispatch]);
 
-    // Fetch available dispatches from kitchen to branch
-    const fetchAvailableDispatches = async () => {
+    const fetchAvailableDispatches = async (kitchenCode = saveKitchen) => {
+        if (!kitchenCode) {
+            // If no kitchen is selected, clear the dispatches
+            setDispatchRefnos([]);
+            return;
+        }
+
         try {
             setIsLoading(true);
 
@@ -155,17 +161,29 @@ export default function CreateGoodsReceiptKitchen({ onBack }) {
             const rdate1 = format(thirtyDaysAgo, 'yyyyMMdd');
             const rdate2 = format(today, 'yyyyMMdd');
 
-            // Use kt_dpbAlljoindt instead of Kt_dpbdtAlljoindt
+            // Get all dispatches from selected kitchen
             const response = await dispatch(kt_dpbAlljoindt({
                 rdate1,
                 rdate2,
+                kitchen_code: kitchenCode,
                 offset: 0,
                 limit: 100
             })).unwrap();
 
+            // Get list of all already used refnos from br_rfk table
+            const usedRefnosResponse = await dispatch(Br_rfkUsedRefnos()).unwrap();
+            const usedRefnos = usedRefnosResponse.result ? usedRefnosResponse.data : [];
+
             if (response.result && response.data) {
+                // Filter dispatches:
+                // 1. Only from the selected kitchen
+                // 2. Exclude refnos that already exist in br_rfk
+                const filteredDispatches = response.data.filter(item =>
+                    !usedRefnos.includes(item.refno)
+                );
+
                 // Transform data for Autocomplete
-                const dispatchOptions = response.data.map(item => ({
+                const dispatchOptions = filteredDispatches.map(item => ({
                     refno: item.refno,
                     kitchen: item.tbl_kitchen?.kitchen_name || 'Unknown',
                     branch: item.tbl_branch?.branch_name || 'Unknown',
@@ -176,6 +194,16 @@ export default function CreateGoodsReceiptKitchen({ onBack }) {
                 }));
 
                 setDispatchRefnos(dispatchOptions);
+
+                // Show alert if no dispatches are available
+                if (dispatchOptions.length === 0) {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'No Available Dispatches',
+                        text: 'There are no available dispatches from this kitchen or all have been processed already.',
+                        confirmButtonColor: '#754C27'
+                    });
+                }
             }
         } catch (error) {
             console.error("Error fetching available dispatches:", error);
@@ -189,7 +217,6 @@ export default function CreateGoodsReceiptKitchen({ onBack }) {
         }
     };
 
-    // Handle selecting a dispatch
     const handleDispatchSelection = async (refno) => {
         if (!refno) {
             resetForm();
@@ -200,6 +227,21 @@ export default function CreateGoodsReceiptKitchen({ onBack }) {
             setLoadingDispatch(true);
             setSelectedDispatchRefno(refno);
 
+            // Check if this dispatch is already used in br_rfk
+            const usedRefnosResponse = await dispatch(Br_rfkUsedRefnos()).unwrap();
+            const usedRefnos = usedRefnosResponse.result ? usedRefnosResponse.data : [];
+
+            if (usedRefnos.includes(refno)) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Already Processed',
+                    text: `Dispatch "${refno}" has already been processed. Please select another dispatch.`,
+                    confirmButtonColor: '#754C27'
+                });
+                setLoadingDispatch(false);
+                return;
+            }
+
             // Fetch header data
             const headerResponse = await dispatch(Kt_dpbByRefno({ refno })).unwrap();
 
@@ -207,7 +249,7 @@ export default function CreateGoodsReceiptKitchen({ onBack }) {
                 const dispatchHeader = headerResponse.data;
                 setDispatchData(dispatchHeader);
 
-                // Set the lastRefNo to be the same as the dispatch refno
+                // Use the same refno from kt_dpb instead of generating a new one
                 setLastRefNo(refno);
 
                 // Set kitchen and branch from dispatch
@@ -591,6 +633,27 @@ export default function CreateGoodsReceiptKitchen({ onBack }) {
             return;
         }
 
+        // First check if the current refno already exists in br_rfk
+        try {
+            const usedRefnosResponse = await dispatch(Br_rfkUsedRefnos()).unwrap();
+            const usedRefnos = usedRefnosResponse.result ? usedRefnosResponse.data : [];
+
+            if (usedRefnos.includes(lastRefNo)) {
+                // The refno is already used, show warning
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Reference Number Already Used',
+                    text: `Reference number "${lastRefNo}" already exists in the database.`,
+                    confirmButtonColor: '#754C27',
+                    confirmButtonText: 'OK'
+                });
+                return;
+            }
+        } catch (error) {
+            console.error("Error checking used refnos:", error);
+            // Continue anyway, the server will catch duplicates
+        }
+
         try {
             Swal.fire({
                 title: 'Saving receipt...',
@@ -604,7 +667,7 @@ export default function CreateGoodsReceiptKitchen({ onBack }) {
             const totalWithTax = total + calculateTax();
 
             const headerData = {
-                refno: lastRefNo,
+                refno: lastRefNo, // Use the refno from kt_dpb
                 rdate: format(startDate, 'MM/dd/yyyy'),
                 kitchen_code: saveKitchen,
                 branch_code: branch_code,
@@ -657,12 +720,33 @@ export default function CreateGoodsReceiptKitchen({ onBack }) {
             onBack();
 
         } catch (error) {
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: error.message || 'Error saving receipt',
-                confirmButtonText: 'OK'
-            });
+            console.error('Error saving receipt:', error);
+
+            // Check for specific error patterns related to duplicate entries
+            const errorString = JSON.stringify(error);
+
+            if (
+                errorString.includes('ER_DUP_ENTRY') ||
+                errorString.includes('Duplicate entry') ||
+                errorString.includes('must be unique') ||
+                errorString.includes('PRIMARY')
+            ) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Duplicate Reference Number',
+                    text: `Reference number "${lastRefNo}" already exists in the database.`,
+                    confirmButtonColor: '#754C27',
+                    confirmButtonText: 'OK'
+                });
+            } else {
+                // Handle other errors
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: error.message || 'Error saving receipt',
+                    confirmButtonText: 'OK'
+                });
+            }
         }
     };
 
@@ -698,6 +782,22 @@ export default function CreateGoodsReceiptKitchen({ onBack }) {
         );
     }
 
+    const handleKitchenChange = (kitchenCode) => {
+        setSaveKitchen(kitchenCode);
+
+        // Clear selected dispatch when kitchen changes
+        setSelectedDispatchRefno('');
+        setDispatchData(null);
+
+        // Only fetch dispatches if a kitchen is selected
+        if (kitchenCode) {
+            fetchAvailableDispatches(kitchenCode);
+        } else {
+            // Clear dispatch options if no kitchen is selected
+            setDispatchRefnos([]);
+        }
+    };
+
     return (
         <Box sx={{ padding: "10px", paddingBottom: "300px", fontFamily: "Arial, sans-serif" }}>
             <Button
@@ -717,7 +817,7 @@ export default function CreateGoodsReceiptKitchen({ onBack }) {
                         <span> Based on dispatch: {selectedDispatchRefno} |</span>
                     )}
                     Kitchen: {saveKitchen || 'None'} |
-                    Branch: {branch_code || 'None'} |
+                    Restaurant: {branch_code || 'None'} |
                     Total: ${total.toFixed(2)}
                 </Typography>
             </Box>
@@ -817,19 +917,43 @@ export default function CreateGoodsReceiptKitchen({ onBack }) {
 
                 {/* Right Panel - Order Details */}
                 <Box flex={2} pl={2} bgcolor="#FFF" p={1} borderRadius="12px" boxShadow={3}>
-                    {/* Dispatch Selection */}
-                    <Box sx={{ marginBottom: "20px" }}>
+                    <Typography sx={{ fontSize: '16px', fontWeight: '600', mt: '18px' }}>
+                        Kitchen (Select First)
+                    </Typography>
+                    <Select
+                        value={saveKitchen}
+                        onChange={(e) => handleKitchenChange(e.target.value)}
+                        displayEmpty
+                        size="small"
+                        sx={{
+                            mt: '8px',
+                            width: '95%',
+                            borderRadius: '10px',
+                        }}
+                    >
+                        <MenuItem value=""><em>Select Kitchen</em></MenuItem>
+                        {kitchens.map((kitchen) => (
+                            <MenuItem key={kitchen.kitchen_code} value={kitchen.kitchen_code}>
+                                {kitchen.kitchen_name}
+                            </MenuItem>
+                        ))}
+                    </Select>
+
+                    {/* Dispatch Selection - Only enabled if kitchen is selected */}
+                    <Box sx={{ marginTop: "20px", opacity: saveKitchen ? 1 : 0.5 }}>
                         <Typography variant="subtitle1" fontWeight="bold" mb={1}>
-                            Select from Existing Dispatch
+                            Select from Available Dispatches
                         </Typography>
                         <Autocomplete
                             options={dispatchRefnos}
                             getOptionLabel={(option) =>
                                 typeof option === 'string'
                                     ? option
-                                    : `${option.refno} - From: ${option.kitchen} To: ${option.branch} (${option.formattedDate})`
+                                    : `${option.refno} - To: ${option.branch} (${option.formattedDate})`
                             }
                             onChange={(_, newValue) => handleDispatchSelection(newValue?.refno || '')}
+                            disabled={!saveKitchen}
+                            noOptionsText={saveKitchen ? "No available dispatches found" : "Select a kitchen first"}
                             isOptionEqualToValue={(option, value) =>
                                 option.refno === (typeof value === 'string' ? value : value?.refno)
                             }
@@ -852,7 +976,7 @@ export default function CreateGoodsReceiptKitchen({ onBack }) {
                                 <TextField
                                     {...params}
                                     label="Search dispatch reference"
-                                    placeholder="Select dispatch to create receipt from"
+                                    placeholder={saveKitchen ? "Select dispatch to create receipt from" : "Select a kitchen first"}
                                     variant="outlined"
                                     InputProps={{
                                         ...params.InputProps,
@@ -898,29 +1022,7 @@ export default function CreateGoodsReceiptKitchen({ onBack }) {
                     />
 
                     <Typography sx={{ fontSize: '16px', fontWeight: '600', mt: '18px' }}>
-                        Kitchen
-                    </Typography>
-                    <Select
-                        value={saveKitchen}
-                        onChange={(e) => setSaveKitchen(e.target.value)}
-                        displayEmpty
-                        size="small"
-                        sx={{
-                            mt: '8px',
-                            width: '95%',
-                            borderRadius: '10px',
-                        }}
-                    >
-                        <MenuItem value=""><em>Select Kitchen</em></MenuItem>
-                        {kitchens.map((kitchen) => (
-                            <MenuItem key={kitchen.kitchen_code} value={kitchen.kitchen_code}>
-                                {kitchen.kitchen_name}
-                            </MenuItem>
-                        ))}
-                    </Select>
-
-                    <Typography sx={{ fontSize: '16px', fontWeight: '600', mt: '18px' }}>
-                        Branch
+                        Restaurant
                     </Typography>
                     <Select
                         value={branch_code}
@@ -933,7 +1035,7 @@ export default function CreateGoodsReceiptKitchen({ onBack }) {
                             borderRadius: '10px',
                         }}
                     >
-                        <MenuItem value=""><em>Select Branch</em></MenuItem>
+                        <MenuItem value=""><em>Select Restaurant</em></MenuItem>
                         {branches.map((branch) => (
                             <MenuItem key={branch.branch_code} value={branch.branch_code}>
                                 {branch.branch_name}

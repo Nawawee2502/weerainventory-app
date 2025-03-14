@@ -103,17 +103,24 @@ export const countWh_stockcard = createAsyncThunk(
         refno
     }, { rejectWithValue }) => {
         try {
-            const payload = {
-                ...(rdate && { rdate }),
-                ...(rdate1 && rdate2 && { rdate1, rdate2 }),
-                ...(trdate && { trdate }),
-                ...(product_name && { product_name }),
-                ...(refno && { refno })
-            };
+            // สร้าง payload แบบที่มีการเช็คค่า null/undefined
+            const payload = {};
+
+            if (rdate) payload.rdate = rdate;
+            if (trdate) payload.trdate = trdate;
+            if (rdate1) payload.rdate1 = rdate1;
+            if (rdate2) payload.rdate2 = rdate2;
+            if (product_name) payload.product_name = product_name;
+            if (refno) payload.refno = refno;
+
+            console.log("Count API payload:", payload);
 
             const res = await axios.post(BASE_URL + "/api/countWh_stockcard", payload);
+            console.log("Count API response:", res.data);
+
             return res.data;
         } catch (error) {
+            console.error("Count API error:", error);
             return rejectWithValue(error.response?.data || {
                 message: error.message || 'Failed to count stockcard records',
                 type: 'ERROR'

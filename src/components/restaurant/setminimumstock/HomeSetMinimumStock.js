@@ -377,7 +377,7 @@ export default function HomeSetMinimumStock() {
                         }}
                     >
                         <MenuItem value="">
-                            <em>All Branches</em>
+                            <em>All Restaurant</em>
                         </MenuItem>
                         {branches.map((branch) => (
                             <MenuItem key={branch.branch_code} value={branch.branch_code}>

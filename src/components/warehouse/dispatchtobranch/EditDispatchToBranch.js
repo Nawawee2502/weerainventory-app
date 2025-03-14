@@ -9,10 +9,10 @@ import { useDispatch } from "react-redux";
 import { searchProductName } from '../../../api/productrecordApi';
 import { branchAll } from '../../../api/branchApi';
 import { updateWh_dpb, Wh_dpbByRefno } from '../../../api/warehouse/wh_dpbApi';
-import { updateWh_dpbdt, deleteWh_dpbdt, addWh_dpbdt } from '../../../api/warehouse/wh_dpbdtApi';
+import { Wh_dpbdtAlljoindt, updateWh_dpbdt, deleteWh_dpbdt, addWh_dpbdt } from '../../../api/warehouse/wh_dpbdtApi';
 import Swal from 'sweetalert2';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
-import { format } from 'date-fns';
+import { format, parse } from 'date-fns';
 
 const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
     <Box sx={{ position: 'relative', display: 'inline-block', width: '100%' }}>
@@ -63,7 +63,9 @@ function EditDispatchToBranch({ onBack, editRefno }) {
     const [nonTaxableAmount, setNonTaxableAmount] = useState(0);
     const [total, setTotal] = useState(0);
     const [expiryDates, setExpiryDates] = useState({});
+    const [temperatures, setTemperatures] = useState({});
     const [isLoading, setIsLoading] = useState(false);
+    const [taxStatus, setTaxStatus] = useState({});
     const TAX_RATE = 0.07;
 
     useEffect(() => {
@@ -73,20 +75,26 @@ function EditDispatchToBranch({ onBack, editRefno }) {
         const fetchData = async () => {
             try {
                 setIsLoading(true);
+                console.log('Fetching data for refno:', editRefno);
+
+                // Check if editRefno is a string or object
+                const refnoParam = typeof editRefno === 'object' ? editRefno.refno || '' : editRefno;
+                console.log('Using refno param:', refnoParam);
+
                 const [branchRes, dpbRes] = await Promise.all([
                     dispatch(branchAll({ offset, limit })).unwrap(),
-                    dispatch(Wh_dpbByRefno({ refno: editRefno })).unwrap()
+                    dispatch(Wh_dpbByRefno({ refno: refnoParam })).unwrap()
                 ]);
 
                 setBranches(branchRes.data || []);
 
                 if (dpbRes?.data) {
                     const dpbData = dpbRes.data;
+                    console.log("Fetched dispatch data:", dpbData);
 
                     if (dpbData.rdate) {
                         try {
-                            const [month, day, year] = dpbData.rdate.split('/');
-                            const parsedDate = new Date(+year, +month - 1, +day);
+                            const parsedDate = parse(dpbData.rdate, 'MM/dd/yyyy', new Date());
                             if (!isNaN(parsedDate.getTime())) {
                                 setEditDate(parsedDate);
                             }
@@ -98,53 +106,85 @@ function EditDispatchToBranch({ onBack, editRefno }) {
 
                     setSaveBranch(dpbData.branch_code || '');
 
-                    const initialProducts = dpbData.wh_dpbdts?.map(item => ({
-                        ...item.tbl_product,
-                        amount: item.qty,
-                        unit_code: item.unit_code,
-                        isNewProduct: false
-                    })) || [];
+                    // Fetch detail data
+                    const detailResponse = await dispatch(Wh_dpbdtAlljoindt({ refno: refnoParam })).unwrap();
+                    console.log("Fetched detail data:", detailResponse);
 
-                    setProducts(initialProducts);
-                    setOriginalProducts(initialProducts);
+                    if (detailResponse.result && detailResponse.data) {
+                        const initialProducts = detailResponse.data.map(item => ({
+                            ...item,
+                            product_code: item.product_code,
+                            product_name: item.product_name || item.tbl_product?.product_name,
+                            amount: item.qty,
+                            unit_code: item.unit_code,
+                            uprice: item.uprice,
+                            tax1: item.tax1,
+                            isNewProduct: false,
+                            productUnit1: item.productUnit1 || item.tbl_product?.productUnit1,
+                            productUnit2: item.productUnit2 || item.tbl_product?.productUnit2
+                        }));
 
-                    // Initialize states
-                    const initialQuantities = {};
-                    const initialUnits = {};
-                    const initialUnitPrices = {};
-                    const initialTotals = {};
-                    const initialExpiryDates = {};
+                        setProducts(initialProducts);
+                        setOriginalProducts(initialProducts);
 
-                    initialProducts.forEach(product => {
-                        if (!product.product_code) return;
+                        // Initialize states
+                        const initialQuantities = {};
+                        const initialUnits = {};
+                        const initialUnitPrices = {};
+                        const initialTotals = {};
+                        const initialExpiryDates = {};
+                        const initialTemperatures = {};
+                        const initialTaxStatus = {};
 
-                        const productCode = product.product_code;
-                        initialQuantities[productCode] = parseInt(product.amount) || 1;
-                        initialUnits[productCode] = product.unit_code || product.productUnit1?.unit_code;
-                        initialUnitPrices[productCode] = parseFloat(product.uprice) || 0;
-                        initialTotals[productCode] = (initialQuantities[productCode] * initialUnitPrices[productCode]) || 0;
+                        let newTaxable = 0;
+                        let newNonTaxable = 0;
+                        let newTotal = 0;
 
-                        try {
-                            if (product.expire_date) {
-                                const [month, day, year] = product.expire_date.split('/');
-                                const expiryDate = new Date(+year, +month - 1, +day);
-                                initialExpiryDates[productCode] = !isNaN(expiryDate.getTime()) ? expiryDate : new Date();
+                        initialProducts.forEach(product => {
+                            if (!product.product_code) return;
+
+                            const productCode = product.product_code;
+                            initialQuantities[productCode] = parseFloat(product.qty) || 1;
+                            initialUnits[productCode] = product.unit_code;
+                            initialUnitPrices[productCode] = parseFloat(product.uprice) || 0;
+                            initialTotals[productCode] = parseFloat(product.amt) || 0;
+                            initialTaxStatus[productCode] = product.tax1 || 'N';
+                            initialTemperatures[productCode] = product.temperature1 || '';
+
+                            // Track totals
+                            if (product.tax1 === 'Y') {
+                                newTaxable += initialTotals[productCode];
                             } else {
+                                newNonTaxable += initialTotals[productCode];
+                            }
+                            newTotal += initialTotals[productCode];
+
+                            try {
+                                if (product.expire_date) {
+                                    const parsedExpiryDate = parse(product.expire_date, 'MM/dd/yyyy', new Date());
+                                    initialExpiryDates[productCode] = !isNaN(parsedExpiryDate.getTime())
+                                        ? parsedExpiryDate
+                                        : new Date();
+                                } else {
+                                    initialExpiryDates[productCode] = new Date();
+                                }
+                            } catch (error) {
+                                console.error("Error parsing expiry date for product", productCode, error);
                                 initialExpiryDates[productCode] = new Date();
                             }
-                        } catch (error) {
-                            console.error("Error parsing expiry date for product", productCode, error);
-                            initialExpiryDates[productCode] = new Date();
-                        }
-                    });
+                        });
 
-                    setQuantities(initialQuantities);
-                    setUnits(initialUnits);
-                    setUnitPrices(initialUnitPrices);
-                    setTotals(initialTotals);
-                    setExpiryDates(initialExpiryDates);
-
-                    calculateOrderTotals(initialProducts, initialQuantities, initialUnits, initialUnitPrices);
+                        setQuantities(initialQuantities);
+                        setUnits(initialUnits);
+                        setUnitPrices(initialUnitPrices);
+                        setTotals(initialTotals);
+                        setExpiryDates(initialExpiryDates);
+                        setTemperatures(initialTemperatures);
+                        setTaxStatus(initialTaxStatus);
+                        setTaxableAmount(newTaxable);
+                        setNonTaxableAmount(newNonTaxable);
+                        setTotal(newTotal);
+                    }
                 }
             } catch (error) {
                 console.error("Error loading data:", error);
@@ -200,40 +240,45 @@ function EditDispatchToBranch({ onBack, editRefno }) {
 
         setProducts(prev => [...prev, newProduct]);
         setQuantities(prev => ({ ...prev, [product.product_code]: 1 }));
-        setUnits(prev => ({ ...prev, [product.product_code]: product.productUnit1.unit_code }));
+        setUnits(prev => ({ ...prev, [product.product_code]: product.productUnit1?.unit_code }));
         setExpiryDates(prev => ({ ...prev, [product.product_code]: new Date() }));
+        setTemperatures(prev => ({ ...prev, [product.product_code]: '' }));
         setUnitPrices(prev => ({ ...prev, [product.product_code]: product.bulk_unit_price }));
+        setTaxStatus(prev => ({ ...prev, [product.product_code]: product.tax1 || 'N' }));
 
         setSearchTerm('');
         setShowDropdown(false);
-        calculateOrderTotals([...products, newProduct], quantities, units, unitPrices);
+        calculateOrderTotals([...products, newProduct], quantities, units, unitPrices, { ...taxStatus, [product.product_code]: product.tax1 || 'N' });
     };
 
-    const calculateOrderTotals = (currentProducts = products, currentQuantities = quantities, currentUnits = units, currentUnitPrices = unitPrices) => {
+    const calculateOrderTotals = (currentProducts = products, currentQuantities = quantities,
+        currentUnits = units, currentUnitPrices = unitPrices, currentTaxStatus = taxStatus) => {
         let newTaxable = 0;
         let newNonTaxable = 0;
         let newTotal = 0;
+        const newTotals = {};
 
         currentProducts.forEach(product => {
             const productCode = product.product_code;
             const quantity = currentQuantities[productCode] || 1;
             const price = currentUnitPrices[productCode] || (
-                currentUnits[productCode] === product.productUnit1.unit_code
+                currentUnits[productCode] === product.productUnit1?.unit_code
                     ? product.bulk_unit_price
                     : product.retail_unit_price
             );
             const lineTotal = quantity * price;
+            newTotals[productCode] = lineTotal;
 
-            if (product.tax1 === 'Y') {
+            if (currentTaxStatus[productCode] === 'Y') {
                 newTaxable += lineTotal;
             } else {
                 newNonTaxable += lineTotal;
             }
 
             newTotal += lineTotal;
-            setTotals(prev => ({ ...prev, [productCode]: lineTotal }));
         });
 
+        setTotals(newTotals);
         setTaxableAmount(newTaxable);
         setNonTaxableAmount(newNonTaxable);
         setTotal(newTotal);
@@ -243,29 +288,39 @@ function EditDispatchToBranch({ onBack, editRefno }) {
         if (newQuantity >= 1) {
             setQuantities(prev => ({ ...prev, [productCode]: newQuantity }));
             const updatedQuantities = { ...quantities, [productCode]: newQuantity };
-            calculateOrderTotals(products, updatedQuantities, units, unitPrices);
+            calculateOrderTotals(products, updatedQuantities, units, unitPrices, taxStatus);
         }
     };
 
     const handleUnitChange = (productCode, newUnit) => {
         setUnits(prev => ({ ...prev, [productCode]: newUnit }));
         const product = products.find(p => p.product_code === productCode);
-        const newPrice = newUnit === product.productUnit1.unit_code ?
+        const newPrice = newUnit === product.productUnit1?.unit_code ?
             product.bulk_unit_price : product.retail_unit_price;
 
         setUnitPrices(prev => ({ ...prev, [productCode]: newPrice }));
         const updatedPrices = { ...unitPrices, [productCode]: newPrice };
-        calculateOrderTotals(products, quantities, { ...units, [productCode]: newUnit }, updatedPrices);
+        calculateOrderTotals(products, quantities, { ...units, [productCode]: newUnit }, updatedPrices, taxStatus);
     };
 
     const handleDeleteProduct = (productCode) => {
         setProducts(products.filter(p => p.product_code !== productCode));
         const updatedProducts = products.filter(p => p.product_code !== productCode);
-        calculateOrderTotals(updatedProducts, quantities, units, unitPrices);
+        calculateOrderTotals(updatedProducts, quantities, units, unitPrices, taxStatus);
     };
 
     const handleExpiryDateChange = (productCode, date) => {
         setExpiryDates(prev => ({ ...prev, [productCode]: date }));
+    };
+
+    const handleTemperatureChange = (productCode, value) => {
+        setTemperatures(prev => ({ ...prev, [productCode]: value }));
+    };
+
+    const handleTaxStatusChange = (productCode, value) => {
+        setTaxStatus(prev => ({ ...prev, [productCode]: value }));
+        const updatedTaxStatus = { ...taxStatus, [productCode]: value };
+        calculateOrderTotals(products, quantities, units, unitPrices, updatedTaxStatus);
     };
 
     const handleUpdate = async () => {
@@ -292,44 +347,36 @@ function EditDispatchToBranch({ onBack, editRefno }) {
                 branch_code: saveBranch,
                 trdate: format(editDate, 'yyyyMMdd'),
                 monthh: format(editDate, 'MM'),
-                myear: editDate.getFullYear(),
+                myear: editDate.getFullYear().toString(),
                 taxable: taxableAmount.toString(),
                 nontaxable: nonTaxableAmount.toString(),
+                total: total.toString(),
+                user_code: JSON.parse(localStorage.getItem("userData2") || "{}")?.user_code || ""
+            };
+
+            const productArrayData = products.map(product => ({
+                refno: editRefno,
+                product_code: product.product_code,
+                qty: quantities[product.product_code].toString(),
+                unit_code: units[product.product_code] || product.productUnit1?.unit_code,
+                uprice: unitPrices[product.product_code].toString(),
+                tax1: taxStatus[product.product_code] || 'N',
+                amt: totals[product.product_code].toString(),
+                expire_date: format(expiryDates[product.product_code] || new Date(), 'MM/dd/yyyy'),
+                texpire_date: format(expiryDates[product.product_code] || new Date(), 'yyyyMMdd'),
+                temperature1: temperatures[product.product_code] || ''
+            }));
+
+            const footerData = {
                 total: total.toString()
             };
 
-            await dispatch(updateWh_dpb(headerData)).unwrap();
-
-            const deletedProducts = originalProducts.filter(
-                original => !products.some(current => current.product_code === original.product_code)
-            );
-
-            for (const product of deletedProducts) {
-                await dispatch(deleteWh_dpbdt({
-                    refno: editRefno,
-                    product_code: product.product_code
-                })).unwrap();
-            }
-
-            for (const product of products) {
-                const productData = {
-                    refno: editRefno,
-                    product_code: product.product_code,
-                    qty: quantities[product.product_code].toString(),
-                    unit_code: units[product.product_code] || product.productUnit1.unit_code,
-                    uprice: (unitPrices[product.product_code] || product.bulk_unit_price).toString(),
-                    tax1: product.tax1,
-                    expire_date: format(expiryDates[product.product_code], 'MM/dd/yyyy'),
-                    texpire_date: format(expiryDates[product.product_code], 'yyyyMMdd'),
-                    amt: totals[product.product_code].toString()
-                };
-
-                if (product.isNewProduct) {
-                    await dispatch(addWh_dpbdt(productData)).unwrap();
-                } else {
-                    await dispatch(updateWh_dpbdt(productData)).unwrap();
-                }
-            }
+            // Use the new API structure that matches kt_dpb
+            await dispatch(updateWh_dpb({
+                headerData,
+                productArrayData,
+                footerData
+            })).unwrap();
 
             Swal.fire({
                 icon: 'success',
@@ -357,7 +404,7 @@ function EditDispatchToBranch({ onBack, editRefno }) {
                 startIcon={<ArrowBackIcon />}
                 sx={{ mb: 2 }}
             >
-                Back to Dispatch to Restaurant
+                Back to Dispatch to Branch
             </Button>
 
             <Box sx={{ width: '100%', mt: '10px', flexDirection: 'column' }}>
@@ -413,7 +460,7 @@ function EditDispatchToBranch({ onBack, editRefno }) {
                             </Grid2>
                             <Grid2 item size={{ xs: 12, md: 6 }}>
                                 <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
-                                    Restaurant
+                                    Branch
                                 </Typography>
                                 <Box
                                     component="select"
@@ -436,7 +483,7 @@ function EditDispatchToBranch({ onBack, editRefno }) {
                                         },
                                     }}
                                 >
-                                    <option value="">Select a Restaurant</option>
+                                    <option value="">Select a Branch</option>
                                     {branches.map((b) => (
                                         <option key={b.branch_code} value={b.branch_code}>
                                             {b.branch_name}
@@ -525,6 +572,7 @@ function EditDispatchToBranch({ onBack, editRefno }) {
                                         <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '15%', color: '#754C27', fontWeight: '800' }}>Product code</th>
                                         <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '15%', color: '#754C27', fontWeight: '800' }}>Product name</th>
                                         <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Expiry Date</th>
+                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Temp.</th>
                                         <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Quantity</th>
                                         <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '10%', color: '#754C27', fontWeight: '800' }}>Unit</th>
                                         <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Unit Price</th>
@@ -537,13 +585,15 @@ function EditDispatchToBranch({ onBack, editRefno }) {
                                     {products.map((product, index) => {
                                         const productCode = product.product_code;
                                         const currentQuantity = quantities[productCode] || 1;
-                                        const currentUnit = units[productCode] || product.productUnit1.unit_code;
+                                        const currentUnit = units[productCode] || product.productUnit1?.unit_code;
                                         const currentPrice = unitPrices[productCode] || (
-                                            currentUnit === product.productUnit1.unit_code
+                                            currentUnit === product.productUnit1?.unit_code
                                                 ? product.bulk_unit_price
                                                 : product.retail_unit_price
                                         );
                                         const currentTotal = totals[productCode] || (currentQuantity * currentPrice);
+                                        const currentTax = taxStatus[productCode] || 'N';
+                                        const currentTemp = temperatures[productCode] || '';
 
                                         return (
                                             <tr key={productCode}>
@@ -570,6 +620,19 @@ function EditDispatchToBranch({ onBack, editRefno }) {
                                                 </td>
                                                 <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
                                                     <input
+                                                        type="text"
+                                                        value={currentTemp}
+                                                        onChange={(e) => handleTemperatureChange(productCode, e.target.value)}
+                                                        style={{
+                                                            width: '50px',
+                                                            textAlign: 'center',
+                                                            fontWeight: '600',
+                                                            padding: '4px'
+                                                        }}
+                                                    />
+                                                </td>
+                                                <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                                                    <input
                                                         type="number"
                                                         min="1"
                                                         value={currentQuantity}
@@ -591,15 +654,29 @@ function EditDispatchToBranch({ onBack, editRefno }) {
                                                             borderRadius: '4px'
                                                         }}
                                                     >
-                                                        <option value={product.productUnit1.unit_code}>{product.productUnit1.unit_name}</option>
-                                                        <option value={product.productUnit2.unit_code}>{product.productUnit2.unit_name}</option>
+                                                        {product.productUnit1 && (
+                                                            <option value={product.productUnit1.unit_code}>{product.productUnit1.unit_name}</option>
+                                                        )}
+                                                        {product.productUnit2 && (
+                                                            <option value={product.productUnit2.unit_code}>{product.productUnit2.unit_name}</option>
+                                                        )}
                                                     </select>
                                                 </td>
                                                 <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
                                                     {currentPrice.toFixed(2)}
                                                 </td>
                                                 <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
-                                                    {product.tax1 === 'Y' ? 'Yes' : 'No'}
+                                                    <select
+                                                        value={currentTax}
+                                                        onChange={(e) => handleTaxStatusChange(productCode, e.target.value)}
+                                                        style={{
+                                                            padding: '4px',
+                                                            borderRadius: '4px'
+                                                        }}
+                                                    >
+                                                        <option value="Y">Yes</option>
+                                                        <option value="N">No</option>
+                                                    </select>
                                                 </td>
                                                 <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
                                                     {currentTotal.toFixed(2)}

@@ -627,7 +627,7 @@ export default function CreateGoodsReceiptSupplier({ onBack }) {
                     </Select>
 
                     <Typography sx={{ fontSize: '16px', fontWeight: '600', mt: '18px' }}>
-                        Branch
+                        Restaurant
                     </Typography>
                     <Select
                         value={saveBranch}
@@ -640,7 +640,7 @@ export default function CreateGoodsReceiptSupplier({ onBack }) {
                             borderRadius: '10px',
                         }}
                     >
-                        <MenuItem value=""><em>Select Branch</em></MenuItem>
+                        <MenuItem value=""><em>Select Restaurant</em></MenuItem>
                         {branches.map((branch) => (
                             <MenuItem key={branch.branch_code} value={branch.branch_code}>
                                 {branch.branch_name}

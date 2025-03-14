@@ -12,11 +12,11 @@ import "react-datepicker/dist/react-datepicker.css";
 import Stack from '@mui/material/Stack';
 import Pagination from '@mui/material/Pagination';
 import { useDispatch } from 'react-redux';
-import { Br_grfAlljoindt, deleteBr_grf } from '../../../api/restaurant/br_grfApi';
-import { branchAll } from '../../../api/branchApi';
+import { Br_rfsAlljoindt, deleteBr_rfs } from '../../../api/restaurant/br_rfsApi';
+import { supplierAll } from '../../../api/supplierApi';
+import { branchAll } from '../../../api/branchApi'; // Import branch API
 import { searchProductName } from '../../../api/productrecordApi';
 import Swal from 'sweetalert2';
-
 
 const formatDate = (date) => {
     if (!date) return "";
@@ -76,13 +76,15 @@ const StyledTableRow = styled(TableRow)(({ theme }) => ({
     },
 }));
 
-export default function GoodsRequisition({ onCreate, onEdit }) {
+export default function GoodsReceiptSupplier({ onCreate, onEdit }) {
     const dispatch = useDispatch();
-    const [searchBranch, setSearchBranch] = useState("");
+    const [searchSupplier, setSearchSupplier] = useState("");
+    const [searchBranch, setSearchBranch] = useState(""); // New state for branch search
     const [searchProduct, setSearchProduct] = useState("");
     const [searchResults, setSearchResults] = useState([]);
     const [showDropdown, setShowDropdown] = useState(false);
-    const [branches, setBranches] = useState([]);
+    const [suppliers, setSuppliers] = useState([]);
+    const [branches, setBranches] = useState([]); // New state for branches
     const [filterDate, setFilterDate] = useState(new Date());
     const [selected, setSelected] = useState([]);
     const [page, setPage] = useState(1);
@@ -90,10 +92,27 @@ export default function GoodsRequisition({ onCreate, onEdit }) {
     const [data, setData] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [excludePrice, setExcludePrice] = useState(false);
+    const [totalRecords, setTotalRecords] = useState(0);
     const limit = 5;
 
-    // Load branches on component mount
+    // Load suppliers and branches on component mount
     useEffect(() => {
+        const loadSuppliers = async () => {
+            try {
+                const response = await dispatch(supplierAll({ offset: 0, limit: 100 })).unwrap();
+                if (response.result && response.data) {
+                    setSuppliers(response.data);
+                }
+            } catch (error) {
+                console.error('Error loading suppliers:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Failed to load suppliers'
+                });
+            }
+        };
+
         const loadBranches = async () => {
             try {
                 const response = await dispatch(branchAll({ offset: 0, limit: 100 })).unwrap();
@@ -109,40 +128,66 @@ export default function GoodsRequisition({ onCreate, onEdit }) {
                 });
             }
         };
-        loadBranches();
+
+        loadSuppliers();
+        loadBranches(); // Load branches when component mounts
     }, [dispatch]);
 
     useEffect(() => {
         fetchData();
-    }, [page, searchBranch, searchProduct, filterDate]);
+    }, [page, searchSupplier, searchBranch, searchProduct, filterDate]); // Added searchBranch to dependency array
 
     const fetchData = async () => {
         try {
             setIsLoading(true);
             const offset = (page - 1) * limit;
 
-            const formattedDate = filterDate.toISOString().slice(0, 10).replace(/-/g, '');
+            // Format date as YYYYMMDD for backend
+            const year = filterDate.getFullYear();
+            const month = String(filterDate.getMonth() + 1).padStart(2, '0');
+            const day = String(filterDate.getDate()).padStart(2, '0');
+            const formattedDate = `${year}${month}${day}`;
 
-            const response = await dispatch(Br_grfAlljoindt({
+            console.log('Fetching data with date:', formattedDate);
+
+            const response = await dispatch(Br_rfsAlljoindt({
                 offset,
                 limit,
                 rdate1: formattedDate,
                 rdate2: formattedDate,
-                branch_code: searchBranch,
+                supplier_code: searchSupplier,
+                branch_code: searchBranch, // Added branch_code parameter
                 product_code: searchProduct
             })).unwrap();
 
-            if (response.result && response.data) {
-                setData(response.data);
-                const totalPages = Math.ceil(response.data.length / limit);
-                setCount(totalPages || 1);
+            if (response.result) {
+                setData(response.data || []);
+
+                // Use total count from backend for pagination
+                const totalCount = response.total || 0;
+                setTotalRecords(totalCount);
+
+                // Calculate total pages based on total count and limit
+                const totalPages = Math.ceil(totalCount / limit);
+                setCount(totalPages > 0 ? totalPages : 1);
+
+                console.log(`Retrieved ${response.data.length} records. Total: ${totalCount}, Pages: ${totalPages}`);
+            } else {
+                console.error('API returned result:false:', response);
+                setData([]);
+                setTotalRecords(0);
+                setCount(1);
             }
         } catch (error) {
             console.error('Error fetching data:', error);
+            setData([]);
+            setTotalRecords(0);
+            setCount(1);
+
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
-                text: 'Failed to fetch data'
+                text: 'Failed to fetch data: ' + (error.message || 'Unknown error')
             });
         } finally {
             setIsLoading(false);
@@ -161,7 +206,7 @@ export default function GoodsRequisition({ onCreate, onEdit }) {
                 confirmButtonText: 'Yes, delete it!'
             }).then(async (result) => {
                 if (result.isConfirmed) {
-                    await dispatch(deleteBr_grf({ refno })).unwrap();
+                    await dispatch(deleteBr_rfs({ refno })).unwrap();
                     Swal.fire(
                         'Deleted!',
                         'Record has been deleted.',
@@ -221,7 +266,7 @@ export default function GoodsRequisition({ onCreate, onEdit }) {
             }).then(async (result) => {
                 if (result.isConfirmed) {
                     await Promise.all(
-                        selected.map(refno => dispatch(deleteBr_grf({ refno })).unwrap())
+                        selected.map(refno => dispatch(deleteBr_rfs({ refno })).unwrap())
                     );
                     Swal.fire(
                         'Deleted!',
@@ -239,6 +284,11 @@ export default function GoodsRequisition({ onCreate, onEdit }) {
                 text: 'Failed to delete records'
             });
         }
+    };
+
+    const handleSearchSupplierChange = (e) => {
+        setSearchSupplier(e.target.value);
+        setPage(1);
     };
 
     const handleSearchBranchChange = (e) => {
@@ -278,6 +328,7 @@ export default function GoodsRequisition({ onCreate, onEdit }) {
     };
 
     const clearFilters = () => {
+        setSearchSupplier("");
         setSearchBranch("");
         setSearchProduct("");
         setFilterDate(new Date());
@@ -310,6 +361,28 @@ export default function GoodsRequisition({ onCreate, onEdit }) {
             </Button>
 
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mt: '48px', width: '90%', gap: '20px' }}>
+                {/* Supplier Dropdown */}
+                <Box
+                    component="select"
+                    value={searchSupplier}
+                    onChange={handleSearchSupplierChange}
+                    sx={{
+                        height: '38px',
+                        width: '20%',
+                        borderRadius: '4px',
+                        border: '1px solid rgba(0, 0, 0, 0.23)',
+                        padding: '0 14px',
+                        backgroundColor: '#fff'
+                    }}
+                >
+                    <option value="">All Suppliers</option>
+                    {suppliers.map((supplier) => (
+                        <option key={supplier.supplier_code} value={supplier.supplier_code}>
+                            {supplier.supplier_name}
+                        </option>
+                    ))}
+                </Box>
+
                 {/* Branch Dropdown */}
                 <Box
                     component="select"
@@ -317,14 +390,14 @@ export default function GoodsRequisition({ onCreate, onEdit }) {
                     onChange={handleSearchBranchChange}
                     sx={{
                         height: '38px',
-                        width: '25%',
+                        width: '20%',
                         borderRadius: '4px',
                         border: '1px solid rgba(0, 0, 0, 0.23)',
                         padding: '0 14px',
                         backgroundColor: '#fff'
                     }}
                 >
-                    <option value="">All Branches</option>
+                    <option value="">All Restaurant</option>
                     {branches.map((branch) => (
                         <option key={branch.branch_code} value={branch.branch_code}>
                             {branch.branch_name}
@@ -380,7 +453,8 @@ export default function GoodsRequisition({ onCreate, onEdit }) {
                             <StyledTableCell width='1%'>No.</StyledTableCell>
                             <StyledTableCell align="center">Ref.no</StyledTableCell>
                             <StyledTableCell align="center">Date</StyledTableCell>
-                            <StyledTableCell align="center">Branch</StyledTableCell>
+                            <StyledTableCell align="center">Supplier</StyledTableCell>
+                            <StyledTableCell align="center">Restaurant</StyledTableCell> {/* Added Branch column */}
                             <StyledTableCell align="center">Total Amount</StyledTableCell>
                             <StyledTableCell align="center">Username</StyledTableCell>
                             <StyledTableCell width='1%' align="center"></StyledTableCell>
@@ -391,11 +465,11 @@ export default function GoodsRequisition({ onCreate, onEdit }) {
                     <TableBody>
                         {isLoading ? (
                             <TableRow>
-                                <TableCell colSpan={10} align="center">Loading...</TableCell>
+                                <TableCell colSpan={11} align="center">Loading...</TableCell> {/* Updated colspan to include new column */}
                             </TableRow>
                         ) : data.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={10} align="center">No data found</TableCell>
+                                <TableCell colSpan={11} align="center">No data found</TableCell> {/* Updated colspan to include new column */}
                             </TableRow>
                         ) : (
                             data.map((row, index) => {
@@ -413,8 +487,9 @@ export default function GoodsRequisition({ onCreate, onEdit }) {
                                         </StyledTableCell>
                                         <StyledTableCell align="center">{row.refno}</StyledTableCell>
                                         <StyledTableCell align="center">{row.rdate}</StyledTableCell>
-                                        <StyledTableCell align="center">{row.tbl_branch?.branch_name}</StyledTableCell>
-                                        <StyledTableCell align="center">{row.total.toFixed(2)}</StyledTableCell>
+                                        <StyledTableCell align="center">{row.tbl_supplier?.supplier_name}</StyledTableCell>
+                                        <StyledTableCell align="center">{row.tbl_branch?.branch_name}</StyledTableCell> {/* Added Branch name */}
+                                        <StyledTableCell align="center">{Number(row.total).toFixed(2)}</StyledTableCell>
                                         <StyledTableCell align="center">{row.user?.username}</StyledTableCell>
                                         <StyledTableCell align="center">
                                             <IconButton

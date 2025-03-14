@@ -341,7 +341,7 @@ export default function GoodsReceiptWarehouse({ onCreate, onEdit }) {
                         backgroundColor: '#fff'
                     }}
                 >
-                    <option value="">All Branches</option>
+                    <option value="">All Restaurant</option>
                     {branches.map((branch) => (
                         <option key={branch.branch_code} value={branch.branch_code}>
                             {branch.branch_name}
@@ -419,7 +419,7 @@ export default function GoodsReceiptWarehouse({ onCreate, onEdit }) {
                             <StyledTableCell width='1%'>No.</StyledTableCell>
                             <StyledTableCell align="center">Ref.no</StyledTableCell>
                             <StyledTableCell align="center">Date</StyledTableCell>
-                            <StyledTableCell align="center">Branch</StyledTableCell>
+                            <StyledTableCell align="center">Restaurant</StyledTableCell>
                             <StyledTableCell align="center">Supplier</StyledTableCell>
                             <StyledTableCell align="center">Total Amount</StyledTableCell>
                             <StyledTableCell align="center">Username</StyledTableCell>

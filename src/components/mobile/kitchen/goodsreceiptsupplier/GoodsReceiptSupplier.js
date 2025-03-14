@@ -335,61 +335,6 @@ export default function GoodsReceiptSupplier({ onCreate, onEdit }) {
                     ))}
                 </Box>
 
-                {/* Product Search with Autocomplete */}
-                <Box sx={{ position: 'relative' }}>
-                    <TextField
-                        value={searchProduct}
-                        onChange={handleSearchProductChange}
-                        placeholder="Search Product"
-                        sx={{
-                            '& .MuiInputBase-root': { height: '38px', width: '100%' },
-                            '& .MuiOutlinedInput-input': { padding: '8.5px 14px' }
-                        }}
-                        InputProps={{
-                            startAdornment: (
-                                <InputAdornment position="start">
-                                    <SearchIcon sx={{ color: '#5A607F' }} />
-                                </InputAdornment>
-                            ),
-                        }}
-                    />
-                    {showDropdown && searchResults.length > 0 && (
-                        <Box sx={{
-                            position: 'absolute',
-                            top: '100%',
-                            left: 0,
-                            right: 0,
-                            backgroundColor: 'white',
-                            boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-                            borderRadius: '4px',
-                            zIndex: 1000,
-                            maxHeight: '200px',
-                            overflowY: 'auto',
-                            mt: '4px'
-                        }}>
-                            {searchResults.map((product) => (
-                                <Box
-                                    key={product.product_code}
-                                    onClick={() => {
-                                        setSearchProduct(product.product_name);
-                                        setShowDropdown(false);
-                                        fetchData();
-                                    }}
-                                    sx={{
-                                        p: 1.5,
-                                        cursor: 'pointer',
-                                        '&:hover': {
-                                            backgroundColor: '#f5f5f5'
-                                        },
-                                        borderBottom: '1px solid #eee'
-                                    }}
-                                >
-                                    <Typography>{product.product_name}</Typography>
-                                </Box>
-                            ))}
-                        </Box>
-                    )}
-                </Box>
                 <Box sx={{ width: '200px' }}>
                     <DatePicker
                         selected={filterDate}
@@ -472,8 +417,8 @@ export default function GoodsReceiptSupplier({ onCreate, onEdit }) {
                                         </StyledTableCell>
                                         <StyledTableCell align="center">{row.refno}</StyledTableCell>
                                         <StyledTableCell align="center">{row.rdate}</StyledTableCell>
-                                        <StyledTableCell align="center">{row.supplier?.supplier_name}</StyledTableCell>
-                                        <StyledTableCell align="center">{row.kitchen?.kitchen_name}</StyledTableCell>
+                                        <StyledTableCell align="center">{row.tbl_supplier?.supplier_name}</StyledTableCell>
+                                        <StyledTableCell align="center">{row.tbl_kitchen?.kitchen_name}</StyledTableCell>
                                         <StyledTableCell align="center">{row.total?.toFixed(2)}</StyledTableCell>
                                         <StyledTableCell align="center">{row.user?.username}</StyledTableCell>
                                         <StyledTableCell align="center">

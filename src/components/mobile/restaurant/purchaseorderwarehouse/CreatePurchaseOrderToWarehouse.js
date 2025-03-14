@@ -91,6 +91,8 @@ export default function CreatePurchaseOrderToWarehouse({ onBack }) {
     const [productsPerPage] = useState(12);
     const [totalPages, setTotalPages] = useState(1);
     const [paginatedProducts, setPaginatedProducts] = useState([]);
+    const [imageErrors, setImageErrors] = useState({});
+
 
     const userDataJson = localStorage.getItem("userData2");
     const userData2 = JSON.parse(userDataJson);
@@ -157,54 +159,70 @@ export default function CreatePurchaseOrderToWarehouse({ onBack }) {
         setPaginatedProducts(filteredProducts.slice(startIndex, endIndex));
     }, [filteredProducts, page, productsPerPage]);
 
-    const handleGetLastRefNo = async (selectedDate, selectedBranch, selectedSupplier) => {
+    // Update the handleGetLastRefNo function
+    const handleGetLastRefNo = async (selectedDate, selectedBranch) => {
         try {
-            if (!selectedBranch || !selectedSupplier) {
+            if (!selectedBranch) {
                 setLastRefNo('');
                 return;
             }
 
-            const res = await dispatch(Br_powrefno({
-                branch_code: selectedBranch,
-                supplier_code: selectedSupplier,
-                date: selectedDate
-            })).unwrap();
+            // Modified to work with just the branch code
+            const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+            const year = selectedDate.getFullYear().toString().slice(-2);
 
-            if (res.result && res.data?.refno) {
-                setLastRefNo(res.data.refno);
-            } else {
-                throw new Error('Failed to generate reference number');
+            // Try to get the reference number using just the branch code
+            try {
+                const res = await dispatch(Br_powrefno({
+                    branch_code: selectedBranch,
+                    date: selectedDate
+                })).unwrap();
+
+                if (res.result && res.data?.refno) {
+                    setLastRefNo(res.data.refno);
+                    return;
+                }
+            } catch (error) {
+                console.warn("Could not get reference number from API, generating locally", error);
             }
+
+            // Fallback: generate a reference number locally
+            const branchPrefix = selectedBranch.substring(0, 2).toUpperCase();
+            const newRefNo = `POW${branchPrefix}${year}${month}001`;
+            setLastRefNo(newRefNo);
 
         } catch (err) {
             console.error("Error generating refno:", err);
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: 'Failed to generate reference number'
-            });
+            // Still generate a reference locally if all else fails
+            const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+            const year = selectedDate.getFullYear().toString().slice(-2);
+            setLastRefNo(`POW${year}${month}001`);
         }
     };
 
-    // Update supplier selection handler
-    const handleSupplierChange = (event) => {
-        const newSupplierCode = event.target.value;
-        setSaveSupplier(newSupplierCode);
-        if (newSupplierCode && saveBranch) {  // Only call if we have both codes
-            handleGetLastRefNo(startDate, saveBranch, newSupplierCode);
-        } else {
-            setLastRefNo('');
-        }
-    };
-
-    // Update branch selection handler
+    // Update the branch selection handler
     const handleBranchChange = (event) => {
         const newBranchCode = event.target.value;
         setSaveBranch(newBranchCode);
-        if (newBranchCode && saveSupplier) {  // Only call if we have both codes
-            handleGetLastRefNo(startDate, newBranchCode, saveSupplier);
+        if (newBranchCode) {  // Only require branch code
+            handleGetLastRefNo(startDate, newBranchCode);
         } else {
             setLastRefNo('');
+        }
+    };
+
+    // Also modify the supplier selection handler (optional, for better UX)
+    const handleSupplierChange = (event) => {
+        const newSupplierCode = event.target.value;
+        setSaveSupplier(newSupplierCode);
+        // Don't affect the refno based on supplier changes
+    };
+
+    // Update date change handler if needed
+    const handleDateChange = (date) => {
+        setStartDate(date);
+        if (saveBranch) {  // Only require branch code
+            handleGetLastRefNo(date, saveBranch);
         }
     };
 
@@ -293,11 +311,11 @@ export default function CreatePurchaseOrderToWarehouse({ onBack }) {
     };
 
     const handleSave = async () => {
-        if (!saveSupplier || !saveBranch || products.length === 0 || !lastRefNo) {
+        if (!saveBranch || !saveSupplier || products.length === 0 || !lastRefNo) {
             Swal.fire({
                 icon: 'warning',
                 title: 'Missing Information',
-                text: 'Please select a supplier, branch, and at least one product.',
+                text: 'Please select a branch and supplier and add at least one product',
                 timer: 1500
             });
             return;
@@ -395,6 +413,74 @@ export default function CreatePurchaseOrderToWarehouse({ onBack }) {
         );
     }
 
+    const renderProductImage = (product, size = 'small') => {
+        // If no image
+        if (!product?.product_img) {
+            return (
+                <Box sx={{
+                    width: size === 'small' ? '100%' : (size === 'table' ? '100%' : 200),
+                    height: size === 'small' ? 100 : (size === 'table' ? '100%' : 200),
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    bgcolor: '#f5f5f5',
+                    border: '1px solid #ddd',
+                    borderRadius: size === 'table' ? '4px' : '8px'
+                }}>
+                    <Typography variant="body2" color="text.secondary">No Image</Typography>
+                </Box>
+            );
+        }
+
+        // Check if this image has errored before
+        if (imageErrors[product.product_code]) {
+            return (
+                <Box sx={{
+                    width: size === 'small' ? '100%' : (size === 'table' ? '100%' : 200),
+                    height: size === 'small' ? 100 : (size === 'table' ? '100%' : 200),
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    bgcolor: '#f5f5f5',
+                    border: '1px solid #ddd',
+                    borderRadius: size === 'table' ? '4px' : '8px'
+                }}>
+                    <Typography variant="body2" color="text.secondary">Image Error</Typography>
+                </Box>
+            );
+        }
+
+        const baseUrl = process.env.REACT_APP_URL_API || 'http://localhost:4001';
+        const imageUrl = `${baseUrl}/public/images/${product.product_img}`;
+
+        return (
+            <Box sx={{
+                width: '100%',
+                height: size === 'small' ? 100 : (size === 'table' ? '100%' : 200),
+                position: 'relative',
+                overflow: 'hidden'
+            }}>
+                <img
+                    src={imageUrl}
+                    alt={product.product_name}
+                    style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                        borderRadius: size === 'table' ? '4px' : '8px 8px 0 0'
+                    }}
+                    onError={(e) => {
+                        console.error('Image load error:', imageUrl);
+                        setImageErrors(prev => ({
+                            ...prev,
+                            [product.product_code]: true
+                        }));
+                    }}
+                />
+            </Box>
+        );
+    };
+
     return (
         <Box sx={{ padding: "10px", paddingBottom: "300px", fontFamily: "Arial, sans-serif" }}>
             <Button
@@ -433,54 +519,55 @@ export default function CreatePurchaseOrderToWarehouse({ onBack }) {
 
                     {/* Products Grid */}
                     <Box display="flex" flexWrap="wrap" gap={2} justifyContent="center" sx={{ flex: 1, overflow: 'auto' }}>
-                        {paginatedProducts.map((product) => (
-                            <Card
-                                key={product.product_code}
-                                sx={{
-                                    width: 160,
-                                    borderRadius: '16px',
-                                    boxShadow: 3,
-                                    position: 'relative',
-                                    cursor: 'pointer',
-                                    border: selectedProducts.includes(product.product_code) ? '2px solid #4caf50' : 'none',
-                                    bgcolor: selectedProducts.includes(product.product_code) ? '#f0fff0' : 'white',
-                                    display: 'flex',
-                                    flexDirection: 'column'
-                                }}
-                                onClick={() => toggleSelectProduct(product)}
-                            >
-                                <CardMedia
-                                    component="img"
-                                    height="100"
-                                    image="/api/placeholder/160/100"
-                                    alt={product.product_name}
-                                />
-                                <CardContent>
-                                    <Typography variant="body1" fontWeight={500} noWrap>
-                                        {product.product_name}
-                                    </Typography>
-                                    <Typography variant="body2" color="text.secondary" noWrap>
-                                        {product.product_code}
-                                    </Typography>
-                                    <Typography variant="h6" color="#D9A05B" mt={1}>
-                                        ${product.bulk_unit_price?.toFixed(2) || "0.00"}
-                                    </Typography>
-                                </CardContent>
-                                {selectedProducts.includes(product.product_code) && (
-                                    <CheckCircleIcon
-                                        sx={{
-                                            color: '#4caf50',
-                                            position: 'absolute',
-                                            top: 8,
-                                            right: 8,
-                                            fontSize: 30,
-                                            backgroundColor: 'rgba(255,255,255,0.7)',
-                                            borderRadius: '50%'
-                                        }}
-                                    />
-                                )}
-                            </Card>
-                        ))}
+                        {paginatedProducts.length === 0 ? (
+                            <Typography sx={{ my: 4, color: 'text.secondary' }}>
+                                No products found. Try a different search term.
+                            </Typography>
+                        ) : (
+                            paginatedProducts.map((product) => (
+                                <Card
+                                    key={product.product_code}
+                                    sx={{
+                                        width: 160,
+                                        borderRadius: '16px',
+                                        boxShadow: 3,
+                                        position: 'relative',
+                                        cursor: 'pointer',
+                                        border: selectedProducts.includes(product.product_code) ? '2px solid #4caf50' : 'none',
+                                        bgcolor: selectedProducts.includes(product.product_code) ? '#f0fff0' : 'white',
+                                        display: 'flex',
+                                        flexDirection: 'column'
+                                    }}
+                                    onClick={() => toggleSelectProduct(product)}
+                                >
+                                    {renderProductImage(product, 'small')}
+                                    <CardContent>
+                                        <Typography variant="body1" fontWeight={500} noWrap>
+                                            {product.product_name}
+                                        </Typography>
+                                        <Typography variant="body2" color="text.secondary" noWrap>
+                                            {product.product_code}
+                                        </Typography>
+                                        <Typography variant="h6" color="#D9A05B" mt={1}>
+                                            ${product.bulk_unit_price?.toFixed(2) || "0.00"}
+                                        </Typography>
+                                    </CardContent>
+                                    {selectedProducts.includes(product.product_code) && (
+                                        <CheckCircleIcon
+                                            sx={{
+                                                color: '#4caf50',
+                                                position: 'absolute',
+                                                top: 8,
+                                                right: 8,
+                                                fontSize: 30,
+                                                backgroundColor: 'rgba(255,255,255,0.7)',
+                                                borderRadius: '50%'
+                                            }}
+                                        />
+                                    )}
+                                </Card>
+                            ))
+                        )}
                     </Box>
 
                     {/* Pagination */}
@@ -503,7 +590,7 @@ export default function CreatePurchaseOrderToWarehouse({ onBack }) {
                         Ref.no
                     </Typography>
                     <TextField
-                        value={lastRefNo || "Please select supplier and restaurant first"}
+                        value={lastRefNo || "Please select restaurant first"}
                         disabled
                         size="small"
                         sx={{
@@ -511,7 +598,6 @@ export default function CreatePurchaseOrderToWarehouse({ onBack }) {
                             width: '95%',
                             '& .MuiOutlinedInput-root': {
                                 borderRadius: '10px',
-                                // Show red text when no refno is available
                                 '& .Mui-disabled': {
                                     WebkitTextFillColor: !lastRefNo ? '#d32f2f' : 'rgba(0, 0, 0, 0.38)',
                                 }
@@ -526,8 +612,8 @@ export default function CreatePurchaseOrderToWarehouse({ onBack }) {
                         selected={startDate}
                         onChange={(date) => {
                             setStartDate(date);
-                            if (saveBranch && saveSupplier) {
-                                handleGetLastRefNo(date, saveBranch, saveSupplier);
+                            if (saveBranch) { // Only require branch code
+                                handleGetLastRefNo(date, saveBranch);
                             }
                         }}
                         dateFormat="MM/dd/yyyy"
@@ -607,11 +693,12 @@ export default function CreatePurchaseOrderToWarehouse({ onBack }) {
                     </Box>
 
                     {/* Order Table */}
-                    <TableContainer sx={{ mt: 2, maxHeight: '400px', overflow: 'auto' }}>
+                    <TableContainer sx={{ mt: 2 }}>
                         <Table stickyHeader>
                             <TableHead>
                                 <TableRow>
                                     <TableCell>No.</TableCell>
+                                    <TableCell>Image</TableCell>
                                     <TableCell>Product Code</TableCell>
                                     <TableCell>Product Name</TableCell>
                                     <TableCell>Expiry Date</TableCell>
@@ -623,62 +710,85 @@ export default function CreatePurchaseOrderToWarehouse({ onBack }) {
                                 </TableRow>
                             </TableHead>
                             <TableBody>
-                                {products.map((product, index) => (
-                                    <TableRow key={product.product_code}>
-                                        <TableCell>{index + 1}</TableCell>
-                                        <TableCell>{product.product_code}</TableCell>
-                                        <TableCell>{product.product_name}</TableCell>
-                                        <TableCell>
-                                            <DatePicker
-                                                selected={expiryDates[product.product_code]}
-                                                onChange={(date) => handleExpiryDateChange(product.product_code, date)}
-                                                dateFormat="MM/dd/yyyy"
-                                                customInput={<CustomInput />}
-                                            />
-                                        </TableCell>
-                                        <TableCell>
-                                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                                <IconButton
-                                                    onClick={() => handleQuantityChange(product.product_code, -1)}
-                                                    size="small"
-                                                >
-                                                    <RemoveIcon />
-                                                </IconButton>
-                                                <Typography sx={{ mx: 1 }}>{quantities[product.product_code]}</Typography>
-                                                <IconButton
-                                                    onClick={() => handleQuantityChange(product.product_code, 1)}
-                                                    size="small"
-                                                >
-                                                    <AddIcon />
-                                                </IconButton>
-                                            </Box>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Select
-                                                value={units[product.product_code]}
-                                                onChange={(e) => handleUnitChange(product.product_code, e.target.value)}
-                                                size="small"
-                                            >
-                                                <MenuItem value={product.productUnit1?.unit_code}>
-                                                    {product.productUnit1?.unit_name}
-                                                </MenuItem>
-                                                <MenuItem value={product.productUnit2?.unit_code}>
-                                                    {product.productUnit2?.unit_name}
-                                                </MenuItem>
-                                            </Select>
-                                        </TableCell>
-                                        <TableCell>${unitPrices[product.product_code]?.toFixed(2) || "0.00"}</TableCell>
-                                        <TableCell>${totals[product.product_code]?.toFixed(2) || "0.00"}</TableCell>
-                                        <TableCell>
-                                            <IconButton
-                                                onClick={() => toggleSelectProduct(product)}
-                                                color="error"
-                                            >
-                                                <DeleteIcon />
-                                            </IconButton>
+                                {products.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={10} align="center" sx={{ py: 4 }}>
+                                            <Typography color="text.secondary">
+                                                No products selected. Click on products to add them to your order.
+                                            </Typography>
                                         </TableCell>
                                     </TableRow>
-                                ))}
+                                ) : (
+                                    products.map((product, index) => (
+                                        <TableRow key={product.product_code}>
+                                            <TableCell>{index + 1}</TableCell>
+                                            <TableCell>
+                                                <Box sx={{
+                                                    width: 50,
+                                                    height: 50,
+                                                    overflow: 'hidden',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    borderRadius: '4px'
+                                                }}>
+                                                    {renderProductImage(product, 'table')}
+                                                </Box>
+                                            </TableCell>
+                                            <TableCell>{product.product_code}</TableCell>
+                                            <TableCell>{product.product_name}</TableCell>
+                                            <TableCell>
+                                                <DatePicker
+                                                    selected={expiryDates[product.product_code]}
+                                                    onChange={(date) => handleExpiryDateChange(product.product_code, date)}
+                                                    dateFormat="MM/dd/yyyy"
+                                                    customInput={<CustomInput />}
+                                                />
+                                            </TableCell>
+                                            <TableCell>
+                                                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                                    <IconButton
+                                                        onClick={() => handleQuantityChange(product.product_code, -1)}
+                                                        size="small"
+                                                    >
+                                                        <RemoveIcon />
+                                                    </IconButton>
+                                                    <Typography sx={{ mx: 1 }}>{quantities[product.product_code]}</Typography>
+                                                    <IconButton
+                                                        onClick={() => handleQuantityChange(product.product_code, 1)}
+                                                        size="small"
+                                                    >
+                                                        <AddIcon />
+                                                    </IconButton>
+                                                </Box>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Select
+                                                    value={units[product.product_code]}
+                                                    onChange={(e) => handleUnitChange(product.product_code, e.target.value)}
+                                                    size="small"
+                                                >
+                                                    <MenuItem value={product.productUnit1?.unit_code}>
+                                                        {product.productUnit1?.unit_name}
+                                                    </MenuItem>
+                                                    <MenuItem value={product.productUnit2?.unit_code}>
+                                                        {product.productUnit2?.unit_name}
+                                                    </MenuItem>
+                                                </Select>
+                                            </TableCell>
+                                            <TableCell>${unitPrices[product.product_code]?.toFixed(2) || "0.00"}</TableCell>
+                                            <TableCell>${totals[product.product_code]?.toFixed(2) || "0.00"}</TableCell>
+                                            <TableCell>
+                                                <IconButton
+                                                    onClick={() => toggleSelectProduct(product)}
+                                                    color="error"
+                                                >
+                                                    <DeleteIcon />
+                                                </IconButton>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                )}
                             </TableBody>
                         </Table>
                     </TableContainer>

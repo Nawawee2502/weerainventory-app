@@ -68,13 +68,17 @@ export const deleteWh_dpbdt = createAsyncThunk(
     }
 );
 
+// wh_dpbdtApi.js - update the Wh_dpbdtAlljoindt function
 export const Wh_dpbdtAlljoindt = createAsyncThunk(
     "wh_dpbdt/read",
     async (refno, { dispatch }) => {
         try {
-            const res = await axios.post(BASE_URL + "/api/Wh_dpbdtAlljoindt", { refno });
+            // Make sure we're sending refno as an object property
+            const payload = typeof refno === 'object' ? refno : { refno };
+            const res = await axios.post(BASE_URL + "/api/Wh_dpbdtAlljoindt", payload);
             return res.data;
         } catch (error) {
+            console.error("Error in Wh_dpbdtAlljoindt:", error);
             throw error;
         }
     }

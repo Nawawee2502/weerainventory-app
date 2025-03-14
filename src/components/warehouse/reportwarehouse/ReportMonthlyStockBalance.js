@@ -39,6 +39,7 @@ export default function ReportMonthlyStockBalance() {
         return `${month}/${day}/${year}`;
     };
 
+    // Modified fetchStockBalance function with fixed balance calculation
     const fetchStockBalance = async () => {
         if (!startDate || !endDate) {
             Swal.fire({
@@ -96,18 +97,19 @@ export default function ReportMonthlyStockBalance() {
                     acc[key].out1 += Number(item.out1 || 0);
                     acc[key].upd1 += Number(item.upd1 || 0);
 
-                    // Update balance and balance_amount with the latest values
-                    const currentTransaction = response.data.filter(
-                        transaction => transaction.product_code === key
-                    ).sort((a, b) => new Date(b.trdate) - new Date(a.trdate))[0];
-
-                    if (currentTransaction) {
-                        acc[key].balance = Number(currentTransaction.balance || 0);
-                        acc[key].balance_amount = Number(currentTransaction.balance_amount || 0);
-                    }
-
                     return acc;
                 }, {});
+
+                // Calculate balance and balance_amount based on the aggregated values
+                for (const key in productGroups) {
+                    const product = productGroups[key];
+                    // Calculate balance as beg1 + in1 - out1 + upd1
+                    product.balance = product.beg1 + product.in1 - product.out1 + product.upd1;
+
+                    // Calculate balance_amount using the unit price from the product
+                    const unitPrice = Number(product.uprice || 0);
+                    product.balance_amount = product.balance * unitPrice;
+                }
 
                 // Convert the grouped data back to an array and sort by product name
                 const processedData = Object.values(productGroups).sort((a, b) => {

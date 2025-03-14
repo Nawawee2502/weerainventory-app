@@ -80,11 +80,10 @@ export const wh_dpbAlljoindt = createAsyncThunk(
 );
 
 export const wh_dpbrefno = createAsyncThunk(
-    "wh_dpk/code",
-    async ({ test, month, year }, { dispatch }) => {
+    "wh_dpb/code",
+    async ({ month, year }, { dispatch }) => {
         try {
             const res = await axios.post(BASE_URL + "/api/wh_dpbrefno", {
-                test: test,
                 month: month,
                 year: year
             });

@@ -105,11 +105,7 @@ export default function CreatePurchaseOrderWarehouse({ onBack }) {
         const loadInitialData = async () => {
             try {
                 setIsLoading(true);
-                const currentDate = new Date();
                 console.log('Loading initial data...');
-
-                // Get reference number first
-                await handleGetLastRefNo(currentDate);
 
                 // Fetch kitchens and products in parallel
                 const kitchenPromise = dispatch(kitchenAll({ offset: 0, limit: 100 })).unwrap();
@@ -189,15 +185,24 @@ export default function CreatePurchaseOrderWarehouse({ onBack }) {
             if (res.result && res.data?.refno) {
                 setLastRefNo(res.data.refno);
             } else {
-                throw new Error('Failed to generate reference number');
+                // Fallback if API doesn't return a reference number
+                const year = selectedDate.getFullYear().toString().slice(-2);
+                const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+                const newRefNo = `KTPOW${selectedKitchen}${year}${month}001`;
+                setLastRefNo(newRefNo);
             }
-
         } catch (err) {
             console.error("Error generating refno:", err);
+            // Fallback with local generation
+            const year = selectedDate.getFullYear().toString().slice(-2);
+            const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+            const newRefNo = `KTPOW${selectedKitchen}${year}${month}001`;
+            setLastRefNo(newRefNo);
+
             Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: 'Failed to generate reference number'
+                icon: 'warning',
+                title: 'Warning',
+                text: 'Generated a local reference number due to server error.'
             });
         }
     };
@@ -207,6 +212,15 @@ export default function CreatePurchaseOrderWarehouse({ onBack }) {
         setSaveKitchen(newKitchenCode);
         if (newKitchenCode) {
             handleGetLastRefNo(startDate, newKitchenCode);
+        } else {
+            setLastRefNo('');
+        }
+    };
+
+    const handleDateChange = (date) => {
+        setStartDate(date);
+        if (saveKitchen) {
+            handleGetLastRefNo(date, saveKitchen);
         }
     };
 
@@ -609,7 +623,7 @@ export default function CreatePurchaseOrderWarehouse({ onBack }) {
                         Ref.no
                     </Typography>
                     <TextField
-                        value={lastRefNo}
+                        value={lastRefNo || "Please select kitchen first"}
                         disabled
                         size="small"
                         sx={{
@@ -617,6 +631,9 @@ export default function CreatePurchaseOrderWarehouse({ onBack }) {
                             width: '95%',
                             '& .MuiOutlinedInput-root': {
                                 borderRadius: '10px',
+                                '& .Mui-disabled': {
+                                    WebkitTextFillColor: !lastRefNo ? '#d32f2f' : 'rgba(0, 0, 0, 0.38)',
+                                }
                             },
                         }}
                     />
@@ -626,10 +643,7 @@ export default function CreatePurchaseOrderWarehouse({ onBack }) {
                     </Typography>
                     <DatePicker
                         selected={startDate}
-                        onChange={(date) => {
-                            setStartDate(date);
-                            handleGetLastRefNo(date);
-                        }}
+                        onChange={handleDateChange}
                         dateFormat="MM/dd/yyyy"
                         customInput={<CustomInput />}
                     />
@@ -639,7 +653,7 @@ export default function CreatePurchaseOrderWarehouse({ onBack }) {
                     </Typography>
                     <Select
                         value={saveKitchen}
-                        onChange={(e) => setSaveKitchen(e.target.value)}
+                        onChange={handleKitchenChange}
                         displayEmpty
                         size="small"
                         sx={{
@@ -807,6 +821,7 @@ export default function CreatePurchaseOrderWarehouse({ onBack }) {
                         variant="contained"
                         fullWidth
                         onClick={handleSave}
+                        disabled={!lastRefNo}
                         sx={{
                             mt: 2,
                             bgcolor: '#754C27',

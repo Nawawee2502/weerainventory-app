@@ -63,13 +63,20 @@ export const deleteBrMinStock = createAsyncThunk(
 // Query minimum stock with pagination and filters
 export const queryBrMinStock = createAsyncThunk(
     "br_minnum_stock/query",
-    async ({ offset = 0, limit = 10, branch_code }, { rejectWithValue }) => {
+    async ({ offset = 0, limit = 10, branch_code, product_name }, { rejectWithValue }) => {
         try {
-            const res = await axios.post(BASE_URL + "/api/Query_Br_minnum_stock", {
+            const requestPayload = {
                 offset,
-                limit,
-                branch_code
-            });
+                limit
+            };
+
+            // เพิ่มเฉพาะฟิลด์ที่มีค่า
+            if (branch_code) requestPayload.branch_code = branch_code;
+            if (product_name) requestPayload.product_name = product_name;
+
+            console.log("Query API payload:", requestPayload);
+
+            const res = await axios.post(BASE_URL + "/api/Query_Br_minnum_stock", requestPayload);
             return res.data;
         } catch (error) {
             return rejectWithValue(
@@ -101,11 +108,17 @@ export const searchBrMinStock = createAsyncThunk(
 // Count total minimum stock records
 export const countBrMinStock = createAsyncThunk(
     "br_minnum_stock/count",
-    async ({ branch_code } = {}, { rejectWithValue }) => {
+    async ({ branch_code, product_name } = {}, { rejectWithValue }) => {
         try {
-            const res = await axios.post(BASE_URL + "/api/countBr_minnum_stock", {
-                branch_code
-            });
+            const requestPayload = {};
+
+            // เพิ่มเฉพาะฟิลด์ที่มีค่า
+            if (branch_code) requestPayload.branch_code = branch_code;
+            if (product_name) requestPayload.product_name = product_name;
+
+            console.log("Count API payload:", requestPayload);
+
+            const res = await axios.post(BASE_URL + "/api/countBr_minnum_stock", requestPayload);
             return res.data;
         } catch (error) {
             return rejectWithValue(

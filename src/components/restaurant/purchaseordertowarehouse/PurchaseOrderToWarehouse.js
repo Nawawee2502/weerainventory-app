@@ -33,6 +33,7 @@ import "react-datepicker/dist/react-datepicker.css";
 import { useDispatch } from 'react-redux';
 import { Br_powAlljoindt, deleteBr_pow } from '../../../api/restaurant/br_powApi';
 import { supplierAll } from '../../../api/supplierApi';
+import { branchAll } from '../../../api/branchApi'; // Import branch API
 import { searchProductName } from '../../../api/productrecordApi';
 import Swal from 'sweetalert2';
 
@@ -86,8 +87,10 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
 export default function PurchaseOrderToWarehouse({ onCreate, onEdit }) {
     const dispatch = useDispatch();
     const [searchSupplier, setSearchSupplier] = useState("");
+    const [searchBranch, setSearchBranch] = useState(""); // New state for branch search
     const [searchProduct, setSearchProduct] = useState("");
     const [suppliers, setSuppliers] = useState([]);
+    const [branches, setBranches] = useState([]); // New state for branches
     const [filterDate, setFilterDate] = useState(new Date());
     const [selected, setSelected] = useState([]);
     const [page, setPage] = useState(1);
@@ -113,12 +116,30 @@ export default function PurchaseOrderToWarehouse({ onCreate, onEdit }) {
                 });
             }
         };
+
+        const loadBranches = async () => {
+            try {
+                const response = await dispatch(branchAll({ offset: 0, limit: 100 })).unwrap();
+                if (response.result && response.data) {
+                    setBranches(response.data);
+                }
+            } catch (error) {
+                console.error('Error loading branches:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Failed to load branches'
+                });
+            }
+        };
+
         loadSuppliers();
+        loadBranches(); // Load branches when component mounts
     }, [dispatch]);
 
     useEffect(() => {
         fetchData();
-    }, [page, searchSupplier, searchProduct, filterDate]);
+    }, [page, searchSupplier, searchBranch, searchProduct, filterDate]); // Added searchBranch to dependency array
 
     const fetchData = async () => {
         try {
@@ -139,6 +160,7 @@ export default function PurchaseOrderToWarehouse({ onCreate, onEdit }) {
                 rdate1: formattedDate,
                 rdate2: formattedDate,
                 supplier_code: searchSupplier,
+                branch_code: searchBranch, // Added branch_code parameter
                 product_code: searchProduct
             })).unwrap();
 
@@ -300,7 +322,7 @@ export default function PurchaseOrderToWarehouse({ onCreate, onEdit }) {
                     onChange={(e) => setSearchSupplier(e.target.value)}
                     sx={{
                         height: '38px',
-                        width: '25%',
+                        width: '20%',
                         borderRadius: '4px',
                         border: '1px solid rgba(0, 0, 0, 0.23)',
                         padding: '0 14px',
@@ -311,6 +333,28 @@ export default function PurchaseOrderToWarehouse({ onCreate, onEdit }) {
                     {suppliers.map((supplier) => (
                         <option key={supplier.supplier_code} value={supplier.supplier_code}>
                             {supplier.supplier_name}
+                        </option>
+                    ))}
+                </Box>
+
+                {/* Branch Dropdown */}
+                <Box
+                    component="select"
+                    value={searchBranch}
+                    onChange={(e) => setSearchBranch(e.target.value)}
+                    sx={{
+                        height: '38px',
+                        width: '20%',
+                        borderRadius: '4px',
+                        border: '1px solid rgba(0, 0, 0, 0.23)',
+                        padding: '0 14px',
+                        backgroundColor: '#fff'
+                    }}
+                >
+                    <option value="">All Restaurant</option>
+                    {branches.map((branch) => (
+                        <option key={branch.branch_code} value={branch.branch_code}>
+                            {branch.branch_name}
                         </option>
                     ))}
                 </Box>
@@ -364,6 +408,7 @@ export default function PurchaseOrderToWarehouse({ onCreate, onEdit }) {
                             <StyledTableCell align="center">Ref.no</StyledTableCell>
                             <StyledTableCell align="center">Date</StyledTableCell>
                             <StyledTableCell align="center">Supplier</StyledTableCell>
+                            <StyledTableCell align="center">Restaurant</StyledTableCell>
                             <StyledTableCell align="center">Total Amount</StyledTableCell>
                             <StyledTableCell align="center">Username</StyledTableCell>
                             <StyledTableCell align="center">Actions</StyledTableCell>
@@ -397,6 +442,7 @@ export default function PurchaseOrderToWarehouse({ onCreate, onEdit }) {
                                         <TableCell align="center">{row.refno}</TableCell>
                                         <TableCell align="center">{row.rdate}</TableCell>
                                         <TableCell align="center">{row.tbl_supplier?.supplier_name}</TableCell>
+                                        <TableCell align="center">{row.tbl_branch?.branch_name}</TableCell> {/* Added Branch name */}
                                         <TableCell align="center">${Number(row.total).toFixed(2)}</TableCell>
                                         <TableCell align="center">{row.user?.username}</TableCell>
                                         <TableCell align="center">
