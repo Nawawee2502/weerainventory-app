@@ -19,6 +19,12 @@ import HomeGoodsReceiptSupplier from "../../components/mobile/kitchen/goodsrecei
 import HomeTransferToWarehouse from "../../components/mobile/kitchen/transfertowarehouse/HomeTransferToWarehouse";
 import HomeProductReceipt from "../../components/mobile/kitchen/productreceipt/HomeProductReceipt";
 import HomeDispatchToRestaurant from "../../components/mobile/kitchen/dispatchtorestaurant/HomeDispatchToRestaurant";
+import KitchenBeginningInventory from "../../components/mobile/kitchen/beginninginventory/Beginninginventory";
+import ReportMonthlyKitchenStockCard from "../../components/mobile/kitchen/report/ReportStockcard";
+import ReportStockbalance from "../../components/mobile/kitchen/report/ReportStockBalance";
+import Dailyclosing from "../../components/mobile/kitchen/dailyclosing/Dailyclosing";
+import HomeStockAdjustment from "../../components/mobile/kitchen/stockcadjustment/HomeStockAdjustment";
+// import StockAdjustment from "../../components/mobile/kitchen/stockcadjustment/StockAdjustment";
 // import HomeBillOfLading from "../../components/mobile/kitchen/billoflading/HomeBillOfLading";
 // import HomeGoodsReceiptProduction from "../../components/mobile/kitchen/goodsreceiptproduction/HomeGoodsReceiptProduction";
 // import HomeWarehouseTransferOrder from "../../components/mobile/kitchen/warehousetransferorder/HomeWarehouseTransferOrder";
@@ -40,7 +46,12 @@ const MKitchen = () => {
 
   const menuItems = [
     {
-      label: "Kitchen Purchase Order to Warehouse",
+      label: "Kitchen Beginning Inventory",
+      icon: <ListAltIcon style={{ color: "#fff" }} />,
+      component: <KitchenBeginningInventory />
+    },
+    {
+      label: "Kitchen Request to Warehouse",
       icon: <ListAltIcon style={{ color: "#fff" }} />,
       component: <HomePurchaseOrderWarehouse />
     },
@@ -50,19 +61,24 @@ const MKitchen = () => {
       component: <HomeGoodsReceiptWarehouse />
     },
     {
-      label: "Kitchen Goods Requisition",
-      icon: <ListAltIcon style={{ color: "#fff" }} />,
-      component: <HomeKitchenRequisition />
-    },
-    {
       label: "Kitchen Goods Receipt Supplier",
       icon: <ListAltIcon style={{ color: "#fff" }} />,
       component: <HomeGoodsReceiptSupplier />
     },
     {
-      label: "Kitchen Warehouse Transfer Order",
+      label: "Kitchen Transfer to Warehouse",
       icon: <ListAltIcon style={{ color: "#fff" }} />,
       component: <HomeTransferToWarehouse />
+    },
+    {
+      label: "Kitchen Dispatch To Restaurant",
+      icon: <ListAltIcon style={{ color: "#fff" }} />,
+      component: <HomeDispatchToRestaurant />
+    },
+    {
+      label: "Kitchen Goods Requisition",
+      icon: <ListAltIcon style={{ color: "#fff" }} />,
+      component: <HomeKitchenRequisition />
     },
     {
       label: "Kitchen Production Receipt",
@@ -70,9 +86,24 @@ const MKitchen = () => {
       component: <HomeProductReceipt />
     },
     {
-      label: "Kitchen Dispatch To Restaurant",
+      label: "Kitchen Stock Adjustment",
       icon: <ListAltIcon style={{ color: "#fff" }} />,
-      component: <HomeDispatchToRestaurant />
+      component: <HomeStockAdjustment />
+    },
+    {
+      label: "Kitchen Report Monthly Stockcard",
+      icon: <ListAltIcon style={{ color: "#fff" }} />,
+      component: <ReportMonthlyKitchenStockCard />
+    },
+    {
+      label: "Kitchen Report Monthly Stockbalance",
+      icon: <ListAltIcon style={{ color: "#fff" }} />,
+      component: <ReportStockbalance />
+    },
+    {
+      label: "Kitchen DailyClosing",
+      icon: <ListAltIcon style={{ color: "#fff" }} />,
+      component: <Dailyclosing />
     },
   ];
 
@@ -83,9 +114,21 @@ const MKitchen = () => {
   ];
 
   return (
-    <div style={{ fontFamily: "Arial, sans-serif", backgroundColor: "#f7f7f7", minHeight: "100vh" }}>
+    <div style={{
+      fontFamily: "Arial, sans-serif",
+      backgroundColor: "#f7f7f7",
+      minHeight: "100vh",
+      display: "flex",
+      flexDirection: "column"
+    }}>
       {/* Header */}
-      <header style={{ padding: "40px", backgroundColor: "#fff", borderBottom: "1px solid #ddd", textAlign: "center", position: "relative" }}>
+      <header style={{
+        padding: "40px",
+        backgroundColor: "#fff",
+        borderBottom: "1px solid #ddd",
+        textAlign: "center",
+        position: "relative"
+      }}>
         <button
           onClick={handleBack}
           style={{
@@ -100,7 +143,7 @@ const MKitchen = () => {
         >
           <ArrowBackIcon style={{ fontSize: "24px" }} />
         </button>
-        <h2 style={{ margin: 10, fontSize: "20px", fontWeight: "bold", paddingtop: '70px' }}>
+        <h2 style={{ margin: 10, fontSize: "20px", fontWeight: "bold", paddingTop: '70px' }}>
           {currentPage?.label || "Commissary Kitchen"}
         </h2>
 
@@ -131,52 +174,58 @@ const MKitchen = () => {
       </header>
 
       {/* Main Content */}
-      {currentPage ? (
-        // Show selected page component
-        <div style={{ padding: "16px" }}>
-          {currentPage.component}
-        </div>
-      ) : (
-        // Show menu list
-        <div style={{ padding: "16px", paddingTop: "12px" }}>
-          <h3 style={{ fontSize: "16px", fontWeight: "bold", marginBottom: "12px", color: "#555" }}>
-            Menu
-          </h3>
+      <div style={{
+        flex: 1,
+        padding: "16px",
+        paddingBottom: "80px" // Add padding to the bottom to make space for the fixed footer
+      }}>
+        {currentPage ? (
+          // Show selected page component
+          <div>
+            {currentPage.component}
+          </div>
+        ) : (
+          // Show menu list
+          <div>
+            <h3 style={{ fontSize: "16px", fontWeight: "bold", marginBottom: "12px", color: "#555" }}>
+              Menu
+            </h3>
 
-          {menuItems.map((item, index) => (
-            <div
-              key={index}
-              onClick={() => setCurrentPage(item)}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                padding: "12px",
-                marginBottom: "8px",
-                backgroundColor: "#fff",
-                borderRadius: "8px",
-                boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                cursor: "pointer",
-              }}
-            >
+            {menuItems.map((item, index) => (
               <div
+                key={index}
+                onClick={() => setCurrentPage(item)}
                 style={{
-                  width: "40px",
-                  height: "40px",
-                  backgroundColor: "#f4b84d",
-                  borderRadius: "8px",
                   display: "flex",
-                  justifyContent: "center",
                   alignItems: "center",
-                  marginRight: "12px",
+                  padding: "12px",
+                  marginBottom: "8px",
+                  backgroundColor: "#fff",
+                  borderRadius: "8px",
+                  boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                  cursor: "pointer",
                 }}
               >
-                {item.icon}
+                <div
+                  style={{
+                    width: "40px",
+                    height: "40px",
+                    backgroundColor: "#f4b84d",
+                    borderRadius: "8px",
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    marginRight: "12px",
+                  }}
+                >
+                  {item.icon}
+                </div>
+                <span style={{ fontSize: "16px", color: "#333" }}>{item.label}</span>
               </div>
-              <span style={{ fontSize: "16px", color: "#333" }}>{item.label}</span>
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Footer Navigation */}
       <footer style={{
@@ -189,7 +238,8 @@ const MKitchen = () => {
         padding: "12px 0",
         backgroundColor: "#fff",
         borderTop: "1px solid #ddd",
-        boxShadow: "0 -2px 4px rgba(0, 0, 0, 0.1)"
+        boxShadow: "0 -2px 4px rgba(0, 0, 0, 0.1)",
+        zIndex: 1000 // Ensure footer appears above other elements
       }}>
         {footerItems.map((item) => (
           <div

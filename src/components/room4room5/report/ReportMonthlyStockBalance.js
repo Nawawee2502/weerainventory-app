@@ -4,7 +4,7 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { Switch, Divider } from '@mui/material';
 import { useDispatch } from 'react-redux';
-import { queryKt_stockcard } from '../../../api/kitchen/kt_stockcardApi';
+import { Kt_stockcardAll } from '../../../api/kitchen/kt_stockcardApi';
 import Swal from 'sweetalert2';
 import { format } from 'date-fns';
 import { exportToExcelStockBalance } from './ExportExcelMonthlyStockBalance';
@@ -60,7 +60,7 @@ export default function ReportMonthlyStockBalance() {
                 limit: 99999
             };
 
-            const response = await dispatch(queryKt_stockcard(params)).unwrap();
+            const response = await dispatch(Kt_stockcardAll(params)).unwrap();
 
             if (response.result) {
                 if (response.data.length === 0) {

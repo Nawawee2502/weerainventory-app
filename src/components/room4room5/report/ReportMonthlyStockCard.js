@@ -5,7 +5,7 @@ import { Box, Typography, TextField, Grid2, Button, InputAdornment } from '@mui/
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { Checkbox, Switch, Divider } from '@mui/material';
-import { queryKt_stockcard, countKt_stockcard } from '../../../api/kitchen/kt_stockcardApi';
+import { Kt_stockcardAll, countKt_stockcard } from '../../../api/kitchen/kt_stockcardApi';
 import { format } from 'date-fns';
 import Swal from 'sweetalert2';
 import { createRoot } from 'react-dom/client';
@@ -160,7 +160,7 @@ export default function ReportMonthlyStockCard() {
                 limit: 99999
             };
 
-            const response = await dispatch(queryKt_stockcard(params)).unwrap();
+            const response = await dispatch(Kt_stockcardAll(params)).unwrap();
 
             if (response.result) {
                 if (response.data.length === 0) {

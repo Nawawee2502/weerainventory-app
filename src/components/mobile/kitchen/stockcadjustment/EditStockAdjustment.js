@@ -1,4 +1,3 @@
-// CreateRequestToKitchen.jsx
 import React, { useState, useEffect } from 'react';
 import {
     Box,
@@ -19,9 +18,7 @@ import {
     Select,
     MenuItem,
     Pagination,
-    CircularProgress,
-    Paper,
-    Grid
+    CircularProgress
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SearchIcon from '@mui/icons-material/Search';
@@ -34,8 +31,8 @@ import 'react-datepicker/dist/react-datepicker.css';
 import { useDispatch } from "react-redux";
 import { searchProductName } from '../../../../api/productrecordApi';
 import { kitchenAll } from '../../../../api/kitchenApi';
-import { branchAll } from '../../../../api/branchApi';
-import { addBr_rtk, Br_rtkrefno } from '../../../../api/restaurant/br_rtkApi';
+import { Kt_safAlljoindt, updateKt_saf } from '../../../../api/kitchen/kt_safApi';
+import { Kt_safdtAlljoindt } from '../../../../api/kitchen/kt_safdtApi';
 import Swal from 'sweetalert2';
 import { format } from 'date-fns';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
@@ -60,7 +57,7 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
                 readOnly: true,
                 endAdornment: (
                     <InputAdornment position="end">
-                        <CalendarTodayIcon sx={{ color: '#754C27', cursor: 'pointer' }} />
+                        <CalendarTodayIcon sx={{ color: '#2E7D32', cursor: 'pointer' }} />
                     </InputAdornment>
                 ),
             }}
@@ -68,15 +65,13 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
     </Box>
 ));
 
-export default function CreateRequestToKitchen({ onBack }) {
+export default function EditStockAdjustment({ onBack, editRefno }) {
     const dispatch = useDispatch();
-    const [isLoading, setIsLoading] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const [debugInfo, setDebugInfo] = useState({});
     const [startDate, setStartDate] = useState(new Date());
-    const [lastRefNo, setLastRefNo] = useState('');
     const [kitchens, setKitchens] = useState([]);
     const [saveKitchen, setSaveKitchen] = useState('');
-    const [branches, setBranches] = useState([]);
-    const [saveBranch, setSaveBranch] = useState('');
     const [products, setProducts] = useState([]);
     const [quantities, setQuantities] = useState({});
     const [units, setUnits] = useState({});
@@ -88,54 +83,147 @@ export default function CreateRequestToKitchen({ onBack }) {
     const [filteredProducts, setFilteredProducts] = useState([]);
     const [selectedProducts, setSelectedProducts] = useState([]);
     const [expiryDates, setExpiryDates] = useState({});
+    const [imageErrors, setImageErrors] = useState({});
+
+    // Pagination state
     const [page, setPage] = useState(1);
     const [productsPerPage] = useState(12);
     const [totalPages, setTotalPages] = useState(1);
     const [paginatedProducts, setPaginatedProducts] = useState([]);
-    const [imageErrors, setImageErrors] = useState({});
-
 
     const userDataJson = localStorage.getItem("userData2");
-    const userData2 = JSON.parse(userDataJson);
+    const userData2 = JSON.parse(userDataJson || "{}");
 
+    // Fetch initial data
     useEffect(() => {
-        const loadInitialData = async () => {
-            setIsLoading(true);
+        const fetchData = async () => {
             try {
+                setIsLoading(true);
+                console.log('Fetching data for refno:', editRefno);
+
                 // Load kitchens
-                const kitchensResponse = await dispatch(kitchenAll({ offset: 0, limit: 100 })).unwrap();
-                if (kitchensResponse?.data) {
-                    setKitchens(kitchensResponse.data);
+                const kitchenResponse = await dispatch(kitchenAll({ offset: 0, limit: 100 })).unwrap();
+                if (kitchenResponse && kitchenResponse.data) {
+                    setKitchens(kitchenResponse.data);
                 }
 
-                // Load branches
-                const branchesResponse = await dispatch(branchAll({ offset: 0, limit: 100 })).unwrap();
-                if (branchesResponse?.data) {
-                    setBranches(branchesResponse.data);
-                }
-
-                // Load products
+                // Load all products for catalog
                 const productsResponse = await dispatch(searchProductName({ product_name: '' })).unwrap();
-                if (productsResponse?.data) {
+                if (productsResponse && productsResponse.data) {
                     setAllProducts(productsResponse.data);
                     setFilteredProducts(productsResponse.data);
                 }
+
+                // Load main stock adjustment data
+                if (editRefno) {
+                    const orderResponse = await dispatch(Kt_safAlljoindt({ refno: editRefno })).unwrap();
+
+                    if (orderResponse && orderResponse.data && orderResponse.data.length > 0) {
+                        const headerData = orderResponse.data[0];
+                        setSaveKitchen(headerData.kitchen_code || '');
+                        setStartDate(headerData.rdate ? new Date(headerData.rdate) : new Date());
+                        setTotal(parseFloat(headerData.total) || 0);
+
+                        // Load order details
+                        const detailResponse = await dispatch(Kt_safdtAlljoindt(editRefno)).unwrap();
+
+                        if (detailResponse && detailResponse.data && detailResponse.data.length > 0) {
+                            await processDetailData(detailResponse.data);
+                        }
+                    }
+                }
             } catch (error) {
-                console.error('Error loading initial data:', error);
+                console.error('Error loading data:', error);
                 Swal.fire({
                     icon: 'error',
                     title: 'Error',
-                    text: 'Failed to load initial data'
+                    text: 'Failed to load stock adjustment data'
                 });
             } finally {
                 setIsLoading(false);
             }
         };
 
-        loadInitialData();
-    }, [dispatch]);
+        fetchData();
+    }, [dispatch, editRefno]);
 
+    // Process detail data
+    const processDetailData = async (detailData) => {
+        try {
+            // Set selected product codes first
+            const productCodes = detailData.map(item => item.product_code);
+            setSelectedProducts(productCodes);
+
+            // Then set the products array directly from detailData 
+            const products = detailData.map(item => ({
+                product_code: item.product_code,
+                product_name: item.tbl_product?.product_name,
+                product_img: item.tbl_product?.product_img,
+                productUnit1: item.tbl_product?.productUnit1,
+                productUnit2: item.tbl_product?.productUnit2,
+                bulk_unit_price: item.tbl_product?.bulk_unit_price,
+                retail_unit_price: item.tbl_product?.retail_unit_price
+            }));
+
+            // Set all necessary states
+            setProducts(products);
+
+            // Prepare other state objects
+            const newQuantities = {};
+            const newUnits = {};
+            const newUnitPrices = {};
+            const newTotals = {};
+            const newExpiryDates = {};
+
+            detailData.forEach((item) => {
+                const productCode = item.product_code;
+                newQuantities[productCode] = parseFloat(item.qty) || 1;
+                newUnits[productCode] = item.unit_code || item.tbl_product?.productUnit1?.unit_code || '';
+                newUnitPrices[productCode] = parseFloat(item.uprice) || 0;
+                newTotals[productCode] = parseFloat(item.amt) || 0;
+
+                if (item.texpire_date) {
+                    const year = item.texpire_date.substring(0, 4);
+                    const month = item.texpire_date.substring(4, 6);
+                    const day = item.texpire_date.substring(6, 8);
+                    newExpiryDates[productCode] = new Date(`${year}-${month}-${day}`);
+                } else if (item.expire_date) {
+                    newExpiryDates[productCode] = new Date(item.expire_date);
+                } else {
+                    newExpiryDates[productCode] = new Date();
+                }
+            });
+
+            // Update all states at once
+            setQuantities(newQuantities);
+            setUnits(newUnits);
+            setUnitPrices(newUnitPrices);
+            setTotals(newTotals);
+            setExpiryDates(newExpiryDates);
+
+            // Calculate and set total
+            const totalSum = Object.values(newTotals).reduce((sum, value) => sum + value, 0);
+            setTotal(totalSum);
+
+            // Log for debugging
+            console.log('Detail Data:', {
+                products,
+                quantities: newQuantities,
+                units: newUnits,
+                unitPrices: newUnitPrices,
+                totals: newTotals
+            });
+
+        } catch (error) {
+            console.error('Error processing detail data:', error);
+            throw error;
+        }
+    };
+
+    // Handle filtering and pagination
     useEffect(() => {
+        if (allProducts.length === 0) return;
+
         const filtered = allProducts.filter(product =>
             product.product_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             product.product_code?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -160,66 +248,6 @@ export default function CreateRequestToKitchen({ onBack }) {
         setPaginatedProducts(filteredProducts.slice(startIndex, endIndex));
     }, [filteredProducts, page, productsPerPage]);
 
-    const handleGetLastRefNo = async (selectedDate, selectedBranch) => {
-        try {
-            if (!selectedBranch) {
-                setLastRefNo('');
-                return;
-            }
-
-            const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
-            const year = selectedDate.getFullYear().toString().slice(-2);
-
-            try {
-                const res = await dispatch(Br_rtkrefno({
-                    branch_code: selectedBranch,
-                    date: selectedDate
-                })).unwrap();
-
-                if (res.result && res.data?.refno) {
-                    setLastRefNo(res.data.refno);
-                    return;
-                }
-            } catch (error) {
-                console.warn("Could not get reference number from API, generating locally", error);
-            }
-
-            // Fallback: generate a reference number locally
-            const branchPrefix = selectedBranch.substring(0, 2).toUpperCase();
-            const newRefNo = `RTK${branchPrefix}${year}${month}001`;
-            setLastRefNo(newRefNo);
-
-        } catch (err) {
-            console.error("Error generating refno:", err);
-            // Still generate a reference locally if all else fails
-            const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
-            const year = selectedDate.getFullYear().toString().slice(-2);
-            setLastRefNo(`RTK${year}${month}001`);
-        }
-    };
-
-    const handleBranchChange = (event) => {
-        const newBranchCode = event.target.value;
-        setSaveBranch(newBranchCode);
-        if (newBranchCode) {
-            handleGetLastRefNo(startDate, newBranchCode);
-        } else {
-            setLastRefNo('');
-        }
-    };
-
-    const handleKitchenChange = (event) => {
-        const newKitchenCode = event.target.value;
-        setSaveKitchen(newKitchenCode);
-    };
-
-    const handleDateChange = (date) => {
-        setStartDate(date);
-        if (saveBranch) {
-            handleGetLastRefNo(date, saveBranch);
-        }
-    };
-
     const toggleSelectProduct = (product) => {
         const isSelected = selectedProducts.includes(product.product_code);
 
@@ -227,7 +255,6 @@ export default function CreateRequestToKitchen({ onBack }) {
             setSelectedProducts(prev => prev.filter(id => id !== product.product_code));
             setProducts(prev => prev.filter(p => p.product_code !== product.product_code));
 
-            // Clean up associated state
             const { [product.product_code]: _, ...newQuantities } = quantities;
             const { [product.product_code]: __, ...newUnits } = units;
             const { [product.product_code]: ___, ...newPrices } = unitPrices;
@@ -241,17 +268,16 @@ export default function CreateRequestToKitchen({ onBack }) {
             setExpiryDates(newExpiryDates);
 
             setTotal(Object.values(newTotals).reduce((sum, curr) => sum + curr, 0));
-
         } else {
             setSelectedProducts(prev => [...prev, product.product_code]);
             setProducts(prev => [...prev, product]);
 
             setQuantities(prev => ({ ...prev, [product.product_code]: 1 }));
-            setUnits(prev => ({ ...prev, [product.product_code]: product.productUnit1?.unit_code }));
-            setUnitPrices(prev => ({ ...prev, [product.product_code]: product.bulk_unit_price }));
+            setUnits(prev => ({ ...prev, [product.product_code]: product.productUnit1?.unit_code || '' }));
+            setUnitPrices(prev => ({ ...prev, [product.product_code]: product.bulk_unit_price || 0 }));
             setExpiryDates(prev => ({ ...prev, [product.product_code]: new Date() }));
 
-            const initialTotal = product.bulk_unit_price * 1;
+            const initialTotal = (product.bulk_unit_price || 0) * 1;
             setTotals(prev => ({ ...prev, [product.product_code]: initialTotal }));
             setTotal(prev => prev + initialTotal);
         }
@@ -276,8 +302,8 @@ export default function CreateRequestToKitchen({ onBack }) {
         if (!product) return;
 
         const newPrice = newUnit === product.productUnit1?.unit_code
-            ? product.bulk_unit_price
-            : product.retail_unit_price;
+            ? (product.bulk_unit_price || 0)
+            : (product.retail_unit_price || 0);
 
         setUnitPrices(prev => ({ ...prev, [productCode]: newPrice }));
 
@@ -291,57 +317,46 @@ export default function CreateRequestToKitchen({ onBack }) {
         setExpiryDates(prev => ({ ...prev, [productCode]: date }));
     };
 
-    const calculateTax = () => {
-        let taxableAmount = 0;
-        products.forEach(product => {
-            if (product.tax1 === 'Y') {
-                const productCode = product.product_code;
-                const quantity = quantities[productCode] || 0;
-                const unitPrice = unitPrices[productCode] || 0;
-                taxableAmount += quantity * unitPrice;
-            }
-        });
-        return taxableAmount * 0.07;
-    };
-
-    const handleSave = async () => {
-        if (!saveBranch || !saveKitchen || products.length === 0 || !lastRefNo) {
+    const handleUpdate = async () => {
+        if (!saveKitchen || products.length === 0) {
             Swal.fire({
                 icon: 'warning',
                 title: 'Missing Information',
-                text: 'Please select a branch and kitchen and add at least one product',
+                text: 'Please select a kitchen and add at least one product.',
                 timer: 1500
             });
             return;
         }
 
         try {
-            setIsLoading(true);
-            const tax = calculateTax();
+            Swal.fire({
+                title: 'Updating stock adjustment...',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
 
             const headerData = {
-                refno: lastRefNo,
+                refno: editRefno,
                 rdate: format(startDate, 'MM/dd/yyyy'),
                 kitchen_code: saveKitchen,
-                branch_code: saveBranch,
                 trdate: format(startDate, 'yyyyMMdd'),
                 monthh: format(startDate, 'MM'),
                 myear: startDate.getFullYear(),
-                user_code: userData2.user_code,
-                taxable: tax.toString(), 
-                nontaxable: (total - tax).toString() 
+                user_code: userData2.user_code || '',
+                total: total.toString()
             };
 
             const productArrayData = products.map(product => ({
                 refno: headerData.refno,
                 product_code: product.product_code,
-                qty: quantities[product.product_code].toString(),
-                unit_code: units[product.product_code],
-                uprice: unitPrices[product.product_code].toString(),
-                amt: totals[product.product_code].toString(),
-                tax1: product.tax1, // Add tax1 field
-                expire_date: format(expiryDates[product.product_code], 'MM/dd/yyyy'),
-                texpire_date: format(expiryDates[product.product_code], 'yyyyMMdd')
+                qty: (quantities[product.product_code] || 1).toString(),
+                unit_code: units[product.product_code] || product.productUnit1?.unit_code || '',
+                uprice: (unitPrices[product.product_code] || 0).toString(),
+                amt: (totals[product.product_code] || 0).toString(),
+                expire_date: format(expiryDates[product.product_code] || new Date(), 'MM/dd/yyyy'),
+                texpire_date: format(expiryDates[product.product_code] || new Date(), 'yyyyMMdd')
             }));
 
             const orderData = {
@@ -352,12 +367,12 @@ export default function CreateRequestToKitchen({ onBack }) {
                 }
             };
 
-            await dispatch(addBr_rtk(orderData)).unwrap();
+            await dispatch(updateKt_saf(orderData)).unwrap();
 
             await Swal.fire({
                 icon: 'success',
-                title: 'Created kitchen request successfully',
-                text: `Reference No: ${lastRefNo}`,
+                title: 'Updated stock adjustment successfully',
+                text: `Reference No: ${editRefno}`,
                 showConfirmButton: false,
                 timer: 1500
             });
@@ -365,51 +380,16 @@ export default function CreateRequestToKitchen({ onBack }) {
             onBack();
 
         } catch (error) {
-            console.error('Save error:', error);
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
-                text: error.message || 'Error saving kitchen request',
+                text: error.message || 'Error updating stock adjustment',
                 confirmButtonText: 'OK'
             });
-        } finally {
-            setIsLoading(false);
         }
     };
 
-    const resetForm = () => {
-        setProducts([]);
-        setSelectedProducts([]);
-        setQuantities({});
-        setUnits({});
-        setUnitPrices({});
-        setTotals({});
-        setTotal(0);
-        setSaveKitchen('');
-        setSaveBranch('');
-        setSearchTerm('');
-        setExpiryDates({});
-        setLastRefNo('');
-    };
-
-    if (isLoading) {
-        return (
-            <Box sx={{
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                height: '100vh',
-                flexDirection: 'column',
-                gap: 2
-            }}>
-                <Typography variant="h6">Loading...</Typography>
-                <CircularProgress />
-            </Box>
-        );
-    }
-
     const renderProductImage = (product, size = 'small') => {
-        // If no image
         if (!product?.product_img) {
             return (
                 <Box sx={{
@@ -427,7 +407,6 @@ export default function CreateRequestToKitchen({ onBack }) {
             );
         }
 
-        // Check if this image has errored before
         if (imageErrors[product.product_code]) {
             return (
                 <Box sx={{
@@ -476,24 +455,68 @@ export default function CreateRequestToKitchen({ onBack }) {
         );
     };
 
+    const resetForm = () => {
+        Swal.fire({
+            title: 'Reset Changes',
+            text: "Are you sure you want to reset all changes?",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Yes, reset!'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                onBack();
+            }
+        });
+    };
+
+    if (isLoading) {
+        return (
+            <Box sx={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                height: '100vh',
+                flexDirection: 'column',
+                gap: 2
+            }}>
+                <Typography variant="h6">Loading stock adjustment data...</Typography>
+                <CircularProgress color="primary" />
+            </Box>
+        );
+    }
+
     return (
-        <Box sx={{ padding: "20px", fontFamily: "Arial, sans-serif" }}>
-            <Button
-                startIcon={<ArrowBackIcon />}
-                onClick={onBack}
-                sx={{ marginBottom: "20px" }}
-            >
-                Back to Kitchen Requests
-            </Button>
+        <Box sx={{ padding: "10px", paddingBottom: "300px", fontFamily: "Arial, sans-serif" }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Button
+                    startIcon={<ArrowBackIcon />}
+                    onClick={onBack}
+                >
+                    Back to Stock Adjustments
+                </Button>
+            </Box>
+
+            {/* Status Information */}
+            <Box sx={{ mb: 2, p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
+                <Typography variant="subtitle2">
+                    <strong>Status:</strong> Editing ref #{editRefno} |
+                    Products selected: {selectedProducts.length} |
+                    Products loaded: {products.length} |
+                    Kitchen: {saveKitchen || 'None'} |
+                    Total: ${total.toFixed(2)}
+                </Typography>
+            </Box>
 
             {/* Main content */}
-            <Box display="flex" p={2} bgcolor="#F9F9F9" borderRadius="12px" boxShadow={1}>
+            <Box display="flex" p={2} bgcolor="#F9F9F9">
                 {/* Left Panel - Product Selection */}
                 <Box flex={2} pr={2} display="flex" flexDirection="column">
-                    {/* Search and Filter Section */}
+                    {/* Search Section */}
                     <Box sx={{ marginBottom: "20px", paddingTop: '20px' }}>
                         <TextField
-                            placeholder="Search products by name or code..."
+                            placeholder="Search products..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             sx={{
@@ -514,12 +537,10 @@ export default function CreateRequestToKitchen({ onBack }) {
 
                     {/* Products Grid */}
                     <Box display="flex" flexWrap="wrap" gap={2} justifyContent="center" sx={{ flex: 1, overflow: 'auto' }}>
-                        {paginatedProducts.length === 0 ? (
-                            <Typography sx={{ my: 4, color: 'text.secondary' }}>
-                                No products found. Try a different search term.
-                            </Typography>
-                        ) : (
-                            paginatedProducts.map((product) => (
+                        {paginatedProducts.map((product) => {
+                            if (!product || !product.product_code) return null;
+
+                            return (
                                 <Card
                                     key={product.product_code}
                                     sx={{
@@ -529,14 +550,7 @@ export default function CreateRequestToKitchen({ onBack }) {
                                         position: 'relative',
                                         cursor: 'pointer',
                                         border: selectedProducts.includes(product.product_code) ? '2px solid #4caf50' : 'none',
-                                        bgcolor: selectedProducts.includes(product.product_code) ? '#f0fff0' : 'white',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        transition: 'all 0.2s ease-in-out',
-                                        '&:hover': {
-                                            transform: 'translateY(-4px)',
-                                            boxShadow: 4
-                                        }
+                                        bgcolor: selectedProducts.includes(product.product_code) ? '#f0fff0' : 'white'
                                     }}
                                     onClick={() => toggleSelectProduct(product)}
                                 >
@@ -548,12 +562,9 @@ export default function CreateRequestToKitchen({ onBack }) {
                                         <Typography variant="body2" color="text.secondary" noWrap>
                                             {product.product_code}
                                         </Typography>
-                                        {/* Removed price display */}
-                                        {product.tax1 === 'Y' && (
-                                            <Typography variant="caption" color="success.main">
-                                                Taxable
-                                            </Typography>
-                                        )}
+                                        <Typography variant="h6" color="#D9A05B" mt={1}>
+                                            ${(product.bulk_unit_price || 0).toFixed(2)}
+                                        </Typography>
                                     </CardContent>
                                     {selectedProducts.includes(product.product_code) && (
                                         <CheckCircleIcon
@@ -569,8 +580,8 @@ export default function CreateRequestToKitchen({ onBack }) {
                                         />
                                     )}
                                 </Card>
-                            ))
-                        )}
+                            );
+                        })}
                     </Box>
 
                     {/* Pagination */}
@@ -583,111 +594,65 @@ export default function CreateRequestToKitchen({ onBack }) {
                             showFirstButton
                             showLastButton
                             size="large"
-                            sx={{
-                                '& .MuiPaginationItem-root': {
-                                    '&.Mui-selected': {
-                                        backgroundColor: '#754C27',
-                                        color: 'white',
-                                        '&:hover': {
-                                            backgroundColor: '#5c3c1f',
-                                        }
-                                    }
-                                }
-                            }}
                         />
                     </Box>
                 </Box>
 
                 {/* Right Panel - Order Details */}
-                <Box flex={2} pl={2} bgcolor="#FFF" p={3} borderRadius="12px" boxShadow={3}>
-                    <Grid container spacing={3}>
-                        <Grid item xs={12}>
-                            <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>
-                                Ref.no
-                            </Typography>
-                            <TextField
-                                value={lastRefNo || "Please select restaurant first"}
-                                disabled
-                                size="small"
-                                fullWidth
-                                sx={{
-                                    mt: '8px',
-                                    '& .MuiOutlinedInput-root': {
-                                        borderRadius: '10px',
-                                    },
-                                    '& .Mui-disabled': {
-                                        WebkitTextFillColor: !lastRefNo ? '#d32f2f' : 'rgba(0, 0, 0, 0.38)',
-                                    }
-                                }}
-                            />
-                        </Grid>
+                <Box flex={2} pl={2} bgcolor="#FFF" p={1} borderRadius="12px" boxShadow={3}>
+                    <Typography sx={{ fontSize: '16px', fontWeight: '600', mt: '18px' }}>
+                        Ref.no
+                    </Typography>
+                    <TextField
+                        value={editRefno}
+                        disabled
+                        size="small"
+                        sx={{
+                            mt: '8px',
+                            width: '95%',
+                            '& .MuiOutlinedInput-root': {
+                                borderRadius: '10px',
+                            },
+                        }}
+                    />
 
-                        <Grid item xs={12} md={6}>
-                            <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>
-                                Date
-                            </Typography>
-                            <DatePicker
-                                selected={startDate}
-                                onChange={handleDateChange}
-                                dateFormat="MM/dd/yyyy"
-                                customInput={<CustomInput />}
-                            />
-                        </Grid>
+                    <Typography sx={{ fontSize: '16px', fontWeight: '600', mt: '18px' }}>
+                        Date
+                    </Typography>
+                    <DatePicker
+                        selected={startDate}
+                        onChange={(date) => setStartDate(date)}
+                        dateFormat="MM/dd/yyyy"
+                        customInput={<CustomInput />}
+                    />
 
-                        <Grid item xs={12} md={6}>
-                            <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>
-                                Restaurant
-                            </Typography>
-                            <Select
-                                value={saveBranch}
-                                onChange={handleBranchChange}
-                                displayEmpty
-                                size="small"
-                                fullWidth
-                                sx={{
-                                    mt: '8px',
-                                    borderRadius: '10px',
-                                }}
-                            >
-                                <MenuItem value=""><em>Select Restaurant</em></MenuItem>
-                                {branches.map((branch) => (
-                                    <MenuItem key={branch.branch_code} value={branch.branch_code}>
-                                        {branch.branch_name}
-                                    </MenuItem>
-                                ))}
-                            </Select>
-                        </Grid>
+                    <Typography sx={{ fontSize: '16px', fontWeight: '600', mt: '18px' }}>
+                        Kitchen
+                    </Typography>
+                    <Select
+                        value={saveKitchen}
+                        onChange={(e) => setSaveKitchen(e.target.value)}
+                        displayEmpty
+                        size="small"
+                        sx={{
+                            mt: '8px',
+                            width: '95%',
+                            borderRadius: '10px',
+                        }}
+                    >
+                        <MenuItem value=""><em>Select Kitchen</em></MenuItem>
+                        {kitchens.map((kitchen) => (
+                            <MenuItem key={kitchen.kitchen_code} value={kitchen.kitchen_code}>
+                                {kitchen.kitchen_name}
+                            </MenuItem>
+                        ))}
+                    </Select>
 
-                        <Grid item xs={12}>
-                            <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>
-                                Kitchen
-                            </Typography>
-                            <Select
-                                value={saveKitchen}
-                                onChange={handleKitchenChange}
-                                displayEmpty
-                                size="small"
-                                fullWidth
-                                sx={{
-                                    mt: '8px',
-                                    borderRadius: '10px',
-                                }}
-                            >
-                                <MenuItem value=""><em>Select Kitchen</em></MenuItem>
-                                {kitchens.map((kitchen) => (
-                                    <MenuItem key={kitchen.kitchen_code} value={kitchen.kitchen_code}>
-                                        {kitchen.kitchen_name}
-                                    </MenuItem>
-                                ))}
-                            </Select>
-                        </Grid>
-                    </Grid>
-
-                    <Divider sx={{ my: 3 }} />
+                    <Divider sx={{ my: 2 }} />
 
                     {/* Current Order Section */}
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Typography variant="h6" color="#754C27">Current Request</Typography>
+                        <Typography variant="h6" color="#754C27">Edit Adjustment</Typography>
                         <Box>
                             <Typography variant="body2" color="text.secondary">
                                 {products.length} items selected
@@ -703,42 +668,41 @@ export default function CreateRequestToKitchen({ onBack }) {
                                     },
                                     ml: 1
                                 }}
-                                disabled={products.length === 0}
                             >
-                                Clear All
+                                Reset
                             </Button>
                         </Box>
                     </Box>
 
                     {/* Order Table */}
-                    <TableContainer component={Paper} sx={{
-                        mt: 2,
-                        maxHeight: '400px',
-                        overflow: 'auto',
-                        boxShadow: 'none',
-                        border: '1px solid #e0e0e0',
-                        borderRadius: '8px'
-                    }}>
+                    <TableContainer sx={{ mt: 2, maxHeight: '400px', overflow: 'auto' }}>
                         <Table stickyHeader>
                             <TableHead>
-                                <TableRow sx={{ bgcolor: '#f5f5f5' }}>
+                                <TableRow>
                                     <TableCell>No.</TableCell>
                                     <TableCell>Image</TableCell>
-                                    <TableCell>Product</TableCell>
+                                    <TableCell>Product Code</TableCell>
+                                    <TableCell>Product Name</TableCell>
                                     <TableCell>Expiry Date</TableCell>
                                     <TableCell>Quantity</TableCell>
                                     <TableCell>Unit</TableCell>
-                                    {/* Removed Price column */}
-                                    {/* Removed Total column */}
+                                    <TableCell>Unit Price</TableCell>
+                                    <TableCell>Total</TableCell>
                                     <TableCell>Actions</TableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>
-                                {products.length === 0 ? (
+                                {isLoading ? (
                                     <TableRow>
-                                        <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                                        <TableCell colSpan={10} align="center">
+                                            <CircularProgress />
+                                        </TableCell>
+                                    </TableRow>
+                                ) : (!products || products.length === 0) ? (
+                                    <TableRow>
+                                        <TableCell colSpan={10} align="center">
                                             <Typography color="text.secondary">
-                                                No products selected. Click on products to add them to your request.
+                                                No products selected or failed to load product data
                                             </Typography>
                                         </TableCell>
                                     </TableRow>
@@ -759,17 +723,11 @@ export default function CreateRequestToKitchen({ onBack }) {
                                                     {renderProductImage(product, 'table')}
                                                 </Box>
                                             </TableCell>
-                                            <TableCell>
-                                                <Typography variant="body2" fontWeight="bold">
-                                                    {product.product_name}
-                                                </Typography>
-                                                <Typography variant="caption" color="text.secondary">
-                                                    {product.product_code}
-                                                </Typography>
-                                            </TableCell>
+                                            <TableCell>{product.product_code}</TableCell>
+                                            <TableCell>{product.product_name}</TableCell>
                                             <TableCell>
                                                 <DatePicker
-                                                    selected={expiryDates[product.product_code]}
+                                                    selected={expiryDates[product.product_code] || new Date()}
                                                     onChange={(date) => handleExpiryDateChange(product.product_code, date)}
                                                     dateFormat="MM/dd/yyyy"
                                                     customInput={<CustomInput />}
@@ -783,7 +741,9 @@ export default function CreateRequestToKitchen({ onBack }) {
                                                     >
                                                         <RemoveIcon />
                                                     </IconButton>
-                                                    <Typography sx={{ mx: 1 }}>{quantities[product.product_code]}</Typography>
+                                                    <Typography sx={{ mx: 1 }}>
+                                                        {quantities[product.product_code] || 0}
+                                                    </Typography>
                                                     <IconButton
                                                         onClick={() => handleQuantityChange(product.product_code, 1)}
                                                         size="small"
@@ -794,18 +754,28 @@ export default function CreateRequestToKitchen({ onBack }) {
                                             </TableCell>
                                             <TableCell>
                                                 <Select
-                                                    value={units[product.product_code]}
+                                                    value={units[product.product_code] || ''}
                                                     onChange={(e) => handleUnitChange(product.product_code, e.target.value)}
                                                     size="small"
-                                                    sx={{ minWidth: 80 }}
+                                                    sx={{ minWidth: 120 }}
                                                 >
-                                                    <MenuItem value={product.productUnit1?.unit_code}>
-                                                        {product.productUnit1?.unit_name}
-                                                    </MenuItem>
-                                                    <MenuItem value={product.productUnit2?.unit_code}>
-                                                        {product.productUnit2?.unit_name}
-                                                    </MenuItem>
+                                                    {product.productUnit1 && (
+                                                        <MenuItem value={product.productUnit1.unit_code}>
+                                                            {product.productUnit1.unit_name}
+                                                        </MenuItem>
+                                                    )}
+                                                    {product.productUnit2 && (
+                                                        <MenuItem value={product.productUnit2.unit_code}>
+                                                            {product.productUnit2.unit_name}
+                                                        </MenuItem>
+                                                    )}
                                                 </Select>
+                                            </TableCell>
+                                            <TableCell>
+                                                ${(unitPrices[product.product_code] || 0).toFixed(2)}
+                                            </TableCell>
+                                            <TableCell>
+                                                ${(totals[product.product_code] || 0).toFixed(2)}
                                             </TableCell>
                                             <TableCell>
                                                 <IconButton
@@ -823,7 +793,7 @@ export default function CreateRequestToKitchen({ onBack }) {
                         </Table>
                     </TableContainer>
 
-                    {/* Order Summary - Modified to hide prices */}
+                    {/* Order Summary */}
                     <Box sx={{
                         bgcolor: '#EAB86C',
                         borderRadius: '10px',
@@ -831,30 +801,16 @@ export default function CreateRequestToKitchen({ onBack }) {
                         mt: 2,
                         color: 'white'
                     }}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                            <Typography>Total Items</Typography>
-                            <Typography>{products.length}</Typography>
-                        </Box>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                            <Typography>Total Quantity</Typography>
-                            <Typography>
-                                {Object.values(quantities).reduce((sum, qty) => sum + qty, 0)}
-                            </Typography>
-                        </Box>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                            <Typography>Taxable Items</Typography>
-                            <Typography>
-                                {products.filter(product => product.tax1 === 'Y').length}
-                            </Typography>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
+                            <Typography variant="h5">Total</Typography>
+                            <Typography variant="h5">${total.toFixed(2)}</Typography>
                         </Box>
                     </Box>
 
-                    {/* Save Button */}
                     <Button
                         variant="contained"
                         fullWidth
-                        onClick={handleSave}
-                        disabled={isLoading || !lastRefNo || !saveKitchen || !saveBranch || products.length === 0}
+                        onClick={handleUpdate}
                         sx={{
                             mt: 2,
                             bgcolor: '#754C27',
@@ -865,7 +821,7 @@ export default function CreateRequestToKitchen({ onBack }) {
                             }
                         }}
                     >
-                        {isLoading ? 'Saving...' : 'Save'}
+                        Update
                     </Button>
                 </Box>
             </Box>

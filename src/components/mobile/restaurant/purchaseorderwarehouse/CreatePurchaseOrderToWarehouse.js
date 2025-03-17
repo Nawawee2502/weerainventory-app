@@ -10,7 +10,6 @@ import {
     InputAdornment,
     Card,
     CardContent,
-    CardMedia,
     TableContainer,
     Table,
     TableHead,
@@ -21,6 +20,8 @@ import {
     MenuItem,
     Pagination,
     CircularProgress,
+    Paper,
+    Grid
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SearchIcon from '@mui/icons-material/Search';
@@ -345,6 +346,7 @@ export default function CreatePurchaseOrderToWarehouse({ onBack }) {
                 unit_code: units[product.product_code],
                 uprice: unitPrices[product.product_code].toString(),
                 amt: totals[product.product_code].toString(),
+                tax1: product.tax1,
                 expire_date: format(expiryDates[product.product_code], 'MM/dd/yyyy'),
                 texpire_date: format(expiryDates[product.product_code], 'yyyyMMdd')
             }));
@@ -482,7 +484,7 @@ export default function CreatePurchaseOrderToWarehouse({ onBack }) {
     };
 
     return (
-        <Box sx={{ padding: "10px", paddingBottom: "300px", fontFamily: "Arial, sans-serif" }}>
+        <Box sx={{ padding: "20px", fontFamily: "Arial, sans-serif" }}>
             <Button
                 startIcon={<ArrowBackIcon />}
                 onClick={onBack}
@@ -492,13 +494,13 @@ export default function CreatePurchaseOrderToWarehouse({ onBack }) {
             </Button>
 
             {/* Main content */}
-            <Box display="flex" p={2} bgcolor="#F9F9F9">
+            <Box display="flex" p={2} bgcolor="#F9F9F9" borderRadius="12px" boxShadow={1}>
                 {/* Left Panel - Product Selection */}
                 <Box flex={2} pr={2} display="flex" flexDirection="column">
                     {/* Search and Filter Section */}
                     <Box sx={{ marginBottom: "20px", paddingTop: '20px' }}>
                         <TextField
-                            placeholder="Search products..."
+                            placeholder="Search products by name or code..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             sx={{
@@ -536,7 +538,12 @@ export default function CreatePurchaseOrderToWarehouse({ onBack }) {
                                         border: selectedProducts.includes(product.product_code) ? '2px solid #4caf50' : 'none',
                                         bgcolor: selectedProducts.includes(product.product_code) ? '#f0fff0' : 'white',
                                         display: 'flex',
-                                        flexDirection: 'column'
+                                        flexDirection: 'column',
+                                        transition: 'all 0.2s ease-in-out',
+                                        '&:hover': {
+                                            transform: 'translateY(-4px)',
+                                            boxShadow: 4
+                                        }
                                     }}
                                     onClick={() => toggleSelectProduct(product)}
                                 >
@@ -548,9 +555,7 @@ export default function CreatePurchaseOrderToWarehouse({ onBack }) {
                                         <Typography variant="body2" color="text.secondary" noWrap>
                                             {product.product_code}
                                         </Typography>
-                                        <Typography variant="h6" color="#D9A05B" mt={1}>
-                                            ${product.bulk_unit_price?.toFixed(2) || "0.00"}
-                                        </Typography>
+                                        {/* Removed price display */}
                                     </CardContent>
                                     {selectedProducts.includes(product.product_code) && (
                                         <CheckCircleIcon
@@ -580,93 +585,107 @@ export default function CreatePurchaseOrderToWarehouse({ onBack }) {
                             showFirstButton
                             showLastButton
                             size="large"
+                            sx={{
+                                '& .MuiPaginationItem-root': {
+                                    '&.Mui-selected': {
+                                        backgroundColor: '#754C27',
+                                        color: 'white',
+                                        '&:hover': {
+                                            backgroundColor: '#5c3c1f',
+                                        }
+                                    }
+                                }
+                            }}
                         />
                     </Box>
                 </Box>
 
                 {/* Right Panel - Order Details */}
-                <Box flex={2} pl={2} bgcolor="#FFF" p={1} borderRadius="12px" boxShadow={3}>
-                    <Typography sx={{ fontSize: '16px', fontWeight: '600', mt: '18px' }}>
-                        Ref.no
-                    </Typography>
-                    <TextField
-                        value={lastRefNo || "Please select restaurant first"}
-                        disabled
-                        size="small"
-                        sx={{
-                            mt: '8px',
-                            width: '95%',
-                            '& .MuiOutlinedInput-root': {
-                                borderRadius: '10px',
-                                '& .Mui-disabled': {
-                                    WebkitTextFillColor: !lastRefNo ? '#d32f2f' : 'rgba(0, 0, 0, 0.38)',
-                                }
-                            },
-                        }}
-                    />
+                <Box flex={2} pl={2} bgcolor="#FFF" p={3} borderRadius="12px" boxShadow={3}>
+                    <Grid container spacing={3}>
+                        <Grid item xs={12}>
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>
+                                Ref.no
+                            </Typography>
+                            <TextField
+                                value={lastRefNo || "Please select restaurant first"}
+                                disabled
+                                size="small"
+                                fullWidth
+                                sx={{
+                                    mt: '8px',
+                                    '& .MuiOutlinedInput-root': {
+                                        borderRadius: '10px',
+                                    },
+                                    '& .Mui-disabled': {
+                                        WebkitTextFillColor: !lastRefNo ? '#d32f2f' : 'rgba(0, 0, 0, 0.38)',
+                                    }
+                                }}
+                            />
+                        </Grid>
 
-                    <Typography sx={{ fontSize: '16px', fontWeight: '600', mt: '18px' }}>
-                        Date
-                    </Typography>
-                    <DatePicker
-                        selected={startDate}
-                        onChange={(date) => {
-                            setStartDate(date);
-                            if (saveBranch) { // Only require branch code
-                                handleGetLastRefNo(date, saveBranch);
-                            }
-                        }}
-                        dateFormat="MM/dd/yyyy"
-                        customInput={<CustomInput />}
-                    />
+                        <Grid item xs={12} md={6}>
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>
+                                Date
+                            </Typography>
+                            <DatePicker
+                                selected={startDate}
+                                onChange={handleDateChange}
+                                dateFormat="MM/dd/yyyy"
+                                customInput={<CustomInput />}
+                            />
+                        </Grid>
 
-                    <Typography sx={{ fontSize: '16px', fontWeight: '600', mt: '18px' }}>
-                        Restaurant
-                    </Typography>
-                    <Select
-                        value={saveBranch}
-                        onChange={handleBranchChange}
-                        displayEmpty
-                        size="small"
-                        sx={{
-                            mt: '8px',
-                            width: '95%',
-                            borderRadius: '10px',
-                        }}
-                    >
-                        <MenuItem value=""><em>Select Restaurant</em></MenuItem>
-                        {branches.map((branch) => (
-                            <MenuItem key={branch.branch_code} value={branch.branch_code}>
-                                {branch.branch_name}
-                            </MenuItem>
-                        ))}
-                    </Select>
+                        <Grid item xs={12} md={6}>
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>
+                                Restaurant
+                            </Typography>
+                            <Select
+                                value={saveBranch}
+                                onChange={handleBranchChange}
+                                displayEmpty
+                                size="small"
+                                fullWidth
+                                sx={{
+                                    mt: '8px',
+                                    borderRadius: '10px',
+                                }}
+                            >
+                                <MenuItem value=""><em>Select Restaurant</em></MenuItem>
+                                {branches.map((branch) => (
+                                    <MenuItem key={branch.branch_code} value={branch.branch_code}>
+                                        {branch.branch_name}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </Grid>
 
-                    <Typography sx={{ fontSize: '16px', fontWeight: '600', mt: '18px' }}>
-                        Supplier
-                    </Typography>
-                    <Select
-                        value={saveSupplier}
-                        onChange={handleSupplierChange}
-                        displayEmpty
-                        size="small"
-                        sx={{
-                            mt: '8px',
-                            width: '95%',
-                            borderRadius: '10px',
-                        }}
-                    >
-                        <MenuItem value=""><em>Select Supplier</em></MenuItem>
-                        {suppliers.map((supplier) => (
-                            <MenuItem key={supplier.supplier_code} value={supplier.supplier_code}>
-                                {supplier.supplier_name}
-                            </MenuItem>
-                        ))}
-                    </Select>
+                        <Grid item xs={12}>
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>
+                                Supplier
+                            </Typography>
+                            <Select
+                                value={saveSupplier}
+                                onChange={handleSupplierChange}
+                                displayEmpty
+                                size="small"
+                                fullWidth
+                                sx={{
+                                    mt: '8px',
+                                    borderRadius: '10px',
+                                }}
+                            >
+                                <MenuItem value=""><em>Select Supplier</em></MenuItem>
+                                {suppliers.map((supplier) => (
+                                    <MenuItem key={supplier.supplier_code} value={supplier.supplier_code}>
+                                        {supplier.supplier_name}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </Grid>
+                    </Grid>
 
-
-
-                    <Divider sx={{ my: 2 }} />
+                    <Divider sx={{ my: 3 }} />
 
                     {/* Current Order Section */}
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -686,6 +705,7 @@ export default function CreatePurchaseOrderToWarehouse({ onBack }) {
                                     },
                                     ml: 1
                                 }}
+                                disabled={products.length === 0}
                             >
                                 Clear All
                             </Button>
@@ -693,26 +713,32 @@ export default function CreatePurchaseOrderToWarehouse({ onBack }) {
                     </Box>
 
                     {/* Order Table */}
-                    <TableContainer sx={{ mt: 2 }}>
+                    <TableContainer component={Paper} sx={{
+                        mt: 2,
+                        maxHeight: '400px',
+                        overflow: 'auto',
+                        boxShadow: 'none',
+                        border: '1px solid #e0e0e0',
+                        borderRadius: '8px'
+                    }}>
                         <Table stickyHeader>
                             <TableHead>
-                                <TableRow>
+                                <TableRow sx={{ bgcolor: '#f5f5f5' }}>
                                     <TableCell>No.</TableCell>
                                     <TableCell>Image</TableCell>
-                                    <TableCell>Product Code</TableCell>
-                                    <TableCell>Product Name</TableCell>
+                                    <TableCell>Product</TableCell>
                                     <TableCell>Expiry Date</TableCell>
                                     <TableCell>Quantity</TableCell>
                                     <TableCell>Unit</TableCell>
-                                    <TableCell>Unit Price</TableCell>
-                                    <TableCell>Total</TableCell>
+                                    {/* Removed Price column */}
+                                    {/* Removed Total column */}
                                     <TableCell>Actions</TableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>
                                 {products.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={10} align="center" sx={{ py: 4 }}>
+                                        <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
                                             <Typography color="text.secondary">
                                                 No products selected. Click on products to add them to your order.
                                             </Typography>
@@ -735,8 +761,14 @@ export default function CreatePurchaseOrderToWarehouse({ onBack }) {
                                                     {renderProductImage(product, 'table')}
                                                 </Box>
                                             </TableCell>
-                                            <TableCell>{product.product_code}</TableCell>
-                                            <TableCell>{product.product_name}</TableCell>
+                                            <TableCell>
+                                                <Typography variant="body2" fontWeight="bold">
+                                                    {product.product_name}
+                                                </Typography>
+                                                <Typography variant="caption" color="text.secondary">
+                                                    {product.product_code}
+                                                </Typography>
+                                            </TableCell>
                                             <TableCell>
                                                 <DatePicker
                                                     selected={expiryDates[product.product_code]}
@@ -767,6 +799,7 @@ export default function CreatePurchaseOrderToWarehouse({ onBack }) {
                                                     value={units[product.product_code]}
                                                     onChange={(e) => handleUnitChange(product.product_code, e.target.value)}
                                                     size="small"
+                                                    sx={{ minWidth: 80 }}
                                                 >
                                                     <MenuItem value={product.productUnit1?.unit_code}>
                                                         {product.productUnit1?.unit_name}
@@ -776,12 +809,11 @@ export default function CreatePurchaseOrderToWarehouse({ onBack }) {
                                                     </MenuItem>
                                                 </Select>
                                             </TableCell>
-                                            <TableCell>${unitPrices[product.product_code]?.toFixed(2) || "0.00"}</TableCell>
-                                            <TableCell>${totals[product.product_code]?.toFixed(2) || "0.00"}</TableCell>
                                             <TableCell>
                                                 <IconButton
                                                     onClick={() => toggleSelectProduct(product)}
                                                     color="error"
+                                                    size="small"
                                                 >
                                                     <DeleteIcon />
                                                 </IconButton>
@@ -793,7 +825,7 @@ export default function CreatePurchaseOrderToWarehouse({ onBack }) {
                         </Table>
                     </TableContainer>
 
-                    {/* Order Summary */}
+                    {/* Order Summary - Modified to hide prices */}
                     <Box sx={{
                         bgcolor: '#EAB86C',
                         borderRadius: '10px',
@@ -802,16 +834,14 @@ export default function CreatePurchaseOrderToWarehouse({ onBack }) {
                         color: 'white'
                     }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                            <Typography>Subtotal</Typography>
-                            <Typography>${total.toFixed(2)}</Typography>
+                            <Typography>Total Items</Typography>
+                            <Typography>{products.length}</Typography>
                         </Box>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                            <Typography>Tax (7%)</Typography>
-                            <Typography>${calculateTax().toFixed(2)}</Typography>
-                        </Box>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
-                            <Typography variant="h5">Total</Typography>
-                            <Typography variant="h5">${(total + calculateTax()).toFixed(2)}</Typography>
+                            <Typography>Total Quantity</Typography>
+                            <Typography>
+                                {Object.values(quantities).reduce((sum, qty) => sum + qty, 0)}
+                            </Typography>
                         </Box>
                     </Box>
 
@@ -820,7 +850,7 @@ export default function CreatePurchaseOrderToWarehouse({ onBack }) {
                         variant="contained"
                         fullWidth
                         onClick={handleSave}
-                        disabled={isLoading || !lastRefNo}
+                        disabled={isLoading || !lastRefNo || !saveSupplier || products.length === 0}
                         sx={{
                             mt: 2,
                             bgcolor: '#754C27',

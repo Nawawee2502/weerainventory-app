@@ -15,7 +15,7 @@ import { useDispatch } from 'react-redux';
 import { kitchenAll } from '../../../../api/kitchenApi';
 import { branchAll } from '../../../../api/branchApi';
 import { searchProductName } from '../../../../api/productrecordApi';
-import { Br_grfAlljoindt, deleteBr_grf } from '../../../../api/restaurant/br_grfApi';
+import { Br_rfkAlljoindt, deleteBr_rfk } from '../../../../api/restaurant/br_rfkApi';
 import Swal from 'sweetalert2';
 
 const formatDate = (date) => {
@@ -144,7 +144,7 @@ export default function GoodsReceiptKitchen({ onCreate, onEdit }) {
 
       const formattedDate = filterDate.toISOString().slice(0, 10).replace(/-/g, '');
 
-      const response = await dispatch(Br_grfAlljoindt({
+      const response = await dispatch(Br_rfkAlljoindt({
         offset,
         limit,
         rdate1: formattedDate,
@@ -183,7 +183,7 @@ export default function GoodsReceiptKitchen({ onCreate, onEdit }) {
         confirmButtonText: 'Yes, delete it!'
       }).then(async (result) => {
         if (result.isConfirmed) {
-          await dispatch(deleteBr_grf({ refno })).unwrap();
+          await dispatch(deleteBr_rfk({ refno })).unwrap();
           Swal.fire(
             'Deleted!',
             'Record has been deleted.',
@@ -243,7 +243,7 @@ export default function GoodsReceiptKitchen({ onCreate, onEdit }) {
       }).then(async (result) => {
         if (result.isConfirmed) {
           await Promise.all(
-            selected.map(refno => dispatch(deleteBr_grf({ refno })).unwrap())
+            selected.map(refno => dispatch(deleteBr_rfk({ refno })).unwrap())
           );
           Swal.fire(
             'Deleted!',

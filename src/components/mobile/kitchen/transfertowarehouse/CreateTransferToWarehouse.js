@@ -607,9 +607,7 @@ export default function CreateTransferToWarehouse({ onBack }) {
                                         <Typography variant="body2" color="text.secondary" noWrap>
                                             {product.product_code}
                                         </Typography>
-                                        <Typography variant="h6" color="#D9A05B" mt={1}>
-                                            ${(product.bulk_unit_price || 0).toFixed(2)}
-                                        </Typography>
+                                        {/* Removed price display */}
                                     </CardContent>
                                     {selectedProducts.includes(product.product_code) && (
                                         <CheckCircleIcon
@@ -769,15 +767,15 @@ export default function CreateTransferToWarehouse({ onBack }) {
                                     <TableCell>Temperature</TableCell>
                                     <TableCell>Quantity</TableCell>
                                     <TableCell>Unit</TableCell>
-                                    <TableCell>Price</TableCell>
-                                    <TableCell>Total</TableCell>
+                                    {/* Removed Price column */}
+                                    {/* Removed Total column */}
                                     <TableCell>Actions</TableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>
                                 {products.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={10} align="center">
+                                        <TableCell colSpan={8} align="center">
                                             No products added yet. Select products from the left panel.
                                         </TableCell>
                                     </TableRow>
@@ -862,8 +860,7 @@ export default function CreateTransferToWarehouse({ onBack }) {
                                                     )}
                                                 </Select>
                                             </TableCell>
-                                            <TableCell>${(unitPrices[product.product_code] || 0).toFixed(2)}</TableCell>
-                                            <TableCell>${(totals[product.product_code] || 0).toFixed(2)}</TableCell>
+                                            {/* Removed price cells */}
                                             <TableCell>
                                                 <IconButton
                                                     onClick={() => toggleSelectProduct(product)}
@@ -880,7 +877,7 @@ export default function CreateTransferToWarehouse({ onBack }) {
                         </Table>
                     </TableContainer>
 
-                    {/* Order Summary */}
+                    {/* Modified Order Summary - Hide prices */}
                     <Box sx={{
                         bgcolor: '#EAB86C',
                         borderRadius: '10px',
@@ -889,17 +886,19 @@ export default function CreateTransferToWarehouse({ onBack }) {
                         color: 'white'
                     }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                            <Typography>Subtotal</Typography>
-                            <Typography>${total.toFixed(2)}</Typography>
+                            <Typography>Total Items</Typography>
+                            <Typography>{products.length}</Typography>
                         </Box>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                            <Typography>Tax (7%)</Typography>
-                            <Typography>${calculateTax().toFixed(2)}</Typography>
+                            <Typography>Total Quantity</Typography>
+                            <Typography>
+                                {Object.values(quantities).reduce((sum, qty) => sum + qty, 0)}
+                            </Typography>
                         </Box>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
-                            <Typography variant="h5">Total</Typography>
-                            <Typography variant="h5">${(total + calculateTax()).toFixed(2)}</Typography>
-                        </Box>
+                        {/* <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
+                            <Typography variant="h5">Ready to Process</Typography>
+                            <Typography variant="h5">{products.length > 0 ? '✓' : '✗'}</Typography>
+                        </Box> */}
                     </Box>
 
                     {/* Save Button */}

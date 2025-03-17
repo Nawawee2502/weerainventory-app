@@ -19,7 +19,9 @@ import {
     MenuItem,
     Pagination,
     CircularProgress,
-    Autocomplete
+    Autocomplete,
+    Paper,
+    Grid
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SearchIcon from '@mui/icons-material/Search';
@@ -738,7 +740,7 @@ export default function CreateGoodsReceiptWarehouse({ onBack }) {
     }
 
     return (
-        <Box sx={{ padding: "10px", paddingBottom: "300px", fontFamily: "Arial, sans-serif" }}>
+        <Box sx={{ padding: "20px", fontFamily: "Arial, sans-serif" }}>
             <Button
                 startIcon={<ArrowBackIcon />}
                 onClick={onBack}
@@ -756,19 +758,18 @@ export default function CreateGoodsReceiptWarehouse({ onBack }) {
                         <span> Based on dispatch: {selectedDispatchRefno} |</span>
                     )}
                     Supplier: {saveSupplier || 'None'} |
-                    Restaurant: {saveBranch || 'None'} |
-                    Total: ${total.toFixed(2)}
+                    Restaurant: {saveBranch || 'None'}
                 </Typography>
             </Box>
 
             {/* Main content */}
-            <Box display="flex" p={2} bgcolor="#F9F9F9">
+            <Box display="flex" p={2} bgcolor="#F9F9F9" borderRadius="12px" boxShadow={1}>
                 {/* Left Panel - Product Selection */}
                 <Box flex={2} pr={2} display="flex" flexDirection="column">
                     {/* Search and Filter Section */}
                     <Box sx={{ marginBottom: "20px", paddingTop: '20px' }}>
                         <TextField
-                            placeholder="Search products..."
+                            placeholder="Search products by name or code..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             sx={{
@@ -806,7 +807,12 @@ export default function CreateGoodsReceiptWarehouse({ onBack }) {
                                         border: selectedProducts.includes(product.product_code) ? '2px solid #4caf50' : 'none',
                                         bgcolor: selectedProducts.includes(product.product_code) ? '#f0fff0' : 'white',
                                         display: 'flex',
-                                        flexDirection: 'column'
+                                        flexDirection: 'column',
+                                        transition: 'all 0.2s ease-in-out',
+                                        '&:hover': {
+                                            transform: 'translateY(-4px)',
+                                            boxShadow: 4
+                                        }
                                     }}
                                     onClick={() => toggleSelectProduct(product)}
                                 >
@@ -818,9 +824,7 @@ export default function CreateGoodsReceiptWarehouse({ onBack }) {
                                         <Typography variant="body2" color="text.secondary" noWrap>
                                             {product.product_code}
                                         </Typography>
-                                        <Typography variant="h6" color="#D9A05B" mt={1}>
-                                            ${(product.bulk_unit_price || 0).toFixed(2)}
-                                        </Typography>
+                                        {/* Removed price display */}
                                         {product.tax1 === 'Y' && (
                                             <Typography variant="caption" color="success.main">
                                                 Taxable
@@ -855,139 +859,167 @@ export default function CreateGoodsReceiptWarehouse({ onBack }) {
                             showFirstButton
                             showLastButton
                             size="large"
+                            sx={{
+                                '& .MuiPaginationItem-root': {
+                                    '&.Mui-selected': {
+                                        backgroundColor: '#754C27',
+                                        color: 'white',
+                                        '&:hover': {
+                                            backgroundColor: '#5c3c1f',
+                                        }
+                                    }
+                                }
+                            }}
                         />
                     </Box>
                 </Box>
 
                 {/* Right Panel - Order Details */}
-                <Box flex={2} pl={2} bgcolor="#FFF" p={1} borderRadius="12px" boxShadow={3}>
-                    {/* Restaurant Selection - This must be first */}
-                    <Typography sx={{ fontSize: '16px', fontWeight: '600', mt: '18px' }}>
-                        Restaurant (Select First)
-                    </Typography>
-                    <Select
-                        value={saveBranch}
-                        onChange={(e) => handleBranchChange(e.target.value)}
-                        displayEmpty
-                        size="small"
-                        sx={{
-                            mt: '8px',
-                            width: '95%',
-                            borderRadius: '10px',
-                        }}
-                    >
-                        <MenuItem value=""><em>Select Restaurant</em></MenuItem>
-                        {branches.map((branch) => (
-                            <MenuItem key={branch.branch_code} value={branch.branch_code}>
-                                {branch.branch_name}
-                            </MenuItem>
-                        ))}
-                    </Select>
+                <Box flex={2} pl={2} bgcolor="#FFF" p={3} borderRadius="12px" boxShadow={3}>
+                    <Grid container spacing={3}>
+                        {/* Restaurant Selection - This must be first */}
+                        <Grid item xs={12}>
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>
+                                Restaurant (Select First)
+                            </Typography>
+                            <Select
+                                value={saveBranch}
+                                onChange={(e) => handleBranchChange(e.target.value)}
+                                displayEmpty
+                                size="small"
+                                fullWidth
+                                sx={{
+                                    mt: '8px',
+                                    borderRadius: '10px',
+                                }}
+                            >
+                                <MenuItem value=""><em>Select Restaurant</em></MenuItem>
+                                {branches.map((branch) => (
+                                    <MenuItem key={branch.branch_code} value={branch.branch_code}>
+                                        {branch.branch_name}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </Grid>
 
-                    {/* Dispatch Selection - Only enabled if branch is selected */}
-                    <Box sx={{ marginTop: "20px", opacity: saveBranch ? 1 : 0.5 }}>
-                        <Typography variant="subtitle1" fontWeight="bold" mb={1}>
-                            Select from Available Dispatches
-                        </Typography>
-                        <Autocomplete
-                            options={dispatchRefnos}
-                            getOptionLabel={(option) =>
-                                typeof option === 'string'
-                                    ? option
-                                    : `${option.refno} - To: ${option.branch} (${option.formattedDate})`
-                            }
-                            onChange={(_, newValue) => handleDispatchSelection(newValue?.refno || '')}
-                            disabled={!saveBranch}
-                            noOptionsText={saveBranch ? "No available dispatches found" : "Select a restaurant first"}
-                            isOptionEqualToValue={(option, value) =>
-                                option.refno === (typeof value === 'string' ? value : value?.refno)
-                            }
-                            renderOption={(props, option) => (
-                                <Box component="li" {...props}>
-                                    <Box>
-                                        <Typography variant="body1" fontWeight="bold">
-                                            {option.refno}
-                                        </Typography>
-                                        <Typography variant="body2" color="text.secondary">
-                                            To: {option.branch}
-                                        </Typography>
-                                        <Typography variant="caption" color="primary">
-                                            Date: {option.formattedDate}
-                                        </Typography>
-                                    </Box>
-                                </Box>
-                            )}
-                            renderInput={(params) => (
-                                <TextField
-                                    {...params}
-                                    label="Search dispatch reference"
-                                    placeholder={saveBranch ? "Select dispatch to create receipt from" : "Select a restaurant first"}
-                                    variant="outlined"
-                                    InputProps={{
-                                        ...params.InputProps,
-                                        endAdornment: (
-                                            <>
-                                                {loadingDispatch ? <CircularProgress color="inherit" size={20} /> : null}
-                                                {params.InputProps.endAdornment}
-                                            </>
-                                        ),
-                                    }}
+                        {/* Dispatch Selection - Only enabled if branch is selected */}
+                        <Grid item xs={12}>
+                            <Box sx={{ opacity: saveBranch ? 1 : 0.5 }}>
+                                <Typography variant="subtitle1" fontWeight="bold" mb={1}>
+                                    Select from Available Dispatches
+                                </Typography>
+                                <Autocomplete
+                                    options={dispatchRefnos}
+                                    getOptionLabel={(option) =>
+                                        typeof option === 'string'
+                                            ? option
+                                            : `${option.refno} - To: ${option.branch} (${option.formattedDate})`
+                                    }
+                                    onChange={(_, newValue) => handleDispatchSelection(newValue?.refno || '')}
+                                    disabled={!saveBranch}
+                                    noOptionsText={saveBranch ? "No available dispatches found" : "Select a restaurant first"}
+                                    isOptionEqualToValue={(option, value) =>
+                                        option.refno === (typeof value === 'string' ? value : value?.refno)
+                                    }
+                                    renderOption={(props, option) => (
+                                        <Box component="li" {...props}>
+                                            <Box>
+                                                <Typography variant="body1" fontWeight="bold">
+                                                    {option.refno}
+                                                </Typography>
+                                                <Typography variant="body2" color="text.secondary">
+                                                    To: {option.branch}
+                                                </Typography>
+                                                <Typography variant="caption" color="primary">
+                                                    Date: {option.formattedDate}
+                                                </Typography>
+                                            </Box>
+                                        </Box>
+                                    )}
+                                    renderInput={(params) => (
+                                        <TextField
+                                            {...params}
+                                            label="Search dispatch reference"
+                                            placeholder={saveBranch ? "Select dispatch to create receipt from" : "Select a restaurant first"}
+                                            variant="outlined"
+                                            InputProps={{
+                                                ...params.InputProps,
+                                                endAdornment: (
+                                                    <>
+                                                        {loadingDispatch ? <CircularProgress color="inherit" size={20} /> : null}
+                                                        {params.InputProps.endAdornment}
+                                                    </>
+                                                ),
+                                            }}
+                                        />
+                                    )}
                                 />
-                            )}
-                        />
-                    </Box>
+                            </Box>
+                        </Grid>
 
-                    <Typography sx={{ fontSize: '16px', fontWeight: '600', mt: '18px' }}>
-                        Ref.no
-                    </Typography>
-                    <TextField
-                        value={lastRefNo}
-                        disabled={true}
-                        size="small"
-                        sx={{
-                            mt: '8px',
-                            width: '95%',
-                            '& .MuiOutlinedInput-root': {
-                                borderRadius: '10px',
-                            },
-                        }}
-                    />
+                        <Grid item xs={12}>
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>
+                                Ref.no
+                            </Typography>
+                            <TextField
+                                value={lastRefNo}
+                                disabled={true}
+                                size="small"
+                                fullWidth
+                                sx={{
+                                    mt: '8px',
+                                    '& .MuiOutlinedInput-root': {
+                                        borderRadius: '10px',
+                                    },
+                                    '& .Mui-disabled': {
+                                        WebkitTextFillColor: !lastRefNo || lastRefNo === 'Please select dispatch to branch'
+                                            ? '#d32f2f'
+                                            : 'rgba(0, 0, 0, 0.38)',
+                                    }
+                                }}
+                            />
+                        </Grid>
 
-                    <Typography sx={{ fontSize: '16px', fontWeight: '600', mt: '18px' }}>
-                        Date
-                    </Typography>
-                    <DatePicker
-                        selected={startDate}
-                        onChange={(date) => {
-                            setStartDate(date);
-                        }}
-                        dateFormat="MM/dd/yyyy"
-                        customInput={<CustomInput />}
-                    />
+                        <Grid item xs={12} md={6}>
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>
+                                Date
+                            </Typography>
+                            <DatePicker
+                                selected={startDate}
+                                onChange={(date) => {
+                                    setStartDate(date);
+                                }}
+                                dateFormat="MM/dd/yyyy"
+                                customInput={<CustomInput />}
+                            />
+                        </Grid>
 
-                    <Typography sx={{ fontSize: '16px', fontWeight: '600', mt: '18px' }}>
-                        Supplier
-                    </Typography>
-                    <Select
-                        value={saveSupplier}
-                        onChange={(e) => setSaveSupplier(e.target.value)}
-                        displayEmpty
-                        size="small"
-                        sx={{
-                            mt: '8px',
-                            width: '95%',
-                            borderRadius: '10px',
-                        }}
-                    >
-                        <MenuItem value=""><em>Select Supplier</em></MenuItem>
-                        {suppliers.map((supplier) => (
-                            <MenuItem key={supplier.supplier_code} value={supplier.supplier_code}>
-                                {supplier.supplier_name}
-                            </MenuItem>
-                        ))}
-                    </Select>
+                        <Grid item xs={12} md={6}>
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>
+                                Supplier
+                            </Typography>
+                            <Select
+                                value={saveSupplier}
+                                onChange={(e) => setSaveSupplier(e.target.value)}
+                                displayEmpty
+                                size="small"
+                                fullWidth
+                                sx={{
+                                    mt: '8px',
+                                    borderRadius: '10px',
+                                }}
+                            >
+                                <MenuItem value=""><em>Select Supplier</em></MenuItem>
+                                {suppliers.map((supplier) => (
+                                    <MenuItem key={supplier.supplier_code} value={supplier.supplier_code}>
+                                        {supplier.supplier_name}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </Grid>
+                    </Grid>
 
-                    <Divider sx={{ my: 2 }} />
+                    <Divider sx={{ my: 3 }} />
 
                     {/* Current Order Section */}
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1007,6 +1039,7 @@ export default function CreateGoodsReceiptWarehouse({ onBack }) {
                                     },
                                     ml: 1
                                 }}
+                                disabled={products.length === 0}
                             >
                                 Clear All
                             </Button>
@@ -1014,27 +1047,34 @@ export default function CreateGoodsReceiptWarehouse({ onBack }) {
                     </Box>
 
                     {/* Order Table */}
-                    <TableContainer sx={{ mt: 2, maxHeight: '400px', overflow: 'auto' }}>
+                    <TableContainer component={Paper} sx={{
+                        mt: 2,
+                        maxHeight: '400px',
+                        overflow: 'auto',
+                        boxShadow: 'none',
+                        border: '1px solid #e0e0e0',
+                        borderRadius: '8px'
+                    }}>
                         <Table stickyHeader>
                             <TableHead>
-                                <TableRow>
+                                <TableRow sx={{ bgcolor: '#f5f5f5' }}>
                                     <TableCell>No.</TableCell>
                                     <TableCell>Image</TableCell>
-                                    <TableCell>Product Name</TableCell>
+                                    <TableCell>Product</TableCell>
                                     <TableCell>Tax</TableCell>
                                     <TableCell>Expiry Date</TableCell>
                                     <TableCell>Temperature</TableCell>
                                     <TableCell>Quantity</TableCell>
                                     <TableCell>Unit</TableCell>
-                                    <TableCell>Unit Price</TableCell>
-                                    <TableCell>Total</TableCell>
+                                    {/* Removed Price column */}
+                                    {/* Removed Total column */}
                                     <TableCell>Actions</TableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>
                                 {products.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={11} align="center">
+                                        <TableCell colSpan={9} align="center">
                                             <Typography color="text.secondary">
                                                 No products selected. Select a dispatch from the dropdown or add products from the grid.
                                             </Typography>
@@ -1132,8 +1172,6 @@ export default function CreateGoodsReceiptWarehouse({ onBack }) {
                                                     )}
                                                 </Select>
                                             </TableCell>
-                                            <TableCell>${(unitPrices[product.product_code] || 0).toFixed(2)}</TableCell>
-                                            <TableCell>${(totals[product.product_code] || 0).toFixed(2)}</TableCell>
                                             <TableCell>
                                                 <IconButton
                                                     onClick={() => toggleSelectProduct(product)}
@@ -1150,7 +1188,7 @@ export default function CreateGoodsReceiptWarehouse({ onBack }) {
                         </Table>
                     </TableContainer>
 
-                    {/* Order Summary */}
+                    {/* Order Summary - Modified to hide price information */}
                     <Box sx={{
                         bgcolor: '#EAB86C',
                         borderRadius: '10px',
@@ -1159,16 +1197,20 @@ export default function CreateGoodsReceiptWarehouse({ onBack }) {
                         color: 'white'
                     }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                            <Typography>Subtotal</Typography>
-                            <Typography>${total.toFixed(2)}</Typography>
+                            <Typography>Total Items</Typography>
+                            <Typography>{products.length}</Typography>
                         </Box>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                            <Typography>Tax (7%)</Typography>
-                            <Typography>${calculateTax().toFixed(2)}</Typography>
+                            <Typography>Total Quantity</Typography>
+                            <Typography>
+                                {Object.values(quantities).reduce((sum, qty) => sum + qty, 0)}
+                            </Typography>
                         </Box>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
-                            <Typography variant="h5">Total</Typography>
-                            <Typography variant="h5">${(total + calculateTax()).toFixed(2)}</Typography>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                            <Typography>Taxable Items</Typography>
+                            <Typography>
+                                {Object.values(taxStatus).filter(status => status === 'Y').length}
+                            </Typography>
                         </Box>
                     </Box>
 
@@ -1177,6 +1219,7 @@ export default function CreateGoodsReceiptWarehouse({ onBack }) {
                         variant="contained"
                         fullWidth
                         onClick={handleSave}
+                        disabled={!lastRefNo || lastRefNo === 'Please select dispatch to branch' || !saveSupplier || products.length === 0}
                         sx={{
                             mt: 2,
                             bgcolor: '#754C27',

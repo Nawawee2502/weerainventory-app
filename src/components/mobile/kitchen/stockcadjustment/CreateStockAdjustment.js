@@ -1,4 +1,3 @@
-// CreateRequestToKitchen.jsx
 import React, { useState, useEffect } from 'react';
 import {
     Box,
@@ -34,8 +33,7 @@ import 'react-datepicker/dist/react-datepicker.css';
 import { useDispatch } from "react-redux";
 import { searchProductName } from '../../../../api/productrecordApi';
 import { kitchenAll } from '../../../../api/kitchenApi';
-import { branchAll } from '../../../../api/branchApi';
-import { addBr_rtk, Br_rtkrefno } from '../../../../api/restaurant/br_rtkApi';
+import { addKt_saf, Kt_safrefno } from '../../../../api/kitchen/kt_safApi';
 import Swal from 'sweetalert2';
 import { format } from 'date-fns';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
@@ -60,7 +58,7 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
                 readOnly: true,
                 endAdornment: (
                     <InputAdornment position="end">
-                        <CalendarTodayIcon sx={{ color: '#754C27', cursor: 'pointer' }} />
+                        <CalendarTodayIcon sx={{ color: '#2E7D32', cursor: 'pointer' }} />
                     </InputAdornment>
                 ),
             }}
@@ -68,15 +66,13 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
     </Box>
 ));
 
-export default function CreateRequestToKitchen({ onBack }) {
+export default function CreateStockAdjustment({ onBack }) {
     const dispatch = useDispatch();
     const [isLoading, setIsLoading] = useState(false);
     const [startDate, setStartDate] = useState(new Date());
     const [lastRefNo, setLastRefNo] = useState('');
     const [kitchens, setKitchens] = useState([]);
     const [saveKitchen, setSaveKitchen] = useState('');
-    const [branches, setBranches] = useState([]);
-    const [saveBranch, setSaveBranch] = useState('');
     const [products, setProducts] = useState([]);
     const [quantities, setQuantities] = useState({});
     const [units, setUnits] = useState({});
@@ -106,12 +102,6 @@ export default function CreateRequestToKitchen({ onBack }) {
                 const kitchensResponse = await dispatch(kitchenAll({ offset: 0, limit: 100 })).unwrap();
                 if (kitchensResponse?.data) {
                     setKitchens(kitchensResponse.data);
-                }
-
-                // Load branches
-                const branchesResponse = await dispatch(branchAll({ offset: 0, limit: 100 })).unwrap();
-                if (branchesResponse?.data) {
-                    setBranches(branchesResponse.data);
                 }
 
                 // Load products
@@ -160,19 +150,16 @@ export default function CreateRequestToKitchen({ onBack }) {
         setPaginatedProducts(filteredProducts.slice(startIndex, endIndex));
     }, [filteredProducts, page, productsPerPage]);
 
-    const handleGetLastRefNo = async (selectedDate, selectedBranch) => {
+    const handleGetLastRefNo = async (selectedDate, selectedKitchen) => {
         try {
-            if (!selectedBranch) {
+            if (!selectedKitchen) {
                 setLastRefNo('');
                 return;
             }
 
-            const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
-            const year = selectedDate.getFullYear().toString().slice(-2);
-
             try {
-                const res = await dispatch(Br_rtkrefno({
-                    branch_code: selectedBranch,
+                const res = await dispatch(Kt_safrefno({
+                    kitchen_code: selectedKitchen,
                     date: selectedDate
                 })).unwrap();
 
@@ -185,8 +172,10 @@ export default function CreateRequestToKitchen({ onBack }) {
             }
 
             // Fallback: generate a reference number locally
-            const branchPrefix = selectedBranch.substring(0, 2).toUpperCase();
-            const newRefNo = `RTK${branchPrefix}${year}${month}001`;
+            const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+            const year = selectedDate.getFullYear().toString().slice(-2);
+            const kitchenPrefix = selectedKitchen.substring(0, 2).toUpperCase();
+            const newRefNo = `KTSAF${kitchenPrefix}${year}${month}001`;
             setLastRefNo(newRefNo);
 
         } catch (err) {
@@ -194,29 +183,24 @@ export default function CreateRequestToKitchen({ onBack }) {
             // Still generate a reference locally if all else fails
             const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
             const year = selectedDate.getFullYear().toString().slice(-2);
-            setLastRefNo(`RTK${year}${month}001`);
-        }
-    };
-
-    const handleBranchChange = (event) => {
-        const newBranchCode = event.target.value;
-        setSaveBranch(newBranchCode);
-        if (newBranchCode) {
-            handleGetLastRefNo(startDate, newBranchCode);
-        } else {
-            setLastRefNo('');
+            setLastRefNo(`KTSAF${year}${month}001`);
         }
     };
 
     const handleKitchenChange = (event) => {
         const newKitchenCode = event.target.value;
         setSaveKitchen(newKitchenCode);
+        if (newKitchenCode) {
+            handleGetLastRefNo(startDate, newKitchenCode);
+        } else {
+            setLastRefNo('');
+        }
     };
 
     const handleDateChange = (date) => {
         setStartDate(date);
-        if (saveBranch) {
-            handleGetLastRefNo(date, saveBranch);
+        if (saveKitchen) {
+            handleGetLastRefNo(date, saveKitchen);
         }
     };
 
@@ -291,25 +275,12 @@ export default function CreateRequestToKitchen({ onBack }) {
         setExpiryDates(prev => ({ ...prev, [productCode]: date }));
     };
 
-    const calculateTax = () => {
-        let taxableAmount = 0;
-        products.forEach(product => {
-            if (product.tax1 === 'Y') {
-                const productCode = product.product_code;
-                const quantity = quantities[productCode] || 0;
-                const unitPrice = unitPrices[productCode] || 0;
-                taxableAmount += quantity * unitPrice;
-            }
-        });
-        return taxableAmount * 0.07;
-    };
-
     const handleSave = async () => {
-        if (!saveBranch || !saveKitchen || products.length === 0 || !lastRefNo) {
+        if (!saveKitchen || products.length === 0 || !lastRefNo) {
             Swal.fire({
                 icon: 'warning',
                 title: 'Missing Information',
-                text: 'Please select a branch and kitchen and add at least one product',
+                text: 'Please select a kitchen and add at least one product',
                 timer: 1500
             });
             return;
@@ -317,19 +288,15 @@ export default function CreateRequestToKitchen({ onBack }) {
 
         try {
             setIsLoading(true);
-            const tax = calculateTax();
 
             const headerData = {
                 refno: lastRefNo,
                 rdate: format(startDate, 'MM/dd/yyyy'),
                 kitchen_code: saveKitchen,
-                branch_code: saveBranch,
                 trdate: format(startDate, 'yyyyMMdd'),
                 monthh: format(startDate, 'MM'),
                 myear: startDate.getFullYear(),
-                user_code: userData2.user_code,
-                taxable: tax.toString(), 
-                nontaxable: (total - tax).toString() 
+                user_code: userData2.user_code
             };
 
             const productArrayData = products.map(product => ({
@@ -339,7 +306,6 @@ export default function CreateRequestToKitchen({ onBack }) {
                 unit_code: units[product.product_code],
                 uprice: unitPrices[product.product_code].toString(),
                 amt: totals[product.product_code].toString(),
-                tax1: product.tax1, // Add tax1 field
                 expire_date: format(expiryDates[product.product_code], 'MM/dd/yyyy'),
                 texpire_date: format(expiryDates[product.product_code], 'yyyyMMdd')
             }));
@@ -352,11 +318,11 @@ export default function CreateRequestToKitchen({ onBack }) {
                 }
             };
 
-            await dispatch(addBr_rtk(orderData)).unwrap();
+            await dispatch(addKt_saf(orderData)).unwrap();
 
             await Swal.fire({
                 icon: 'success',
-                title: 'Created kitchen request successfully',
+                title: 'Created stock adjustment successfully',
                 text: `Reference No: ${lastRefNo}`,
                 showConfirmButton: false,
                 timer: 1500
@@ -369,7 +335,7 @@ export default function CreateRequestToKitchen({ onBack }) {
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
-                text: error.message || 'Error saving kitchen request',
+                text: error.message || 'Error saving stock adjustment',
                 confirmButtonText: 'OK'
             });
         } finally {
@@ -386,7 +352,6 @@ export default function CreateRequestToKitchen({ onBack }) {
         setTotals({});
         setTotal(0);
         setSaveKitchen('');
-        setSaveBranch('');
         setSearchTerm('');
         setExpiryDates({});
         setLastRefNo('');
@@ -483,7 +448,7 @@ export default function CreateRequestToKitchen({ onBack }) {
                 onClick={onBack}
                 sx={{ marginBottom: "20px" }}
             >
-                Back to Kitchen Requests
+                Back to Stock Adjustments
             </Button>
 
             {/* Main content */}
@@ -606,7 +571,7 @@ export default function CreateRequestToKitchen({ onBack }) {
                                 Ref.no
                             </Typography>
                             <TextField
-                                value={lastRefNo || "Please select restaurant first"}
+                                value={lastRefNo || "Please select kitchen first"}
                                 disabled
                                 size="small"
                                 fullWidth
@@ -636,30 +601,6 @@ export default function CreateRequestToKitchen({ onBack }) {
 
                         <Grid item xs={12} md={6}>
                             <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>
-                                Restaurant
-                            </Typography>
-                            <Select
-                                value={saveBranch}
-                                onChange={handleBranchChange}
-                                displayEmpty
-                                size="small"
-                                fullWidth
-                                sx={{
-                                    mt: '8px',
-                                    borderRadius: '10px',
-                                }}
-                            >
-                                <MenuItem value=""><em>Select Restaurant</em></MenuItem>
-                                {branches.map((branch) => (
-                                    <MenuItem key={branch.branch_code} value={branch.branch_code}>
-                                        {branch.branch_name}
-                                    </MenuItem>
-                                ))}
-                            </Select>
-                        </Grid>
-
-                        <Grid item xs={12}>
-                            <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>
                                 Kitchen
                             </Typography>
                             <Select
@@ -687,7 +628,7 @@ export default function CreateRequestToKitchen({ onBack }) {
 
                     {/* Current Order Section */}
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Typography variant="h6" color="#754C27">Current Request</Typography>
+                        <Typography variant="h6" color="#754C27">Current Adjustment</Typography>
                         <Box>
                             <Typography variant="body2" color="text.secondary">
                                 {products.length} items selected
@@ -728,17 +669,17 @@ export default function CreateRequestToKitchen({ onBack }) {
                                     <TableCell>Expiry Date</TableCell>
                                     <TableCell>Quantity</TableCell>
                                     <TableCell>Unit</TableCell>
-                                    {/* Removed Price column */}
-                                    {/* Removed Total column */}
+                                    <TableCell>Unit Price</TableCell>
+                                    <TableCell>Total</TableCell>
                                     <TableCell>Actions</TableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>
                                 {products.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                                        <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
                                             <Typography color="text.secondary">
-                                                No products selected. Click on products to add them to your request.
+                                                No products selected. Click on products to add them to your adjustment.
                                             </Typography>
                                         </TableCell>
                                     </TableRow>
@@ -808,6 +749,12 @@ export default function CreateRequestToKitchen({ onBack }) {
                                                 </Select>
                                             </TableCell>
                                             <TableCell>
+                                                ${unitPrices[product.product_code]?.toFixed(2) || '0.00'}
+                                            </TableCell>
+                                            <TableCell>
+                                                ${totals[product.product_code]?.toFixed(2) || '0.00'}
+                                            </TableCell>
+                                            <TableCell>
                                                 <IconButton
                                                     onClick={() => toggleSelectProduct(product)}
                                                     color="error"
@@ -823,7 +770,7 @@ export default function CreateRequestToKitchen({ onBack }) {
                         </Table>
                     </TableContainer>
 
-                    {/* Order Summary - Modified to hide prices */}
+                    {/* Order Summary */}
                     <Box sx={{
                         bgcolor: '#EAB86C',
                         borderRadius: '10px',
@@ -841,11 +788,9 @@ export default function CreateRequestToKitchen({ onBack }) {
                                 {Object.values(quantities).reduce((sum, qty) => sum + qty, 0)}
                             </Typography>
                         </Box>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                            <Typography>Taxable Items</Typography>
-                            <Typography>
-                                {products.filter(product => product.tax1 === 'Y').length}
-                            </Typography>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
+                            <Typography variant="h6">Total</Typography>
+                            <Typography variant="h6">${total.toFixed(2)}</Typography>
                         </Box>
                     </Box>
 
@@ -854,7 +799,7 @@ export default function CreateRequestToKitchen({ onBack }) {
                         variant="contained"
                         fullWidth
                         onClick={handleSave}
-                        disabled={isLoading || !lastRefNo || !saveKitchen || !saveBranch || products.length === 0}
+                        disabled={isLoading || !lastRefNo || !saveKitchen || products.length === 0}
                         sx={{
                             mt: 2,
                             bgcolor: '#754C27',

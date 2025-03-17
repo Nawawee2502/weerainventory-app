@@ -362,6 +362,7 @@ export default function CreatePurchaseOrderWarehouse({ onBack }) {
         setTotal(Object.values({ ...totals, [productCode]: newTotal }).reduce((a, b) => a + b, 0));
     };
 
+    // Update to handleSave function to include tax values
     const handleSave = async () => {
         if (!saveKitchen || products.length === 0) {
             Swal.fire({
@@ -382,6 +383,23 @@ export default function CreatePurchaseOrderWarehouse({ onBack }) {
                 }
             });
 
+            // Calculate taxable and non-taxable amounts
+            let taxableAmount = 0;
+            let nontaxableAmount = 0;
+
+            products.forEach(product => {
+                const productCode = product.product_code;
+                const quantity = quantities[productCode] || 0;
+                const unitPrice = unitPrices[productCode] || 0;
+                const lineTotal = quantity * unitPrice;
+
+                if (product.tax1 === 'Y') {
+                    taxableAmount += lineTotal;
+                } else {
+                    nontaxableAmount += lineTotal;
+                }
+            });
+
             const headerData = {
                 refno: lastRefNo,
                 rdate: format(startDate, 'MM/dd/yyyy'),
@@ -390,6 +408,9 @@ export default function CreatePurchaseOrderWarehouse({ onBack }) {
                 monthh: format(startDate, 'MM'),
                 myear: startDate.getFullYear(),
                 user_code: userData2?.user_code || '',
+                // Add the tax fields to header data
+                taxable: taxableAmount.toString(),
+                nontaxable: nontaxableAmount.toString()
             };
 
             const productArrayData = products.map(product => ({
@@ -398,7 +419,9 @@ export default function CreatePurchaseOrderWarehouse({ onBack }) {
                 qty: (quantities[product.product_code] || 1).toString(),
                 unit_code: units[product.product_code] || product.productUnit1?.unit_code || '',
                 uprice: (unitPrices[product.product_code] || 0).toString(),
-                amt: (totals[product.product_code] || 0).toString()
+                amt: (totals[product.product_code] || 0).toString(),
+                // Add tax1 field to each product
+                tax1: product.tax1 || 'N'
             }));
 
             const orderData = {
@@ -581,9 +604,7 @@ export default function CreatePurchaseOrderWarehouse({ onBack }) {
                                         <Typography variant="body2" color="text.secondary" noWrap>
                                             {product.product_code}
                                         </Typography>
-                                        <Typography variant="h6" color="#D9A05B" mt={1}>
-                                            ${(product.bulk_unit_price || 0).toFixed(2)}
-                                        </Typography>
+                                        {/* Removed price display */}
                                     </CardContent>
                                     {selectedProducts.includes(product.product_code) && (
                                         <CheckCircleIcon
@@ -707,15 +728,15 @@ export default function CreatePurchaseOrderWarehouse({ onBack }) {
                                     <TableCell>Product Name</TableCell>
                                     <TableCell>Quantity</TableCell>
                                     <TableCell>Unit</TableCell>
-                                    <TableCell>Unit Price</TableCell>
-                                    <TableCell>Total</TableCell>
+                                    {/* Removed Unit Price column */}
+                                    {/* Removed Total column */}
                                     <TableCell>Actions</TableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>
                                 {products.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
+                                        <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
                                             <Typography color="text.secondary">
                                                 No products selected. Click on products to add them to your order.
                                             </Typography>
@@ -777,8 +798,8 @@ export default function CreatePurchaseOrderWarehouse({ onBack }) {
                                                     )}
                                                 </Select>
                                             </TableCell>
-                                            <TableCell>${(unitPrices[product.product_code] || 0).toFixed(2)}</TableCell>
-                                            <TableCell>${(totals[product.product_code] || 0).toFixed(2)}</TableCell>
+                                            {/* Removed unit price cell */}
+                                            {/* Removed total cell */}
                                             <TableCell>
                                                 <IconButton
                                                     onClick={() => toggleSelectProduct(product)}
@@ -794,7 +815,7 @@ export default function CreatePurchaseOrderWarehouse({ onBack }) {
                         </Table>
                     </TableContainer>
 
-                    {/* Order Summary */}
+                    {/* Order Summary - Only shows item count, not prices */}
                     <Box sx={{
                         bgcolor: '#EAB86C',
                         borderRadius: '10px',
@@ -803,17 +824,19 @@ export default function CreatePurchaseOrderWarehouse({ onBack }) {
                         color: 'white'
                     }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                            <Typography>Subtotal</Typography>
-                            <Typography>${total.toFixed(2)}</Typography>
+                            <Typography>Total Items</Typography>
+                            <Typography>{products.length}</Typography>
                         </Box>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                            <Typography>Tax (7%)</Typography>
-                            <Typography>${calculateTax().toFixed(2)}</Typography>
+                            <Typography>Total Quantity</Typography>
+                            <Typography>
+                                {Object.values(quantities).reduce((sum, qty) => sum + qty, 0)}
+                            </Typography>
                         </Box>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
-                            <Typography variant="h5">Total</Typography>
-                            <Typography variant="h5">${(total + calculateTax()).toFixed(2)}</Typography>
-                        </Box>
+                        {/* <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
+                            <Typography variant="h5">Ready to Process</Typography>
+                            <Typography variant="h5">{products.length > 0 ? '✓' : '✗'}</Typography>
+                        </Box> */}
                     </Box>
 
                     {/* Save Button */}

@@ -34,7 +34,7 @@ import {
     addKt_stockcard,
     updateKt_stockcard,
     deleteKt_stockcard,
-    queryKt_stockcard,
+    Kt_stockcardAll,
     countKt_stockcard
 } from '../../../api/kitchen/kt_stockcardApi';
 import { kitchenAll } from '../../../api/kitchenApi';
@@ -292,7 +292,7 @@ export default function BeginningInventory() {
             const formattedDate = filterDate ? formatDate(filterDate) : null;
 
             const [stockcardsRes, countRes] = await Promise.all([
-                dispatch(queryKt_stockcard({
+                dispatch(Kt_stockcardAll({
                     offset,
                     limit: itemsPerPage,
                     ...(formattedDate && { rdate: formattedDate }),

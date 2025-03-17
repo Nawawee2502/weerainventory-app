@@ -9,7 +9,6 @@ import {
     InputAdornment,
     Card,
     CardContent,
-    CardMedia,
     TableContainer,
     Table,
     TableHead,
@@ -18,7 +17,10 @@ import {
     TableBody,
     Select,
     MenuItem,
-    Pagination
+    Pagination,
+    Paper,
+    Grid,
+    CircularProgress
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SearchIcon from '@mui/icons-material/Search';
@@ -66,16 +68,26 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
 
 export default function CreateGoodsRequisition({ onBack }) {
     const dispatch = useDispatch();
+
+    // Loading state
+    const [isLoadingRefNo, setIsLoadingRefNo] = useState(false);
+
+    // Form state
     const [startDate, setStartDate] = useState(new Date());
     const [lastRefNo, setLastRefNo] = useState('');
     const [branches, setBranches] = useState([]);
     const [saveBranch, setSaveBranch] = useState('');
+
+    // Product-related state
     const [products, setProducts] = useState([]);
     const [quantities, setQuantities] = useState({});
     const [units, setUnits] = useState({});
+    // Keep these states for data submission, but don't display in UI
     const [unitPrices, setUnitPrices] = useState({});
     const [totals, setTotals] = useState({});
     const [total, setTotal] = useState(0);
+
+    // Search and filter state
     const [searchTerm, setSearchTerm] = useState("");
     const [allProducts, setAllProducts] = useState([]);
     const [filteredProducts, setFilteredProducts] = useState([]);
@@ -93,9 +105,6 @@ export default function CreateGoodsRequisition({ onBack }) {
     const userData2 = JSON.parse(userDataJson);
 
     useEffect(() => {
-        // const currentDate = new Date();
-        // handleGetLastRefNo(currentDate);
-
         // Fetch branches
         dispatch(branchAll({ offset: 0, limit: 100 }))
             .unwrap()
@@ -119,8 +128,8 @@ export default function CreateGoodsRequisition({ onBack }) {
     // Handle filtering and pagination
     useEffect(() => {
         const filtered = allProducts.filter(product =>
-            product.product_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            product.product_code.toLowerCase().includes(searchTerm.toLowerCase())
+            product.product_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            product.product_code?.toLowerCase().includes(searchTerm.toLowerCase())
         );
 
         // Sort products: selected ones first
@@ -153,6 +162,8 @@ export default function CreateGoodsRequisition({ onBack }) {
                 return;
             }
 
+            setIsLoadingRefNo(true);
+
             const res = await dispatch(Br_grfrefno({
                 branch_code: selectedBranch,
                 date: selectedDate
@@ -171,6 +182,8 @@ export default function CreateGoodsRequisition({ onBack }) {
                 title: 'Error',
                 text: 'Failed to generate reference number'
             });
+        } finally {
+            setIsLoadingRefNo(false);
         }
     };
 
@@ -286,7 +299,7 @@ export default function CreateGoodsRequisition({ onBack }) {
             setUnitPrices(prev => ({ ...prev, [product.product_code]: product.bulk_unit_price }));
             setExpiryDates(prev => ({ ...prev, [product.product_code]: new Date() }));
 
-            // Calculate initial total
+            // Calculate initial total (still needed for backend but not displayed)
             const initialTotal = product.bulk_unit_price * 1;
             setTotals(prev => ({ ...prev, [product.product_code]: initialTotal }));
             setTotal(prev => prev + initialTotal);
@@ -299,7 +312,7 @@ export default function CreateGoodsRequisition({ onBack }) {
 
         setQuantities(prev => ({ ...prev, [productCode]: newQty }));
 
-        // Update total
+        // Update total (still needed for backend)
         const price = unitPrices[productCode];
         const newTotal = newQty * price;
         setTotals(prev => ({ ...prev, [productCode]: newTotal }));
@@ -316,7 +329,7 @@ export default function CreateGoodsRequisition({ onBack }) {
 
         setUnitPrices(prev => ({ ...prev, [productCode]: newPrice }));
 
-        // Update total
+        // Update total (still needed for backend)
         const qty = quantities[productCode];
         const newTotal = qty * newPrice;
         setTotals(prev => ({ ...prev, [productCode]: newTotal }));
@@ -399,7 +412,7 @@ export default function CreateGoodsRequisition({ onBack }) {
         }
     };
 
-    // Calculate tax based on products with tax1='Y'
+    // Calculate tax based on products with tax1='Y' (still needed for backend)
     const calculateTax = () => {
         let taxableAmount = 0;
         products.forEach(product => {
@@ -431,7 +444,7 @@ export default function CreateGoodsRequisition({ onBack }) {
     };
 
     return (
-        <Box sx={{ padding: "10px", paddingBottom: "300px", fontFamily: "Arial, sans-serif" }}>
+        <Box sx={{ padding: "20px", fontFamily: "Arial, sans-serif" }}>
             <Button
                 startIcon={<ArrowBackIcon />}
                 onClick={onBack}
@@ -441,13 +454,13 @@ export default function CreateGoodsRequisition({ onBack }) {
             </Button>
 
             {/* Main content */}
-            <Box display="flex" p={2} bgcolor="#F9F9F9">
+            <Box display="flex" p={2} bgcolor="#F9F9F9" borderRadius="12px" boxShadow={1}>
                 {/* Left Panel - Product Selection */}
                 <Box flex={2} pr={2} display="flex" flexDirection="column">
                     {/* Search and Filter Section */}
                     <Box sx={{ marginBottom: "20px", paddingTop: '20px' }}>
                         <TextField
-                            placeholder="Search products..."
+                            placeholder="Search products by name or code..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             sx={{
@@ -468,49 +481,58 @@ export default function CreateGoodsRequisition({ onBack }) {
 
                     {/* Products Grid */}
                     <Box display="flex" flexWrap="wrap" gap={2} justifyContent="center" sx={{ flex: 1, overflow: 'auto' }}>
-                        {paginatedProducts.map((product) => (
-                            <Card
-                                key={product.product_code}
-                                sx={{
-                                    width: 160,
-                                    borderRadius: '16px',
-                                    boxShadow: 3,
-                                    position: 'relative',
-                                    cursor: 'pointer',
-                                    border: selectedProducts.includes(product.product_code) ? '2px solid #4caf50' : 'none',
-                                    bgcolor: selectedProducts.includes(product.product_code) ? '#f0fff0' : 'white',
-                                    display: 'flex',
-                                    flexDirection: 'column'
-                                }}
-                                onClick={() => toggleSelectProduct(product)}
-                            >
-                                {renderProductImage(product, 'small')}
-                                <CardContent>
-                                    <Typography variant="body1" fontWeight={500} noWrap>
-                                        {product.product_name}
-                                    </Typography>
-                                    <Typography variant="body2" color="text.secondary" noWrap>
-                                        {product.product_code}
-                                    </Typography>
-                                    <Typography variant="h6" color="#D9A05B" mt={1}>
-                                        ${product.bulk_unit_price.toFixed(2)}
-                                    </Typography>
-                                </CardContent>
-                                {selectedProducts.includes(product.product_code) && (
-                                    <CheckCircleIcon
-                                        sx={{
-                                            color: '#4caf50',
-                                            position: 'absolute',
-                                            top: 8,
-                                            right: 8,
-                                            fontSize: 30,
-                                            backgroundColor: 'rgba(255,255,255,0.7)',
-                                            borderRadius: '50%'
-                                        }}
-                                    />
-                                )}
-                            </Card>
-                        ))}
+                        {paginatedProducts.length === 0 ? (
+                            <Typography sx={{ my: 4, color: 'text.secondary' }}>
+                                No products found matching your search criteria
+                            </Typography>
+                        ) : (
+                            paginatedProducts.map((product) => (
+                                <Card
+                                    key={product.product_code}
+                                    sx={{
+                                        width: 160,
+                                        borderRadius: '16px',
+                                        boxShadow: 3,
+                                        position: 'relative',
+                                        cursor: 'pointer',
+                                        border: selectedProducts.includes(product.product_code) ? '2px solid #4caf50' : 'none',
+                                        bgcolor: selectedProducts.includes(product.product_code) ? '#f0fff0' : 'white',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        transition: 'all 0.2s ease-in-out',
+                                        '&:hover': {
+                                            transform: 'translateY(-4px)',
+                                            boxShadow: 4
+                                        }
+                                    }}
+                                    onClick={() => toggleSelectProduct(product)}
+                                >
+                                    {renderProductImage(product, 'small')}
+                                    <CardContent>
+                                        <Typography variant="body1" fontWeight={500} noWrap>
+                                            {product.product_name}
+                                        </Typography>
+                                        <Typography variant="body2" color="text.secondary" noWrap>
+                                            {product.product_code}
+                                        </Typography>
+                                        {/* Removed price display */}
+                                    </CardContent>
+                                    {selectedProducts.includes(product.product_code) && (
+                                        <CheckCircleIcon
+                                            sx={{
+                                                color: '#4caf50',
+                                                position: 'absolute',
+                                                top: 8,
+                                                right: 8,
+                                                fontSize: 30,
+                                                backgroundColor: 'rgba(255,255,255,0.7)',
+                                                borderRadius: '50%'
+                                            }}
+                                        />
+                                    )}
+                                </Card>
+                            ))
+                        )}
                     </Box>
 
                     {/* Pagination */}
@@ -523,70 +545,92 @@ export default function CreateGoodsRequisition({ onBack }) {
                             showFirstButton
                             showLastButton
                             size="large"
+                            sx={{
+                                '& .MuiPaginationItem-root': {
+                                    '&.Mui-selected': {
+                                        backgroundColor: '#754C27',
+                                        color: 'white',
+                                        '&:hover': {
+                                            backgroundColor: '#5c3c1f',
+                                        }
+                                    }
+                                }
+                            }}
                         />
                     </Box>
                 </Box>
 
                 {/* Right Panel - Order Details */}
-                <Box flex={2} pl={2} bgcolor="#FFF" p={1} borderRadius="12px" boxShadow={3}>
-                    <Typography sx={{ fontSize: '16px', fontWeight: '600', mt: '18px' }}>
-                        Ref.no
-                    </Typography>
-                    <TextField
-                        value={lastRefNo || "Please select restaurant first"}
-                        disabled
-                        size="small"
-                        sx={{
-                            mt: '8px',
-                            width: '95%',
-                            '& .MuiOutlinedInput-root': {
-                                borderRadius: '10px',
-                                // Show red text when no branch is selected
-                                '& .Mui-disabled': {
-                                    WebkitTextFillColor: !lastRefNo ? '#d32f2f' : 'rgba(0, 0, 0, 0.38)',
-                                }
-                            },
-                        }}
-                    />
+                <Box flex={2} pl={2} bgcolor="#FFF" p={3} borderRadius="12px" boxShadow={3}>
+                    <Grid container spacing={3}>
+                        <Grid item xs={12}>
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>
+                                Ref.no
+                            </Typography>
+                            <TextField
+                                value={isLoadingRefNo ? "Generating..." : (lastRefNo || "Please select restaurant first")}
+                                disabled
+                                size="small"
+                                fullWidth
+                                sx={{
+                                    mt: '8px',
+                                    '& .MuiOutlinedInput-root': {
+                                        borderRadius: '10px',
+                                    },
+                                    '& .Mui-disabled': {
+                                        WebkitTextFillColor: !lastRefNo ? '#d32f2f' : 'rgba(0, 0, 0, 0.38)',
+                                    }
+                                }}
+                                InputProps={{
+                                    endAdornment: isLoadingRefNo ? (
+                                        <InputAdornment position="end">
+                                            <CircularProgress size={20} />
+                                        </InputAdornment>
+                                    ) : null,
+                                }}
+                            />
+                        </Grid>
+                        <Grid item xs={12} md={6}>
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>
+                                Restaurant
+                            </Typography>
+                            <Select
+                                value={saveBranch}
+                                onChange={handleBranchChange}
+                                displayEmpty
+                                size="small"
+                                fullWidth
+                                sx={{
+                                    mt: '8px',
+                                    borderRadius: '10px',
+                                }}
+                            >
+                                <MenuItem value=""><em>Select Restaurant</em></MenuItem>
+                                {branches.map((branch) => (
+                                    <MenuItem key={branch.branch_code} value={branch.branch_code}>
+                                        {branch.branch_name}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </Grid>
 
-                    <Typography sx={{ fontSize: '16px', fontWeight: '600', mt: '18px' }}>
-                        Restaurant
-                    </Typography>
-                    <Select
-                        value={saveBranch}
-                        onChange={handleBranchChange}
-                        displayEmpty
-                        size="small"
-                        sx={{
-                            mt: '8px',
-                            width: '95%',
-                            borderRadius: '10px',
-                        }}
-                    >
-                        <MenuItem value=""><em>Select Restaurant</em></MenuItem>
-                        {branches.map((branch) => (
-                            <MenuItem key={branch.branch_code} value={branch.branch_code}>
-                                {branch.branch_name}
-                            </MenuItem>
-                        ))}
-                    </Select>
+                        <Grid item xs={12} md={6}>
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>
+                                Date
+                            </Typography>
+                            <DatePicker
+                                selected={startDate}
+                                onChange={(date) => {
+                                    setStartDate(date);
+                                    handleGetLastRefNo(date, saveBranch);
+                                }}
+                                dateFormat="MM/dd/yyyy"
+                                customInput={<CustomInput />}
+                            />
+                        </Grid>
+                    </Grid>
 
-                    <Typography sx={{ fontSize: '16px', fontWeight: '600', mt: '18px' }}>
-                        Date
-                    </Typography>
-                    <DatePicker
-                        selected={startDate}
-                        onChange={(date) => {
-                            setStartDate(date);
-                            handleGetLastRefNo(date, saveBranch);
-                        }}
-                        dateFormat="MM/dd/yyyy"
-                        customInput={<CustomInput />}
-                    />
-
-
-
-                    <Divider sx={{ my: 2 }} />
+                    <Divider sx={{ my: 3 }} />
 
                     {/* Current Order Section */}
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -606,6 +650,7 @@ export default function CreateGoodsRequisition({ onBack }) {
                                     },
                                     ml: 1
                                 }}
+                                disabled={products.length === 0}
                             >
                                 Clear All
                             </Button>
@@ -613,97 +658,121 @@ export default function CreateGoodsRequisition({ onBack }) {
                     </Box>
 
                     {/* Order Table */}
-                    <TableContainer sx={{ mt: 2, maxHeight: '400px', overflow: 'auto' }}>
+                    <TableContainer component={Paper} sx={{
+                        mt: 2,
+                        maxHeight: '400px',
+                        overflow: 'auto',
+                        boxShadow: 'none',
+                        border: '1px solid #e0e0e0',
+                        borderRadius: '8px'
+                    }}>
                         <Table stickyHeader>
                             <TableHead>
-                                <TableRow>
+                                <TableRow sx={{ bgcolor: '#f5f5f5' }}>
                                     <TableCell>No.</TableCell>
                                     <TableCell>Image</TableCell>
-                                    <TableCell>Product Code</TableCell>
-                                    <TableCell>Product Name</TableCell>
+                                    <TableCell>Product</TableCell>
                                     <TableCell>Expiry Date</TableCell>
                                     <TableCell>Quantity</TableCell>
                                     <TableCell>Unit</TableCell>
-                                    <TableCell>Unit Price</TableCell>
-                                    <TableCell>Total</TableCell>
+                                    {/* Removed Price column */}
+                                    {/* Removed Total column */}
                                     <TableCell>Actions</TableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>
-                                {products.map((product, index) => (
-                                    <TableRow key={product.product_code}>
-                                        <TableCell>{index + 1}</TableCell>
-                                        <TableCell>
-                                            <Box sx={{
-                                                width: 50,
-                                                height: 50,
-                                                overflow: 'hidden',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                borderRadius: '4px'
-                                            }}>
-                                                {renderProductImage(product, 'table')}
-                                            </Box>
-                                        </TableCell>
-                                        <TableCell>{product.product_code}</TableCell>
-                                        <TableCell>{product.product_name}</TableCell>
-                                        <TableCell>
-                                            <DatePicker
-                                                selected={expiryDates[product.product_code]}
-                                                onChange={(date) => handleExpiryDateChange(product.product_code, date)}
-                                                dateFormat="MM/dd/yyyy"
-                                                customInput={<CustomInput />}
-                                            />
-                                        </TableCell>
-                                        <TableCell>
-                                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                                <IconButton
-                                                    onClick={() => handleQuantityChange(product.product_code, -1)}
-                                                    size="small"
-                                                >
-                                                    <RemoveIcon />
-                                                </IconButton>
-                                                <Typography sx={{ mx: 1 }}>{quantities[product.product_code]}</Typography>
-                                                <IconButton
-                                                    onClick={() => handleQuantityChange(product.product_code, 1)}
-                                                    size="small"
-                                                >
-                                                    <AddIcon />
-                                                </IconButton>
-                                            </Box>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Select
-                                                value={units[product.product_code]}
-                                                onChange={(e) => handleUnitChange(product.product_code, e.target.value)}
-                                                size="small"
-                                            >
-                                                <MenuItem value={product.productUnit1.unit_code}>
-                                                    {product.productUnit1.unit_name}
-                                                </MenuItem>
-                                                <MenuItem value={product.productUnit2.unit_code}>
-                                                    {product.productUnit2.unit_name}
-                                                </MenuItem>
-                                            </Select>
-                                        </TableCell>
-                                        <TableCell>${unitPrices[product.product_code]?.toFixed(2)}</TableCell>
-                                        <TableCell>${totals[product.product_code]?.toFixed(2)}</TableCell>
-                                        <TableCell>
-                                            <IconButton
-                                                onClick={() => toggleSelectProduct(product)}
-                                                color="error"
-                                            >
-                                                <DeleteIcon />
-                                            </IconButton>
+                                {products.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={7} align="center">
+                                            No products added yet. Select products from the left panel.
                                         </TableCell>
                                     </TableRow>
-                                ))}
+                                ) : (
+                                    products.map((product, index) => (
+                                        <TableRow key={product.product_code}>
+                                            <TableCell>{index + 1}</TableCell>
+                                            <TableCell>
+                                                <Box sx={{
+                                                    width: 50,
+                                                    height: 50,
+                                                    overflow: 'hidden',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    borderRadius: '4px'
+                                                }}>
+                                                    {renderProductImage(product, 'table')}
+                                                </Box>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Typography variant="body2" fontWeight="bold">
+                                                    {product.product_name}
+                                                </Typography>
+                                                <Typography variant="caption" color="text.secondary">
+                                                    {product.product_code}
+                                                </Typography>
+                                            </TableCell>
+                                            <TableCell>
+                                                <DatePicker
+                                                    selected={expiryDates[product.product_code]}
+                                                    onChange={(date) => handleExpiryDateChange(product.product_code, date)}
+                                                    dateFormat="MM/dd/yyyy"
+                                                    customInput={<CustomInput />}
+                                                />
+                                            </TableCell>
+                                            <TableCell>
+                                                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                                    <IconButton
+                                                        onClick={() => handleQuantityChange(product.product_code, -1)}
+                                                        size="small"
+                                                    >
+                                                        <RemoveIcon />
+                                                    </IconButton>
+                                                    <Typography sx={{ mx: 1 }}>{quantities[product.product_code]}</Typography>
+                                                    <IconButton
+                                                        onClick={() => handleQuantityChange(product.product_code, 1)}
+                                                        size="small"
+                                                    >
+                                                        <AddIcon />
+                                                    </IconButton>
+                                                </Box>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Select
+                                                    value={units[product.product_code]}
+                                                    onChange={(e) => handleUnitChange(product.product_code, e.target.value)}
+                                                    size="small"
+                                                    sx={{ minWidth: 80 }}
+                                                >
+                                                    {product.productUnit1 && (
+                                                        <MenuItem value={product.productUnit1.unit_code}>
+                                                            {product.productUnit1.unit_name}
+                                                        </MenuItem>
+                                                    )}
+                                                    {product.productUnit2 && (
+                                                        <MenuItem value={product.productUnit2.unit_code}>
+                                                            {product.productUnit2.unit_name}
+                                                        </MenuItem>
+                                                    )}
+                                                </Select>
+                                            </TableCell>
+                                            <TableCell>
+                                                <IconButton
+                                                    onClick={() => toggleSelectProduct(product)}
+                                                    color="error"
+                                                    size="small"
+                                                >
+                                                    <DeleteIcon />
+                                                </IconButton>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                )}
                             </TableBody>
                         </Table>
                     </TableContainer>
 
-                    {/* Order Summary */}
+                    {/* Modified Order Summary - Hide prices */}
                     <Box sx={{
                         bgcolor: '#EAB86C',
                         borderRadius: '10px',
@@ -712,16 +781,14 @@ export default function CreateGoodsRequisition({ onBack }) {
                         color: 'white'
                     }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                            <Typography>Subtotal</Typography>
-                            <Typography>${total.toFixed(2)}</Typography>
+                            <Typography>Total Items</Typography>
+                            <Typography>{products.length}</Typography>
                         </Box>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                            <Typography>Tax (7%)</Typography>
-                            <Typography>${calculateTax().toFixed(2)}</Typography>
-                        </Box>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
-                            <Typography variant="h5">Total</Typography>
-                            <Typography variant="h5">${(total + calculateTax()).toFixed(2)}</Typography>
+                            <Typography>Total Quantity</Typography>
+                            <Typography>
+                                {Object.values(quantities).reduce((sum, qty) => sum + qty, 0)}
+                            </Typography>
                         </Box>
                     </Box>
 
@@ -730,6 +797,7 @@ export default function CreateGoodsRequisition({ onBack }) {
                         variant="contained"
                         fullWidth
                         onClick={handleSave}
+                        disabled={!lastRefNo || products.length === 0}
                         sx={{
                             mt: 2,
                             bgcolor: '#754C27',

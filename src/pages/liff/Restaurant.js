@@ -56,19 +56,14 @@ const MRestaurant = () => {
       component: <HomeSetMinimumStock />
     },
     {
-      label: "Restaurant Request to kitchen",
-      icon: <ListAltIcon style={{ color: "#fff" }} />,
-      component: <HomeRequestToKitchen />
-    },
-    {
-      label: "Restaurant Goods Adjustment",
-      icon: <ListAltIcon style={{ color: "#fff" }} />,
-      component: <HomeStockAdjustment />
-    },
-    {
       label: "Restaurant Request to Warehouse",
       icon: <ListAltIcon style={{ color: "#fff" }} />,
       component: <HomePurchaseOrderToWarehouse />
+    },
+    {
+      label: "Restaurant Request to kitchen",
+      icon: <ListAltIcon style={{ color: "#fff" }} />,
+      component: <HomeRequestToKitchen />
     },
     {
       label: "Restaurant Goods Receipt Warehouse",
@@ -91,9 +86,9 @@ const MRestaurant = () => {
       component: <HomeGoodsRequisition />
     },
     {
-      label: "Restaurant Dailyclosing",
+      label: "Restaurant Stock Adjustment",
       icon: <ListAltIcon style={{ color: "#fff" }} />,
-      component: <Dailyclosing />
+      component: <HomeStockAdjustment />
     },
     {
       label: "Restaurant Report Stockcard",
@@ -105,6 +100,12 @@ const MRestaurant = () => {
       icon: <ListAltIcon style={{ color: "#fff" }} />,
       component: <ReportMonthlyStockBalance />
     },
+    {
+      label: "Restaurant Dailyclosing",
+      icon: <ListAltIcon style={{ color: "#fff" }} />,
+      component: <Dailyclosing />
+    },
+
     // {
     //   label: "Bill of Landing Restaurant",
     //   icon: <ListAltIcon style={{ color: "#fff" }} />,

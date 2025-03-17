@@ -5,18 +5,21 @@ import { Box, Typography, TextField, Grid2, Button, InputAdornment, FormControl,
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { Switch, Divider } from '@mui/material';
-import { Br_stockcardAll } from '../../../../api/restaurant/br_stockcardApi';
+import { Kt_stockcardAll } from '../../../../api/kitchen/kt_stockcardApi';
 import { searchProductName } from '../../../../api/productrecordApi';
-import { branchAll } from '../../../../api/branchApi';
+import { kitchenAll } from '../../../../api/kitchenApi';
 import { format } from 'date-fns';
 import Swal from 'sweetalert2';
 import { createRoot } from 'react-dom/client';
-import PrintLayout from './PrintPreviewMonthlyStockcard';
-import { exportToExcelMonthlyStockCard } from './ExportExcelMonthlyStockcard';
-import { exportToPdfMonthlyStockCard } from './ExportPdfMonthlyStockcard';
+// import PrintPreviewMonthlyKitchenStockcard from './PrintPreviewMonthlyKitchenStockcard';
+// import { exportToExcelMonthlyKitchenStockCard } from './ExportExcelMonthlyKitchenStockcard';
+// import { exportToPdfMonthlyKitchenStockCard } from './ExportPdfMonthlyKitchenStockcard';
+import PrintPreviewMonthlyKitchenStockcard from './PrintPreviewMonthlyKitchenStockCard';
+import { exportToExcelMonthlyKitchenStockCard } from './ExportToExcelMonthlyKitchenStockCard';
+import { exportToPdfMonthlyKitchenStockCard } from './ExportToPdfMonthlyKitchenStockCard';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import SearchIcon from '@mui/icons-material/Search';
-import StoreIcon from '@mui/icons-material/Store';
+import RestaurantIcon from '@mui/icons-material/Restaurant';
 
 const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
     <Box sx={{ position: 'relative', display: 'inline-block', width: '100%' }}>
@@ -56,7 +59,7 @@ const convertToLasVegasTime = (date) => {
     return newDate;
 };
 
-export default function ReportMonthlyStockCard() {
+export default function ReportMonthlyKitchenStockCard() {
     const dispatch = useDispatch();
     const [startDate, setStartDate] = useState(() => convertToLasVegasTime(new Date()));
     const [endDate, setEndDate] = useState(() => convertToLasVegasTime(new Date()));
@@ -70,33 +73,33 @@ export default function ReportMonthlyStockCard() {
     const [showDropdown, setShowDropdown] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState(null);
 
-    // Branch related states
-    const [branches, setBranches] = useState([]);
-    const [selectedBranch, setSelectedBranch] = useState('');
-    const [loadingBranches, setLoadingBranches] = useState(false);
+    // Kitchen related states
+    const [kitchens, setKitchens] = useState([]);
+    const [selectedKitchen, setSelectedKitchen] = useState('');
+    const [loadingKitchens, setLoadingKitchens] = useState(false);
 
     useEffect(() => {
-        // Fetch branches when component mounts
-        fetchBranches();
+        // Fetch kitchens when component mounts
+        fetchKitchens();
     }, []);
 
-    const fetchBranches = async () => {
+    const fetchKitchens = async () => {
         try {
-            setLoadingBranches(true);
-            const response = await dispatch(branchAll({
+            setLoadingKitchens(true);
+            const response = await dispatch(kitchenAll({
                 offset: 0,
                 limit: 99999 // ดึงข้อมูลทั้งหมด
             })).unwrap();
 
             if (response.result) {
-                setBranches(response.data || []);
+                setKitchens(response.data || []);
             } else {
-                console.error('Failed to fetch branches');
+                console.error('Failed to fetch kitchens');
             }
         } catch (err) {
-            console.error('Error fetching branches:', err);
+            console.error('Error fetching kitchens:', err);
         } finally {
-            setLoadingBranches(false);
+            setLoadingKitchens(false);
         }
     };
 
@@ -189,12 +192,12 @@ export default function ReportMonthlyStockCard() {
                 offset: 0
             };
 
-            // Add branch_code to params if a branch is selected
-            if (selectedBranch) {
-                params.branch_code = selectedBranch;
+            // Add kitchen_code to params if a kitchen is selected
+            if (selectedKitchen) {
+                params.kitchen_code = selectedKitchen;
             }
 
-            const response = await dispatch(Br_stockcardAll(params)).unwrap();
+            const response = await dispatch(Kt_stockcardAll(params)).unwrap();
 
             if (response.result) {
                 if (response.data.length === 0) {
@@ -232,7 +235,7 @@ export default function ReportMonthlyStockCard() {
             });
             return;
         }
-        exportToExcelMonthlyStockCard(stockcardData, excludePrice, startDate, endDate);
+        exportToExcelMonthlyKitchenStockCard(stockcardData, excludePrice, startDate, endDate);
     };
 
     const handleExportPdf = () => {
@@ -245,7 +248,7 @@ export default function ReportMonthlyStockCard() {
             });
             return;
         }
-        exportToPdfMonthlyStockCard(stockcardData, excludePrice, startDate, endDate);
+        exportToPdfMonthlyKitchenStockCard(stockcardData, excludePrice, startDate, endDate);
     };
 
     const handlePrint = () => {
@@ -284,12 +287,12 @@ export default function ReportMonthlyStockCard() {
 
         const root = createRoot(printDoc.getElementById('print-content'));
         root.render(
-            <PrintLayout
+            <PrintPreviewMonthlyKitchenStockcard
                 data={stockcardData}
                 excludePrice={excludePrice}
                 startDate={startDate}
                 endDate={endDate}
-                branch={branches.find(b => b.branch_code === selectedBranch)?.branch_name || ''}
+                kitchen={kitchens.find(k => k.kitchen_code === selectedKitchen)?.kitchen_name || ''}
             />
         );
 
@@ -462,10 +465,10 @@ export default function ReportMonthlyStockCard() {
                                 </Box>
                             </Grid2>
 
-                            {/* Branch Selection */}
+                            {/* Kitchen Selection */}
                             <Grid2 item size={{ xs: 12, md: 6 }}>
                                 <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
-                                    Restaurant
+                                    Kitchen
                                 </Typography>
                                 <FormControl
                                     fullWidth
@@ -480,24 +483,24 @@ export default function ReportMonthlyStockCard() {
                                     }}
                                 >
                                     <Select
-                                        value={selectedBranch}
-                                        onChange={(e) => setSelectedBranch(e.target.value)}
+                                        value={selectedKitchen}
+                                        onChange={(e) => setSelectedKitchen(e.target.value)}
                                         displayEmpty
                                         startAdornment={
                                             <InputAdornment position="start">
-                                                <StoreIcon sx={{ color: '#754C27' }} />
+                                                <RestaurantIcon sx={{ color: '#754C27' }} />
                                             </InputAdornment>
                                         }
                                     >
                                         <MenuItem value="">
-                                            <em>All Restaurant</em>
+                                            <em>All Kitchens</em>
                                         </MenuItem>
-                                        {loadingBranches ? (
-                                            <MenuItem disabled>Loading Restaurant...</MenuItem>
+                                        {loadingKitchens ? (
+                                            <MenuItem disabled>Loading Kitchens...</MenuItem>
                                         ) : (
-                                            branches.map((branch) => (
-                                                <MenuItem key={branch.branch_code} value={branch.branch_code}>
-                                                    {branch.branch_name}
+                                            kitchens.map((kitchen) => (
+                                                <MenuItem key={kitchen.kitchen_code} value={kitchen.kitchen_code}>
+                                                    {kitchen.kitchen_name}
                                                 </MenuItem>
                                             ))
                                         )}
@@ -549,7 +552,7 @@ export default function ReportMonthlyStockCard() {
                     zIndex: 3
                 }}>
                     <Typography sx={{ fontWeight: 'bold', color: '#754C27' }}>
-                        Monthly Stock Card Report
+                        Monthly Kitchen Stock Card Report
                     </Typography>
                 </Box>
 
@@ -570,11 +573,11 @@ export default function ReportMonthlyStockCard() {
                                     {productSearch || "Not selected"}
                                 </Typography>
                             </Box>
-                            {selectedBranch && (
+                            {selectedKitchen && (
                                 <Box sx={{ display: 'flex' }}>
-                                    <Typography sx={{ fontWeight: '700', color: '#AD7A2C', width: '100px' }}>Restaurant:</Typography>
+                                    <Typography sx={{ fontWeight: '700', color: '#AD7A2C', width: '100px' }}>Kitchen:</Typography>
                                     <Typography>
-                                        {branches.find(b => b.branch_code === selectedBranch)?.branch_name || ''}
+                                        {kitchens.find(k => k.kitchen_code === selectedKitchen)?.kitchen_name || ''}
                                     </Typography>
                                 </Box>
                             )}
