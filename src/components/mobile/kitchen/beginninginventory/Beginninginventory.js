@@ -194,6 +194,9 @@ export default function KitchenBeginningInventory() {
                 const month = (values.date.getMonth() + 1).toString().padStart(2, '0');
                 const day = values.date.getDate().toString().padStart(2, '0');
 
+                const rdate = `${month}/${day}/${year}`;
+                const trdate = `${year}${month}${day}`;
+
                 const stockcardData = {
                     myear: values.isEditing ? values.myear : year,
                     monthh: values.isEditing ? values.monthh : month,
@@ -201,8 +204,8 @@ export default function KitchenBeginningInventory() {
                     unit_code: values.unit_code,
                     kitchen_code: values.kitchen_code,
                     refno: values.isEditing ? values.refno : 'BEG',
-                    rdate: `${month}/${day}/${year}`,
-                    trdate: `${year}${month}${day}`,
+                    rdate: rdate,  // ให้ส่ง rdate ไปด้วยเสมอ
+                    trdate: trdate,
                     beg1: Number(values.amount),
                     in1: 0,
                     out1: 0,
@@ -215,6 +218,9 @@ export default function KitchenBeginningInventory() {
                 };
 
                 setOpenModal(false);
+
+                // แสดงข้อมูลที่จะส่งไปที่ API เพื่อดีบัก
+                console.log("Sending to API:", stockcardData);
 
                 const action = values.isEditing ? updateKt_stockcard : addKt_stockcard;
                 const result = await dispatch(action(stockcardData)).unwrap();
@@ -519,7 +525,7 @@ export default function KitchenBeginningInventory() {
         }
     };
 
-    // Handle Delete
+    // แก้ไขฟังก์ชัน handleDelete
     const handleDelete = async (row) => {
         try {
             const result = await Swal.fire({
@@ -537,7 +543,9 @@ export default function KitchenBeginningInventory() {
                     refno: row.refno,
                     myear: row.myear,
                     monthh: row.monthh,
-                    product_code: row.product_code
+                    product_code: row.product_code,
+                    kitchen_code: row.kitchen_code,  // เพิ่ม kitchen_code
+                    rdate: row.rdate              // เพิ่ม rdate
                 })).unwrap();
 
                 await Swal.fire({
@@ -560,7 +568,7 @@ export default function KitchenBeginningInventory() {
         }
     };
 
-    // Handle Batch Delete
+    // แก้ไขฟังก์ชัน handleBatchDelete
     const handleBatchDelete = async () => {
         if (selected.length === 0) return;
 
@@ -582,7 +590,9 @@ export default function KitchenBeginningInventory() {
                         refno: item.refno,
                         myear: item.myear,
                         monthh: item.monthh,
-                        product_code: item.product_code
+                        product_code: item.product_code,
+                        kitchen_code: item.kitchen_code,  // เพิ่ม kitchen_code
+                        rdate: item.rdate              // เพิ่ม rdate
                     })).unwrap();
                 }
 
@@ -785,8 +795,8 @@ export default function KitchenBeginningInventory() {
                                 <StyledTableCell align="center">Product Name</StyledTableCell>
                                 <StyledTableCell align="center">Kitchen</StyledTableCell>
                                 <StyledTableCell align="center">Amount</StyledTableCell>
-                                <StyledTableCell align="center">Unit Price</StyledTableCell>
-                                <StyledTableCell align="center">Total</StyledTableCell>
+                                {/* <StyledTableCell align="center">Unit Price</StyledTableCell> */}
+                                {/* <StyledTableCell align="center">Total</StyledTableCell> */}
                                 <StyledTableCell width='1%' align="center">Edit</StyledTableCell>
                                 <StyledTableCell width='1%' align="center">Delete</StyledTableCell>
                             </TableRow>
@@ -834,7 +844,7 @@ export default function KitchenBeginningInventory() {
                                                 {row.tbl_kitchen?.kitchen_name || row.kitchen_code || 'N/A'}
                                             </StyledTableCell>
                                             <StyledTableCell align="center">{row.beg1}</StyledTableCell>
-                                            <StyledTableCell align="center">
+                                            {/* <StyledTableCell align="center">
                                                 {row.uprice?.toLocaleString('en-US', {
                                                     minimumFractionDigits: 2,
                                                     maximumFractionDigits: 2
@@ -845,7 +855,7 @@ export default function KitchenBeginningInventory() {
                                                     minimumFractionDigits: 2,
                                                     maximumFractionDigits: 2
                                                 })}
-                                            </StyledTableCell>
+                                            </StyledTableCell> */}
                                             <StyledTableCell align="center">
                                                 <IconButton
                                                     onClick={() => handleEdit(row)}
@@ -1096,7 +1106,7 @@ export default function KitchenBeginningInventory() {
                             />
                         </Box>
 
-                        <Box sx={{ mb: 2 }}>
+                        {/* <Box sx={{ mb: 2 }}>
                             <Typography sx={{ mb: 1, fontSize: '14px', fontWeight: '600', color: '#754C27' }}>
                                 Unit Price
                             </Typography>
@@ -1120,8 +1130,8 @@ export default function KitchenBeginningInventory() {
                                     },
                                 }}
                             />
-                        </Box>
-
+                        </Box> */}
+                        {/* 
                         <Box sx={{ mb: 3 }}>
                             <Typography sx={{ mb: 1, fontSize: '14px', fontWeight: '600', color: '#754C27' }}>
                                 Total
@@ -1138,7 +1148,7 @@ export default function KitchenBeginningInventory() {
                                     },
                                 }}
                             />
-                        </Box>
+                        </Box> */}
 
                         <Box sx={{
                             display: 'flex',

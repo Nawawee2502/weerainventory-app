@@ -149,3 +149,15 @@ export const countwh_rfk = createAsyncThunk(
         }
     }
 );
+
+export const getWhRfkByRefno = createAsyncThunk(
+    "wh_rfk/getByRefno",
+    async (refno, { dispatch }) => {
+        try {
+            const res = await axios.post(BASE_URL + "/api/getWhRfkByRefno", { refno });
+            return res.data;
+        } catch (error) {
+            throw error;
+        }
+    }
+);

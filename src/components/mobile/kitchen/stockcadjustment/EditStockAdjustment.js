@@ -1,24 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import {
-    Box,
-    Button,
-    TextField,
-    Typography,
-    IconButton,
-    Divider,
-    InputAdornment,
-    Card,
-    CardContent,
-    TableContainer,
-    Table,
-    TableHead,
-    TableRow,
-    TableCell,
-    TableBody,
-    Select,
-    MenuItem,
-    Pagination,
-    CircularProgress
+    Box, Button, TextField, Typography, IconButton, Divider, InputAdornment, Card, CardContent,
+    TableContainer, Table, TableHead, TableRow, TableCell, TableBody, Select, MenuItem,
+    Pagination, CircularProgress, Paper, Grid
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SearchIcon from '@mui/icons-material/Search';
@@ -31,12 +15,13 @@ import 'react-datepicker/dist/react-datepicker.css';
 import { useDispatch } from "react-redux";
 import { searchProductName } from '../../../../api/productrecordApi';
 import { kitchenAll } from '../../../../api/kitchenApi';
-import { Kt_safAlljoindt, updateKt_saf } from '../../../../api/kitchen/kt_safApi';
+import { getKtSafByRefno, updateKt_saf } from '../../../../api/kitchen/kt_safApi';
 import { Kt_safdtAlljoindt } from '../../../../api/kitchen/kt_safdtApi';
 import Swal from 'sweetalert2';
 import { format } from 'date-fns';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 
+// ส่วนของ CustomInput
 const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
     <Box sx={{ position: 'relative', display: 'inline-block', width: '100%' }}>
         <TextField
@@ -51,13 +36,15 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
                     width: '100%',
                     backgroundColor: '#fff',
                     borderRadius: '10px'
-                }
+                },
+                position: 'relative',
+                zIndex: 1200 // เพิ่มค่า z-index ให้สูงกว่า table header
             }}
             InputProps={{
                 readOnly: true,
                 endAdornment: (
                     <InputAdornment position="end">
-                        <CalendarTodayIcon sx={{ color: '#2E7D32', cursor: 'pointer' }} />
+                        <CalendarTodayIcon sx={{ color: '#754C27', cursor: 'pointer' }} />
                     </InputAdornment>
                 ),
             }}
@@ -68,22 +55,22 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
 export default function EditStockAdjustment({ onBack, editRefno }) {
     const dispatch = useDispatch();
     const [isLoading, setIsLoading] = useState(true);
-    const [debugInfo, setDebugInfo] = useState({});
-    const [startDate, setStartDate] = useState(new Date());
+    const [adjustmentDate, setAdjustmentDate] = useState(new Date());
+    const [kitchenCode, setKitchenCode] = useState('');
     const [kitchens, setKitchens] = useState([]);
-    const [saveKitchen, setSaveKitchen] = useState('');
     const [products, setProducts] = useState([]);
     const [quantities, setQuantities] = useState({});
     const [units, setUnits] = useState({});
     const [unitPrices, setUnitPrices] = useState({});
     const [totals, setTotals] = useState({});
     const [total, setTotal] = useState(0);
-    const [searchTerm, setSearchTerm] = useState("");
+    const [expiryDates, setExpiryDates] = useState({});
+    const [imageErrors, setImageErrors] = useState({});
+    const [searchTerm, setSearchTerm] = useState('');
     const [allProducts, setAllProducts] = useState([]);
     const [filteredProducts, setFilteredProducts] = useState([]);
     const [selectedProducts, setSelectedProducts] = useState([]);
-    const [expiryDates, setExpiryDates] = useState({});
-    const [imageErrors, setImageErrors] = useState({});
+    const [debugInfo, setDebugInfo] = useState({});
 
     // Pagination state
     const [page, setPage] = useState(1);
@@ -91,21 +78,16 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
     const [totalPages, setTotalPages] = useState(1);
     const [paginatedProducts, setPaginatedProducts] = useState([]);
 
+    // Get user data
     const userDataJson = localStorage.getItem("userData2");
     const userData2 = JSON.parse(userDataJson || "{}");
 
-    // Fetch initial data
+    // Load initial data
     useEffect(() => {
         const fetchData = async () => {
             try {
                 setIsLoading(true);
                 console.log('Fetching data for refno:', editRefno);
-
-                // Load kitchens
-                const kitchenResponse = await dispatch(kitchenAll({ offset: 0, limit: 100 })).unwrap();
-                if (kitchenResponse && kitchenResponse.data) {
-                    setKitchens(kitchenResponse.data);
-                }
 
                 // Load all products for catalog
                 const productsResponse = await dispatch(searchProductName({ product_name: '' })).unwrap();
@@ -114,30 +96,61 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
                     setFilteredProducts(productsResponse.data);
                 }
 
-                // Load main stock adjustment data
+                // Fetch kitchens
+                const kitchenResponse = await dispatch(kitchenAll({ offset: 0, limit: 100 })).unwrap();
+                setKitchens(kitchenResponse.data || []);
+
+                // Fetch stock adjustment data using the getKtSafByRefno function
                 if (editRefno) {
-                    const orderResponse = await dispatch(Kt_safAlljoindt({ refno: editRefno })).unwrap();
+                    const adjustmentResponse = await dispatch(getKtSafByRefno(typeof editRefno === 'object' ? editRefno : { refno: editRefno })).unwrap();
 
-                    if (orderResponse && orderResponse.data && orderResponse.data.length > 0) {
-                        const headerData = orderResponse.data[0];
-                        setSaveKitchen(headerData.kitchen_code || '');
-                        setStartDate(headerData.rdate ? new Date(headerData.rdate) : new Date());
-                        setTotal(parseFloat(headerData.total) || 0);
+                    if (adjustmentResponse.result && adjustmentResponse.data) {
+                        const adjustmentData = adjustmentResponse.data;
+                        setDebugInfo({ headerData: adjustmentData });
 
-                        // Load order details
-                        const detailResponse = await dispatch(Kt_safdtAlljoindt(editRefno)).unwrap();
+                        // Set header data
+                        if (adjustmentData.trdate && adjustmentData.trdate.length === 8) {
+                            const year = parseInt(adjustmentData.trdate.substring(0, 4));
+                            const month = parseInt(adjustmentData.trdate.substring(4, 6)) - 1;
+                            const day = parseInt(adjustmentData.trdate.substring(6, 8));
+                            setAdjustmentDate(new Date(year, month, day));
+                        } else if (adjustmentData.rdate) {
+                            // Try to parse the date safely
+                            try {
+                                const dateParts = adjustmentData.rdate.split('/');
+                                if (dateParts.length === 3) {
+                                    const month = parseInt(dateParts[0]) - 1;
+                                    const day = parseInt(dateParts[1]);
+                                    const year = parseInt(dateParts[2]);
+                                    setAdjustmentDate(new Date(year, month, day));
+                                } else {
+                                    setAdjustmentDate(new Date());
+                                }
+                            } catch (e) {
+                                console.error("Date parsing error:", e);
+                                setAdjustmentDate(new Date());
+                            }
+                        }
 
-                        if (detailResponse && detailResponse.data && detailResponse.data.length > 0) {
+                        setKitchenCode(adjustmentData.kitchen_code || '');
+                        setTotal(parseFloat(adjustmentData.total) || 0);
+
+                        // Fetch detail data
+                        const refnoParam = typeof editRefno === 'object' ? editRefno : { refno: editRefno };
+                        const detailResponse = await dispatch(Kt_safdtAlljoindt(refnoParam)).unwrap();
+                        setDebugInfo(prev => ({ ...prev, detailData: detailResponse.data }));
+
+                        if (detailResponse.result && detailResponse.data && detailResponse.data.length > 0) {
                             await processDetailData(detailResponse.data);
                         }
                     }
                 }
             } catch (error) {
-                console.error('Error loading data:', error);
+                console.error('Error loading stock adjustment data:', error);
                 Swal.fire({
                     icon: 'error',
                     title: 'Error',
-                    text: 'Failed to load stock adjustment data'
+                    text: 'Failed to load stock adjustment data: ' + error.message
                 });
             } finally {
                 setIsLoading(false);
@@ -150,25 +163,22 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
     // Process detail data
     const processDetailData = async (detailData) => {
         try {
-            // Set selected product codes first
+            console.log('Processing detail data:', detailData);
+
+            // Extract product codes to mark as selected
             const productCodes = detailData.map(item => item.product_code);
             setSelectedProducts(productCodes);
 
-            // Then set the products array directly from detailData 
-            const products = detailData.map(item => ({
+            // Set products array from detail data
+            const productsData = detailData.map(item => ({
+                ...item.tbl_product,
                 product_code: item.product_code,
-                product_name: item.tbl_product?.product_name,
-                product_img: item.tbl_product?.product_img,
-                productUnit1: item.tbl_product?.productUnit1,
-                productUnit2: item.tbl_product?.productUnit2,
-                bulk_unit_price: item.tbl_product?.bulk_unit_price,
-                retail_unit_price: item.tbl_product?.retail_unit_price
+                product_name: item.tbl_product?.product_name || item.product_name
             }));
 
-            // Set all necessary states
-            setProducts(products);
+            setProducts(productsData);
 
-            // Prepare other state objects
+            // Prepare state objects
             const newQuantities = {};
             const newUnits = {};
             const newUnitPrices = {};
@@ -182,19 +192,38 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
                 newUnitPrices[productCode] = parseFloat(item.uprice) || 0;
                 newTotals[productCode] = parseFloat(item.amt) || 0;
 
-                if (item.texpire_date) {
-                    const year = item.texpire_date.substring(0, 4);
-                    const month = item.texpire_date.substring(4, 6);
-                    const day = item.texpire_date.substring(6, 8);
-                    newExpiryDates[productCode] = new Date(`${year}-${month}-${day}`);
+                // Parse expiry date
+                if (item.texpire_date && item.texpire_date.length === 8) {
+                    try {
+                        const year = parseInt(item.texpire_date.substring(0, 4));
+                        const month = parseInt(item.texpire_date.substring(4, 6)) - 1;
+                        const day = parseInt(item.texpire_date.substring(6, 8));
+                        newExpiryDates[productCode] = new Date(year, month, day);
+                    } catch (e) {
+                        console.error("Error parsing texpire_date:", e);
+                        newExpiryDates[productCode] = new Date();
+                    }
                 } else if (item.expire_date) {
-                    newExpiryDates[productCode] = new Date(item.expire_date);
+                    try {
+                        const dateParts = item.expire_date.split('/');
+                        if (dateParts.length === 3) {
+                            const month = parseInt(dateParts[0]) - 1;
+                            const day = parseInt(dateParts[1]);
+                            const year = parseInt(dateParts[2]);
+                            newExpiryDates[productCode] = new Date(year, month, day);
+                        } else {
+                            newExpiryDates[productCode] = new Date();
+                        }
+                    } catch (e) {
+                        console.error("Expiry date parsing error:", e);
+                        newExpiryDates[productCode] = new Date();
+                    }
                 } else {
                     newExpiryDates[productCode] = new Date();
                 }
             });
 
-            // Update all states at once
+            // Update all states
             setQuantities(newQuantities);
             setUnits(newUnits);
             setUnitPrices(newUnitPrices);
@@ -205,12 +234,11 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
             const totalSum = Object.values(newTotals).reduce((sum, value) => sum + value, 0);
             setTotal(totalSum);
 
-            // Log for debugging
-            console.log('Detail Data:', {
-                products,
+            console.log('Detail processing complete', {
+                products: productsData,
                 quantities: newQuantities,
                 units: newUnits,
-                unitPrices: newUnitPrices,
+                prices: newUnitPrices,
                 totals: newTotals
             });
 
@@ -248,6 +276,7 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
         setPaginatedProducts(filteredProducts.slice(startIndex, endIndex));
     }, [filteredProducts, page, productsPerPage]);
 
+    // Toggle select product (for grid view)
     const toggleSelectProduct = (product) => {
         const isSelected = selectedProducts.includes(product.product_code);
 
@@ -283,118 +312,14 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
         }
     };
 
-    const handleQuantityChange = (productCode, delta) => {
-        const currentQty = quantities[productCode] || 0;
-        const newQty = Math.max(1, currentQty + delta);
-
-        setQuantities(prev => ({ ...prev, [productCode]: newQty }));
-
-        const price = unitPrices[productCode] || 0;
-        const newTotal = newQty * price;
-        setTotals(prev => ({ ...prev, [productCode]: newTotal }));
-        setTotal(Object.values({ ...totals, [productCode]: newTotal }).reduce((a, b) => a + b, 0));
-    };
-
-    const handleUnitChange = (productCode, newUnit) => {
-        setUnits(prev => ({ ...prev, [productCode]: newUnit }));
-
-        const product = products.find(p => p.product_code === productCode);
-        if (!product) return;
-
-        const newPrice = newUnit === product.productUnit1?.unit_code
-            ? (product.bulk_unit_price || 0)
-            : (product.retail_unit_price || 0);
-
-        setUnitPrices(prev => ({ ...prev, [productCode]: newPrice }));
-
-        const qty = quantities[productCode] || 0;
-        const newTotal = qty * newPrice;
-        setTotals(prev => ({ ...prev, [productCode]: newTotal }));
-        setTotal(Object.values({ ...totals, [productCode]: newTotal }).reduce((a, b) => a + b, 0));
-    };
-
-    const handleExpiryDateChange = (productCode, date) => {
-        setExpiryDates(prev => ({ ...prev, [productCode]: date }));
-    };
-
-    const handleUpdate = async () => {
-        if (!saveKitchen || products.length === 0) {
-            Swal.fire({
-                icon: 'warning',
-                title: 'Missing Information',
-                text: 'Please select a kitchen and add at least one product.',
-                timer: 1500
-            });
-            return;
-        }
-
-        try {
-            Swal.fire({
-                title: 'Updating stock adjustment...',
-                allowOutsideClick: false,
-                didOpen: () => {
-                    Swal.showLoading();
-                }
-            });
-
-            const headerData = {
-                refno: editRefno,
-                rdate: format(startDate, 'MM/dd/yyyy'),
-                kitchen_code: saveKitchen,
-                trdate: format(startDate, 'yyyyMMdd'),
-                monthh: format(startDate, 'MM'),
-                myear: startDate.getFullYear(),
-                user_code: userData2.user_code || '',
-                total: total.toString()
-            };
-
-            const productArrayData = products.map(product => ({
-                refno: headerData.refno,
-                product_code: product.product_code,
-                qty: (quantities[product.product_code] || 1).toString(),
-                unit_code: units[product.product_code] || product.productUnit1?.unit_code || '',
-                uprice: (unitPrices[product.product_code] || 0).toString(),
-                amt: (totals[product.product_code] || 0).toString(),
-                expire_date: format(expiryDates[product.product_code] || new Date(), 'MM/dd/yyyy'),
-                texpire_date: format(expiryDates[product.product_code] || new Date(), 'yyyyMMdd')
-            }));
-
-            const orderData = {
-                headerData,
-                productArrayData,
-                footerData: {
-                    total: total.toString()
-                }
-            };
-
-            await dispatch(updateKt_saf(orderData)).unwrap();
-
-            await Swal.fire({
-                icon: 'success',
-                title: 'Updated stock adjustment successfully',
-                text: `Reference No: ${editRefno}`,
-                showConfirmButton: false,
-                timer: 1500
-            });
-
-            onBack();
-
-        } catch (error) {
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: error.message || 'Error updating stock adjustment',
-                confirmButtonText: 'OK'
-            });
-        }
-    };
-
+    // Function to render product image with error handling
     const renderProductImage = (product, size = 'small') => {
+        // If no image
         if (!product?.product_img) {
             return (
                 <Box sx={{
-                    width: size === 'small' ? '100%' : (size === 'table' ? '100%' : 200),
-                    height: size === 'small' ? 100 : (size === 'table' ? '100%' : 200),
+                    width: size === 'small' ? '100%' : (size === 'table' ? '50px' : 200),
+                    height: size === 'small' ? 100 : (size === 'table' ? '50px' : 200),
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -407,11 +332,12 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
             );
         }
 
+        // Check if this image has errored before
         if (imageErrors[product.product_code]) {
             return (
                 <Box sx={{
-                    width: size === 'small' ? '100%' : (size === 'table' ? '100%' : 200),
-                    height: size === 'small' ? 100 : (size === 'table' ? '100%' : 200),
+                    width: size === 'small' ? '100%' : (size === 'table' ? '50px' : 200),
+                    height: size === 'small' ? 100 : (size === 'table' ? '50px' : 200),
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -430,7 +356,7 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
         return (
             <Box sx={{
                 width: '100%',
-                height: size === 'small' ? 100 : (size === 'table' ? '100%' : 200),
+                height: size === 'small' ? 100 : (size === 'table' ? '50px' : 200),
                 position: 'relative',
                 overflow: 'hidden'
             }}>
@@ -455,6 +381,134 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
         );
     };
 
+    // Update quantity
+    const handleQuantityChange = (productCode, delta) => {
+        const currentQty = quantities[productCode] || 0;
+        const newQty = Math.max(1, currentQty + delta);
+
+        setQuantities(prev => ({ ...prev, [productCode]: newQty }));
+
+        // Update total
+        const price = unitPrices[productCode] || 0;
+        const oldTotal = totals[productCode] || 0;
+        const newTotal = newQty * price;
+        setTotals(prev => ({ ...prev, [productCode]: newTotal }));
+        setTotal(prev => prev - oldTotal + newTotal);
+    };
+
+    // Update unit (which affects price)
+    const handleUnitChange = (productCode, newUnit) => {
+        setUnits(prev => ({ ...prev, [productCode]: newUnit }));
+
+        const product = products.find(p => p.product_code === productCode);
+        if (!product) return;
+
+        const newPrice = newUnit === product.productUnit1?.unit_code
+            ? (product.bulk_unit_price || 0)
+            : (product.retail_unit_price || 0);
+
+        // Update price
+        const oldPrice = unitPrices[productCode] || 0;
+        const qty = quantities[productCode] || 0;
+        const oldTotal = totals[productCode] || 0;
+
+        setUnitPrices(prev => ({ ...prev, [productCode]: newPrice }));
+
+        // Update total
+        const newTotal = qty * newPrice;
+        setTotals(prev => ({ ...prev, [productCode]: newTotal }));
+        setTotal(prev => prev - oldTotal + newTotal);
+    };
+
+    // Update expiry date
+    const handleExpiryDateChange = (productCode, date) => {
+        setExpiryDates(prev => ({ ...prev, [productCode]: date }));
+    };
+
+    // Update price manually
+    const handlePriceChange = (productCode, newPrice) => {
+        if (newPrice < 0) return;
+
+        const oldPrice = unitPrices[productCode] || 0;
+        const qty = quantities[productCode] || 0;
+        const oldTotal = totals[productCode] || 0;
+
+        setUnitPrices(prev => ({ ...prev, [productCode]: newPrice }));
+
+        // Update total
+        const newTotal = qty * newPrice;
+        setTotals(prev => ({ ...prev, [productCode]: newTotal }));
+        setTotal(prev => prev - oldTotal + newTotal);
+    };
+
+    // Handle form submission (update)
+    const handleUpdate = async () => {
+        if (!kitchenCode || products.length === 0) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Missing Information',
+                text: 'Please select a kitchen and add at least one product.'
+            });
+            return;
+        }
+
+        try {
+            Swal.fire({
+                title: 'Updating...',
+                allowOutsideClick: false,
+                didOpen: () => Swal.showLoading()
+            });
+
+            const headerData = {
+                refno: editRefno,
+                rdate: format(adjustmentDate, 'MM/dd/yyyy'),
+                kitchen_code: kitchenCode,
+                trdate: format(adjustmentDate, 'yyyyMMdd'),
+                monthh: format(adjustmentDate, 'MM'),
+                myear: adjustmentDate.getFullYear(),
+                user_code: userData2?.user_code || '',
+                total: total.toString()
+            };
+
+            const productArrayData = products.map(product => ({
+                refno: editRefno,
+                product_code: product.product_code,
+                qty: quantities[product.product_code].toString(),
+                unit_code: units[product.product_code],
+                uprice: unitPrices[product.product_code].toString(),
+                amt: totals[product.product_code].toString(),
+                expire_date: format(expiryDates[product.product_code], 'MM/dd/yyyy'),
+                texpire_date: format(expiryDates[product.product_code], 'yyyyMMdd')
+            }));
+
+            await dispatch(updateKt_saf({
+                ...headerData,
+                headerData,
+                productArrayData,
+                footerData: {
+                    total: total.toString()
+                }
+            })).unwrap();
+
+            await Swal.fire({
+                icon: 'success',
+                title: 'Success!',
+                text: 'Stock adjustment updated successfully',
+                timer: 1500
+            });
+
+            onBack();
+        } catch (error) {
+            console.error('Error updating data:', error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: error.message || 'Error updating stock adjustment'
+            });
+        }
+    };
+
+    // Reset form function
     const resetForm = () => {
         Swal.fire({
             title: 'Reset Changes',
@@ -471,18 +525,12 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
         });
     };
 
+    // Loading state
     if (isLoading) {
         return (
-            <Box sx={{
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                height: '100vh',
-                flexDirection: 'column',
-                gap: 2
-            }}>
-                <Typography variant="h6">Loading stock adjustment data...</Typography>
-                <CircularProgress color="primary" />
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+                <CircularProgress sx={{ color: '#754C27' }} />
+                <Typography sx={{ ml: 2 }}>Loading stock adjustment data...</Typography>
             </Box>
         );
     }
@@ -504,7 +552,7 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
                     <strong>Status:</strong> Editing ref #{editRefno} |
                     Products selected: {selectedProducts.length} |
                     Products loaded: {products.length} |
-                    Kitchen: {saveKitchen || 'None'} |
+                    Kitchen: {kitchenCode || 'None'} |
                     Total: ${total.toFixed(2)}
                 </Typography>
             </Box>
@@ -550,7 +598,12 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
                                         position: 'relative',
                                         cursor: 'pointer',
                                         border: selectedProducts.includes(product.product_code) ? '2px solid #4caf50' : 'none',
-                                        bgcolor: selectedProducts.includes(product.product_code) ? '#f0fff0' : 'white'
+                                        bgcolor: selectedProducts.includes(product.product_code) ? '#f0fff0' : 'white',
+                                        transition: 'all 0.2s ease-in-out',
+                                        '&:hover': {
+                                            transform: 'translateY(-4px)',
+                                            boxShadow: 4
+                                        }
                                     }}
                                     onClick={() => toggleSelectProduct(product)}
                                 >
@@ -594,65 +647,84 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
                             showFirstButton
                             showLastButton
                             size="large"
+                            sx={{
+                                '& .MuiPaginationItem-root': {
+                                    '&.Mui-selected': {
+                                        backgroundColor: '#754C27',
+                                        color: 'white',
+                                        '&:hover': {
+                                            backgroundColor: '#5c3c1f',
+                                        }
+                                    }
+                                }
+                            }}
                         />
                     </Box>
                 </Box>
 
-                {/* Right Panel - Order Details */}
-                <Box flex={2} pl={2} bgcolor="#FFF" p={1} borderRadius="12px" boxShadow={3}>
-                    <Typography sx={{ fontSize: '16px', fontWeight: '600', mt: '18px' }}>
-                        Ref.no
-                    </Typography>
-                    <TextField
-                        value={editRefno}
-                        disabled
-                        size="small"
-                        sx={{
-                            mt: '8px',
-                            width: '95%',
-                            '& .MuiOutlinedInput-root': {
-                                borderRadius: '10px',
-                            },
-                        }}
-                    />
+                {/* Right Panel - Adjustment Details */}
+                <Box flex={2} pl={2} bgcolor="#FFF" p={3} borderRadius="12px" boxShadow={3}>
+                    <Grid container spacing={3}>
+                        <Grid item xs={12} md={6}>
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>
+                                Ref.no
+                            </Typography>
+                            <TextField
+                                value={editRefno}
+                                disabled
+                                size="small"
+                                fullWidth
+                                sx={{
+                                    mt: '8px',
+                                    '& .MuiOutlinedInput-root': {
+                                        borderRadius: '10px',
+                                    },
+                                }}
+                            />
+                        </Grid>
 
-                    <Typography sx={{ fontSize: '16px', fontWeight: '600', mt: '18px' }}>
-                        Date
-                    </Typography>
-                    <DatePicker
-                        selected={startDate}
-                        onChange={(date) => setStartDate(date)}
-                        dateFormat="MM/dd/yyyy"
-                        customInput={<CustomInput />}
-                    />
+                        <Grid item xs={12} md={6}>
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>
+                                Date
+                            </Typography>
+                            <DatePicker
+                                selected={adjustmentDate}
+                                onChange={(date) => setAdjustmentDate(date)}
+                                dateFormat="MM/dd/yyyy"
+                                customInput={<CustomInput />}
+                            />
+                        </Grid>
 
-                    <Typography sx={{ fontSize: '16px', fontWeight: '600', mt: '18px' }}>
-                        Kitchen
-                    </Typography>
-                    <Select
-                        value={saveKitchen}
-                        onChange={(e) => setSaveKitchen(e.target.value)}
-                        displayEmpty
-                        size="small"
-                        sx={{
-                            mt: '8px',
-                            width: '95%',
-                            borderRadius: '10px',
-                        }}
-                    >
-                        <MenuItem value=""><em>Select Kitchen</em></MenuItem>
-                        {kitchens.map((kitchen) => (
-                            <MenuItem key={kitchen.kitchen_code} value={kitchen.kitchen_code}>
-                                {kitchen.kitchen_name}
-                            </MenuItem>
-                        ))}
-                    </Select>
+                        <Grid item xs={12}>
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>
+                                Kitchen
+                            </Typography>
+                            <Select
+                                value={kitchenCode}
+                                onChange={(e) => setKitchenCode(e.target.value)}
+                                displayEmpty
+                                size="small"
+                                fullWidth
+                                sx={{
+                                    mt: '8px',
+                                    borderRadius: '10px',
+                                }}
+                            >
+                                <MenuItem value=""><em>Select Kitchen</em></MenuItem>
+                                {kitchens.map((kitchen) => (
+                                    <MenuItem key={kitchen.kitchen_code} value={kitchen.kitchen_code}>
+                                        {kitchen.kitchen_name}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </Grid>
+                    </Grid>
 
-                    <Divider sx={{ my: 2 }} />
+                    <Divider sx={{ my: 3 }} />
 
-                    {/* Current Order Section */}
+                    {/* Current Adjustment Section */}
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Typography variant="h6" color="#754C27">Edit Adjustment</Typography>
+                        <Typography variant="h6" color="#754C27">Edit Stock Adjustment</Typography>
                         <Box>
                             <Typography variant="body2" color="text.secondary">
                                 {products.length} items selected
@@ -674,15 +746,21 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
                         </Box>
                     </Box>
 
-                    {/* Order Table */}
-                    <TableContainer sx={{ mt: 2, maxHeight: '400px', overflow: 'auto' }}>
+                    {/* Products Table */}
+                    <TableContainer component={Paper} sx={{
+                        mt: 2,
+                        maxHeight: '400px',
+                        overflow: 'auto',
+                        boxShadow: 'none',
+                        border: '1px solid #e0e0e0',
+                        borderRadius: '8px'
+                    }}>
                         <Table stickyHeader>
                             <TableHead>
-                                <TableRow>
+                                <TableRow sx={{ bgcolor: '#f5f5f5' }}>
                                     <TableCell>No.</TableCell>
                                     <TableCell>Image</TableCell>
-                                    <TableCell>Product Code</TableCell>
-                                    <TableCell>Product Name</TableCell>
+                                    <TableCell>Product</TableCell>
                                     <TableCell>Expiry Date</TableCell>
                                     <TableCell>Quantity</TableCell>
                                     <TableCell>Unit</TableCell>
@@ -694,15 +772,15 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
                             <TableBody>
                                 {isLoading ? (
                                     <TableRow>
-                                        <TableCell colSpan={10} align="center">
+                                        <TableCell colSpan={9} align="center">
                                             <CircularProgress />
                                         </TableCell>
                                     </TableRow>
                                 ) : (!products || products.length === 0) ? (
                                     <TableRow>
-                                        <TableCell colSpan={10} align="center">
+                                        <TableCell colSpan={9} align="center">
                                             <Typography color="text.secondary">
-                                                No products selected or failed to load product data
+                                                No products selected. Please select products from the left panel.
                                             </Typography>
                                         </TableCell>
                                     </TableRow>
@@ -723,8 +801,14 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
                                                     {renderProductImage(product, 'table')}
                                                 </Box>
                                             </TableCell>
-                                            <TableCell>{product.product_code}</TableCell>
-                                            <TableCell>{product.product_name}</TableCell>
+                                            <TableCell>
+                                                <Typography variant="body2" fontWeight="bold" noWrap sx={{ maxWidth: 150 }}>
+                                                    {product.product_name}
+                                                </Typography>
+                                                <Typography variant="caption" color="text.secondary">
+                                                    {product.product_code}
+                                                </Typography>
+                                            </TableCell>
                                             <TableCell>
                                                 <DatePicker
                                                     selected={expiryDates[product.product_code] || new Date()}
@@ -757,7 +841,7 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
                                                     value={units[product.product_code] || ''}
                                                     onChange={(e) => handleUnitChange(product.product_code, e.target.value)}
                                                     size="small"
-                                                    sx={{ minWidth: 120 }}
+                                                    sx={{ minWidth: 80 }}
                                                 >
                                                     {product.productUnit1 && (
                                                         <MenuItem value={product.productUnit1.unit_code}>
@@ -772,10 +856,17 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
                                                 </Select>
                                             </TableCell>
                                             <TableCell>
-                                                ${(unitPrices[product.product_code] || 0).toFixed(2)}
+                                                <TextField
+                                                    type="number"
+                                                    value={unitPrices[product.product_code] || 0}
+                                                    onChange={(e) => handlePriceChange(product.product_code, Number(e.target.value))}
+                                                    size="small"
+                                                    inputProps={{ min: 0, step: 0.01 }}
+                                                    sx={{ width: 80 }}
+                                                />
                                             </TableCell>
                                             <TableCell>
-                                                ${(totals[product.product_code] || 0).toFixed(2)}
+                                                ${totals[product.product_code]?.toFixed(2) || '0.00'}
                                             </TableCell>
                                             <TableCell>
                                                 <IconButton
@@ -793,7 +884,7 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
                         </Table>
                     </TableContainer>
 
-                    {/* Order Summary */}
+                    {/* Summary Section */}
                     <Box sx={{
                         bgcolor: '#EAB86C',
                         borderRadius: '10px',
@@ -801,12 +892,23 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
                         mt: 2,
                         color: 'white'
                     }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                            <Typography>Total Items</Typography>
+                            <Typography>{products.length}</Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                            <Typography>Total Quantity</Typography>
+                            <Typography>
+                                {Object.values(quantities).reduce((sum, qty) => sum + qty, 0)}
+                            </Typography>
+                        </Box>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
-                            <Typography variant="h5">Total</Typography>
-                            <Typography variant="h5">${total.toFixed(2)}</Typography>
+                            <Typography variant="h6">Total Value</Typography>
+                            <Typography variant="h6">${total.toFixed(2)}</Typography>
                         </Box>
                     </Box>
 
+                    {/* Update Button */}
                     <Button
                         variant="contained"
                         fullWidth
@@ -820,8 +922,9 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
                                 bgcolor: '#5c3c1f',
                             }
                         }}
+                        disabled={!kitchenCode || products.length === 0}
                     >
-                        Update
+                        Update Stock Adjustment
                     </Button>
                 </Box>
             </Box>

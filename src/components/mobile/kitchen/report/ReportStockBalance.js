@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Box, Typography, TextField, Grid2, Button, MenuItem, FormControl, InputAdornment, Select } from '@mui/material';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
-import { Switch, Divider } from '@mui/material';
+import { Divider } from '@mui/material';
 import { useDispatch } from 'react-redux';
 import { Kt_stockcardAll } from '../../../../api/kitchen/kt_stockcardApi';
 import { kitchenAll } from '../../../../api/kitchenApi';
@@ -32,7 +32,6 @@ export default function ReportKitchenStockBalance() {
     const [stockBalanceData, setStockBalanceData] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
-    const [excludePrice, setExcludePrice] = useState(false);
     const [kitchens, setKitchens] = useState([]);
     const [selectedKitchen, setSelectedKitchen] = useState('');
     const [loadingKitchens, setLoadingKitchens] = useState(false);
@@ -137,8 +136,7 @@ export default function ReportKitchenStockBalance() {
                             in1: 0,
                             out1: 0,
                             upd1: 0,
-                            balance: 0,
-                            balance_amount: 0
+                            balance: 0
                         };
                     }
 
@@ -148,14 +146,13 @@ export default function ReportKitchenStockBalance() {
                     acc[key].out1 += Number(item.out1 || 0);
                     acc[key].upd1 += Number(item.upd1 || 0);
 
-                    // Update balance and balance_amount with the latest values
+                    // Update balance with the latest values
                     const currentTransaction = response.data.filter(
                         transaction => transaction.product_code === key
                     ).sort((a, b) => new Date(b.trdate) - new Date(a.trdate))[0];
 
                     if (currentTransaction) {
                         acc[key].balance = Number(currentTransaction.balance || 0);
-                        acc[key].balance_amount = Number(currentTransaction.balance_amount || 0);
                     }
 
                     return acc;
@@ -198,7 +195,7 @@ export default function ReportKitchenStockBalance() {
             });
             return;
         }
-        exportToExcelKitchenStockBalance(stockBalanceData, excludePrice, startDate, endDate);
+        exportToExcelKitchenStockBalance(stockBalanceData, true, startDate, endDate);
     };
 
     const handleExportPdf = () => {
@@ -211,7 +208,7 @@ export default function ReportKitchenStockBalance() {
             });
             return;
         }
-        exportToPdfKitchenStockBalance(stockBalanceData, excludePrice, startDate, endDate);
+        exportToPdfKitchenStockBalance(stockBalanceData, true, startDate, endDate);
     };
 
     const handlePrint = () => {
@@ -252,7 +249,7 @@ export default function ReportKitchenStockBalance() {
         root.render(
             <PrintLayout
                 data={stockBalanceData}
-                excludePrice={excludePrice}
+                excludePrice={true}
                 startDate={startDate}
                 endDate={endDate}
                 kitchen={kitchens.find(k => k.kitchen_code === selectedKitchen)?.kitchen_name || ''}
@@ -488,52 +485,40 @@ export default function ReportKitchenStockBalance() {
                             )}
                         </Box>
 
-                        <Box sx={{ display: 'flex', gap: 2, flexDirection: 'column' }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <Switch
-                                    checked={excludePrice}
-                                    onChange={(e) => setExcludePrice(e.target.checked)}
-                                />
-                                <Typography sx={{ fontWeight: '500', color: '#7E84A3' }}>
-                                    Exclude price in file
-                                </Typography>
-                            </Box>
-                            <Box>
-                                <Button
-                                    onClick={handlePrint}
-                                    variant="outlined"
-                                    sx={{
-                                        color: '#754C27',
-                                        borderColor: '#754C27',
-                                        '&:hover': { borderColor: '#5c3c1f' }
-                                    }}
-                                >
-                                    Print
-                                </Button>
-                                <Button
-                                    variant="outlined"
-                                    onClick={handleExportExcel}
-                                    sx={{
-                                        color: '#754C27',
-                                        borderColor: '#754C27',
-                                        '&:hover': { borderColor: '#5c3c1f' },
-                                        ml: '24px'
-                                    }}
-                                >
-                                    Excel
-                                </Button>
-                                <Button
-                                    variant="outlined"
-                                    onClick={handleExportPdf}
-                                    sx={{
-                                        color: '#754C27',
-                                        borderColor: '#754C27',
-                                        '&:hover': { borderColor: '#5c3c1f' }, ml: '24px'
-                                    }}
-                                >
-                                    PDF
-                                </Button>
-                            </Box>
+                        <Box sx={{ display: 'flex', gap: 2 }}>
+                            <Button
+                                onClick={handlePrint}
+                                variant="outlined"
+                                sx={{
+                                    color: '#754C27',
+                                    borderColor: '#754C27',
+                                    '&:hover': { borderColor: '#5c3c1f' }
+                                }}
+                            >
+                                Print
+                            </Button>
+                            <Button
+                                variant="outlined"
+                                onClick={handleExportExcel}
+                                sx={{
+                                    color: '#754C27',
+                                    borderColor: '#754C27',
+                                    '&:hover': { borderColor: '#5c3c1f' }
+                                }}
+                            >
+                                Excel
+                            </Button>
+                            <Button
+                                variant="outlined"
+                                onClick={handleExportPdf}
+                                sx={{
+                                    color: '#754C27',
+                                    borderColor: '#754C27',
+                                    '&:hover': { borderColor: '#5c3c1f' }
+                                }}
+                            >
+                                PDF
+                            </Button>
                         </Box>
                     </Box>
 
@@ -544,17 +529,17 @@ export default function ReportKitchenStockBalance() {
                         flexDirection: 'column',
                         mb: '12px',
                         mt: 3,
-                        overflow: 'hidden', // Changed from 'auto' to 'hidden'
+                        overflow: 'hidden',
                     }}>
                         <Box sx={{
                             width: '100%',
-                            overflowX: 'auto', // Added container with horizontal scroll
-                            pb: 2, // Padding bottom to ensure scrollbar visibility
+                            overflowX: 'auto',
+                            pb: 2,
                         }}>
                             <table style={{
                                 width: '100%',
                                 marginTop: '24px',
-                                minWidth: excludePrice ? '800px' : '1400px', // Ensure minimum width for all columns
+                                minWidth: '800px',
                                 borderCollapse: 'separate',
                                 borderSpacing: 0,
                             }}>
@@ -589,12 +574,9 @@ export default function ReportKitchenStockBalance() {
                                         <th style={{ padding: '12px 16px', textAlign: 'right', color: '#754C27', minWidth: '80px' }}>Out</th>
                                         <th style={{ padding: '12px 16px', textAlign: 'right', color: '#754C27', minWidth: '80px' }}>Update</th>
                                         <th style={{ padding: '12px 16px', textAlign: 'right', color: '#754C27', minWidth: '80px' }}>Balance</th>
-                                        {!excludePrice && (
-                                            <th style={{ padding: '12px 16px', textAlign: 'right', color: '#754C27', minWidth: '100px' }}>Total</th>
-                                        )}
                                     </tr>
                                     <tr>
-                                        <td colSpan={excludePrice ? 9 : 10}>
+                                        <td colSpan={9}>
                                             <Divider sx={{ width: '100%', color: '#754C27', border: '1px solid #754C27' }} />
                                         </td>
                                     </tr>
@@ -602,20 +584,19 @@ export default function ReportKitchenStockBalance() {
                                 <tbody>
                                     {loading ? (
                                         <tr>
-                                            <td colSpan={excludePrice ? 9 : 10} style={{ textAlign: 'center', padding: '20px' }}>Loading...</td>
+                                            <td colSpan={9} style={{ textAlign: 'center', padding: '20px' }}>Loading...</td>
                                         </tr>
                                     ) : error ? (
                                         <tr>
-                                            <td colSpan={excludePrice ? 9 : 10} style={{ textAlign: 'center', padding: '20px', color: 'red' }}>{error}</td>
+                                            <td colSpan={9} style={{ textAlign: 'center', padding: '20px', color: 'red' }}>{error}</td>
                                         </tr>
                                     ) : stockBalanceData.length === 0 ? (
                                         <tr>
-                                            <td colSpan={excludePrice ? 9 : 10} style={{ textAlign: 'center', padding: '20px' }}>No data found</td>
+                                            <td colSpan={9} style={{ textAlign: 'center', padding: '20px' }}>No data found</td>
                                         </tr>
                                     ) : (
                                         stockBalanceData.map((item, index) => {
                                             const balance = ((item.beg1 || 0) + (item.in1 || 0) - (item.out1 || 0)) + (item.upd1 || 0);
-                                            const balanceAmount = ((item.beg1_amt || 0) + (item.in1_amt || 0) - (item.out1_amt || 0)) + (item.upd1_amt || 0);
 
                                             return (
                                                 <tr key={`${item.product_code}-${index}`}>
@@ -654,11 +635,6 @@ export default function ReportKitchenStockBalance() {
                                                     <td style={{ padding: '8px 16px', textAlign: 'right' }}>
                                                         {formatNumber(balance)}
                                                     </td>
-                                                    {!excludePrice && (
-                                                        <td style={{ padding: '8px 16px', textAlign: 'right' }}>
-                                                            {formatNumber(balanceAmount)}
-                                                        </td>
-                                                    )}
                                                 </tr>
                                             );
                                         })
@@ -667,22 +643,19 @@ export default function ReportKitchenStockBalance() {
                                 {stockBalanceData.length > 0 && (
                                     <tfoot>
                                         <tr>
-                                            <td colSpan={excludePrice ? 9 : 10}>
+                                            <td colSpan={9}>
                                                 <Divider sx={{ width: '100%', color: '#754C27', border: '1px solid #754C27' }} />
                                             </td>
                                         </tr>
                                         <tr>
                                             <td style={{
-                                                textAlign: 'right',
                                                 padding: '12px 16px',
-                                                fontWeight: 'bold',
-                                                color: '#754C27',
                                                 backgroundColor: 'white',
                                                 position: 'sticky',
                                                 left: 0,
-                                                zIndex: 2
-                                            }}>
-                                            </td>
+                                                zIndex: 2,
+                                                boxShadow: '2px 0px 3px rgba(0,0,0,0.1)'
+                                            }}></td>
                                             <td style={{
                                                 textAlign: 'right',
                                                 padding: '12px 16px',
@@ -691,7 +664,8 @@ export default function ReportKitchenStockBalance() {
                                                 backgroundColor: 'white',
                                                 position: 'sticky',
                                                 left: '60px',
-                                                zIndex: 2
+                                                zIndex: 2,
+                                                boxShadow: '2px 0px 3px rgba(0,0,0,0.1)'
                                             }}>
                                                 Total:
                                             </td>
@@ -715,14 +689,6 @@ export default function ReportKitchenStockBalance() {
                                                     return sum + balance;
                                                 }, 0))}
                                             </td>
-                                            {!excludePrice && (
-                                                <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>
-                                                    {formatNumber(stockBalanceData.reduce((sum, item) => {
-                                                        const balanceAmount = ((item.beg1_amt || 0) + (item.in1_amt || 0) - (item.out1_amt || 0)) + (item.upd1_amt || 0);
-                                                        return sum + balanceAmount;
-                                                    }, 0))}
-                                                </td>
-                                            )}
                                         </tr>
                                     </tfoot>
                                 )}

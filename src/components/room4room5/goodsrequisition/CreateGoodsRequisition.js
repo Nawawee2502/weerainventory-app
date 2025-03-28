@@ -46,89 +46,206 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
 
 export default function CreateGoodsRequisition({ onBack }) {
     const dispatch = useDispatch();
+
+    // Form data state
     const [startDate, setStartDate] = useState(new Date());
     const [lastRefNo, setLastRefNo] = useState('');
     const [kitchens, setKitchens] = useState([]);
     const [saveKitchen, setSaveKitchen] = useState('');
+
+    // Product selection and search state
     const [products, setProducts] = useState([]);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [searchResults, setSearchResults] = useState([]);
+    const [showDropdown, setShowDropdown] = useState(false);
+    const [selectedProducts, setSelectedProducts] = useState([]);
+    const [allProducts, setAllProducts] = useState([]);
+    const [filteredProducts, setFilteredProducts] = useState([]);
+
+    // Product details state
     const [quantities, setQuantities] = useState({});
     const [units, setUnits] = useState({});
     const [unitPrices, setUnitPrices] = useState({});
     const [totals, setTotals] = useState({});
-    const [total, setTotal] = useState(0);
-    const [searchTerm, setSearchTerm] = useState("");
-    const [searchResults, setSearchResults] = useState([]);
-    const [showDropdown, setShowDropdown] = useState(false);
     const [expiryDates, setExpiryDates] = useState({});
     const [temperatures, setTemperatures] = useState({});
+    const [imageErrors, setImageErrors] = useState({});
+
+    // Calculation state
+    const [total, setTotal] = useState(0);
+
+    // Loading state
+    const [isLoadingRefNo, setIsLoadingRefNo] = useState(false);
+
+    // User data
     const userDataJson = localStorage.getItem("userData2");
-    const userData2 = JSON.parse(userDataJson);
+    const userData2 = JSON.parse(userDataJson || "{}");
 
+    // Initial data load
     useEffect(() => {
-        const currentDate = new Date();
-        const currentMonth = (currentDate.getMonth() + 1).toString().padStart(2, '0');
-        const currentYear = currentDate.getFullYear().toString().slice(-2);
-        handleGetLastRefNo(currentDate);
-
+        // Load kitchens
         dispatch(kitchenAll({ offset: 0, limit: 100 }))
             .unwrap()
             .then((res) => {
-                setKitchens(res.data);
+                setKitchens(res.data || []);
             })
-            .catch((err) => console.log(err.message));
+            .catch((err) => console.log(err?.message));
+
+        // Initial product load for faster searching
+        dispatch(searchProductName({ product_name: '' }))
+            .unwrap()
+            .then((res) => {
+                if (res.data) {
+                    setAllProducts(res.data);
+                    setFilteredProducts(res.data);
+                }
+            })
+            .catch((err) => console.log(err?.message));
     }, [dispatch]);
 
-    const handleGetLastRefNo = async (selectedDate) => {
-        try {
-            const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
-            const year = selectedDate.getFullYear().toString().slice(-2);
+    // Handle filtering products based on search term
+    useEffect(() => {
+        const filtered = allProducts.filter(product =>
+            product.product_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            product.product_code?.toLowerCase().includes(searchTerm.toLowerCase())
+        );
 
+        // Sort products: selected ones first
+        const sortedProducts = [...filtered].sort((a, b) => {
+            const aSelected = selectedProducts.includes(a.product_code);
+            const bSelected = selectedProducts.includes(b.product_code);
+
+            if (aSelected && !bSelected) return -1;
+            if (!aSelected && bSelected) return 1;
+            return 0;
+        });
+
+        setFilteredProducts(sortedProducts);
+    }, [searchTerm, allProducts, selectedProducts]);
+
+    // Generate reference number
+    const handleGetLastRefNo = async (selectedDate, selectedKitchen) => {
+        if (!selectedKitchen) {
+            setLastRefNo('');
+            return;
+        }
+
+        try {
+            setIsLoadingRefNo(true);
+
+            // Call the API to get a reference number
             const res = await dispatch(Kt_grfrefno({
-                month: month,
-                year: year
+                kitchen_code: selectedKitchen,
+                date: format(selectedDate, 'yyyy-MM-dd')
             })).unwrap();
 
-            if (!res.data || !res.data.refno) {
-                setLastRefNo(`KTGRF${year}${month}001`);
-                return;
+            if (res?.result && res?.data?.refno) {
+                setLastRefNo(res.data.refno);
+            } else {
+                // Generate a fallback reference number using the kitchen prefix
+                const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+                const year = selectedDate.getFullYear().toString().slice(-2);
+                const kitchenPrefix = selectedKitchen.substring(0, 3).toUpperCase();
+                setLastRefNo(`KTGRF${kitchenPrefix}${year}${month}001`);
             }
-
-            const lastRefNo = res.data.refno;
-            const lastRefMonth = lastRefNo.substring(6, 8);
-            const lastRefYear = lastRefNo.substring(4, 6);
-
-            if (lastRefMonth !== month || lastRefYear !== year) {
-                setLastRefNo(`KTGRF${year}${month}001`);
-                return;
-            }
-
-            const lastNumber = parseInt(lastRefNo.slice(-3));
-            const newNumber = lastNumber + 1;
-            setLastRefNo(`KTGRF${year}${month}${String(newNumber).padStart(3, '0')}`);
-
         } catch (err) {
             console.error("Error generating refno:", err);
+
+            // Fallback with proper kitchen prefix
             const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
             const year = selectedDate.getFullYear().toString().slice(-2);
-            setLastRefNo(`KTGRF${year}${month}001`);
+            const kitchenPrefix = selectedKitchen.substring(0, 3).toUpperCase();
+            setLastRefNo(`KTGRF${kitchenPrefix}${year}${month}001`);
+        } finally {
+            setIsLoadingRefNo(false);
         }
     };
 
-    const updateTotals = (productCode, quantity, price) => {
-        const newLineTotal = quantity * price;
+    // Handle kitchen change
+    const handleKitchenChange = (e) => {
+        const kitchenCode = e.target.value;
+        setSaveKitchen(kitchenCode);
 
-        setTotals(prev => {
-            const newTotals = { ...prev, [productCode]: newLineTotal };
-            const newTotal = Object.values(newTotals).reduce((sum, curr) => sum + curr, 0);
-            setTotal(newTotal);
-            return newTotals;
-        });
+        if (kitchenCode) {
+            handleGetLastRefNo(startDate, kitchenCode);
+        } else {
+            setLastRefNo('');
+        }
     };
 
-    // Improved handleProductSelect function with better warning message
+    // Handle date change
+    const handleDateChange = (date) => {
+        setStartDate(date);
+        if (saveKitchen) {
+            handleGetLastRefNo(date, saveKitchen);
+        }
+    };
+
+    // Calculate order totals
+    const calculateOrderTotals = (currentProducts = products) => {
+        let newTotals = {};
+        let newTotal = 0;
+
+        currentProducts.forEach(product => {
+            const productCode = product.product_code;
+            const quantity = quantities[productCode] || 1;
+            const price = unitPrices[productCode] || (
+                units[productCode] === product.productUnit1?.unit_code
+                    ? product.bulk_unit_price
+                    : product.retail_unit_price
+            );
+            const lineTotal = quantity * price;
+
+            newTotals[productCode] = lineTotal;
+            newTotal += lineTotal;
+        });
+
+        setTotals(newTotals);
+        setTotal(newTotal);
+    };
+
+    // Render product image with error handling
+    const renderProductImage = (product, size = 'small') => {
+        if (!product?.product_img || imageErrors[product.product_code]) {
+            return null;
+        }
+
+        const baseUrl = process.env.REACT_APP_URL_API || 'http://localhost:4001';
+        const imageUrl = `${baseUrl}/public/images/${product.product_img}`;
+
+        return (
+            <Box sx={{
+                width: '40px',
+                height: '40px',
+                position: 'relative',
+                overflow: 'hidden',
+                marginRight: '8px',
+                display: 'inline-block'
+            }}>
+                <img
+                    src={imageUrl}
+                    alt={product.product_name}
+                    style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                        borderRadius: '4px'
+                    }}
+                    onError={() => {
+                        setImageErrors(prev => ({
+                            ...prev,
+                            [product.product_code]: true
+                        }));
+                    }}
+                />
+            </Box>
+        );
+    };
+
+    // Handle product selection
     const handleProductSelect = (product) => {
-        if (products.some(p => p.product_code === product.product_code)) {
-            // More detailed warning message with consistent styling
+        // Check if product is already selected
+        if (selectedProducts.includes(product.product_code)) {
             Swal.fire({
                 icon: 'warning',
                 title: 'Duplicate Product',
@@ -140,103 +257,86 @@ export default function CreateGoodsRequisition({ onBack }) {
             return;
         }
 
-        const productCode = product.product_code;
-        const initialQuantity = 1;
-        const initialPrice = product.bulk_unit_price;
-
+        // Add product to selected products
+        setSelectedProducts(prev => [...prev, product.product_code]);
         setProducts(prev => [...prev, product]);
-        setQuantities(prev => ({ ...prev, [productCode]: initialQuantity }));
-        setUnits(prev => ({ ...prev, [productCode]: product.productUnit1.unit_code }));
-        setExpiryDates(prev => ({ ...prev, [productCode]: new Date() }));
-        setTemperatures(prev => ({ ...prev, [productCode]: "" }));
-        setUnitPrices(prev => ({ ...prev, [productCode]: initialPrice }));
 
-        updateTotals(productCode, initialQuantity, initialPrice);
+        // Initialize product data
+        setQuantities(prev => ({ ...prev, [product.product_code]: 1 }));
+        setUnits(prev => ({ ...prev, [product.product_code]: product.productUnit1?.unit_code || '' }));
+        setUnitPrices(prev => ({ ...prev, [product.product_code]: product.bulk_unit_price || 0 }));
+        setExpiryDates(prev => ({ ...prev, [product.product_code]: new Date() }));
+        setTemperatures(prev => ({ ...prev, [product.product_code]: "38" }));
 
+        // Reset search
         setSearchTerm('');
         setShowDropdown(false);
+
+        // Update order totals
+        calculateOrderTotals([...products, product]);
     };
 
-    // Updated handleSearchChange with Enter key functionality
+    // Handle search input changes
     const handleSearchChange = (e) => {
         const value = e.target.value;
         setSearchTerm(value);
 
-        // Add Enter key functionality
+        // Handle Enter key for quick selection
         if (e.key === 'Enter' && value.trim() !== '') {
-            // Search for exact match
+            // First try to find in already loaded products
+            const exactMatch = allProducts.find(
+                product => product.product_name.toLowerCase() === value.toLowerCase() ||
+                    product.product_code.toLowerCase() === value.toLowerCase()
+            );
+
+            if (exactMatch) {
+                handleProductSelect(exactMatch);
+                return;
+            }
+
+            // If not found, search via API
             dispatch(searchProductName({ product_name: value }))
                 .unwrap()
                 .then((res) => {
                     if (res.data && res.data.length > 0) {
-                        // Find exact match or use the first result
-                        const exactMatch = res.data.find(
-                            product => product.product_name.toLowerCase() === value.toLowerCase()
+                        const exactApiMatch = res.data.find(
+                            product => product.product_name.toLowerCase() === value.toLowerCase() ||
+                                product.product_code.toLowerCase() === value.toLowerCase()
                         );
-                        const selectedProduct = exactMatch || res.data[0];
+                        const selectedProduct = exactApiMatch || res.data[0];
+                        handleProductSelect(selectedProduct);
+                    }
+                })
+                .catch((err) => console.log(err?.message));
+        } else if (value.length > 1) {
+            // Filter from already loaded products
+            const localResults = allProducts.filter(product =>
+                product.product_name?.toLowerCase().includes(value.toLowerCase()) ||
+                product.product_code?.toLowerCase().includes(value.toLowerCase())
+            ).slice(0, 10);
 
-                        // Check for duplicate
-                        if (products.some(p => p.product_code === selectedProduct.product_code)) {
-                            Swal.fire({
-                                icon: 'warning',
-                                title: 'Duplicate Product',
-                                text: `${selectedProduct.product_name} is already in your requisition. Please adjust the quantity instead.`,
-                                confirmButtonColor: '#754C27'
-                            });
-                        } else {
-                            // Add product if not a duplicate
-                            const productCode = selectedProduct.product_code;
-                            const initialQuantity = 1;
-                            const initialPrice = selectedProduct.bulk_unit_price;
-
-                            setProducts(prev => [...prev, selectedProduct]);
-                            setQuantities(prev => ({ ...prev, [productCode]: initialQuantity }));
-                            setUnits(prev => ({ ...prev, [productCode]: selectedProduct.productUnit1.unit_code }));
-                            setExpiryDates(prev => ({ ...prev, [productCode]: new Date() }));
-                            setTemperatures(prev => ({ ...prev, [productCode]: "" }));
-                            setUnitPrices(prev => ({ ...prev, [productCode]: initialPrice }));
-
-                            updateTotals(productCode, initialQuantity, initialPrice);
+            if (localResults.length > 0) {
+                setSearchResults(localResults);
+                setShowDropdown(true);
+            } else {
+                // If no local results, search via API
+                dispatch(searchProductName({ product_name: value }))
+                    .unwrap()
+                    .then((res) => {
+                        if (res.data) {
+                            setSearchResults(res.data);
+                            setShowDropdown(true);
                         }
-                        setSearchTerm('');
-                        setShowDropdown(false);
-                    }
-                })
-                .catch((err) => console.log(err.message));
-        } else if (value.length > 0) {
-            dispatch(searchProductName({ product_name: value }))
-                .unwrap()
-                .then((res) => {
-                    if (res.data) {
-                        setSearchResults(res.data);
-                        setShowDropdown(true);
-                    }
-                })
-                .catch((err) => console.log(err.message));
+                    })
+                    .catch((err) => console.log(err?.message));
+            }
         } else {
             setSearchResults([]);
             setShowDropdown(false);
         }
     };
 
-    const calculateOrderTotals = (currentProducts = products) => {
-        let newTotals = {};
-        let newTotal = 0;
-
-        currentProducts.forEach(product => {
-            const productCode = product.product_code;
-            const quantity = quantities[productCode] || 1;
-            const price = unitPrices[productCode] || product.bulk_unit_price;
-            const lineTotal = quantity * price;
-
-            newTotals[productCode] = lineTotal;
-            newTotal += lineTotal;
-        });
-
-        setTotals(newTotals);
-        setTotal(newTotal);
-    };
-
+    // Handle expiry date change
     const handleExpiryDateChange = (productCode, date) => {
         setExpiryDates(prev => ({
             ...prev,
@@ -244,6 +344,7 @@ export default function CreateGoodsRequisition({ onBack }) {
         }));
     };
 
+    // Handle unit change
     const handleUnitChange = (productCode, newUnitCode) => {
         setUnits(prev => ({
             ...prev,
@@ -251,64 +352,115 @@ export default function CreateGoodsRequisition({ onBack }) {
         }));
 
         const product = products.find(p => p.product_code === productCode);
-        const newPrice = newUnitCode === product.productUnit1.unit_code
+        if (!product) return;
+
+        const defaultUnitPrice = newUnitCode === product.productUnit1?.unit_code
             ? product.bulk_unit_price
             : product.retail_unit_price;
+
+        setUnitPrices(prev => ({
+            ...prev,
+            [productCode]: defaultUnitPrice
+        }));
+
+        calculateOrderTotals();
+    };
+
+    // Handle quantity change
+    const handleQuantityChange = (productCode, newQuantity) => {
+        const qty = parseInt(newQuantity);
+        if (isNaN(qty) || qty < 1) return;
+
+        setQuantities(prev => ({
+            ...prev,
+            [productCode]: qty
+        }));
+
+        calculateOrderTotals();
+    };
+
+    // Handle unit price change
+    const handleUnitPriceChange = (productCode, value) => {
+        const newPrice = parseFloat(value);
+        if (isNaN(newPrice) || newPrice < 0) return;
 
         setUnitPrices(prev => ({
             ...prev,
             [productCode]: newPrice
         }));
 
-        updateTotals(productCode, quantities[productCode], newPrice);
+        calculateOrderTotals();
     };
 
-
-    const handleQuantityChange = (productCode, newQuantity) => {
-        if (newQuantity >= 1) {
-            setQuantities(prev => ({
-                ...prev,
-                [productCode]: newQuantity
-            }));
-            updateTotals(productCode, newQuantity, unitPrices[productCode]);
-        }
-    };
-
-    const handleUnitPriceChange = (productCode, value) => {
-        const newPrice = parseFloat(value);
-        if (!isNaN(newPrice) && newPrice >= 0) {
-            setUnitPrices(prev => ({
-                ...prev,
-                [productCode]: newPrice
-            }));
-            updateTotals(productCode, quantities[productCode], newPrice);
-        }
-    };
-
+    // Handle product deletion
     const handleDeleteProduct = (productCode) => {
         setProducts(prev => prev.filter(p => p.product_code !== productCode));
-        setTotals(prev => {
-            const newTotals = { ...prev };
-            delete newTotals[productCode];
-            const newTotal = Object.values(newTotals).reduce((sum, curr) => sum + curr, 0);
-            setTotal(newTotal);
-            return newTotals;
-        });
+        setSelectedProducts(prev => prev.filter(id => id !== productCode));
+
+        // Clean up associated state
+        const { [productCode]: _, ...newQuantities } = quantities;
+        const { [productCode]: __, ...newUnits } = units;
+        const { [productCode]: ___, ...newPrices } = unitPrices;
+        const { [productCode]: ____, ...newTotals } = totals;
+        const { [productCode]: _____, ...newExpiryDates } = expiryDates;
+        const { [productCode]: ______, ...newTemperatures } = temperatures;
+
+        setQuantities(newQuantities);
+        setUnits(newUnits);
+        setUnitPrices(newPrices);
+        setTotals(newTotals);
+        setExpiryDates(newExpiryDates);
+        setTemperatures(newTemperatures);
+
+        calculateOrderTotals(products.filter(p => p.product_code !== productCode));
     };
 
+    // Handle temperature change
     const handleTemperatureChange = (productCode, temperature) => {
+        // Make sure temperature is never an empty string
+        const value = temperature.trim() === "" ? "38" : temperature;
         setTemperatures(prev => ({
             ...prev,
-            [productCode]: temperature
+            [productCode]: value
         }));
     };
 
+    // Reset form
+    const resetForm = () => {
+        setProducts([]);
+        setSelectedProducts([]);
+        setQuantities({});
+        setUnits({});
+        setUnitPrices({});
+        setTotals({});
+        setTotal(0);
+        setSaveKitchen('');
+        setLastRefNo('');
+        setSearchTerm('');
+        setExpiryDates({});
+        setTemperatures({});
+        setSearchResults([]);
+        setShowDropdown(false);
+    };
+
+    // Handle save
     const handleSave = async () => {
-        if (!saveKitchen || products.length === 0) {
+        // Validate form
+        if (!saveKitchen || !lastRefNo) {
             Swal.fire({
                 icon: 'warning',
                 title: 'Missing Information',
-                text: 'Please fill in all required fields.',
+                text: 'Please select a kitchen first.',
+                timer: 1500
+            });
+            return;
+        }
+
+        if (products.length === 0) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Missing Products',
+                text: 'Please add at least one product to the requisition.',
                 timer: 1500
             });
             return;
@@ -323,6 +475,7 @@ export default function CreateGoodsRequisition({ onBack }) {
                 }
             });
 
+            // Prepare header data
             const headerData = {
                 refno: lastRefNo,
                 rdate: format(startDate, 'MM/dd/yyyy'),
@@ -330,9 +483,10 @@ export default function CreateGoodsRequisition({ onBack }) {
                 trdate: format(startDate, 'yyyyMMdd'),
                 monthh: format(startDate, 'MM'),
                 myear: startDate.getFullYear(),
-                user_code: userData2.user_code,
+                user_code: userData2?.user_code || '',
             };
 
+            // Prepare product data
             const productArrayData = products.map(product => ({
                 refno: headerData.refno,
                 product_code: product.product_code,
@@ -342,9 +496,10 @@ export default function CreateGoodsRequisition({ onBack }) {
                 amt: totals[product.product_code].toString(),
                 expire_date: format(expiryDates[product.product_code], 'MM/dd/yyyy'),
                 texpire_date: format(expiryDates[product.product_code], 'yyyyMMdd'),
-                temperature1: temperatures[product.product_code]
+                temperature1: temperatures[product.product_code] || "38"
             }));
 
+            // Prepare complete order data
             const orderData = {
                 headerData,
                 productArrayData,
@@ -353,8 +508,10 @@ export default function CreateGoodsRequisition({ onBack }) {
                 }
             };
 
+            // Submit the data
             await dispatch(addKt_grf(orderData)).unwrap();
 
+            // Show success message
             await Swal.fire({
                 icon: 'success',
                 title: 'Created requisition successfully',
@@ -367,27 +524,14 @@ export default function CreateGoodsRequisition({ onBack }) {
             onBack();
 
         } catch (error) {
+            console.error("API error:", error);
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
-                text: error.message || 'Error saving requisition',
+                text: error?.message || 'Error saving requisition',
                 confirmButtonText: 'OK'
             });
         }
-    };
-
-
-    const resetForm = () => {
-        setProducts([]);
-        setQuantities({});
-        setUnits({});
-        setUnitPrices({});
-        setTotals({});
-        setTotal(0);
-        setSaveKitchen('');
-        setSearchTerm('');
-        setExpiryDates({});
-        setTemperatures({});
     };
 
     return (
@@ -421,7 +565,7 @@ export default function CreateGoodsRequisition({ onBack }) {
                                     Ref.no
                                 </Typography>
                                 <TextField
-                                    value={lastRefNo}
+                                    value={isLoadingRefNo ? "Generating..." : (lastRefNo || "Please select kitchen first")}
                                     disabled
                                     size="small"
                                     placeholder='Ref.no'
@@ -432,6 +576,16 @@ export default function CreateGoodsRequisition({ onBack }) {
                                             borderRadius: '10px',
                                             fontWeight: '700'
                                         },
+                                        '& .Mui-disabled': {
+                                            WebkitTextFillColor: !lastRefNo ? '#d32f2f' : 'rgba(0, 0, 0, 0.38)',
+                                        }
+                                    }}
+                                    InputProps={{
+                                        endAdornment: isLoadingRefNo ? (
+                                            <InputAdornment position="end">
+                                                <span style={{ fontSize: '12px', color: '#757575' }}>Loading...</span>
+                                            </InputAdornment>
+                                        ) : null,
                                     }}
                                 />
                             </Grid2>
@@ -441,10 +595,7 @@ export default function CreateGoodsRequisition({ onBack }) {
                                 </Typography>
                                 <DatePicker
                                     selected={startDate}
-                                    onChange={(date) => {
-                                        setStartDate(date);
-                                        handleGetLastRefNo(date);
-                                    }}
+                                    onChange={handleDateChange}
                                     dateFormat="MM/dd/yyyy"
                                     customInput={<CustomInput />}
                                 />
@@ -456,7 +607,7 @@ export default function CreateGoodsRequisition({ onBack }) {
                                 <Box
                                     component="select"
                                     value={saveKitchen}
-                                    onChange={(e) => setSaveKitchen(e.target.value)}
+                                    onChange={handleKitchenChange}
                                     sx={{
                                         mt: '8px',
                                         width: '100%',
@@ -498,7 +649,7 @@ export default function CreateGoodsRequisition({ onBack }) {
                                     value={searchTerm}
                                     onChange={handleSearchChange}
                                     onKeyDown={handleSearchChange}
-                                    placeholder="Search"
+                                    placeholder="Search by name or code"
                                     sx={{
                                         '& .MuiInputBase-root': {
                                             height: '30px',
@@ -541,12 +692,20 @@ export default function CreateGoodsRequisition({ onBack }) {
                                                     '&:hover': {
                                                         backgroundColor: '#f5f5f5'
                                                     },
-                                                    borderBottom: '1px solid #eee'
+                                                    borderBottom: '1px solid #eee',
+                                                    display: 'flex',
+                                                    alignItems: 'center'
                                                 }}
                                             >
-                                                <Typography sx={{ fontSize: '14px', fontWeight: '600' }}>
-                                                    {product.product_name}
-                                                </Typography>
+                                                {renderProductImage(product)}
+                                                <Box>
+                                                    <Typography sx={{ fontSize: '14px', fontWeight: '600' }}>
+                                                        {product.product_name}
+                                                    </Typography>
+                                                    <Typography sx={{ fontSize: '12px', color: '#666' }}>
+                                                        {product.product_code}
+                                                    </Typography>
+                                                </Box>
                                             </Box>
                                         ))}
                                     </Box>
@@ -585,105 +744,129 @@ export default function CreateGoodsRequisition({ onBack }) {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {products.map((product, index) => {
-                                        const productCode = product.product_code;
-                                        const currentUnit = units[productCode] || product.productUnit1.unit_code;
-                                        const currentQuantity = quantities[productCode] || 1;
-                                        const currentUnitPrice = unitPrices[productCode] || product.bulk_unit_price;
-                                        const currentTotal = totals[productCode]?.toFixed(2) || '0.00';
-                                        return (
-                                            <tr key={productCode}>
-                                                <td style={{ padding: '4px', fontSize: '12px', fontWeight: '800' }}>{index + 1}</td>
-                                                <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>{productCode}</td>
-                                                <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>{product.product_name}</td>
-                                                <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
-                                                    <DatePicker
-                                                        selected={expiryDates[productCode] || null}
-                                                        onChange={(date) => handleExpiryDateChange(productCode, date)}
-                                                        dateFormat="MM/dd/yyyy"
-                                                        placeholderText="Select exp date"
-                                                        customInput={
-                                                            <input
-                                                                style={{
-                                                                    width: '110px',
-                                                                    padding: '4px',
-                                                                    borderRadius: '4px',
-                                                                    textAlign: 'center'
-                                                                }}
-                                                            />
-                                                        }
-                                                    />
-                                                </td>
-                                                <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
-                                                    <input
-                                                        type="text"
-                                                        value={temperatures[productCode] || ""}
-                                                        onChange={(e) => handleTemperatureChange(productCode, e.target.value)}
-                                                        placeholder="Temperature"
-                                                        style={{
-                                                            width: '80px',
-                                                            padding: '4px',
-                                                            textAlign: 'center',
-                                                            borderRadius: '4px'
-                                                        }}
-                                                    />
-                                                </td>
-                                                <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
-                                                    <input
-                                                        type="number"
-                                                        min="1"
-                                                        value={currentQuantity}
-                                                        onChange={(e) => handleQuantityChange(productCode, parseInt(e.target.value))}
-                                                        style={{
-                                                            width: '50px',
-                                                            textAlign: 'center',
-                                                            fontWeight: '600',
-                                                            padding: '4px'
-                                                        }}
-                                                    />
-                                                </td>
-                                                <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
-                                                    <select
-                                                        value={currentUnit}
-                                                        onChange={(e) => handleUnitChange(productCode, e.target.value)}
-                                                        style={{
-                                                            padding: '4px',
-                                                            borderRadius: '4px'
-                                                        }}
-                                                    >
-                                                        <option value={product.productUnit1.unit_code}>{product.productUnit1.unit_name}</option>
-                                                        <option value={product.productUnit2.unit_code}>{product.productUnit2.unit_name}</option>
-                                                    </select>
-                                                </td>
-                                                <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
-                                                    <input
-                                                        type="number"
-                                                        min="0"
-                                                        step="0.01"
-                                                        value={currentUnitPrice}
-                                                        onChange={(e) => handleUnitPriceChange(productCode, e.target.value)}
-                                                        style={{
-                                                            width: '80px',
-                                                            textAlign: 'right',
-                                                            fontWeight: '600',
-                                                            padding: '4px'
-                                                        }}
-                                                    />
-                                                </td>
-                                                <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
-                                                    {currentTotal}
-                                                </td>
-                                                <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
-                                                    <IconButton
-                                                        onClick={() => handleDeleteProduct(productCode)}
-                                                        size="small"
-                                                    >
-                                                        <CancelIcon />
-                                                    </IconButton>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
+                                    {products.length === 0 ? (
+                                        <tr>
+                                            <td colSpan="10" style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
+                                                No products added yet. Search and select products above.
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        products.map((product, index) => {
+                                            const productCode = product.product_code;
+                                            const currentUnit = units[productCode] || product.productUnit1?.unit_code;
+                                            const currentQuantity = quantities[productCode] || 1;
+                                            const currentUnitPrice = unitPrices[productCode] !== undefined ?
+                                                unitPrices[productCode] :
+                                                (currentUnit === product.productUnit1?.unit_code
+                                                    ? product.bulk_unit_price
+                                                    : product.retail_unit_price);
+                                            const currentTotal = totals[productCode]?.toFixed(2) || "0.00";
+
+                                            return (
+                                                <tr key={productCode}>
+                                                    <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>{index + 1}</td>
+                                                    <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>{productCode}</td>
+                                                    <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>{product.product_name}</td>
+                                                    <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                                                        <DatePicker
+                                                            selected={expiryDates[productCode] || null}
+                                                            onChange={(date) => handleExpiryDateChange(productCode, date)}
+                                                            dateFormat="MM/dd/yyyy"
+                                                            placeholderText="Select exp date"
+                                                            customInput={
+                                                                <input
+                                                                    style={{
+                                                                        width: '110px',
+                                                                        padding: '4px',
+                                                                        borderRadius: '4px',
+                                                                        textAlign: 'center'
+                                                                    }}
+                                                                />
+                                                            }
+                                                        />
+                                                    </td>
+                                                    <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                                                        <input
+                                                            type="text"
+                                                            value={temperatures[productCode] || ""}
+                                                            onChange={(e) => handleTemperatureChange(productCode, e.target.value)}
+                                                            placeholder="Temperature"
+                                                            style={{
+                                                                width: '80px',
+                                                                padding: '4px',
+                                                                textAlign: 'center',
+                                                                borderRadius: '4px'
+                                                            }}
+                                                        />
+                                                    </td>
+                                                    <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                                                        <input
+                                                            type="number"
+                                                            min="1"
+                                                            value={currentQuantity}
+                                                            onChange={(e) => handleQuantityChange(productCode, e.target.value)}
+                                                            style={{
+                                                                width: '50px',
+                                                                textAlign: 'center',
+                                                                fontWeight: '600',
+                                                                padding: '4px'
+                                                            }}
+                                                        />
+                                                    </td>
+                                                    <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                                                        <select
+                                                            value={currentUnit}
+                                                            onChange={(e) => handleUnitChange(productCode, e.target.value)}
+                                                            style={{
+                                                                padding: '4px',
+                                                                borderRadius: '4px'
+                                                            }}
+                                                        >
+                                                            {product.productUnit1?.unit_code && (
+                                                                <option value={product.productUnit1.unit_code}>
+                                                                    {product.productUnit1.unit_name}
+                                                                </option>
+                                                            )}
+                                                            {product.productUnit2?.unit_code && (
+                                                                <option value={product.productUnit2.unit_code}>
+                                                                    {product.productUnit2.unit_name}
+                                                                </option>
+                                                            )}
+                                                        </select>
+                                                    </td>
+                                                    <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            step="0.01"
+                                                            value={currentUnitPrice}
+                                                            onChange={(e) => handleUnitPriceChange(productCode, e.target.value)}
+                                                            style={{
+                                                                width: '80px',
+                                                                textAlign: 'right',
+                                                                fontWeight: '600',
+                                                                padding: '4px'
+                                                            }}
+                                                        />
+                                                    </td>
+                                                    <td style={{
+                                                        padding: '4px', fontSize: '12px', textAlign: 'center',
+                                                        fontWeight: '800'
+                                                    }}>
+                                                        {currentTotal}
+                                                    </td>
+                                                    <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                                                        <IconButton
+                                                            onClick={() => handleDeleteProduct(productCode)}
+                                                            size="small"
+                                                        >
+                                                            <CancelIcon />
+                                                        </IconButton>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })
+                                    )}
                                 </tbody>
                             </table>
                         </Box>
@@ -701,6 +884,7 @@ export default function CreateGoodsRequisition({ onBack }) {
 
                         <Button
                             onClick={handleSave}
+                            disabled={!lastRefNo || products.length === 0}
                             sx={{
                                 width: '100%',
                                 height: '48px',
@@ -709,6 +893,10 @@ export default function CreateGoodsRequisition({ onBack }) {
                                 color: '#FFFFFF',
                                 '&:hover': {
                                     bgcolor: '#5C3D1F'
+                                },
+                                '&.Mui-disabled': {
+                                    bgcolor: '#d3d3d3',
+                                    color: '#808080'
                                 }
                             }}>
                             Save
@@ -718,4 +906,4 @@ export default function CreateGoodsRequisition({ onBack }) {
             </Box>
         </Box>
     );
-}
+};

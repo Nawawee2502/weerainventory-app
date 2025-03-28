@@ -47,100 +47,136 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
 
 export default function CreateDispatchToRestaurant({ onBack }) {
     const dispatch = useDispatch();
+
+    // Form data state
     const [startDate, setStartDate] = useState(new Date());
     const [lastRefNo, setLastRefNo] = useState('');
     const [branches, setBranches] = useState([]);
     const [kitchens, setKitchens] = useState([]);
     const [saveBranch, setSaveBranch] = useState('');
     const [saveKitchen, setSaveKitchen] = useState('');
+
+    // Product selection and search state
     const [products, setProducts] = useState([]);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [searchResults, setSearchResults] = useState([]);
+    const [showDropdown, setShowDropdown] = useState(false);
+    const [selectedProducts, setSelectedProducts] = useState([]);
+    const [allProducts, setAllProducts] = useState([]);
+
+    // Product details state
     const [quantities, setQuantities] = useState({});
     const [units, setUnits] = useState({});
     const [unitPrices, setUnitPrices] = useState({});
     const [totals, setTotals] = useState({});
-    const [total, setTotal] = useState(0);
-    const [searchTerm, setSearchTerm] = useState("");
-    const [searchResults, setSearchResults] = useState([]);
-    const [showDropdown, setShowDropdown] = useState(false);
-    const [taxableAmount, setTaxableAmount] = useState(0);
-    const [nonTaxableAmount, setNonTaxableAmount] = useState(0);
-    const TAX_RATE = 0.07;
-    const [lastMonth, setLastMonth] = useState('');
-    const [lastYear, setLastYear] = useState('');
-    const userDataJson = localStorage.getItem("userData2");
-    const userData2 = JSON.parse(userDataJson);
     const [expiryDates, setExpiryDates] = useState({});
     const [temperatures, setTemperatures] = useState({});
+    const [taxStatus, setTaxStatus] = useState({});
+    const [imageErrors, setImageErrors] = useState({});
+
+    // Calculation and summary state
+    const [total, setTotal] = useState(0);
+    const [taxableAmount, setTaxableAmount] = useState(0);
+    const [nonTaxableAmount, setNonTaxableAmount] = useState(0);
     const [totalDue, setTotalDue] = useState(0);
+    const TAX_RATE = 0.07;
 
+    // Loading state
+    const [isLoadingRefNo, setIsLoadingRefNo] = useState(false);
+
+    // User data
+    const userDataJson = localStorage.getItem("userData2");
+    const userData2 = JSON.parse(userDataJson || "{}");
+
+    // Initial data load
     useEffect(() => {
-        const currentDate = new Date();
-        const currentMonth = (currentDate.getMonth() + 1).toString().padStart(2, '0');
-        const currentYear = currentDate.getFullYear().toString().slice(-2);
-        setLastMonth(currentMonth);
-        setLastYear(currentYear);
-        handleGetLastRefNo(currentDate);
-
+        // Load branches
         dispatch(branchAll({ offset: 0, limit: 100 }))
             .unwrap()
             .then((res) => {
-                setBranches(res.data);
+                setBranches(res.data || []);
             })
-            .catch((err) => console.log(err.message));
+            .catch((err) => console.log(err?.message));
 
+        // Load kitchens
         dispatch(kitchenAll({ offset: 0, limit: 100 }))
             .unwrap()
             .then((res) => {
-                setKitchens(res.data);
+                setKitchens(res.data || []);
             })
-            .catch((err) => console.log(err.message));
+            .catch((err) => console.log(err?.message));
+
+        // Initial product load for faster searching
+        dispatch(searchProductName({ product_name: '' }))
+            .unwrap()
+            .then((res) => {
+                if (res.data) {
+                    setAllProducts(res.data);
+                }
+            })
+            .catch((err) => console.log(err?.message));
     }, [dispatch]);
 
-    const handleGetLastRefNo = async (selectedDate) => {
+    // Generate reference number
+    const handleGetLastRefNo = async (selectedKitchen, selectedDate) => {
+        if (!selectedKitchen) {
+            setLastRefNo('');
+            return;
+        }
+
         try {
-            // Add month and year to the payload
-            const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
-            const year = selectedDate.getFullYear().toString().slice(-2);
+            setIsLoadingRefNo(true);
 
             const res = await dispatch(kt_dpbrefno({
-                test: 10,
-                month: month,
-                year: year
+                kitchen_code: selectedKitchen,
+                date: format(selectedDate, 'yyyy-MM-dd')
             })).unwrap();
 
-            // Add logging to debug response
-            console.log('Ref No Response:', res);
-
-            if (!res.data || !res.data.refno) {
-                setLastRefNo(`KTDPB${year}${month}001`);
-                return;
+            if (res?.result && res?.data?.refno) {
+                setLastRefNo(res.data.refno);
+            } else {
+                // Default fallback if API doesn't return refno
+                const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+                const year = selectedDate.getFullYear().toString().slice(-2);
+                setLastRefNo(`KTDPB${selectedKitchen}${year}${month}001`);
             }
-
-            const lastRefNo = res.data.refno;
-            const lastRefMonth = lastRefNo.substring(6, 8);
-            const lastRefYear = lastRefNo.substring(4, 6);
-
-            if (lastRefMonth !== month || lastRefYear !== year) {
-                setLastRefNo(`KTDPB${year}${month}001`);
-                return;
-            }
-
-            const lastNumber = parseInt(lastRefNo.slice(-3));
-            const newNumber = lastNumber + 1;
-            setLastRefNo(`KTDPB${year}${month}${String(newNumber).padStart(3, '0')}`);
-
         } catch (err) {
             console.error("Error generating refno:", err);
+            // Fallback pattern if API call fails
             const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
             const year = selectedDate.getFullYear().toString().slice(-2);
-            setLastRefNo(`KTDPB${year}${month}001`);
+            setLastRefNo(`KTDPB${selectedKitchen}${year}${month}001`);
+        } finally {
+            setIsLoadingRefNo(false);
         }
     };
 
-    // Improved handleProductSelect function with better warning message
+    // Handle kitchen change
+    const handleKitchenChange = (e) => {
+        const newKitchenCode = e.target.value;
+        setSaveKitchen(newKitchenCode);
+
+        // Generate reference number when kitchen is selected
+        if (newKitchenCode) {
+            handleGetLastRefNo(newKitchenCode, startDate);
+        } else {
+            setLastRefNo('');
+        }
+    };
+
+    // Handle date change
+    const handleDateChange = (date) => {
+        setStartDate(date);
+        // If kitchen is already selected, update reference number
+        if (saveKitchen) {
+            handleGetLastRefNo(saveKitchen, date);
+        }
+    };
+
+    // Handle product selection
     const handleProductSelect = (product) => {
-        if (products.some(p => p.product_code === product.product_code)) {
-            // More detailed warning message with consistent styling
+        // Check if product is already selected
+        if (selectedProducts.includes(product.product_code)) {
             Swal.fire({
                 icon: 'warning',
                 title: 'Duplicate Product',
@@ -152,75 +188,91 @@ export default function CreateDispatchToRestaurant({ onBack }) {
             return;
         }
 
+        // Add product to selected products
+        setSelectedProducts(prev => [...prev, product.product_code]);
         setProducts(prev => [...prev, product]);
-        setQuantities(prev => ({ ...prev, [product.product_code]: 1 }));
-        setUnits(prev => ({ ...prev, [product.product_code]: product.productUnit1.unit_code }));
-        setExpiryDates(prev => ({ ...prev, [product.product_code]: new Date() }));
-        setTemperatures(prev => ({ ...prev, [product.product_code]: "" }));
-        setUnitPrices(prev => ({ ...prev, [product.product_code]: product.bulk_unit_price }));
 
+        // Initialize product data
+        setQuantities(prev => ({ ...prev, [product.product_code]: 1 }));
+        setUnits(prev => ({ ...prev, [product.product_code]: product.productUnit1?.unit_code || '' }));
+        setUnitPrices(prev => ({ ...prev, [product.product_code]: product.bulk_unit_price || 0 }));
+        setExpiryDates(prev => ({ ...prev, [product.product_code]: new Date() }));
+        setTemperatures(prev => ({ ...prev, [product.product_code]: "38" }));
+        setTaxStatus(prev => ({ ...prev, [product.product_code]: product.tax1 || "N" }));
+
+        // Calculate initial total
+        const initialTotal = (product.bulk_unit_price || 0) * 1;
+        setTotals(prev => ({ ...prev, [product.product_code]: initialTotal }));
+
+        // Reset search
         setSearchTerm('');
         setShowDropdown(false);
+
+        // Update order totals
         calculateOrderTotals([...products, product]);
     };
 
-    // Updated handleSearchChange with Enter key functionality
+    // Handle search input change
     const handleSearchChange = (e) => {
         const value = e.target.value;
         setSearchTerm(value);
 
-        // Add Enter key functionality
+        // Handle Enter key for quick selection
         if (e.key === 'Enter' && value.trim() !== '') {
-            // Search for exact match
+            // First try to find in already loaded products
+            const exactMatch = allProducts.find(
+                product => product.product_name.toLowerCase() === value.toLowerCase() ||
+                    product.product_code.toLowerCase() === value.toLowerCase()
+            );
+
+            if (exactMatch) {
+                handleProductSelect(exactMatch);
+                return;
+            }
+
+            // If not found, search via API
             dispatch(searchProductName({ product_name: value }))
                 .unwrap()
                 .then((res) => {
                     if (res.data && res.data.length > 0) {
-                        // Find exact match or use the first result
-                        const exactMatch = res.data.find(
-                            product => product.product_name.toLowerCase() === value.toLowerCase()
+                        const exactApiMatch = res.data.find(
+                            product => product.product_name.toLowerCase() === value.toLowerCase() ||
+                                product.product_code.toLowerCase() === value.toLowerCase()
                         );
-                        const selectedProduct = exactMatch || res.data[0];
+                        const selectedProduct = exactApiMatch || res.data[0];
+                        handleProductSelect(selectedProduct);
+                    }
+                })
+                .catch((err) => console.log(err?.message));
+        } else if (value.length > 1) {
+            // Filter from already loaded products first
+            const localResults = allProducts.filter(product =>
+                product.product_name?.toLowerCase().includes(value.toLowerCase()) ||
+                product.product_code?.toLowerCase().includes(value.toLowerCase())
+            ).slice(0, 10);
 
-                        // Check for duplicate
-                        if (products.some(p => p.product_code === selectedProduct.product_code)) {
-                            Swal.fire({
-                                icon: 'warning',
-                                title: 'Duplicate Product',
-                                text: `${selectedProduct.product_name} is already in your dispatch. Please adjust the quantity instead.`,
-                                confirmButtonColor: '#754C27'
-                            });
-                        } else {
-                            // Add product if not a duplicate
-                            setProducts(prev => [...prev, selectedProduct]);
-                            setQuantities(prev => ({ ...prev, [selectedProduct.product_code]: 1 }));
-                            setUnits(prev => ({ ...prev, [selectedProduct.product_code]: selectedProduct.productUnit1.unit_code }));
-                            setExpiryDates(prev => ({ ...prev, [selectedProduct.product_code]: new Date() }));
-                            setTemperatures(prev => ({ ...prev, [selectedProduct.product_code]: "" }));
-                            setUnitPrices(prev => ({ ...prev, [selectedProduct.product_code]: selectedProduct.bulk_unit_price }));
-                            calculateOrderTotals([...products, selectedProduct]);
+            if (localResults.length > 0) {
+                setSearchResults(localResults);
+                setShowDropdown(true);
+            } else {
+                // If no local results, search via API
+                dispatch(searchProductName({ product_name: value }))
+                    .unwrap()
+                    .then((res) => {
+                        if (res.data) {
+                            setSearchResults(res.data);
+                            setShowDropdown(true);
                         }
-                        setSearchTerm('');
-                        setShowDropdown(false);
-                    }
-                })
-                .catch((err) => console.log(err.message));
-        } else if (value.length > 0) {
-            dispatch(searchProductName({ product_name: value }))
-                .unwrap()
-                .then((res) => {
-                    if (res.data) {
-                        setSearchResults(res.data);
-                        setShowDropdown(true);
-                    }
-                })
-                .catch((err) => console.log(err.message));
+                    })
+                    .catch((err) => console.log(err?.message));
+            }
         } else {
             setSearchResults([]);
             setShowDropdown(false);
         }
     };
 
+    // Calculate order totals
     const calculateOrderTotals = (currentProducts = products) => {
         let newTotals = {};
         let newTotal = 0;
@@ -231,18 +283,20 @@ export default function CreateDispatchToRestaurant({ onBack }) {
             const productCode = product.product_code;
             const quantity = quantities[productCode] || 1;
             const price = unitPrices[productCode] || (
-                units[productCode] === product.productUnit1.unit_code
+                units[productCode] === product.productUnit1?.unit_code
                     ? product.bulk_unit_price
                     : product.retail_unit_price
             );
             const lineTotal = quantity * price;
 
             newTotals[productCode] = lineTotal;
-            if (product.tax1 === 'Y') {
+
+            if (taxStatus[productCode] === 'Y' || product.tax1 === 'Y') {
                 newTaxable += lineTotal;
             } else {
                 newNonTaxable += lineTotal;
             }
+
             newTotal += lineTotal;
         });
 
@@ -250,8 +304,13 @@ export default function CreateDispatchToRestaurant({ onBack }) {
         setTaxableAmount(newTaxable);
         setNonTaxableAmount(newNonTaxable);
         setTotal(newTotal);
+
+        // Calculate total due with tax
+        const saleTax = newTaxable * TAX_RATE;
+        setTotalDue(newTotal + saleTax);
     };
 
+    // Handle expiry date change
     const handleExpiryDateChange = (productCode, date) => {
         setExpiryDates(prev => ({
             ...prev,
@@ -259,6 +318,7 @@ export default function CreateDispatchToRestaurant({ onBack }) {
         }));
     };
 
+    // Handle unit change
     const handleUnitChange = (productCode, newUnitCode) => {
         setUnits(prev => ({
             ...prev,
@@ -266,7 +326,9 @@ export default function CreateDispatchToRestaurant({ onBack }) {
         }));
 
         const product = products.find(p => p.product_code === productCode);
-        const defaultUnitPrice = newUnitCode === product.productUnit1.unit_code
+        if (!product) return;
+
+        const defaultUnitPrice = newUnitCode === product.productUnit1?.unit_code
             ? product.bulk_unit_price
             : product.retail_unit_price;
 
@@ -278,46 +340,130 @@ export default function CreateDispatchToRestaurant({ onBack }) {
         calculateOrderTotals();
     };
 
-    const handleQuantityChange = (productCode, newQuantity) => {
-        if (newQuantity >= 1) {
-            setQuantities(prev => ({
-                ...prev,
-                [productCode]: newQuantity
-            }));
-            calculateOrderTotals();
-        }
+    // Handle quantity change
+    const handleQuantityChange = (productCode, delta) => {
+        const currentQty = quantities[productCode] || 1;
+        const newQty = Math.max(1, currentQty + delta);
+
+        setQuantities(prev => ({
+            ...prev,
+            [productCode]: newQty
+        }));
+
+        calculateOrderTotals();
     };
 
+    // Handle manual quantity change from input
+    const handleQuantityInputChange = (productCode, value) => {
+        const newQty = parseInt(value);
+        if (isNaN(newQty) || newQty < 1) return;
+
+        setQuantities(prev => ({
+            ...prev,
+            [productCode]: newQty
+        }));
+
+        calculateOrderTotals();
+    };
+
+    // Handle unit price change
     const handleUnitPriceChange = (productCode, value) => {
         const newPrice = parseFloat(value);
-        if (!isNaN(newPrice) && newPrice >= 0) {
-            setUnitPrices(prev => ({
-                ...prev,
-                [productCode]: newPrice
-            }));
-            calculateOrderTotals();
-        }
+        if (isNaN(newPrice) || newPrice < 0) return;
+
+        setUnitPrices(prev => ({
+            ...prev,
+            [productCode]: newPrice
+        }));
+
+        calculateOrderTotals();
     };
 
+    // Handle product deletion
     const handleDeleteProduct = (productCode) => {
         setProducts(prev => prev.filter(p => p.product_code !== productCode));
-        const newProducts = products.filter(p => p.product_code !== productCode);
-        calculateOrderTotals(newProducts);
+        setSelectedProducts(prev => prev.filter(id => id !== productCode));
+
+        // Clean up associated state
+        const { [productCode]: _, ...newQuantities } = quantities;
+        const { [productCode]: __, ...newUnits } = units;
+        const { [productCode]: ___, ...newPrices } = unitPrices;
+        const { [productCode]: ____, ...newTotals } = totals;
+        const { [productCode]: _____, ...newExpiryDates } = expiryDates;
+        const { [productCode]: ______, ...newTemperatures } = temperatures;
+        const { [productCode]: _______, ...newTaxStatus } = taxStatus;
+
+        setQuantities(newQuantities);
+        setUnits(newUnits);
+        setUnitPrices(newPrices);
+        setTotals(newTotals);
+        setExpiryDates(newExpiryDates);
+        setTemperatures(newTemperatures);
+        setTaxStatus(newTaxStatus);
+
+        calculateOrderTotals(products.filter(p => p.product_code !== productCode));
     };
 
+    // Handle temperature change
     const handleTemperatureChange = (productCode, temperature) => {
+        // Make sure temperature is never an empty string
+        const value = temperature.trim() === "" ? "38" : temperature;
         setTemperatures(prev => ({
             ...prev,
-            [productCode]: temperature
+            [productCode]: value
         }));
     };
 
+    // Handle tax status change
+    const handleTaxStatusChange = (productCode, newStatus) => {
+        setTaxStatus(prev => ({
+            ...prev,
+            [productCode]: newStatus
+        }));
+        calculateOrderTotals();
+    };
+
+    // Reset form
+    const resetForm = () => {
+        setProducts([]);
+        setSelectedProducts([]);
+        setQuantities({});
+        setUnits({});
+        setUnitPrices({});
+        setTotals({});
+        setTaxableAmount(0);
+        setNonTaxableAmount(0);
+        setTotal(0);
+        setTotalDue(0);
+        setSaveBranch('');
+        setSaveKitchen('');
+        setLastRefNo('');
+        setSearchTerm('');
+        setExpiryDates({});
+        setTemperatures({});
+        setTaxStatus({});
+        setSearchResults([]);
+        setShowDropdown(false);
+    };
+
+    // Handle save
     const handleSave = async () => {
-        if (!saveBranch || !saveKitchen || products.length === 0) {
+        // Validate form
+        if (!saveBranch || !saveKitchen || !lastRefNo) {
             Swal.fire({
                 icon: 'warning',
                 title: 'Missing Information',
-                text: 'Please fill in all required fields.',
+                text: 'Please select a kitchen and restaurant first.',
+                timer: 1500
+            });
+            return;
+        }
+
+        if (products.length === 0) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Missing Products',
+                text: 'Please add at least one product to the dispatch.',
                 timer: 1500
             });
             return;
@@ -332,6 +478,10 @@ export default function CreateDispatchToRestaurant({ onBack }) {
                 }
             });
 
+            // Calculate tax amounts
+            const saleTax = taxableAmount * TAX_RATE;
+
+            // Prepare header data
             const headerData = {
                 refno: lastRefNo,
                 rdate: format(startDate, 'MM/dd/yyyy'),
@@ -340,35 +490,42 @@ export default function CreateDispatchToRestaurant({ onBack }) {
                 trdate: format(startDate, 'yyyyMMdd'),
                 monthh: format(startDate, 'MM'),
                 myear: startDate.getFullYear(),
-                user_code: userData2.user_code,
-                taxable: taxableAmount.toString(),
-                nontaxable: nonTaxableAmount.toString(),
-                total: total.toString()
+                user_code: userData2?.user_code || '',
             };
 
+            // Prepare product data
             const productArrayData = products.map(product => ({
                 refno: headerData.refno,
                 product_code: product.product_code,
                 qty: quantities[product.product_code].toString(),
                 unit_code: units[product.product_code],
-                uprice: (unitPrices[product.product_code] || product.bulk_unit_price).toString(),
-                tax1: product.tax1,
+                uprice: unitPrices[product.product_code].toString(),
+                tax1: taxStatus[product.product_code] || product.tax1 || "N",
                 amt: totals[product.product_code].toString(),
                 expire_date: format(expiryDates[product.product_code], 'MM/dd/yyyy'),
                 texpire_date: format(expiryDates[product.product_code], 'yyyyMMdd'),
-                temperature1: temperatures[product.product_code]
+                temperature1: temperatures[product.product_code] || "38"
             }));
 
+            // Prepare complete order data
             const orderData = {
                 headerData,
                 productArrayData,
                 footerData: {
-                    total: total.toString()
+                    taxable: taxableAmount.toString(),
+                    nontaxable: nonTaxableAmount.toString(),
+                    total: total.toString(),
+                    sale_tax: saleTax.toString(),
+                    total_due: totalDue.toString()
                 }
             };
 
+            console.log("Sending data to API:", orderData);
+
+            // Submit the data
             await dispatch(addKt_dpb(orderData)).unwrap();
 
+            // Show success message
             await Swal.fire({
                 icon: 'success',
                 title: 'Created dispatch successfully',
@@ -381,29 +538,52 @@ export default function CreateDispatchToRestaurant({ onBack }) {
             onBack();
 
         } catch (error) {
+            console.error("API error:", error);
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
-                text: error.message || 'Error saving dispatch',
+                text: error?.message || 'Error saving dispatch',
                 confirmButtonText: 'OK'
             });
         }
     };
 
-    const resetForm = () => {
-        setProducts([]);
-        setQuantities({});
-        setUnits({});
-        setUnitPrices({});
-        setTotals({});
-        setTaxableAmount(0);
-        setNonTaxableAmount(0);
-        setTotal(0);
-        setSaveBranch('');
-        setSaveKitchen('');
-        setSearchTerm('');
-        setExpiryDates({});
-        setTemperatures({});
+    // Render product image with error handling (supporting function for future enhancement)
+    const renderProductImage = (product, size = 'small') => {
+        if (!product?.product_img || imageErrors[product.product_code]) {
+            return null;
+        }
+
+        const baseUrl = process.env.REACT_APP_URL_API || 'http://localhost:4001';
+        const imageUrl = `${baseUrl}/public/images/${product.product_img}`;
+
+        return (
+            <Box sx={{
+                width: '40px',
+                height: '40px',
+                position: 'relative',
+                overflow: 'hidden',
+                marginRight: '8px',
+                display: 'inline-block'
+            }}>
+                <img
+                    src={imageUrl}
+                    alt={product.product_name}
+                    style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                        borderRadius: '4px'
+                    }}
+                    onError={() => {
+                        setImageErrors(prev => ({
+                            ...prev,
+                            [product.product_code]: true
+                        }));
+                    }}
+                />
+            </Box>
+        );
     };
 
     return (
@@ -438,7 +618,7 @@ export default function CreateDispatchToRestaurant({ onBack }) {
                                     Ref.no
                                 </Typography>
                                 <TextField
-                                    value={lastRefNo}
+                                    value={isLoadingRefNo ? "Generating..." : (lastRefNo || "Please select kitchen first")}
                                     disabled
                                     size="small"
                                     placeholder='Ref.no'
@@ -449,6 +629,16 @@ export default function CreateDispatchToRestaurant({ onBack }) {
                                             borderRadius: '10px',
                                             fontWeight: '700'
                                         },
+                                        '& .Mui-disabled': {
+                                            WebkitTextFillColor: !lastRefNo ? '#d32f2f' : 'rgba(0, 0, 0, 0.38)',
+                                        }
+                                    }}
+                                    InputProps={{
+                                        endAdornment: isLoadingRefNo ? (
+                                            <InputAdornment position="end">
+                                                <span style={{ fontSize: '12px', color: '#757575' }}>Loading...</span>
+                                            </InputAdornment>
+                                        ) : null,
                                     }}
                                 />
                             </Grid2>
@@ -458,10 +648,7 @@ export default function CreateDispatchToRestaurant({ onBack }) {
                                 </Typography>
                                 <DatePicker
                                     selected={startDate}
-                                    onChange={(date) => {
-                                        setStartDate(date);
-                                        handleGetLastRefNo(date);
-                                    }}
+                                    onChange={handleDateChange}
                                     dateFormat="MM/dd/yyyy"
                                     placeholderText="MM/DD/YYYY"
                                     customInput={<CustomInput />}
@@ -469,12 +656,12 @@ export default function CreateDispatchToRestaurant({ onBack }) {
                             </Grid2>
                             <Grid2 item size={{ xs: 12, md: 6 }}>
                                 <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
-                                    Camissary Kitchen
+                                    Commissary Kitchen
                                 </Typography>
                                 <Box
                                     component="select"
                                     value={saveKitchen}
-                                    onChange={(e) => setSaveKitchen(e.target.value)}
+                                    onChange={handleKitchenChange}
                                     sx={{
                                         mt: '8px',
                                         width: '100%',
@@ -489,7 +676,7 @@ export default function CreateDispatchToRestaurant({ onBack }) {
                                         },
                                     }}
                                 >
-                                    <option value="">Select a Camissary Kitchen</option>
+                                    <option value="">Select a Commissary Kitchen</option>
                                     {kitchens.map((kitchen) => (
                                         <option key={kitchen.kitchen_code} value={kitchen.kitchen_code}>
                                             {kitchen.kitchen_name}
@@ -543,7 +730,7 @@ export default function CreateDispatchToRestaurant({ onBack }) {
                                     value={searchTerm}
                                     onChange={handleSearchChange}
                                     onKeyDown={handleSearchChange}
-                                    placeholder="Search"
+                                    placeholder="Search by name or code"
                                     sx={{
                                         '& .MuiInputBase-root': {
                                             height: '30px',
@@ -586,12 +773,20 @@ export default function CreateDispatchToRestaurant({ onBack }) {
                                                     '&:hover': {
                                                         backgroundColor: '#f5f5f5'
                                                     },
-                                                    borderBottom: '1px solid #eee'
+                                                    borderBottom: '1px solid #eee',
+                                                    display: 'flex',
+                                                    alignItems: 'center'
                                                 }}
                                             >
-                                                <Typography sx={{ fontSize: '14px', fontWeight: '600' }}>
-                                                    {product.product_name}
-                                                </Typography>
+                                                {renderProductImage(product)}
+                                                <Box>
+                                                    <Typography sx={{ fontSize: '14px', fontWeight: '600' }}>
+                                                        {product.product_name}
+                                                    </Typography>
+                                                    <Typography sx={{ fontSize: '12px', color: '#666' }}>
+                                                        {product.product_code}
+                                                    </Typography>
+                                                </Box>
                                             </Box>
                                         ))}
                                     </Box>
@@ -631,115 +826,143 @@ export default function CreateDispatchToRestaurant({ onBack }) {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {products.map((product, index) => {
-                                        const productCode = product.product_code;
-                                        const currentUnit = units[productCode] || product.productUnit1.unit_code;
-                                        const currentQuantity = quantities[productCode] || 1;
-                                        const currentUnitPrice = unitPrices[productCode] ??
-                                            (currentUnit === product.productUnit1.unit_code
-                                                ? product.bulk_unit_price
-                                                : product.retail_unit_price);
-                                        const currentTotal = (currentQuantity * currentUnitPrice).toFixed(2);
+                                    {products.length === 0 ? (
+                                        <tr>
+                                            <td colSpan="11" style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
+                                                No products added yet. Search and select products above.
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        products.map((product, index) => {
+                                            const productCode = product.product_code;
+                                            const currentUnit = units[productCode] || product.productUnit1?.unit_code;
+                                            const currentQuantity = quantities[productCode] || 1;
+                                            const currentUnitPrice = unitPrices[productCode] !== undefined ?
+                                                unitPrices[productCode] :
+                                                (currentUnit === product.productUnit1?.unit_code
+                                                    ? product.bulk_unit_price
+                                                    : product.retail_unit_price);
+                                            const currentTotal = (currentQuantity * currentUnitPrice).toFixed(2);
+                                            const currentTaxStatus = taxStatus[productCode] || product.tax1 || "N";
 
-                                        return (
-                                            <tr key={productCode}>
-                                                <td style={{ padding: '4px', fontSize: '12px', fontWeight: '800' }}>{index + 1}</td>
-                                                <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>{productCode}</td>
-                                                <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>{product.product_name}</td>
-                                                <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
-                                                    <DatePicker
-                                                        selected={expiryDates[productCode] || null}
-                                                        onChange={(date) => handleExpiryDateChange(productCode, date)}
-                                                        dateFormat="MM/dd/yyyy"
-                                                        placeholderText="Select exp date"
-                                                        customInput={
-                                                            <input
-                                                                style={{
-                                                                    width: '110px',
-                                                                    padding: '4px',
-                                                                    borderRadius: '4px',
-                                                                    textAlign: 'center'
-                                                                }}
-                                                            />
-                                                        }
-                                                    />
-                                                </td>
-                                                <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
-                                                    <input
-                                                        type="text"
-                                                        value={temperatures[productCode] || ""}
-                                                        onChange={(e) => handleTemperatureChange(productCode, e.target.value)}
-                                                        placeholder="Temperature"
-                                                        style={{
-                                                            width: '80px',
-                                                            padding: '4px',
-                                                            textAlign: 'center',
-                                                            borderRadius: '4px'
-                                                        }}
-                                                    />
-                                                </td>
-                                                <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
-                                                    <input
-                                                        type="number"
-                                                        min="1"
-                                                        value={currentQuantity}
-                                                        onChange={(e) => handleQuantityChange(productCode, parseInt(e.target.value))}
-                                                        style={{
-                                                            width: '50px',
-                                                            textAlign: 'center',
-                                                            fontWeight: '600',
-                                                            padding: '4px'
-                                                        }}
-                                                    />
-                                                </td>
-                                                <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
-                                                    <select
-                                                        value={currentUnit}
-                                                        onChange={(e) => handleUnitChange(productCode, e.target.value)}
-                                                        style={{
-                                                            padding: '4px',
-                                                            borderRadius: '4px'
-                                                        }}
-                                                    >
-                                                        <option value={product.productUnit1.unit_code}>{product.productUnit1.unit_name}</option>
-                                                        <option value={product.productUnit2.unit_code}>{product.productUnit2.unit_name}</option>
-                                                    </select>
-                                                </td>
-                                                <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
-                                                    <input
-                                                        type="number"
-                                                        min="0"
-                                                        step="0.01"
-                                                        value={currentUnitPrice}
-                                                        onChange={(e) => handleUnitPriceChange(productCode, e.target.value)}
-                                                        style={{
-                                                            width: '80px',
-                                                            textAlign: 'right',
-                                                            fontWeight: '600',
-                                                            padding: '4px'
-                                                        }}
-                                                    />
-                                                </td>
-                                                <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
-                                                    {product.tax1 === 'Y' ? 'Yes' : 'No'}
-                                                </td>
-                                                <td style={{
-                                                    padding: '4px', fontSize: '12px', textAlign: 'center',
-                                                    fontWeight: '800'
-                                                }}>
-                                                    {currentTotal}
-                                                </td>
-                                                <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
-                                                    <IconButton
-                                                        onClick={() => handleDeleteProduct(productCode)}
-                                                        size="small"
-                                                    >
-                                                        <CancelIcon />
-                                                    </IconButton>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
+                                            return (
+                                                <tr key={productCode}>
+                                                    <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>{index + 1}</td>
+                                                    <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>{productCode}</td>
+                                                    <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>{product.product_name}</td>
+                                                    <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                                                        <DatePicker
+                                                            selected={expiryDates[productCode] || null}
+                                                            onChange={(date) => handleExpiryDateChange(productCode, date)}
+                                                            dateFormat="MM/dd/yyyy"
+                                                            placeholderText="Select exp date"
+                                                            customInput={
+                                                                <input
+                                                                    style={{
+                                                                        width: '110px',
+                                                                        padding: '4px',
+                                                                        borderRadius: '4px',
+                                                                        textAlign: 'center'
+                                                                    }}
+                                                                />
+                                                            }
+                                                        />
+                                                    </td>
+                                                    <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                                                        <input
+                                                            type="text"
+                                                            value={temperatures[productCode] || ""}
+                                                            onChange={(e) => handleTemperatureChange(productCode, e.target.value)}
+                                                            placeholder="Temperature"
+                                                            style={{
+                                                                width: '80px',
+                                                                padding: '4px',
+                                                                textAlign: 'center',
+                                                                borderRadius: '4px'
+                                                            }}
+                                                        />
+                                                    </td>
+                                                    <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                                                        <input
+                                                            type="number"
+                                                            min="1"
+                                                            value={currentQuantity}
+                                                            onChange={(e) => handleQuantityInputChange(productCode, e.target.value)}
+                                                            style={{
+                                                                width: '50px',
+                                                                textAlign: 'center',
+                                                                fontWeight: '600',
+                                                                padding: '4px'
+                                                            }}
+                                                        />
+                                                    </td>
+                                                    <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                                                        <select
+                                                            value={currentUnit}
+                                                            onChange={(e) => handleUnitChange(productCode, e.target.value)}
+                                                            style={{
+                                                                padding: '4px',
+                                                                borderRadius: '4px'
+                                                            }}
+                                                        >
+                                                            {product.productUnit1?.unit_code && (
+                                                                <option value={product.productUnit1.unit_code}>
+                                                                    {product.productUnit1.unit_name}
+                                                                </option>
+                                                            )}
+                                                            {product.productUnit2?.unit_code && (
+                                                                <option value={product.productUnit2.unit_code}>
+                                                                    {product.productUnit2.unit_name}
+                                                                </option>
+                                                            )}
+                                                        </select>
+                                                    </td>
+                                                    <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            step="0.01"
+                                                            value={currentUnitPrice}
+                                                            onChange={(e) => handleUnitPriceChange(productCode, e.target.value)}
+                                                            style={{
+                                                                width: '80px',
+                                                                textAlign: 'right',
+                                                                fontWeight: '600',
+                                                                padding: '4px'
+                                                            }}
+                                                        />
+                                                    </td>
+                                                    <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                                                        <select
+                                                            value={currentTaxStatus}
+                                                            onChange={(e) => handleTaxStatusChange(productCode, e.target.value)}
+                                                            style={{
+                                                                padding: '4px',
+                                                                borderRadius: '4px'
+                                                            }}
+                                                        >
+                                                            <option value="Y">Yes</option>
+                                                            <option value="N">No</option>
+                                                        </select>
+                                                    </td>
+                                                    <td style={{
+                                                        padding: '4px', fontSize: '12px', textAlign: 'center',
+                                                        fontWeight: '800'
+                                                    }}>
+                                                        {currentTotal}
+                                                    </td>
+                                                    <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                                                        <IconButton
+                                                            onClick={() => handleDeleteProduct(productCode)}
+                                                            size="small"
+                                                        >
+                                                            <CancelIcon />
+                                                        </IconButton>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })
+                                    )}
                                 </tbody>
                             </table>
                         </Box>
@@ -756,12 +979,14 @@ export default function CreateDispatchToRestaurant({ onBack }) {
                                     <Box>
                                         <Typography sx={{ color: '#FFFFFF' }}>Taxable</Typography>
                                         <Typography sx={{ color: '#FFFFFF' }}>Non-Taxable</Typography>
+                                        <Typography sx={{ color: '#FFFFFF' }}>Tax (7%)</Typography>
                                         <Typography sx={{ color: '#FFFFFF' }}>Total</Typography>
                                     </Box>
                                     <Box>
                                         <Typography sx={{ color: '#FFFFFF' }}>${taxableAmount.toFixed(2)}</Typography>
                                         <Typography sx={{ color: '#FFFFFF' }}>${nonTaxableAmount.toFixed(2)}</Typography>
-                                        <Typography sx={{ color: '#FFFFFF' }}>${total.toFixed(2)}</Typography>
+                                        <Typography sx={{ color: '#FFFFFF' }}>${(taxableAmount * TAX_RATE).toFixed(2)}</Typography>
+                                        <Typography sx={{ color: '#FFFFFF' }}>${totalDue.toFixed(2)}</Typography>
                                     </Box>
                                 </Box>
                             </Box>
@@ -771,13 +996,14 @@ export default function CreateDispatchToRestaurant({ onBack }) {
                                     Total due
                                 </Typography>
                                 <Typography sx={{ color: '#FFFFFF', ml: 'auto', fontSize: '30px', fontWeight: '600' }}>
-                                    ${total.toFixed(2)}
+                                    ${totalDue.toFixed(2)}
                                 </Typography>
                             </Box>
                         </Box>
 
                         <Button
                             onClick={handleSave}
+                            disabled={!lastRefNo || products.length === 0}
                             sx={{
                                 width: '100%',
                                 height: '48px',
@@ -786,6 +1012,10 @@ export default function CreateDispatchToRestaurant({ onBack }) {
                                 color: '#FFFFFF',
                                 '&:hover': {
                                     bgcolor: '#5C3D1F'
+                                },
+                                '&.Mui-disabled': {
+                                    bgcolor: '#d3d3d3',
+                                    color: '#808080'
                                 }
                             }}>
                             Save

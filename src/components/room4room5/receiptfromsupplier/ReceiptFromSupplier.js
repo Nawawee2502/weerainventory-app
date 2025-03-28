@@ -1,22 +1,34 @@
-import { Box, Button, InputAdornment, TextField, Typography, tableCellClasses, TableContainer, Table, TableHead, TableRow, TableCell, TableBody, Paper, Checkbox, Switch } from '@mui/material';
+import {
+    Box, Button, InputAdornment, TextField, Typography, tableCellClasses,
+    TableContainer, Table, TableHead, TableRow, TableCell, TableBody, Paper,
+    Checkbox, IconButton, Switch
+} from '@mui/material';
 import React, { useState, useEffect } from 'react';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
 import SearchIcon from '@mui/icons-material/Search';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import PrintIcon from '@mui/icons-material/Print';
 import { styled } from '@mui/material/styles';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
 import Stack from '@mui/material/Stack';
 import Pagination from '@mui/material/Pagination';
-import { useDispatch } from "react-redux";
-import { Kt_rfsAlljoindt, countKt_rfs, deleteKt_rfs, Kt_rfsByRefno } from '../../../api/kitchen/kt_rfsApi';
-import { kitchenAll } from '../../../api/kitchenApi';
-import { searchProductName } from '../../../api/productrecordApi';
-import { searchSupplier } from '../../../api/supplierApi';
+import { useDispatch } from 'react-redux';
+import { Kt_rfsAlljoindt, deleteKt_rfs } from '../../../api/kitchen/kt_rfsApi';
 import { supplierAll } from '../../../api/supplierApi';
+import { searchProductName } from '../../../api/productrecordApi';
 import Swal from 'sweetalert2';
 
-// Custom DatePicker Input Component
+const formatDate = (date) => {
+    if (!date) return "";
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${month}/${day}/${year}`;
+};
+
 const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
     <Box sx={{ position: 'relative', display: 'inline-block', width: '100%' }}>
         <TextField
@@ -39,13 +51,8 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
             InputProps={{
                 readOnly: true,
                 endAdornment: (
-                    <InputAdornment position="start">
-                        <CalendarTodayIcon
-                            sx={{
-                                color: '#754C27',
-                                cursor: 'pointer'
-                            }}
-                        />
+                    <InputAdornment position="end">
+                        <CalendarTodayIcon sx={{ color: '#754C27', cursor: 'pointer' }} />
                     </InputAdornment>
                 ),
             }}
@@ -72,120 +79,124 @@ const StyledTableRow = styled(TableRow)(({ theme }) => ({
     },
 }));
 
-export default function ReceiptFromSupplier({ onCreate }) {
-    const [searchTerm, setSearchTerm] = useState("");
+export default function ReceiptFromSupplier({ onCreate, onEdit }) {
+    const dispatch = useDispatch();
+    const [searchSupplier, setSearchSupplier] = useState("");
+    const [searchProduct, setSearchProduct] = useState("");
+    const [searchResults, setSearchResults] = useState([]);
+    const [showDropdown, setShowDropdown] = useState(false);
+    const [suppliers, setSuppliers] = useState([]);
     const [filterDate, setFilterDate] = useState(new Date());
     const [selected, setSelected] = useState([]);
     const [page, setPage] = useState(1);
     const [count, setCount] = useState(1);
-    const [kitchens, setKitchens] = useState([]);
-    const [loading, setLoading] = useState(false);
-    const [orders, setOrders] = useState([]);
-    const [kitchenSearchTerm, setKitchenSearchTerm] = useState('');
-    const dispatch = useDispatch();
-    const [productSearchTerm, setProductSearchTerm] = useState('');
-    const [productResults, setProductResults] = useState([]);
-    const [showProductDropdown, setShowProductDropdown] = useState(false);
-    const [supplierSearchTerm, setSupplierSearchTerm] = useState('');
-    const [supplierResults, setSupplierResults] = useState([]);
-    const [showSupplierDropdown, setShowSupplierDropdown] = useState(false);
-    const [suppliers, setSuppliers] = useState([]);
+    const [data, setData] = useState([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const [excludePrice, setExcludePrice] = useState(false);
+    const limit = 5;
 
+    // Load suppliers on component mount
     useEffect(() => {
         const loadSuppliers = async () => {
             try {
-                const response = await dispatch(supplierAll({
-                    offset: 0,
-                    limit: 100
-                })).unwrap();
-                setSuppliers(response.data);
-            } catch (err) {
-                console.error('Error loading suppliers:', err);
+                const response = await dispatch(supplierAll({ offset: 0, limit: 100 })).unwrap();
+                if (response.result && response.data) {
+                    setSuppliers(response.data);
+                }
+            } catch (error) {
+                console.error('Error loading suppliers:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Failed to load suppliers'
+                });
             }
         };
         loadSuppliers();
     }, [dispatch]);
 
     useEffect(() => {
-        const loadKitchens = async () => {
-            try {
-                const response = await dispatch(kitchenAll({
-                    offset: 0,
-                    limit: 100
-                })).unwrap();
-                setKitchens(response.data);
-            } catch (err) {
-                console.error('Error loading kitchens:', err);
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error',
-                    text: err.message || 'Failed to load kitchens',
-                    confirmButtonColor: '#754C27'
-                });
-            }
-        };
-        loadKitchens();
         fetchData();
-    }, [dispatch]);
-
-    useEffect(() => {
-        fetchData();
-    }, [page, searchTerm, filterDate, kitchenSearchTerm, supplierSearchTerm]);
+    }, [page, searchSupplier, searchProduct, filterDate]);
 
     const fetchData = async () => {
         try {
-            setLoading(true);
-            const formattedDate = formatDate(filterDate);
+            setIsLoading(true);
+            const offset = (page - 1) * limit;
 
-            const [ordersRes, countRes] = await Promise.all([
-                dispatch(Kt_rfsAlljoindt({
-                    offset: (page - 1) * 10,
-                    limit: 10,
-                    rdate: formattedDate,
-                    kitchen_code: kitchenSearchTerm,
-                    product_code: productSearchTerm,
-                    supplier_code: supplierSearchTerm
-                })).unwrap(),
-                dispatch(countKt_rfs({
-                    rdate: formattedDate
-                })).unwrap()
-            ]);
+            const formattedDate = filterDate.toISOString().slice(0, 10).replace(/-/g, '');
 
-            if (ordersRes.result) {
-                setOrders(ordersRes.data);
-                setCount(Math.ceil(countRes.data / 10));
+            const response = await dispatch(Kt_rfsAlljoindt({
+                offset,
+                limit,
+                rdate1: formattedDate,
+                rdate2: formattedDate,
+                supplier_code: searchSupplier,
+                product_code: searchProduct
+            })).unwrap();
+
+            if (response.result && response.data) {
+                setData(response.data);
+                const totalPages = Math.ceil(response.data.length / limit);
+                setCount(totalPages || 1);
             }
-        } catch (err) {
-            console.error('Error fetching data:', err);
+        } catch (error) {
+            console.error('Error fetching data:', error);
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
-                text: err.message || 'Failed to fetch data'
+                text: 'Failed to fetch data'
             });
         } finally {
-            setLoading(false);
+            setIsLoading(false);
         }
     };
 
-    const formatDate = (date) => {
-        if (!date) return "";
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        const year = date.getFullYear();
-        return `${month}/${day}/${year}`;
+    const handleDelete = async (refno) => {
+        try {
+            await Swal.fire({
+                title: 'Are you sure?',
+                text: "You won't be able to revert this!",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Yes, delete it!'
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    await dispatch(deleteKt_rfs({ refno })).unwrap();
+                    Swal.fire(
+                        'Deleted!',
+                        'Record has been deleted.',
+                        'success'
+                    );
+                    fetchData();
+                }
+            });
+        } catch (error) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Failed to delete record'
+            });
+        }
     };
 
-    const handleKitchenChange = (e) => {
-        setKitchenSearchTerm(e.target.value);
-        setPage(1);
+    const handleSelectAll = (event) => {
+        if (event.target.checked) {
+            const newSelected = data.map(row => row.refno);
+            setSelected(newSelected);
+        } else {
+            setSelected([]);
+        }
     };
 
-    const handleCheckboxChange = (event, kitchen_code) => {
-        const selectedIndex = selected.indexOf(kitchen_code);
+    const handleSelectOne = (event, refno) => {
+        const selectedIndex = selected.indexOf(refno);
         let newSelected = [];
 
         if (selectedIndex === -1) {
-            newSelected = newSelected.concat(selected, kitchen_code);
+            newSelected = newSelected.concat(selected, refno);
         } else if (selectedIndex === 0) {
             newSelected = newSelected.concat(selected.slice(1));
         } else if (selectedIndex === selected.length - 1) {
@@ -193,42 +204,93 @@ export default function ReceiptFromSupplier({ onCreate }) {
         } else if (selectedIndex > 0) {
             newSelected = newSelected.concat(
                 selected.slice(0, selectedIndex),
-                selected.slice(selectedIndex + 1)
+                selected.slice(selectedIndex + 1),
             );
         }
 
         setSelected(newSelected);
     };
 
+    const handleDeleteSelected = async () => {
+        try {
+            await Swal.fire({
+                title: 'Are you sure?',
+                text: "You won't be able to revert this!",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Yes, delete them!'
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    await Promise.all(
+                        selected.map(refno => dispatch(deleteKt_rfs({ refno })).unwrap())
+                    );
+                    Swal.fire(
+                        'Deleted!',
+                        'Records have been deleted.',
+                        'success'
+                    );
+                    setSelected([]);
+                    fetchData();
+                }
+            });
+        } catch (error) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Failed to delete records'
+            });
+        }
+    };
 
-    const handleSearchChange = (e) => {
-        setSearchTerm(e.target.value);
+    const handleSearchSupplierChange = (e) => {
+        setSearchSupplier(e.target.value);
+        setPage(1);
+    };
+
+    const handleSearchProductChange = async (e) => {
+        const value = e.target.value;
+        setSearchProduct(value);
+        setPage(1);
+
+        if (value.length > 0) {
+            try {
+                const response = await dispatch(searchProductName({ product_name: value })).unwrap();
+                if (response.data) {
+                    setSearchResults(response.data);
+                    setShowDropdown(true);
+                }
+            } catch (error) {
+                console.error('Error searching products:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Failed to search products'
+                });
+            }
+        } else {
+            setSearchResults([]);
+            setShowDropdown(false);
+        }
     };
 
     const handleDateChange = (date) => {
         setFilterDate(date);
+        setPage(1);
     };
 
     const clearFilters = () => {
+        setSearchSupplier("");
+        setSearchProduct("");
         setFilterDate(new Date());
-        setSearchTerm("");
-    };
-
-    const handleDeleteSelected = () => {
-        // Add delete functionality here
-    };
-
-    const handlePageChange = (event, value) => {
-        setPage(value);
+        setPage(1);
     };
 
     return (
         <Box sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <Button
-                onClick={() => {
-                    console.log("Create button clicked");
-                    onCreate();
-                }}
+                onClick={onCreate}
                 sx={{
                     width: '209px',
                     height: '70px',
@@ -250,34 +312,19 @@ export default function ReceiptFromSupplier({ onCreate }) {
                 </Typography>
             </Button>
 
-            <Box
-                sx={{
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    mt: '48px',
-                    width: '90%',
-                    gap: '20px'
-                }}
-            >
-
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mt: '48px', width: '90%', gap: '20px' }}>
+                {/* Supplier Dropdown */}
                 <Box
                     component="select"
-                    value={supplierSearchTerm}
-                    onChange={(e) => {
-                        setSupplierSearchTerm(e.target.value);
-                        setPage(1);
-                    }}
+                    value={searchSupplier}
+                    onChange={handleSearchSupplierChange}
                     sx={{
                         height: '38px',
                         width: '25%',
                         borderRadius: '4px',
+                        border: '1px solid rgba(0, 0, 0, 0.23)',
                         padding: '0 14px',
-                        fontSize: '16px',
-                        '&:focus': {
-                            outline: 'none',
-                            borderColor: '#754C27',
-                        }
+                        backgroundColor: '#fff'
                     }}
                 >
                     <option value="">All Suppliers</option>
@@ -288,42 +335,39 @@ export default function ReceiptFromSupplier({ onCreate }) {
                     ))}
                 </Box>
 
-
-
-                <Box
-                    component="select"
-                    value={kitchenSearchTerm}
-                    onChange={handleKitchenChange}
-                    sx={{
-                        mt: '0px',
-                        width: '40%',
-                        height: '40px',
-                        borderRadius: '4px',
-                        padding: '0 14px',
-                        fontSize: '16px',
-                        '&:focus': {
-                            outline: 'none',
-                            borderColor: '#754C27',
-                        }
-                    }}
-                >
-                    <option value="">All Kitchens</option>
-                    {kitchens.map((kitchen) => (
-                        <option key={kitchen.kitchen_code} value={kitchen.kitchen_code}>
-                            {kitchen.kitchen_name}
-                        </option>
-                    ))}
-                </Box>
-                <Box sx={{ width: '230px' }}>
+                <Box sx={{ width: '200px' }}>
                     <DatePicker
                         selected={filterDate}
                         onChange={handleDateChange}
-                        dateFormat="dd/MM/yyyy"
-                        placeholderText="Filter by date"
+                        dateFormat="MM/dd/yyyy"
+                        placeholderText="MM/DD/YYYY"
                         customInput={<CustomInput />}
                         popperClassName="custom-popper"
                     />
                 </Box>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Switch
+                            checked={excludePrice}
+                            onChange={(e) => setExcludePrice(e.target.checked)}
+                        />
+                        <Typography sx={{ fontWeight: '500', color: '#7E84A3' }}>
+                            Exclude price in file
+                        </Typography>
+                    </Box>
+                </Box>
+            </Box>
+
+            <Box sx={{ width: '100%', mt: '24px' }}>
+                <Button
+                    variant="contained"
+                    color="error"
+                    onClick={handleDeleteSelected}
+                    sx={{ mt: 2 }}
+                    disabled={selected.length === 0}
+                >
+                    Delete Selected ({selected.length})
+                </Button>
             </Box>
 
             <TableContainer component={Paper} sx={{ width: '100%', mt: '24px' }}>
@@ -332,14 +376,16 @@ export default function ReceiptFromSupplier({ onCreate }) {
                         <TableRow>
                             <StyledTableCell sx={{ width: '1%', textAlign: 'center' }}>
                                 <Checkbox
+                                    checked={data.length > 0 && selected.length === data.length}
+                                    onChange={handleSelectAll}
                                 />
                             </StyledTableCell>
                             <StyledTableCell width='1%'>No.</StyledTableCell>
                             <StyledTableCell align="center">Ref.no</StyledTableCell>
                             <StyledTableCell align="center">Date</StyledTableCell>
-                            <StyledTableCell align="center">Kitchen</StyledTableCell>
                             <StyledTableCell align="center">Supplier</StyledTableCell>
-                            <StyledTableCell align="center">Amount</StyledTableCell>
+                            <StyledTableCell align="center">Kitchen</StyledTableCell>
+                            <StyledTableCell align="center">Total Amount</StyledTableCell>
                             <StyledTableCell align="center">Username</StyledTableCell>
                             <StyledTableCell width='1%' align="center"></StyledTableCell>
                             <StyledTableCell width='1%' align="center"></StyledTableCell>
@@ -347,50 +393,71 @@ export default function ReceiptFromSupplier({ onCreate }) {
                         </TableRow>
                     </TableHead>
                     <TableBody>
-                        {loading ? (
+                        {isLoading ? (
                             <TableRow>
-                                <TableCell colSpan={10} align="center">Loading...</TableCell>
+                                <TableCell colSpan={11} align="center">Loading...</TableCell>
                             </TableRow>
-                        ) : orders.length === 0 ? (
+                        ) : data.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={10} align="center">No data found</TableCell>
+                                <TableCell colSpan={11} align="center">No data found</TableCell>
                             </TableRow>
                         ) : (
-                            orders.map((row, index) => (
-                                <StyledTableRow key={row.refno}>
-                                    <TableCell padding="checkbox">
-                                        <Checkbox
-                                            checked={selected.includes(row.kitchen_code)}
-                                            onChange={(e) => handleCheckboxChange(e, row.kitchen_code)}
-                                        />
-                                    </TableCell>
-                                    <TableCell>{((page - 1) * 10) + index + 1}</TableCell>
-                                    <TableCell align="center">{row.refno}</TableCell>
-                                    <TableCell align="center">{row.rdate}</TableCell>
-                                    <TableCell align="center">{row.tbl_kitchen?.kitchen_name}</TableCell>
-                                    <TableCell align="center">{row.tbl_supplier?.supplier_name}</TableCell>
-                                    <TableCell align="center">
-                                        {row.total?.toLocaleString('en-US', {
-                                            minimumFractionDigits: 2,
-                                            maximumFractionDigits: 2
-                                        })}
-                                    </TableCell>
-                                    <TableCell align="center">{row.user_code}</TableCell>
-                                    <TableCell align="center">
-                                        {/* Add your edit/delete buttons here */}
-                                    </TableCell>
-                                </StyledTableRow>
-                            ))
+                            data.map((row, index) => {
+                                const isSelected = selected.indexOf(row.refno) !== -1;
+                                return (
+                                    <StyledTableRow key={row.refno}>
+                                        <StyledTableCell padding="checkbox">
+                                            <Checkbox
+                                                checked={isSelected}
+                                                onChange={(event) => handleSelectOne(event, row.refno)}
+                                            />
+                                        </StyledTableCell>
+                                        <StyledTableCell component="th" scope="row">
+                                            {((page - 1) * limit) + index + 1}
+                                        </StyledTableCell>
+                                        <StyledTableCell align="center">{row.refno}</StyledTableCell>
+                                        <StyledTableCell align="center">{row.rdate}</StyledTableCell>
+                                        <StyledTableCell align="center">{row.tbl_supplier?.supplier_name}</StyledTableCell>
+                                        <StyledTableCell align="center">{row.tbl_kitchen?.kitchen_name}</StyledTableCell>
+                                        <StyledTableCell align="center">{row.total?.toFixed(2)}</StyledTableCell>
+                                        <StyledTableCell align="center">{row.user?.username}</StyledTableCell>
+                                        <StyledTableCell align="center">
+                                            <IconButton
+                                                onClick={() => onEdit(row.refno)}
+                                                sx={{ border: '1px solid #AD7A2C', borderRadius: '7px' }}
+                                            >
+                                                <EditIcon sx={{ color: '#AD7A2C' }} />
+                                            </IconButton>
+                                        </StyledTableCell>
+                                        <StyledTableCell align="center">
+                                            <IconButton
+                                                onClick={() => handleDelete(row.refno)}
+                                                sx={{ border: '1px solid #F62626', borderRadius: '7px' }}
+                                            >
+                                                <DeleteIcon sx={{ color: '#F62626' }} />
+                                            </IconButton>
+                                        </StyledTableCell>
+                                        <StyledTableCell align="center">
+                                            <IconButton
+                                                onClick={() => {/* Add print functionality later */ }}
+                                                sx={{ border: '1px solid #5686E1', borderRadius: '7px' }}
+                                            >
+                                                <PrintIcon sx={{ color: '#5686E1' }} />
+                                            </IconButton>
+                                        </StyledTableCell>
+                                    </StyledTableRow>
+                                );
+                            })
                         )}
                     </TableBody>
                 </Table>
             </TableContainer>
 
-            <Stack spacing={2} sx={{ mt: 2, display: 'flex', alignItems: 'center' }}>
+            <Stack spacing={2} sx={{ mt: 2, mb: 4, display: 'flex', alignItems: 'center' }}>
                 <Pagination
                     count={count}
                     page={page}
-                    onChange={handlePageChange}
+                    onChange={(event, value) => setPage(value)}
                     shape="rounded"
                     showFirstButton
                     showLastButton

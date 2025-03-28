@@ -31,7 +31,7 @@ import 'react-datepicker/dist/react-datepicker.css';
 import { useDispatch } from "react-redux";
 import { searchProductName } from '../../../../api/productrecordApi';
 import { kitchenAll } from '../../../../api/kitchenApi';
-import { kt_powAlljoindt, updateKt_pow } from '../../../../api/kitchen/kt_powApi';
+import { getKtPowByRefno, updateKt_pow } from '../../../../api/kitchen/kt_powApi';
 import { Kt_powdtAlljoindt } from '../../../../api/kitchen/kt_powdtApi';
 import Swal from 'sweetalert2';
 import { format } from 'date-fns';
@@ -68,6 +68,7 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
 export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
     const dispatch = useDispatch();
     const [isLoading, setIsLoading] = useState(true);
+    const [debugInfo, setDebugInfo] = useState({});
     const [startDate, setStartDate] = useState(new Date());
     const [kitchens, setKitchens] = useState([]);
     const [saveKitchen, setSaveKitchen] = useState('');
@@ -97,42 +98,97 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
         const fetchData = async () => {
             try {
                 setIsLoading(true);
+                console.log('Fetching data for refno:', editRefno);
 
-                // Load kitchens and products
-                const kitchenPromise = dispatch(kitchenAll({ offset: 0, limit: 100 })).unwrap();
-                const productPromise = dispatch(searchProductName({ product_name: '' })).unwrap();
-
-                const [kitchenRes, productRes] = await Promise.all([
-                    kitchenPromise, productPromise
+                // Load kitchens and products in parallel
+                const [kitchenResponse, productsResponse] = await Promise.all([
+                    dispatch(kitchenAll({ offset: 0, limit: 100 })).unwrap(),
+                    dispatch(searchProductName({ product_name: '' })).unwrap()
                 ]);
 
-                if (kitchenRes?.data) setKitchens(kitchenRes.data);
-                if (productRes?.data) {
-                    setAllProducts(productRes.data);
-                    setFilteredProducts(productRes.data);
+                if (kitchenResponse?.data) {
+                    setKitchens(kitchenResponse.data);
+                    console.log('Loaded kitchens:', kitchenResponse.data.length);
                 }
 
+                if (productsResponse?.data) {
+                    setAllProducts(productsResponse.data);
+                    setFilteredProducts(productsResponse.data);
+                    console.log('Loaded all products:', productsResponse.data.length);
+                }
+
+                // Fetch purchase order data using getKtPowByRefno
                 if (editRefno) {
-                    const orderResponse = await dispatch(kt_powAlljoindt({ refno: editRefno })).unwrap();
+                    console.log('Looking up with getKtPowByRefno for ref:', editRefno);
+                    // Pass refno directly as a string, not as an object
+                    const refno = typeof editRefno === 'object' ? editRefno.refno : editRefno;
+                    const orderResponse = await dispatch(getKtPowByRefno(refno)).unwrap();
+                    console.log('Response from getKtPowByRefno:', orderResponse);
 
-                    if (orderResponse?.data?.[0]) {
-                        const headerData = orderResponse.data[0];
-                        setSaveKitchen(headerData.kitchen_code || '');
-                        setStartDate(headerData.rdate ? new Date(headerData.rdate) : new Date());
-                        setTotal(parseFloat(headerData.total) || 0);
+                    if (orderResponse.result && orderResponse.data) {
+                        // Set header info
+                        const orderData = orderResponse.data;
+                        console.log('Header data found:', orderData);
+                        setDebugInfo({ headerData: orderData });
 
-                        const detailResponse = await dispatch(Kt_powdtAlljoindt({ refno: editRefno })).unwrap();
-                        if (detailResponse?.data) {
-                            await processDetailData(detailResponse.data);
+                        // Parse and set date
+                        if (orderData.trdate && orderData.trdate.length === 8) {
+                            const year = parseInt(orderData.trdate.substring(0, 4));
+                            const month = parseInt(orderData.trdate.substring(4, 6)) - 1;
+                            const day = parseInt(orderData.trdate.substring(6, 8));
+                            setStartDate(new Date(year, month, day));
+                        } else if (orderData.rdate) {
+                            // Try to parse the date safely
+                            try {
+                                const dateParts = orderData.rdate.split('/');
+                                if (dateParts.length === 3) {
+                                    const month = parseInt(dateParts[0]) - 1;
+                                    const day = parseInt(dateParts[1]);
+                                    const year = parseInt(dateParts[2]);
+                                    setStartDate(new Date(year, month, day));
+                                } else {
+                                    setStartDate(new Date());
+                                }
+                            } catch (e) {
+                                console.error("Date parsing error:", e);
+                                setStartDate(new Date());
+                            }
                         }
+
+                        setSaveKitchen(orderData.kitchen_code || '');
+                        setTotal(parseFloat(orderData.total) || 0);
+
+                        // Fetch detail data
+                        const refno = typeof editRefno === 'object' ? editRefno.refno : editRefno;
+                        const detailResponse = await dispatch(Kt_powdtAlljoindt({ refno: refno })).unwrap();
+                        console.log('Detail response from Kt_powdtAlljoindt:', detailResponse);
+
+                        if (detailResponse.result && detailResponse.data && detailResponse.data.length > 0) {
+                            const detailData = detailResponse.data;
+                            console.log('Detail data found:', detailData.length, 'items');
+                            setDebugInfo(prev => ({ ...prev, detailData }));
+
+                            // Process detail data
+                            await processDetailData(detailData);
+                        } else {
+                            console.warn('No detail data found in Kt_powdtAlljoindt');
+                            setDebugInfo(prev => ({ ...prev, detailError: 'No detail data found in Kt_powdtAlljoindt' }));
+                        }
+                    } else {
+                        console.warn('No data found in getKtPowByRefno');
+                        setDebugInfo(prev => ({ ...prev, error: 'No data found in getKtPowByRefno' }));
                     }
+                } else {
+                    console.warn('No editRefno provided');
+                    setDebugInfo(prev => ({ ...prev, error: 'No editRefno provided' }));
                 }
             } catch (error) {
                 console.error('Error loading data:', error);
+                setDebugInfo(prev => ({ ...prev, error: error.toString() }));
                 Swal.fire({
                     icon: 'error',
                     title: 'Error',
-                    text: 'Failed to load purchase order data'
+                    text: 'Failed to load purchase order data: ' + error.message
                 });
             } finally {
                 setIsLoading(false);
@@ -144,21 +200,22 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
 
     const processDetailData = async (detailData) => {
         try {
+            console.log('Processing detail data:', detailData);
+
+            // Extract product codes to mark as selected
             const productCodes = detailData.map(item => item.product_code);
             setSelectedProducts(productCodes);
 
-            const products = detailData.map(item => ({
+            // Set products array from detail data
+            const productsData = detailData.map(item => ({
+                ...item.tbl_product,
                 product_code: item.product_code,
-                product_name: item.tbl_product?.product_name,
-                productUnit1: item.tbl_product?.productUnit1,
-                productUnit2: item.tbl_product?.productUnit2,
-                bulk_unit_price: item.tbl_product?.bulk_unit_price,
-                retail_unit_price: item.tbl_product?.retail_unit_price,
-                product_img: item.tbl_product?.product_img
+                product_name: item.tbl_product?.product_name || item.product_name
             }));
 
-            setProducts(products);
+            setProducts(productsData);
 
+            // Prepare state objects
             const newQuantities = {};
             const newUnits = {};
             const newUnitPrices = {};
@@ -172,54 +229,38 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
                 newTotals[productCode] = parseFloat(item.amt) || 0;
             });
 
+            // Update all states
             setQuantities(newQuantities);
             setUnits(newUnits);
             setUnitPrices(newUnitPrices);
             setTotals(newTotals);
 
+            // Calculate and set total
             const totalSum = Object.values(newTotals).reduce((sum, value) => sum + value, 0);
             setTotal(totalSum);
 
+            console.log('Processed Data:', {
+                products: productsData,
+                quantities: newQuantities,
+                units: newUnits,
+                unitPrices: newUnitPrices,
+                totals: newTotals
+            });
+
         } catch (error) {
             console.error('Error processing detail data:', error);
+            setDebugInfo(prev => ({ ...prev, processError: error.toString() }));
             throw error;
         }
     };
 
-    // Handle filtering and pagination
-    useEffect(() => {
-        if (allProducts.length === 0) return;
-
-        const filtered = allProducts.filter(product =>
-            product.product_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            product.product_code?.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-
-        const sortedProducts = [...filtered].sort((a, b) => {
-            const aSelected = selectedProducts.includes(a.product_code);
-            const bSelected = selectedProducts.includes(b.product_code);
-            if (aSelected && !bSelected) return -1;
-            if (!aSelected && bSelected) return 1;
-            return 0;
-        });
-
-        setFilteredProducts(sortedProducts);
-        setTotalPages(Math.ceil(sortedProducts.length / productsPerPage));
-        setPage(1);
-    }, [searchTerm, allProducts, selectedProducts, productsPerPage]);
-
-    useEffect(() => {
-        const startIndex = (page - 1) * productsPerPage;
-        const endIndex = startIndex + productsPerPage;
-        setPaginatedProducts(filteredProducts.slice(startIndex, endIndex));
-    }, [filteredProducts, page, productsPerPage]);
-
+    // Function to render product image with error handling
     const renderProductImage = (product, size = 'small') => {
         if (!product?.product_img) {
             return (
                 <Box sx={{
-                    width: size === 'small' ? '100%' : (size === 'table' ? '100%' : 200),
-                    height: size === 'small' ? 100 : (size === 'table' ? '100%' : 200),
+                    width: size === 'small' ? '100%' : (size === 'table' ? '50px' : 200),
+                    height: size === 'small' ? 100 : (size === 'table' ? '50px' : 200),
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -235,8 +276,8 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
         if (imageErrors[product.product_code]) {
             return (
                 <Box sx={{
-                    width: size === 'small' ? '100%' : (size === 'table' ? '100%' : 200),
-                    height: size === 'small' ? 100 : (size === 'table' ? '100%' : 200),
+                    width: size === 'small' ? '100%' : (size === 'table' ? '50px' : 200),
+                    height: size === 'small' ? 100 : (size === 'table' ? '50px' : 200),
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -255,7 +296,7 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
         return (
             <Box sx={{
                 width: '100%',
-                height: size === 'small' ? 100 : (size === 'table' ? '100%' : 200),
+                height: size === 'small' ? 100 : (size === 'table' ? '50px' : 200),
                 position: 'relative',
                 overflow: 'hidden'
             }}>
@@ -279,6 +320,37 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
             </Box>
         );
     };
+
+    // Handle filtering and pagination
+    useEffect(() => {
+        if (allProducts.length === 0) return;
+
+        const filtered = allProducts.filter(product =>
+            product.product_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            product.product_code?.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+
+        // Sort products: selected ones first
+        const sortedProducts = [...filtered].sort((a, b) => {
+            const aSelected = selectedProducts.includes(a.product_code);
+            const bSelected = selectedProducts.includes(b.product_code);
+
+            if (aSelected && !bSelected) return -1;
+            if (!aSelected && bSelected) return 1;
+            return 0;
+        });
+
+        setFilteredProducts(sortedProducts);
+        setTotalPages(Math.ceil(sortedProducts.length / productsPerPage));
+        setPage(1); // Reset to first page when filter changes
+    }, [searchTerm, allProducts, selectedProducts, productsPerPage]);
+
+    // Update paginated products when page or filtered products change
+    useEffect(() => {
+        const startIndex = (page - 1) * productsPerPage;
+        const endIndex = startIndex + productsPerPage;
+        setPaginatedProducts(filteredProducts.slice(startIndex, endIndex));
+    }, [filteredProducts, page, productsPerPage]);
 
     const toggleSelectProduct = (product) => {
         const isSelected = selectedProducts.includes(product.product_code);
@@ -324,9 +396,10 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
 
         // Update total
         const price = unitPrices[productCode] || 0;
+        const oldTotal = totals[productCode] || 0;
         const newTotal = newQty * price;
         setTotals(prev => ({ ...prev, [productCode]: newTotal }));
-        setTotal(Object.values({ ...totals, [productCode]: newTotal }).reduce((a, b) => a + b, 0));
+        setTotal(prev => prev - oldTotal + newTotal);
     };
 
     const handleUnitChange = (productCode, newUnit) => {
@@ -339,13 +412,46 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
             ? (product.bulk_unit_price || 0)
             : (product.retail_unit_price || 0);
 
+        const oldPrice = unitPrices[productCode] || 0;
+        const qty = quantities[productCode] || 0;
+        const oldTotal = totals[productCode] || 0;
+
         setUnitPrices(prev => ({ ...prev, [productCode]: newPrice }));
 
         // Update total
-        const qty = quantities[productCode] || 0;
         const newTotal = qty * newPrice;
         setTotals(prev => ({ ...prev, [productCode]: newTotal }));
-        setTotal(Object.values({ ...totals, [productCode]: newTotal }).reduce((a, b) => a + b, 0));
+        setTotal(prev => prev - oldTotal + newTotal);
+    };
+
+    // Update price manually
+    const handlePriceChange = (productCode, newPrice) => {
+        if (newPrice < 0) return;
+
+        const oldPrice = unitPrices[productCode] || 0;
+        const qty = quantities[productCode] || 0;
+        const oldTotal = totals[productCode] || 0;
+
+        setUnitPrices(prev => ({ ...prev, [productCode]: newPrice }));
+
+        // Update total
+        const newTotal = qty * newPrice;
+        setTotals(prev => ({ ...prev, [productCode]: newTotal }));
+        setTotal(prev => prev - oldTotal + newTotal);
+    };
+
+    // Calculate tax based on products with tax1='Y'
+    const calculateTax = () => {
+        let taxableAmount = 0;
+        products.forEach(product => {
+            if (product.tax1 === 'Y') {
+                const productCode = product.product_code;
+                const quantity = quantities[productCode] || 0;
+                const unitPrice = unitPrices[productCode] || 0;
+                taxableAmount += quantity * unitPrice;
+            }
+        });
+        return taxableAmount * 0.07;
     };
 
     const handleUpdate = async () => {
@@ -368,6 +474,20 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
                 }
             });
 
+            // Calculate tax amounts
+            let taxableAmount = 0;
+            let nontaxableAmount = 0;
+
+            products.forEach(product => {
+                const productCode = product.product_code;
+                const amount = totals[productCode] || 0;
+                if (product.tax1 === 'Y') {
+                    taxableAmount += amount;
+                } else {
+                    nontaxableAmount += amount;
+                }
+            });
+
             const headerData = {
                 refno: editRefno,
                 rdate: format(startDate, 'MM/dd/yyyy'),
@@ -375,7 +495,10 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
                 trdate: format(startDate, 'yyyyMMdd'),
                 monthh: format(startDate, 'MM'),
                 myear: startDate.getFullYear(),
+                taxable: taxableAmount.toString(),
+                nontaxable: nontaxableAmount.toString(),
                 user_code: userData2.user_code || '',
+                total: total.toString()
             };
 
             const productArrayData = products.map(product => ({
@@ -387,17 +510,19 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
                 amt: (totals[product.product_code] || 0).toString()
             }));
 
-            const orderData = {
-                headerData,
-                productArrayData,
+            const payload = {
+                headerData: headerData,
+                productArrayData: productArrayData,
                 footerData: {
                     total: total.toString()
                 }
             };
 
+            console.log("Sending update with payload:", payload);
+
             try {
-                const response = await dispatch(updateKt_pow(orderData)).unwrap();
-                console.log('API update response:', response);
+                const response = await dispatch(updateKt_pow(payload)).unwrap();
+                console.log("Update response:", response);
 
                 await Swal.fire({
                     icon: 'success',
@@ -428,20 +553,6 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
         }
     };
 
-    // Calculate tax based on products with tax1='Y'
-    const calculateTax = () => {
-        let taxableAmount = 0;
-        products.forEach(product => {
-            if (product.tax1 === 'Y') {
-                const productCode = product.product_code;
-                const quantity = quantities[productCode] || 0;
-                const unitPrice = unitPrices[productCode] || 0;
-                taxableAmount += quantity * unitPrice;
-            }
-        });
-        return taxableAmount * 0.07;
-    };
-
     const resetForm = () => {
         Swal.fire({
             title: 'Reset Changes',
@@ -458,8 +569,40 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
         });
     };
 
-    const handlePageChange = (event, value) => {
-        setPage(value);
+    // Debug button to show current state
+    const showDebugInfo = () => {
+        console.log('Debug Info:', {
+            editRefno,
+            headerInfo: debugInfo.headerData,
+            detailInfo: debugInfo.detailData,
+            products,
+            selectedProducts,
+            quantities,
+            units,
+            unitPrices,
+            error: debugInfo.error
+        });
+
+        Swal.fire({
+            title: 'Debug Information',
+            html: `
+                <div style="text-align: left; max-height: 400px; overflow-y: auto;">
+                    <p><strong>Edit RefNo:</strong> ${editRefno}</p>
+                    <p><strong>Selected Products:</strong> ${selectedProducts.length}</p>
+                    <p><strong>Products Array:</strong> ${products.length}</p>
+                    <p><strong>Kitchen:</strong> ${saveKitchen}</p>
+                    <p><strong>Total:</strong> ${total}</p>
+                    <p><strong>Error:</strong> ${debugInfo.error || debugInfo.detailError || debugInfo.processError || 'None'}</p>
+                    <hr/>
+                    <p><strong>Header Data:</strong></p>
+                    <pre style="font-size: 11px;">${JSON.stringify(debugInfo.headerData, null, 2)}</pre>
+                    <hr/>
+                    <p><strong>Detail Data (${debugInfo.detailData?.length || 0} items):</strong></p>
+                    <pre style="font-size: 11px;">${JSON.stringify(debugInfo.detailData?.slice(0, 3), null, 2)}</pre>
+                </div>
+            `,
+            width: 800,
+        });
     };
 
     if (isLoading) {
@@ -487,6 +630,14 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
                 >
                     Back to Purchase Order
                 </Button>
+                <Button
+                    variant="outlined"
+                    color="warning"
+                    onClick={showDebugInfo}
+                    size="small"
+                >
+                    Debug Info
+                </Button>
             </Box>
 
             {/* Status Information */}
@@ -494,6 +645,7 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
                 <Typography variant="subtitle2">
                     <strong>Status:</strong> Editing ref #{editRefno} |
                     Products selected: {selectedProducts.length} |
+                    Products loaded: {products.length} |
                     Kitchen: {saveKitchen || 'None'} |
                     Total: ${total.toFixed(2)}
                 </Typography>
@@ -527,47 +679,51 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
 
                     {/* Products Grid */}
                     <Box display="flex" flexWrap="wrap" gap={2} justifyContent="center" sx={{ flex: 1, overflow: 'auto' }}>
-                        {paginatedProducts.map((product) => (
-                            <Card
-                                key={product.product_code}
-                                sx={{
-                                    width: 160,
-                                    borderRadius: '16px',
-                                    boxShadow: 3,
-                                    position: 'relative',
-                                    cursor: 'pointer',
-                                    border: selectedProducts.includes(product.product_code) ? '2px solid #4caf50' : 'none',
-                                    bgcolor: selectedProducts.includes(product.product_code) ? '#f0fff0' : 'white'
-                                }}
-                                onClick={() => toggleSelectProduct(product)}
-                            >
-                                {renderProductImage(product, 'small')}
-                                <CardContent>
-                                    <Typography variant="body1" fontWeight={500} noWrap>
-                                        {product.product_name}
-                                    </Typography>
-                                    <Typography variant="body2" color="text.secondary" noWrap>
-                                        {product.product_code}
-                                    </Typography>
-                                    <Typography variant="h6" color="#D9A05B" mt={1}>
-                                        ${(product.bulk_unit_price || 0).toFixed(2)}
-                                    </Typography>
-                                </CardContent>
-                                {selectedProducts.includes(product.product_code) && (
-                                    <CheckCircleIcon
-                                        sx={{
-                                            color: '#4caf50',
-                                            position: 'absolute',
-                                            top: 8,
-                                            right: 8,
-                                            fontSize: 30,
-                                            backgroundColor: 'rgba(255,255,255,0.7)',
-                                            borderRadius: '50%'
-                                        }}
-                                    />
-                                )}
-                            </Card>
-                        ))}
+                        {paginatedProducts.map((product) => {
+                            if (!product || !product.product_code) return null;
+
+                            return (
+                                <Card
+                                    key={product.product_code}
+                                    sx={{
+                                        width: 160,
+                                        borderRadius: '16px',
+                                        boxShadow: 3,
+                                        position: 'relative',
+                                        cursor: 'pointer',
+                                        border: selectedProducts.includes(product.product_code) ? '2px solid #4caf50' : 'none',
+                                        bgcolor: selectedProducts.includes(product.product_code) ? '#f0fff0' : 'white'
+                                    }}
+                                    onClick={() => toggleSelectProduct(product)}
+                                >
+                                    {renderProductImage(product, 'small')}
+                                    <CardContent>
+                                        <Typography variant="body1" fontWeight={500} noWrap>
+                                            {product.product_name}
+                                        </Typography>
+                                        <Typography variant="body2" color="text.secondary" noWrap>
+                                            {product.product_code}
+                                        </Typography>
+                                        <Typography variant="h6" color="#D9A05B" mt={1}>
+                                            ${(product.bulk_unit_price || 0).toFixed(2)}
+                                        </Typography>
+                                    </CardContent>
+                                    {selectedProducts.includes(product.product_code) && (
+                                        <CheckCircleIcon
+                                            sx={{
+                                                color: '#4caf50',
+                                                position: 'absolute',
+                                                top: 8,
+                                                right: 8,
+                                                fontSize: 30,
+                                                backgroundColor: 'rgba(255,255,255,0.7)',
+                                                borderRadius: '50%'
+                                            }}
+                                        />
+                                    )}
+                                </Card>
+                            );
+                        })}
                     </Box>
 
                     {/* Pagination */}
@@ -575,7 +731,7 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
                         <Pagination
                             count={totalPages}
                             page={page}
-                            onChange={handlePageChange}
+                            onChange={(event, value) => setPage(value)}
                             color="primary"
                             showFirstButton
                             showLastButton
@@ -677,11 +833,17 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
                                 </TableRow>
                             </TableHead>
                             <TableBody>
-                                {products.length === 0 ? (
+                                {isLoading ? (
+                                    <TableRow>
+                                        <TableCell colSpan={9} align="center">
+                                            <CircularProgress />
+                                        </TableCell>
+                                    </TableRow>
+                                ) : (!products || products.length === 0) ? (
                                     <TableRow>
                                         <TableCell colSpan={9} align="center">
                                             <Typography color="text.secondary">
-                                                No products selected or failed to load product data
+                                                No products selected. Please select products from the left panel.
                                             </Typography>
                                         </TableCell>
                                     </TableRow>
@@ -728,6 +890,7 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
                                                     value={units[product.product_code] || ''}
                                                     onChange={(e) => handleUnitChange(product.product_code, e.target.value)}
                                                     size="small"
+                                                    sx={{ minWidth: 80 }}
                                                 >
                                                     {product.productUnit1 && (
                                                         <MenuItem value={product.productUnit1.unit_code}>
@@ -741,12 +904,24 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
                                                     )}
                                                 </Select>
                                             </TableCell>
-                                            <TableCell>${(unitPrices[product.product_code] || 0).toFixed(2)}</TableCell>
-                                            <TableCell>${(totals[product.product_code] || 0).toFixed(2)}</TableCell>
+                                            <TableCell>
+                                                <TextField
+                                                    type="number"
+                                                    value={unitPrices[product.product_code] || 0}
+                                                    onChange={(e) => handlePriceChange(product.product_code, Number(e.target.value))}
+                                                    size="small"
+                                                    inputProps={{ min: 0, step: 0.01 }}
+                                                    sx={{ width: 80 }}
+                                                />
+                                            </TableCell>
+                                            <TableCell>
+                                                ${totals[product.product_code]?.toFixed(2) || '0.00'}
+                                            </TableCell>
                                             <TableCell>
                                                 <IconButton
                                                     onClick={() => toggleSelectProduct(product)}
                                                     color="error"
+                                                    size="small"
                                                 >
                                                     <DeleteIcon />
                                                 </IconButton>
@@ -772,11 +947,11 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
                         </Box>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                             <Typography>Tax (7%)</Typography>
-                            <Typography>${(total * 0.07).toFixed(2)}</Typography>
+                            <Typography>${calculateTax().toFixed(2)}</Typography>
                         </Box>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
                             <Typography variant="h5">Total</Typography>
-                            <Typography variant="h5">${(total * 1.07).toFixed(2)}</Typography>
+                            <Typography variant="h5">${(total + calculateTax()).toFixed(2)}</Typography>
                         </Box>
                     </Box>
 

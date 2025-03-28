@@ -139,3 +139,15 @@ export const searchBr_powRunno = createAsyncThunk(
         }
     }
 );
+
+export const getPowByRefno = createAsyncThunk(
+    "br_pow/getByRefno",
+    async (refno, { dispatch }) => {
+        try {
+            const res = await axios.post(BASE_URL + "/api/getPowByRefno", { refno });
+            return res.data;
+        } catch (error) {
+            throw error;
+        }
+    }
+);

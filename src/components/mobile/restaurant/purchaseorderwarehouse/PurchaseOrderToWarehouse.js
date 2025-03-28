@@ -315,28 +315,6 @@ export default function PurchaseOrderToWarehouse({ onCreate, onEdit }) {
             </Button>
 
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mt: '48px', width: '90%', gap: '20px' }}>
-                {/* Supplier Dropdown */}
-                <Box
-                    component="select"
-                    value={searchSupplier}
-                    onChange={(e) => setSearchSupplier(e.target.value)}
-                    sx={{
-                        height: '38px',
-                        width: '20%',
-                        borderRadius: '4px',
-                        border: '1px solid rgba(0, 0, 0, 0.23)',
-                        padding: '0 14px',
-                        backgroundColor: '#fff'
-                    }}
-                >
-                    <option value="">All Suppliers</option>
-                    {suppliers.map((supplier) => (
-                        <option key={supplier.supplier_code} value={supplier.supplier_code}>
-                            {supplier.supplier_name}
-                        </option>
-                    ))}
-                </Box>
-
                 {/* Branch Dropdown */}
                 <Box
                     component="select"
@@ -407,7 +385,6 @@ export default function PurchaseOrderToWarehouse({ onCreate, onEdit }) {
                             <StyledTableCell>No.</StyledTableCell>
                             <StyledTableCell align="center">Ref.no</StyledTableCell>
                             <StyledTableCell align="center">Date</StyledTableCell>
-                            <StyledTableCell align="center">Supplier</StyledTableCell>
                             <StyledTableCell align="center">Restaurant</StyledTableCell>
                             <StyledTableCell align="center">Total Amount</StyledTableCell>
                             <StyledTableCell align="center">Username</StyledTableCell>
@@ -441,7 +418,6 @@ export default function PurchaseOrderToWarehouse({ onCreate, onEdit }) {
                                         <TableCell>{((page - 1) * limit) + index + 1}</TableCell>
                                         <TableCell align="center">{row.refno}</TableCell>
                                         <TableCell align="center">{row.rdate}</TableCell>
-                                        <TableCell align="center">{row.tbl_supplier?.supplier_name}</TableCell>
                                         <TableCell align="center">{row.tbl_branch?.branch_name}</TableCell> {/* Added Branch name */}
                                         <TableCell align="center">${Number(row.total).toFixed(2)}</TableCell>
                                         <TableCell align="center">{row.user?.username}</TableCell>

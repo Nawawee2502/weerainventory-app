@@ -349,28 +349,6 @@ export default function GoodsReceiptWarehouse({ onCreate, onEdit }) {
                     ))}
                 </Box>
 
-                {/* Supplier Dropdown */}
-                <Box
-                    component="select"
-                    value={searchSupplier}
-                    onChange={handleSearchSupplierChange}
-                    sx={{
-                        height: '38px',
-                        width: '25%',
-                        borderRadius: '4px',
-                        border: '1px solid rgba(0, 0, 0, 0.23)',
-                        padding: '0 14px',
-                        backgroundColor: '#fff'
-                    }}
-                >
-                    <option value="">All Suppliers</option>
-                    {suppliers.map((supplier) => (
-                        <option key={supplier.supplier_code} value={supplier.supplier_code}>
-                            {supplier.supplier_name}
-                        </option>
-                    ))}
-                </Box>
-
                 <Box sx={{ width: '200px' }}>
                     <DatePicker
                         selected={filterDate}
@@ -420,7 +398,6 @@ export default function GoodsReceiptWarehouse({ onCreate, onEdit }) {
                             <StyledTableCell align="center">Ref.no</StyledTableCell>
                             <StyledTableCell align="center">Date</StyledTableCell>
                             <StyledTableCell align="center">Restaurant</StyledTableCell>
-                            <StyledTableCell align="center">Supplier</StyledTableCell>
                             <StyledTableCell align="center">Total Amount</StyledTableCell>
                             <StyledTableCell align="center">Username</StyledTableCell>
                             <StyledTableCell width='1%' align="center"></StyledTableCell>
@@ -457,7 +434,6 @@ export default function GoodsReceiptWarehouse({ onCreate, onEdit }) {
                                         <StyledTableCell align="center">{row.refno}</StyledTableCell>
                                         <StyledTableCell align="center">{row.rdate}</StyledTableCell>
                                         <StyledTableCell align="center">{branchName}</StyledTableCell>
-                                        <StyledTableCell align="center">{supplierName}</StyledTableCell>
                                         <StyledTableCell align="center">{row.total.toFixed(2)}</StyledTableCell>
                                         <StyledTableCell align="center">{row.user?.username || '-'}</StyledTableCell>
                                         <StyledTableCell align="center">

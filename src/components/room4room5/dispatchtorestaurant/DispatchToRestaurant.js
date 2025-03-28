@@ -1,61 +1,35 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
-import InputAdornment from '@mui/material/InputAdornment';
-import TextField from '@mui/material/TextField';
-import Typography from '@mui/material/Typography';
-import TableContainer from '@mui/material/TableContainer';
-import Table from '@mui/material/Table';
-import TableHead from '@mui/material/TableHead';
-import TableRow from '@mui/material/TableRow';
-import TableCell from '@mui/material/TableCell';
-import TableBody from '@mui/material/TableBody';
-import Paper from '@mui/material/Paper';
-import Checkbox from '@mui/material/Checkbox';
-import IconButton from '@mui/material/IconButton';
-import Stack from '@mui/material/Stack';
-import Pagination from '@mui/material/Pagination';
-import { tableCellClasses } from '@mui/material/TableCell';
-import DatePicker from 'react-datepicker';
-import "react-datepicker/dist/react-datepicker.css";
-import Swal from 'sweetalert2';
-import { useDispatch } from "react-redux";
-import { styled } from '@mui/material/styles';
-import debounce from 'lodash/debounce';
-
-// Icons
+import {
+    Box, Button, InputAdornment, TextField, Typography, tableCellClasses,
+    TableContainer, Table, TableHead, TableRow, TableCell, TableBody, Paper,
+    Checkbox, IconButton, Switch
+} from '@mui/material';
+import React, { useState, useEffect } from 'react';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
 import SearchIcon from '@mui/icons-material/Search';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import PrintIcon from '@mui/icons-material/Print';
+import { styled } from '@mui/material/styles';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
-
-// API
+import DatePicker from 'react-datepicker';
+import "react-datepicker/dist/react-datepicker.css";
+import Stack from '@mui/material/Stack';
+import Pagination from '@mui/material/Pagination';
+import { useDispatch } from 'react-redux';
 import { kt_dpbAlljoindt, deleteKt_dpb } from '../../../api/kitchen/kt_dpbApi';
 import { kitchenAll } from '../../../api/kitchenApi';
 import { branchAll } from '../../../api/branchApi';
+import { searchProductName } from '../../../api/productrecordApi';
+import Swal from 'sweetalert2';
 
-const StyledTableCell = styled(TableCell)(({ theme }) => ({
-    [`&.${tableCellClasses.head}`]: {
-        backgroundColor: '#754C27',
-        color: theme.palette.common.white,
-    },
-    [`&.${tableCellClasses.body}`]: {
-        fontSize: '16px',
-    },
-}));
+const formatDate = (date) => {
+    if (!date) return "";
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${month}/${day}/${year}`;
+};
 
-const StyledTableRow = styled(TableRow)(({ theme }) => ({
-    '&:nth-of-type(odd)': {
-        backgroundColor: theme.palette.action.hover,
-    },
-    '&:last-child td, &:last-child th': {
-        border: 0,
-    },
-}));
-
-// Custom DatePicker Input
 const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
     <Box sx={{ position: 'relative', display: 'inline-block', width: '100%' }}>
         <TextField
@@ -87,53 +61,79 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
     </Box>
 ));
 
+const StyledTableCell = styled(TableCell)(({ theme }) => ({
+    [`&.${tableCellClasses.head}`]: {
+        backgroundColor: '#754C27',
+        color: theme.palette.common.white,
+    },
+    [`&.${tableCellClasses.body}`]: {
+        fontSize: '16px',
+    },
+}));
+
+const StyledTableRow = styled(TableRow)(({ theme }) => ({
+    '&:nth-of-type(odd)': {
+        backgroundColor: theme.palette.action.hover,
+    },
+    '&:last-child td, &:last-child th': {
+        border: 0,
+    },
+}));
+
 export default function DispatchToRestaurant({ onCreate, onEdit }) {
     const dispatch = useDispatch();
-    const [searchTerm, setSearchTerm] = useState("");
+    const [searchKitchen, setSearchKitchen] = useState("");
+    const [searchBranch, setSearchBranch] = useState("");
+    const [searchProduct, setSearchProduct] = useState("");
+    const [searchResults, setSearchResults] = useState([]);
+    const [showDropdown, setShowDropdown] = useState(false);
+    const [kitchens, setKitchens] = useState([]);
+    const [branches, setBranches] = useState([]);
     const [filterDate, setFilterDate] = useState(new Date());
     const [selected, setSelected] = useState([]);
     const [page, setPage] = useState(1);
     const [count, setCount] = useState(1);
     const [data, setData] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
-    const [selectedKitchen, setSelectedKitchen] = useState("");
-    const [selectedBranch, setSelectedBranch] = useState("");
-    const [kitchens, setKitchens] = useState([]);
-    const [branches, setBranches] = useState([]);
+    const [excludePrice, setExcludePrice] = useState(false);
     const limit = 5;
 
-    const fetchOptions = useCallback(async () => {
-        try {
-            const [kitchenResponse, branchResponse] = await Promise.all([
-                dispatch(kitchenAll({ offset: 0, limit: 999999 })).unwrap(),
-                dispatch(branchAll({ offset: 0, limit: 999999 })).unwrap()
-            ]);
+    // Load kitchens and branches on component mount
+    useEffect(() => {
+        const loadData = async () => {
+            try {
+                // Fetch kitchens
+                const kitchenResponse = await dispatch(kitchenAll({ offset: 0, limit: 100 })).unwrap();
+                if (kitchenResponse.result && kitchenResponse.data) {
+                    setKitchens(kitchenResponse.data);
+                }
 
-            if (kitchenResponse.result && kitchenResponse.data) {
-                setKitchens(kitchenResponse.data);
+                // Fetch branches
+                const branchResponse = await dispatch(branchAll({ offset: 0, limit: 100 })).unwrap();
+                if (branchResponse.result && branchResponse.data) {
+                    setBranches(branchResponse.data);
+                }
+            } catch (error) {
+                console.error('Error loading data:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Failed to load initial data'
+                });
             }
-            if (branchResponse.result && branchResponse.data) {
-                setBranches(branchResponse.data);
-            }
-        } catch (error) {
-            console.error('Error fetching options:', error);
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: 'Failed to fetch kitchens and restaurants'
-            });
-        }
+        };
+        loadData();
     }, [dispatch]);
 
-    // เรียกใช้ใน useEffect
     useEffect(() => {
-        fetchOptions();
-    }, [fetchOptions]);
+        fetchData();
+    }, [page, searchKitchen, searchBranch, searchProduct, filterDate]);
 
-    const fetchData = useCallback(async () => {
+    const fetchData = async () => {
         try {
             setIsLoading(true);
             const offset = (page - 1) * limit;
+
             const formattedDate = filterDate.toISOString().slice(0, 10).replace(/-/g, '');
 
             const response = await dispatch(kt_dpbAlljoindt({
@@ -141,14 +141,20 @@ export default function DispatchToRestaurant({ onCreate, onEdit }) {
                 limit,
                 rdate1: formattedDate,
                 rdate2: formattedDate,
-                kitchen_code: selectedKitchen,  // ส่ง kitchen_code
-                branch_code: selectedBranch,
-                product_code: searchTerm
+                kitchen_code: searchKitchen,
+                branch_code: searchBranch,
+                product_code: searchProduct
             })).unwrap();
 
             if (response.result && response.data) {
+                // Add debugging - show the structure of the first item
+                if (response.data.length > 0) {
+                    console.log("First row details:", response.data[0]);
+                }
+
                 setData(response.data);
-                setCount(Math.ceil(response.data.length / limit) || 1);
+                const totalPages = Math.ceil(response.data.length / limit);
+                setCount(totalPages || 1);
             }
         } catch (error) {
             console.error('Error fetching data:', error);
@@ -160,15 +166,11 @@ export default function DispatchToRestaurant({ onCreate, onEdit }) {
         } finally {
             setIsLoading(false);
         }
-    }, [dispatch, page, searchTerm, filterDate, selectedKitchen, selectedBranch, limit]);
-
-    useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+    };
 
     const handleDelete = async (refno) => {
         try {
-            const result = await Swal.fire({
+            await Swal.fire({
                 title: 'Are you sure?',
                 text: "You won't be able to revert this!",
                 icon: 'warning',
@@ -176,13 +178,17 @@ export default function DispatchToRestaurant({ onCreate, onEdit }) {
                 confirmButtonColor: '#3085d6',
                 cancelButtonColor: '#d33',
                 confirmButtonText: 'Yes, delete it!'
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    await dispatch(deleteKt_dpb({ refno })).unwrap();
+                    Swal.fire(
+                        'Deleted!',
+                        'Record has been deleted.',
+                        'success'
+                    );
+                    fetchData();
+                }
             });
-
-            if (result.isConfirmed) {
-                await dispatch(deleteKt_dpb({ refno })).unwrap();
-                await fetchData();
-                Swal.fire('Deleted!', 'Record has been deleted.', 'success');
-            }
         } catch (error) {
             Swal.fire({
                 icon: 'error',
@@ -192,21 +198,38 @@ export default function DispatchToRestaurant({ onCreate, onEdit }) {
         }
     };
 
-    const handleSelectAll = useCallback((event) => {
-        setSelected(event.target.checked ? data.map(row => row.refno) : []);
-    }, [data]);
+    const handleSelectAll = (event) => {
+        if (event.target.checked) {
+            const newSelected = data.map(row => row.refno);
+            setSelected(newSelected);
+        } else {
+            setSelected([]);
+        }
+    };
 
-    const handleSelectOne = useCallback((event, refno) => {
-        setSelected(prev =>
-            prev.includes(refno)
-                ? prev.filter(id => id !== refno)
-                : [...prev, refno]
-        );
-    }, []);
+    const handleSelectOne = (event, refno) => {
+        const selectedIndex = selected.indexOf(refno);
+        let newSelected = [];
+
+        if (selectedIndex === -1) {
+            newSelected = newSelected.concat(selected, refno);
+        } else if (selectedIndex === 0) {
+            newSelected = newSelected.concat(selected.slice(1));
+        } else if (selectedIndex === selected.length - 1) {
+            newSelected = newSelected.concat(selected.slice(0, -1));
+        } else if (selectedIndex > 0) {
+            newSelected = newSelected.concat(
+                selected.slice(0, selectedIndex),
+                selected.slice(selectedIndex + 1),
+            );
+        }
+
+        setSelected(newSelected);
+    };
 
     const handleDeleteSelected = async () => {
         try {
-            const result = await Swal.fire({
+            await Swal.fire({
                 title: 'Are you sure?',
                 text: "You won't be able to revert this!",
                 icon: 'warning',
@@ -214,14 +237,20 @@ export default function DispatchToRestaurant({ onCreate, onEdit }) {
                 confirmButtonColor: '#3085d6',
                 cancelButtonColor: '#d33',
                 confirmButtonText: 'Yes, delete them!'
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    await Promise.all(
+                        selected.map(refno => dispatch(deleteKt_dpb({ refno })).unwrap())
+                    );
+                    Swal.fire(
+                        'Deleted!',
+                        'Records have been deleted.',
+                        'success'
+                    );
+                    setSelected([]);
+                    fetchData();
+                }
             });
-
-            if (result.isConfirmed) {
-                await Promise.all(selected.map(refno => dispatch(deleteKt_dpb({ refno })).unwrap()));
-                Swal.fire('Deleted!', 'Records have been deleted.', 'success');
-                setSelected([]);
-                fetchData();
-            }
         } catch (error) {
             Swal.fire({
                 icon: 'error',
@@ -231,30 +260,59 @@ export default function DispatchToRestaurant({ onCreate, onEdit }) {
         }
     };
 
-    const debouncedSearch = useCallback(
-        debounce((value) => {
-            setSearchTerm(value);
-            setPage(1);
-        }, 500),
-        []
-    );
-
-    const handleSearchChange = (e) => {
-        debouncedSearch(e.target.value);
+    const handleSearchKitchenChange = (e) => {
+        setSearchKitchen(e.target.value);
+        setPage(1);
     };
 
-    const handleDateChange = useCallback((date) => {
+    const handleSearchBranchChange = (e) => {
+        setSearchBranch(e.target.value);
+        setPage(1);
+    };
+
+    const handleSearchProductChange = async (e) => {
+        const value = e.target.value;
+        setSearchProduct(value);
+        setPage(1);
+
+        if (value.length > 0) {
+            try {
+                const response = await dispatch(searchProductName({ product_name: value })).unwrap();
+                if (response.data) {
+                    setSearchResults(response.data);
+                    setShowDropdown(true);
+                }
+            } catch (error) {
+                console.error('Error searching products:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Failed to search products'
+                });
+            }
+        } else {
+            setSearchResults([]);
+            setShowDropdown(false);
+        }
+    };
+
+    const handleDateChange = (date) => {
         setFilterDate(date);
         setPage(1);
-    }, []);
+    };
 
-    const clearFilters = useCallback(() => {
-        setSearchTerm("");
+    const clearFilters = () => {
+        setSearchKitchen("");
+        setSearchBranch("");
+        setSearchProduct("");
         setFilterDate(new Date());
-        setSelectedKitchen("");
-        setSelectedBranch("");
         setPage(1);
-    }, []);
+    };
+
+    // const handleEdit = (refno) => {
+    //     setEditRefno(refno);
+    //     setCurrentView('edit');
+    // };
 
     return (
         <Box sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -281,54 +339,45 @@ export default function DispatchToRestaurant({ onCreate, onEdit }) {
                 </Typography>
             </Button>
 
-            <Box sx={{
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                mt: '48px',
-                width: '100%',
-                gap: '20px'
-            }}>
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mt: '48px', width: '90%', gap: '20px' }}>
+                {/* Kitchen Dropdown */}
                 <Box
                     component="select"
-                    value={selectedKitchen}
-                    onChange={(e) => {
-                        setSelectedKitchen(e.target.value);
-                        setPage(1); // reset page เมื่อเปลี่ยน kitchen
-                    }}
+                    value={searchKitchen}
+                    onChange={handleSearchKitchenChange}
                     sx={{
                         height: '38px',
-                        width: '250px',
+                        width: '20%',
                         borderRadius: '4px',
+                        border: '1px solid rgba(0, 0, 0, 0.23)',
                         padding: '0 14px',
-                        fontSize: '16px'
+                        backgroundColor: '#fff'
                     }}
                 >
-                    <option value="">Select Kitchen</option>
-                    {kitchens.map(kitchen => (
+                    <option value="">All Kitchens</option>
+                    {kitchens.map((kitchen) => (
                         <option key={kitchen.kitchen_code} value={kitchen.kitchen_code}>
                             {kitchen.kitchen_name}
                         </option>
                     ))}
                 </Box>
 
+                {/* Branch Dropdown */}
                 <Box
                     component="select"
-                    value={selectedBranch}
-                    onChange={(e) => {
-                        setSelectedBranch(e.target.value);
-                        setPage(1); // reset page เมื่อเปลี่ยน branch
-                    }}
+                    value={searchBranch}
+                    onChange={handleSearchBranchChange}
                     sx={{
                         height: '38px',
-                        width: '250px',
+                        width: '20%',
                         borderRadius: '4px',
+                        border: '1px solid rgba(0, 0, 0, 0.23)',
                         padding: '0 14px',
-                        fontSize: '16px'
+                        backgroundColor: '#fff'
                     }}
                 >
-                    <option value="">Select Restaurant</option>
-                    {branches.map(branch => (
+                    <option value="">All Restaurant</option>
+                    {branches.map((branch) => (
                         <option key={branch.branch_code} value={branch.branch_code}>
                             {branch.branch_name}
                         </option>
@@ -340,43 +389,38 @@ export default function DispatchToRestaurant({ onCreate, onEdit }) {
                         selected={filterDate}
                         onChange={handleDateChange}
                         dateFormat="MM/dd/yyyy"
+                        placeholderText="MM/DD/YYYY"
                         customInput={<CustomInput />}
+                        popperClassName="custom-popper"
                     />
                 </Box>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Switch
+                            checked={excludePrice}
+                            onChange={(e) => setExcludePrice(e.target.checked)}
+                        />
+                        <Typography sx={{ fontWeight: '500', color: '#7E84A3' }}>
+                            Exclude price in file
+                        </Typography>
+                    </Box>
+                </Box>
+            </Box>
 
+            <Box sx={{ width: '100%', mt: '24px' }}>
                 <Button
-                    onClick={clearFilters}
-                    variant="outlined"
-                    sx={{
-                        height: '38px',
-                        width: '120px',
-                        borderColor: '#754C27',
-                        color: '#754C27',
-                        '&:hover': {
-                            borderColor: '#5d3a1f',
-                            backgroundColor: 'rgba(117, 76, 39, 0.04)'
-                        }
-                    }}
+                    variant="contained"
+                    color="error"
+                    onClick={handleDeleteSelected}
+                    sx={{ mt: 2 }}
+                    disabled={selected.length === 0}
                 >
-                    Clear
+                    Delete Selected ({selected.length})
                 </Button>
             </Box>
 
-            {selected.length > 0 && (
-                <Box sx={{ width: '90%', mt: '24px' }}>
-                    <Button
-                        variant="contained"
-                        color="error"
-                        onClick={handleDeleteSelected}
-                        sx={{ mt: 2 }}
-                    >
-                        Delete Selected ({selected.length})
-                    </Button>
-                </Box>
-            )}
-
             <TableContainer component={Paper} sx={{ width: '100%', mt: '24px' }}>
-                <Table>
+                <Table sx={{}} aria-label="customized table">
                     <TableHead>
                         <TableRow>
                             <StyledTableCell sx={{ width: '1%', textAlign: 'center' }}>
@@ -390,7 +434,7 @@ export default function DispatchToRestaurant({ onCreate, onEdit }) {
                             <StyledTableCell align="center">Date</StyledTableCell>
                             <StyledTableCell align="center">Kitchen</StyledTableCell>
                             <StyledTableCell align="center">Restaurant</StyledTableCell>
-                            <StyledTableCell align="center">Total</StyledTableCell>
+                            <StyledTableCell align="center">Total Amount</StyledTableCell>
                             <StyledTableCell align="center">Username</StyledTableCell>
                             <StyledTableCell width='1%' align="center"></StyledTableCell>
                             <StyledTableCell width='1%' align="center"></StyledTableCell>
@@ -407,45 +451,55 @@ export default function DispatchToRestaurant({ onCreate, onEdit }) {
                                 <TableCell colSpan={11} align="center">No data found</TableCell>
                             </TableRow>
                         ) : (
-                            data.map((row, index) => (
-                                <StyledTableRow key={row.refno}>
-                                    <StyledTableCell padding="checkbox">
-                                        <Checkbox
-                                            checked={selected.includes(row.refno)}
-                                            onChange={(event) => handleSelectOne(event, row.refno)}
-                                        />
-                                    </StyledTableCell>
-                                    <StyledTableCell>{((page - 1) * limit) + index + 1}</StyledTableCell>
-                                    <StyledTableCell align="center">{row.refno}</StyledTableCell>
-                                    <StyledTableCell align="center">{row.rdate}</StyledTableCell>
-                                    <StyledTableCell align="center">{row.tbl_kitchen?.kitchen_name}</StyledTableCell>
-                                    <StyledTableCell align="center">{row.tbl_branch?.branch_name}</StyledTableCell>
-                                    <StyledTableCell align="center">{row.total?.toFixed(2)}</StyledTableCell>
-                                    <StyledTableCell align="center">{row.user?.username}</StyledTableCell>
-                                    <StyledTableCell align="center">
-                                        <IconButton
-                                            onClick={() => onEdit(row.refno)}
-                                            sx={{ border: '1px solid #AD7A2C', borderRadius: '7px' }}>
-                                            <EditIcon sx={{ color: '#AD7A2C' }} />
-                                        </IconButton>
-                                    </StyledTableCell>
-                                    <StyledTableCell align="center">
-                                        <IconButton
-                                            onClick={() => handleDelete(row.refno)}
-                                            sx={{ border: '1px solid #F62626', borderRadius: '7px' }}
-                                        >
-                                            <DeleteIcon sx={{ color: '#F62626' }} />
-                                        </IconButton>
-                                    </StyledTableCell>
-                                    <StyledTableCell align="center">
-                                        <IconButton
-                                            sx={{ border: '1px solid #5686E1', borderRadius: '7px' }}
-                                        >
-                                            <PrintIcon sx={{ color: '#5686E1' }} />
-                                        </IconButton>
-                                    </StyledTableCell>
-                                </StyledTableRow>
-                            ))
+                            data.map((row, index) => {
+                                const isSelected = selected.indexOf(row.refno) !== -1;
+                                return (
+                                    <StyledTableRow key={row.refno}>
+                                        <StyledTableCell padding="checkbox">
+                                            <Checkbox
+                                                checked={isSelected}
+                                                onChange={(event) => handleSelectOne(event, row.refno)}
+                                            />
+                                        </StyledTableCell>
+                                        <StyledTableCell component="th" scope="row">
+                                            {((page - 1) * limit) + index + 1}
+                                        </StyledTableCell>
+                                        <StyledTableCell align="center">{row.refno}</StyledTableCell>
+                                        <StyledTableCell align="center">{row.rdate}</StyledTableCell>
+                                        <StyledTableCell align="center">{row.tbl_kitchen?.kitchen_name}</StyledTableCell>
+                                        <StyledTableCell align="center">{row.tbl_branch?.branch_name}</StyledTableCell>
+                                        <StyledTableCell align="center">{row.total?.toFixed(2)}</StyledTableCell>
+                                        <StyledTableCell align="center">{row.user?.username}</StyledTableCell>
+                                        <StyledTableCell align="center">
+                                            <IconButton
+                                                onClick={() => {
+                                                    console.log("Edit icon clicked for:", row.refno);
+                                                    onEdit(row.refno);
+                                                }}
+                                                sx={{ border: '1px solid #AD7A2C', borderRadius: '7px' }}
+                                            >
+                                                <EditIcon sx={{ color: '#AD7A2C' }} />
+                                            </IconButton>
+                                        </StyledTableCell>
+                                        <StyledTableCell align="center">
+                                            <IconButton
+                                                onClick={() => handleDelete(row.refno)}
+                                                sx={{ border: '1px solid #F62626', borderRadius: '7px' }}
+                                            >
+                                                <DeleteIcon sx={{ color: '#F62626' }} />
+                                            </IconButton>
+                                        </StyledTableCell>
+                                        <StyledTableCell align="center">
+                                            <IconButton
+                                                onClick={() => {/* Add print functionality later */ }}
+                                                sx={{ border: '1px solid #5686E1', borderRadius: '7px' }}
+                                            >
+                                                <PrintIcon sx={{ color: '#5686E1' }} />
+                                            </IconButton>
+                                        </StyledTableCell>
+                                    </StyledTableRow>
+                                );
+                            })
                         )}
                     </TableBody>
                 </Table>

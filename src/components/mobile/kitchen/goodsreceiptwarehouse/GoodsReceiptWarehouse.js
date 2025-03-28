@@ -13,8 +13,7 @@ import Stack from '@mui/material/Stack';
 import Pagination from '@mui/material/Pagination';
 import { useDispatch } from 'react-redux';
 import { Kt_rfwAlljoindt, deleteKt_rfw } from '../../../../api/kitchen/kt_rfwApi';
-import { branchAll } from '../../../../api/branchApi';
-import { supplierAll } from '../../../../api/supplierApi';
+import { kitchenAll } from '../../../../api/kitchenApi';
 import { searchProductName } from '../../../../api/productrecordApi';
 import Swal from 'sweetalert2';
 
@@ -78,13 +77,9 @@ const StyledTableRow = styled(TableRow)(({ theme }) => ({
 
 export default function GoodsReceiptWarehouse({ onCreate, onEdit }) {
   const dispatch = useDispatch();
-  const [searchBranch, setSearchBranch] = useState("");
-  const [searchSupplier, setSearchSupplier] = useState("");
   const [searchProduct, setSearchProduct] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
-  const [branches, setBranches] = useState([]);
-  const [suppliers, setSuppliers] = useState([]);
   const [filterDate, setFilterDate] = useState(new Date());
   const [selected, setSelected] = useState([]);
   const [page, setPage] = useState(1);
@@ -92,22 +87,17 @@ export default function GoodsReceiptWarehouse({ onCreate, onEdit }) {
   const [data, setData] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [excludePrice, setExcludePrice] = useState(false);
+  const [searchKitchen, setSearchKitchen] = useState("");
+  const [kitchens, setKitchens] = useState([]);
   const limit = 5;
 
   // Load branches and suppliers on component mount
   useEffect(() => {
     const loadData = async () => {
       try {
-        // Load branches
-        const branchResponse = await dispatch(branchAll({ offset: 0, limit: 100 })).unwrap();
-        if (branchResponse.result && branchResponse.data) {
-          setBranches(branchResponse.data);
-        }
-
-        // Load suppliers
-        const supplierResponse = await dispatch(supplierAll({ offset: 0, limit: 100 })).unwrap();
-        if (supplierResponse.result && supplierResponse.data) {
-          setSuppliers(supplierResponse.data);
+        const kitchenResponse = await dispatch(kitchenAll({ offset: 0, limit: 100 })).unwrap();
+        if (kitchenResponse.result && kitchenResponse.data) {
+          setKitchens(kitchenResponse.data);
         }
       } catch (error) {
         console.error('Error loading data:', error);
@@ -123,22 +113,24 @@ export default function GoodsReceiptWarehouse({ onCreate, onEdit }) {
 
   useEffect(() => {
     fetchData();
-  }, [page, searchBranch, searchSupplier, searchProduct, filterDate]);
+  }, [page, searchKitchen, searchProduct, filterDate]);
 
   const fetchData = async () => {
     try {
       setIsLoading(true);
       const offset = (page - 1) * limit;
 
-      const formattedDate = filterDate.toISOString().slice(0, 10).replace(/-/g, '');
+      const year = filterDate.getFullYear();
+      const month = String(filterDate.getMonth() + 1).padStart(2, '0');
+      const day = String(filterDate.getDate()).padStart(2, '0');
+      const formattedDate = `${year}${month}${day}`;
 
       const response = await dispatch(Kt_rfwAlljoindt({
         offset,
         limit,
         rdate1: formattedDate,
         rdate2: formattedDate,
-        branch_code: searchBranch,
-        supplier_code: searchSupplier,
+        kitchen_code: searchKitchen,
         product_code: searchProduct
       })).unwrap();
 
@@ -252,51 +244,54 @@ export default function GoodsReceiptWarehouse({ onCreate, onEdit }) {
     }
   };
 
-  const handleSearchBranchChange = (e) => {
-    setSearchBranch(e.target.value);
-    setPage(1);
-  };
+  // const handleSearchBranchChange = (e) => {
+  //   setSearchBranch(e.target.value);
+  //   setPage(1);
+  // };
 
-  const handleSearchSupplierChange = (e) => {
-    setSearchSupplier(e.target.value);
-    setPage(1);
-  };
+  // const handleSearchSupplierChange = (e) => {
+  //   setSearchSupplier(e.target.value);
+  //   setPage(1);
+  // };
 
-  const handleSearchProductChange = async (e) => {
-    const value = e.target.value;
-    setSearchProduct(value);
-    setPage(1);
+  // const handleSearchProductChange = async (e) => {
+  //   const value = e.target.value;
+  //   setSearchProduct(value);
+  //   setPage(1);
 
-    if (value.length > 0) {
-      try {
-        const response = await dispatch(searchProductName({ product_name: value })).unwrap();
-        if (response.data) {
-          setSearchResults(response.data);
-          setShowDropdown(true);
-        }
-      } catch (error) {
-        console.error('Error searching products:', error);
-        Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: 'Failed to search products'
-        });
-      }
-    } else {
-      setSearchResults([]);
-      setShowDropdown(false);
-    }
-  };
+  //   if (value.length > 0) {
+  //     try {
+  //       const response = await dispatch(searchProductName({ product_name: value })).unwrap();
+  //       if (response.data) {
+  //         setSearchResults(response.data);
+  //         setShowDropdown(true);
+  //       }
+  //     } catch (error) {
+  //       console.error('Error searching products:', error);
+  //       Swal.fire({
+  //         icon: 'error',
+  //         title: 'Error',
+  //         text: 'Failed to search products'
+  //       });
+  //     }
+  //   } else {
+  //     setSearchResults([]);
+  //     setShowDropdown(false);
+  //   }
+  // };
 
   const handleDateChange = (date) => {
     setFilterDate(date);
     setPage(1);
   };
 
+  const handleSearchKitchenChange = (e) => {
+    setSearchKitchen(e.target.value);
+    setPage(1);
+  };
+
   const clearFilters = () => {
-    setSearchBranch("");
-    setSearchSupplier("");
-    setSearchProduct("");
+    setSearchKitchen("");
     setFilterDate(new Date());
     setPage(1);
   };
@@ -327,11 +322,10 @@ export default function GoodsReceiptWarehouse({ onCreate, onEdit }) {
       </Button>
 
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mt: '48px', width: '90%', gap: '20px' }}>
-        {/* Branch Dropdown */}
         <Box
           component="select"
-          value={searchBranch}
-          onChange={handleSearchBranchChange}
+          value={searchKitchen}
+          onChange={handleSearchKitchenChange}
           sx={{
             height: '38px',
             width: '25%',
@@ -341,90 +335,12 @@ export default function GoodsReceiptWarehouse({ onCreate, onEdit }) {
             backgroundColor: '#fff'
           }}
         >
-          <option value="">All Restaurant</option>
-          {branches.map((branch) => (
-            <option key={branch.branch_code} value={branch.branch_code}>
-              {branch.branch_name}
+          <option value="">All Kitchens</option>
+          {kitchens.map((kitchen) => (
+            <option key={kitchen.kitchen_code} value={kitchen.kitchen_code}>
+              {kitchen.kitchen_name}
             </option>
           ))}
-        </Box>
-
-        {/* Supplier Dropdown */}
-        <Box
-          component="select"
-          value={searchSupplier}
-          onChange={handleSearchSupplierChange}
-          sx={{
-            height: '38px',
-            width: '25%',
-            borderRadius: '4px',
-            border: '1px solid rgba(0, 0, 0, 0.23)',
-            padding: '0 14px',
-            backgroundColor: '#fff'
-          }}
-        >
-          <option value="">All Suppliers</option>
-          {suppliers.map((supplier) => (
-            <option key={supplier.supplier_code} value={supplier.supplier_code}>
-              {supplier.supplier_name}
-            </option>
-          ))}
-        </Box>
-
-        {/* Product Search with Autocomplete */}
-        <Box sx={{ position: 'relative' }}>
-          <TextField
-            value={searchProduct}
-            onChange={handleSearchProductChange}
-            placeholder="Search Product"
-            sx={{
-              '& .MuiInputBase-root': { height: '38px', width: '100%' },
-              '& .MuiOutlinedInput-input': { padding: '8.5px 14px' }
-            }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon sx={{ color: '#5A607F' }} />
-                </InputAdornment>
-              ),
-            }}
-          />
-          {showDropdown && searchResults.length > 0 && (
-            <Box sx={{
-              position: 'absolute',
-              top: '100%',
-              left: 0,
-              right: 0,
-              backgroundColor: 'white',
-              boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-              borderRadius: '4px',
-              zIndex: 1000,
-              maxHeight: '200px',
-              overflowY: 'auto',
-              mt: '4px'
-            }}>
-              {searchResults.map((product) => (
-                <Box
-                  key={product.product_code}
-                  onClick={() => {
-                    setSearchProduct(product.product_name);
-                    setShowDropdown(false);
-                    fetchData();
-                  }}
-                  sx={{
-                    p: 1.5,
-                    cursor: 'pointer',
-                    '&:hover': {
-                      backgroundColor: '#f5f5f5'
-                    },
-                    borderBottom: '1px solid #eee'
-                  }}
-                >
-                  <Typography>{product.product_name}</Typography>
-                </Box>
-              ))}
-            </Box>
-          )}
         </Box>
         <Box sx={{ width: '200px' }}>
           <DatePicker
@@ -474,8 +390,7 @@ export default function GoodsReceiptWarehouse({ onCreate, onEdit }) {
               <StyledTableCell width='1%'>No.</StyledTableCell>
               <StyledTableCell align="center">Ref.no</StyledTableCell>
               <StyledTableCell align="center">Date</StyledTableCell>
-              <StyledTableCell align="center">Branch</StyledTableCell>
-              <StyledTableCell align="center">Supplier</StyledTableCell>
+              <StyledTableCell align="center">Kitchen</StyledTableCell>
               <StyledTableCell align="center">Total Amount</StyledTableCell>
               <StyledTableCell align="center">Username</StyledTableCell>
               <StyledTableCell width='1%' align="center"></StyledTableCell>
@@ -511,8 +426,7 @@ export default function GoodsReceiptWarehouse({ onCreate, onEdit }) {
                     </StyledTableCell>
                     <StyledTableCell align="center">{row.refno}</StyledTableCell>
                     <StyledTableCell align="center">{row.rdate}</StyledTableCell>
-                    <StyledTableCell align="center">{branchName}</StyledTableCell>
-                    <StyledTableCell align="center">{supplierName}</StyledTableCell>
+                    <StyledTableCell align="center">{row.kitchen_name}</StyledTableCell>
                     <StyledTableCell align="center">{row.total.toFixed(2)}</StyledTableCell>
                     <StyledTableCell align="center">{row.user?.username || '-'}</StyledTableCell>
                     <StyledTableCell align="center">

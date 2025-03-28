@@ -18,7 +18,10 @@ import {
     Select,
     MenuItem,
     Pagination,
-    CircularProgress
+    CircularProgress,
+    Autocomplete,
+    Paper,
+    Grid
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SearchIcon from '@mui/icons-material/Search';
@@ -31,9 +34,12 @@ import 'react-datepicker/dist/react-datepicker.css';
 import { useDispatch } from "react-redux";
 import { searchProductName } from '../../../../api/productrecordApi';
 import { kitchenAll } from '../../../../api/kitchenApi';
-import { addKt_rfw, Kt_rfwrefno } from '../../../../api/kitchen/kt_rfwApi';
+import { supplierAll } from '../../../../api/supplierApi';
+import { addKt_rfw, Kt_rfwrefno, Kt_rfwUsedRefnos } from '../../../../api/kitchen/kt_rfwApi';
+import { Wh_dpkdtAlljoindt } from '../../../../api/warehouse/wh_dpkdtApi';
+import { Wh_dpkByRefno, wh_dpkAlljoindt } from '../../../../api/warehouse/wh_dpkApi';
 import Swal from 'sweetalert2';
-import { format } from 'date-fns';
+import { format, parse } from 'date-fns';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 
 const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
@@ -65,18 +71,13 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
 ));
 
 export default function CreateGoodsReceiptWarehouse({ onBack }) {
-    useEffect(() => {
-        console.log('CreateGoodsReceiptWarehouse component mounted');
-        return () => {
-            console.log('CreateGoodsReceiptWarehouse component unmounted');
-        };
-    }, []);
-
     const dispatch = useDispatch();
     const [startDate, setStartDate] = useState(new Date());
-    const [lastRefNo, setLastRefNo] = useState('');
-    const [kitchens, setKitchens] = useState([]); // Changed from branches to kitchens
-    const [saveKitchen, setSaveKitchen] = useState(''); // Changed from saveBranch to saveKitchen
+    const [lastRefNo, setLastRefNo] = useState('Please select dispatch to kitchen');
+    const [kitchens, setKitchens] = useState([]);
+    const [suppliers, setSuppliers] = useState([]);
+    const [saveSupplier, setSaveSupplier] = useState('');
+    const [saveKitchen, setSaveKitchen] = useState('');
     const [products, setProducts] = useState([]);
     const [quantities, setQuantities] = useState({});
     const [units, setUnits] = useState({});
@@ -88,8 +89,16 @@ export default function CreateGoodsReceiptWarehouse({ onBack }) {
     const [filteredProducts, setFilteredProducts] = useState([]);
     const [selectedProducts, setSelectedProducts] = useState([]);
     const [expiryDates, setExpiryDates] = useState({});
+    const [temperatures, setTemperatures] = useState({});
     const [imageErrors, setImageErrors] = useState({});
-    const [isLoading, setIsLoading] = useState(true);
+    const [taxStatus, setTaxStatus] = useState({});
+    const [isLoading, setIsLoading] = useState(false);
+
+    // For dispatch selection
+    const [dispatchRefnos, setDispatchRefnos] = useState([]);
+    const [selectedDispatchRefno, setSelectedDispatchRefno] = useState('');
+    const [dispatchData, setDispatchData] = useState(null);
+    const [loadingDispatch, setLoadingDispatch] = useState(false);
 
     // Pagination state
     const [page, setPage] = useState(1);
@@ -98,57 +107,304 @@ export default function CreateGoodsReceiptWarehouse({ onBack }) {
     const [paginatedProducts, setPaginatedProducts] = useState([]);
 
     const userDataJson = localStorage.getItem("userData2");
-    const userData2 = userDataJson ? JSON.parse(userDataJson) : null;
+    const userData2 = JSON.parse(userDataJson || "{}");
 
     useEffect(() => {
-        const loadInitialData = async () => {
-            try {
-                setIsLoading(true);
-                const currentDate = new Date();
-                console.log('Loading initial data...');
+        const currentDate = new Date();
 
-                // Get reference number first
-                await handleGetLastRefNo(currentDate);
+        // Fetch kitchens
+        dispatch(kitchenAll({ offset: 0, limit: 100 }))
+            .unwrap()
+            .then((res) => {
+                setKitchens(res.data);
+            })
+            .catch((err) => console.log(err.message));
 
-                // Fetch kitchens in parallel with product data
-                const kitchenPromise = dispatch(kitchenAll({ offset: 0, limit: 100 })).unwrap();
-                const productPromise = dispatch(searchProductName({ product_name: '' })).unwrap();
+        // Fetch suppliers
+        dispatch(supplierAll({ offset: 0, limit: 100 }))
+            .unwrap()
+            .then((res) => {
+                setSuppliers(res.data);
+            })
+            .catch((err) => console.log(err.message));
 
-                const [kitchenRes, productRes] = await Promise.all([
-                    kitchenPromise, productPromise
-                ]);
-
-                console.log('Kitchens loaded:', kitchenRes.data?.length);
-                console.log('Products loaded:', productRes.data?.length);
-
-                if (kitchenRes.result && kitchenRes.data) {
-                    setKitchens(kitchenRes.data);
+        // Initial product load
+        dispatch(searchProductName({ product_name: '' }))
+            .unwrap()
+            .then((res) => {
+                if (res.data) {
+                    setAllProducts(res.data);
+                    setFilteredProducts(res.data);
                 }
-
-                if (productRes.data) {
-                    setAllProducts(productRes.data);
-                    setFilteredProducts(productRes.data);
-                }
-            } catch (error) {
-                console.error('Error loading initial data:', error);
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error',
-                    text: 'Failed to load initial data. Please try again.'
-                });
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        loadInitialData();
+            })
+            .catch((err) => console.log(err.message));
     }, [dispatch]);
+
+    const fetchAvailableDispatches = async (kitchenCode = saveKitchen) => {
+        if (!kitchenCode) {
+            setDispatchRefnos([]);
+            return;
+        }
+
+        try {
+            setIsLoading(true);
+
+            // Get all used reference numbers first
+            const usedRefnosResponse = await dispatch(Kt_rfwUsedRefnos()).unwrap();
+            const usedRefnos = usedRefnosResponse.result ? usedRefnosResponse.data : [];
+
+            // Get dispatches from the last 30 days
+            const today = new Date();
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(today.getDate() - 30);
+
+            const rdate1 = format(thirtyDaysAgo, 'yyyyMMdd');
+            const rdate2 = format(today, 'yyyyMMdd');
+
+            // Get all dispatches to selected kitchen
+            const response = await dispatch(wh_dpkAlljoindt({
+                rdate1,
+                rdate2,
+                kitchen_code: kitchenCode,
+                offset: 0,
+                limit: 100
+            })).unwrap();
+
+            if (response.result && response.data) {
+                // Filter out already used reference numbers
+                const filteredDispatches = response.data.filter(item =>
+                    !usedRefnos.includes(item.refno)
+                );
+
+                // Transform data for Autocomplete
+                const dispatchOptions = filteredDispatches.map(item => ({
+                    refno: item.refno,
+                    kitchen: item.tbl_kitchen?.kitchen_name || 'Unknown',
+                    date: item.rdate || 'Unknown Date',
+                    formattedDate: item.rdate ?
+                        format(parse(item.rdate, 'MM/dd/yyyy', new Date()), 'MM/dd/yyyy') :
+                        'Unknown'
+                }));
+
+                setDispatchRefnos(dispatchOptions);
+
+                // Only show the "no dispatches" alert if there are actually no unused dispatches
+                if (dispatchOptions.length === 0) {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'No Available Dispatches',
+                        text: 'There are no available dispatches to this kitchen.',
+                        confirmButtonColor: '#754C27'
+                    });
+                }
+            }
+        } catch (error) {
+            console.error("Error fetching available dispatches:", error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Failed to fetch available dispatches: ' + (error.message || 'Unknown error')
+            });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleDispatchSelection = async (refno) => {
+        if (!refno) {
+            resetForm();
+            return;
+        }
+
+        try {
+            console.log('Starting dispatch selection for refno:', refno);
+            setLoadingDispatch(true);
+            setSelectedDispatchRefno(refno);
+
+            // Check if this dispatch is already used in kt_rfw
+            console.log('Checking used refnos...');
+            const usedRefnosResponse = await dispatch(Kt_rfwUsedRefnos()).unwrap();
+            const usedRefnos = usedRefnosResponse.result ? usedRefnosResponse.data : [];
+            console.log('Used refnos:', usedRefnos);
+
+            if (usedRefnos.includes(refno)) {
+                // If refno is already used, silently return without showing alert
+                console.log(`Refno ${refno} is already used, skipping...`);
+                setLoadingDispatch(false);
+                return;
+            }
+
+            // Fetch header data
+            console.log('Fetching header data for refno:', refno);
+            const headerResponse = await dispatch(Wh_dpkByRefno({ refno })).unwrap();
+            console.log('Header data response:', headerResponse);
+
+            if (headerResponse.result && headerResponse.data) {
+                const dispatchHeader = headerResponse.data;
+                setDispatchData(dispatchHeader);
+
+                // Set the lastRefNo to be the same as the dispatch refno
+                setLastRefNo(refno);
+
+                // Set kitchen from dispatch
+                setSaveKitchen(dispatchHeader.kitchen_code || '');
+                console.log('Set kitchen_code to:', dispatchHeader.kitchen_code);
+
+                // Fetch detail data
+                console.log('Fetching detail data...');
+                const detailResponse = await dispatch(Wh_dpkdtAlljoindt({ refno })).unwrap();
+                console.log('Detail data response:', detailResponse);
+
+                if (detailResponse.result && detailResponse.data && detailResponse.data.length > 0) {
+                    console.log('Processing detail data...');
+                    await processDispatchDetailData(detailResponse.data);
+                } else {
+                    console.log('No items found in dispatch');
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'No Items',
+                        text: 'This dispatch has no items.'
+                    });
+                }
+            }
+        } catch (error) {
+            console.error("Error loading dispatch data:", error);
+            console.error("Error details:", JSON.stringify(error, null, 2));
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Failed to load dispatch data: ' + error.message
+            });
+        } finally {
+            setLoadingDispatch(false);
+        }
+    };
+
+    // Handle kitchen selection
+    const handleKitchenChange = (kitchenCode) => {
+        setSaveKitchen(kitchenCode);
+
+        // Clear selected dispatch when kitchen changes
+        setSelectedDispatchRefno('');
+        setDispatchData(null);
+
+        // Only fetch dispatches if a kitchen is selected
+        if (kitchenCode) {
+            fetchAvailableDispatches(kitchenCode);
+        } else {
+            // Clear dispatch options if no kitchen is selected
+            setDispatchRefnos([]);
+        }
+    };
+
+    const processDispatchDetailData = async (detailData) => {
+        try {
+            console.log('Processing dispatch detail data:', detailData);
+
+            // Extract product codes to mark as selected
+            const productCodes = detailData.map(item => item.product_code);
+            setSelectedProducts(productCodes);
+
+            // เก็บข้อมูลสินค้าทั้งหมดที่มี tbl_product ให้ครบถ้วน
+            const productsData = detailData.map(item => {
+                console.log('Item data for product:', item.product_code, item);
+
+                // ตรวจสอบว่า unit ข้อมูลอยู่ที่ไหน
+                console.log('Product units: ', {
+                    unit_code: item.unit_code,
+                    product: item.tbl_product,
+                    productUnit1: item.tbl_product?.productUnit1,
+                    productUnit2: item.tbl_product?.productUnit2
+                });
+
+                return {
+                    ...item.tbl_product,
+                    product_code: item.product_code,
+                    product_name: item.tbl_product?.product_name || '',
+                    tax1: item.tax1 || 'N',
+                    // จัดการกับ unit data
+                    unit_code: item.unit_code,
+                    unit_name: item.tbl_unit?.unit_name || ''
+                };
+            });
+
+            setProducts(productsData);
+
+            // Prepare state objects
+            const newQuantities = {};
+            const newUnits = {};
+            const newUnitPrices = {};
+            const newTotals = {};
+            const newExpiryDates = {};
+            const newTemperatures = {};
+            const newTaxStatus = {};
+
+            detailData.forEach((item) => {
+                const productCode = item.product_code;
+                if (!productCode) return;
+
+                newQuantities[productCode] = parseFloat(item.qty) || 1;
+
+                // เก็บข้อมูล unit_code จากตารางรายละเอียด
+                newUnits[productCode] = item.unit_code ||
+                    (item.tbl_product?.productUnit1?.unit_code || '');
+
+                console.log(`Setting unit for ${productCode}: ${newUnits[productCode]}`);
+
+                newUnitPrices[productCode] = parseFloat(item.uprice) || 0;
+                newTotals[productCode] = parseFloat(item.amt) || 0;
+                newTemperatures[productCode] = item.temperature1 || '38';
+                newTaxStatus[productCode] = item.tax1 || 'N';
+
+                // Parse expiry date or use current date + 30 days
+                if (item.expire_date) {
+                    try {
+                        newExpiryDates[productCode] = parse(item.expire_date, 'MM/dd/yyyy', new Date());
+                    } catch (e) {
+                        console.error("Expiry date parsing error:", e);
+                        const futureDate = new Date();
+                        futureDate.setDate(futureDate.getDate() + 30);
+                        newExpiryDates[productCode] = futureDate;
+                    }
+                } else {
+                    const futureDate = new Date();
+                    futureDate.setDate(futureDate.getDate() + 30);
+                    newExpiryDates[productCode] = futureDate;
+                }
+            });
+
+            // Update all states
+            setQuantities(newQuantities);
+            setUnits(newUnits);
+            setUnitPrices(newUnitPrices);
+            setTotals(newTotals);
+            setExpiryDates(newExpiryDates);
+            setTemperatures(newTemperatures);
+            setTaxStatus(newTaxStatus);
+
+            // Calculate and set total
+            const totalSum = Object.values(newTotals).reduce((sum, value) => sum + value, 0);
+            setTotal(totalSum);
+
+            console.log('Detail processing complete', {
+                products: productsData,
+                quantities: newQuantities,
+                units: newUnits,
+                prices: newUnitPrices,
+                totals: newTotals
+            });
+
+        } catch (error) {
+            console.error('Error processing detail data:', error);
+            throw error;
+        }
+    };
 
     // Handle filtering and pagination
     useEffect(() => {
         const filtered = allProducts.filter(product =>
-            product.product_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            product.product_code.toLowerCase().includes(searchTerm.toLowerCase())
+            product.product_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            product.product_code?.toLowerCase().includes(searchTerm.toLowerCase())
         );
 
         // Sort products: selected ones first
@@ -172,43 +428,6 @@ export default function CreateGoodsReceiptWarehouse({ onBack }) {
         const endIndex = startIndex + productsPerPage;
         setPaginatedProducts(filteredProducts.slice(startIndex, endIndex));
     }, [filteredProducts, page, productsPerPage]);
-
-    const handleGetLastRefNo = async (selectedDate) => {
-        try {
-            const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
-            const year = selectedDate.getFullYear().toString().slice(-2);
-
-            const res = await dispatch(Kt_rfwrefno({
-                month: month,
-                year: year
-            })).unwrap();
-
-            if (!res.data || !res.data.refno) {
-                setLastRefNo(`KTRFW${year}${month}001`);
-                return;
-            }
-
-            const lastRefNo = res.data.refno;
-            const lastRefMonth = lastRefNo.substring(7, 9);
-            const lastRefYear = lastRefNo.substring(5, 7);
-
-            if (lastRefMonth !== month || lastRefYear !== year) {
-                setLastRefNo(`KTRFW${year}${month}001`);
-                return;
-            }
-
-            const lastNumber = parseInt(lastRefNo.slice(-3));
-            const newNumber = lastNumber + 1;
-            setLastRefNo(`KTRFW${year}${month}${String(newNumber).padStart(3, '0')}`);
-            console.log(`Generated reference number: ${lastRefNo}`);
-
-        } catch (err) {
-            console.error("Error generating refno:", err);
-            const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
-            const year = selectedDate.getFullYear().toString().slice(-2);
-            setLastRefNo(`KTRFW${year}${month}001`);
-        }
-    };
 
     // Function to render product image with error handling
     const renderProductImage = (product, size = 'small') => {
@@ -280,8 +499,16 @@ export default function CreateGoodsReceiptWarehouse({ onBack }) {
     };
 
     const toggleSelectProduct = (product) => {
-        console.log('Toggling product selection:', product.product_code);
         const isSelected = selectedProducts.includes(product.product_code);
+
+        console.log('Toggle product selection:', product.product_code, 'Current status:', isSelected);
+        console.log('Product details:', product);
+
+        // ตรวจสอบข้อมูล unit
+        console.log('Product unit data:', {
+            productUnit1: product.productUnit1,
+            productUnit2: product.productUnit2
+        });
 
         if (isSelected) {
             setSelectedProducts(prev => prev.filter(id => id !== product.product_code));
@@ -293,27 +520,52 @@ export default function CreateGoodsReceiptWarehouse({ onBack }) {
             const { [product.product_code]: ___, ...newPrices } = unitPrices;
             const { [product.product_code]: ____, ...newTotals } = totals;
             const { [product.product_code]: _____, ...newExpiryDates } = expiryDates;
+            const { [product.product_code]: ______, ...newTemperatures } = temperatures;
+            const { [product.product_code]: _______, ...newTaxStatus } = taxStatus;
 
             setQuantities(newQuantities);
             setUnits(newUnits);
             setUnitPrices(newPrices);
             setTotals(newTotals);
             setExpiryDates(newExpiryDates);
+            setTemperatures(newTemperatures);
+            setTaxStatus(newTaxStatus);
 
             setTotal(Object.values(newTotals).reduce((sum, curr) => sum + curr, 0));
 
         } else {
+            // เพิ่มข้อมูลสินค้าพร้อมข้อมูล unit ที่จำเป็น
+            const enhancedProduct = {
+                ...product,
+                productUnit1: product.productUnit1 || { unit_code: '', unit_name: 'ไม่ระบุ' },
+                productUnit2: product.productUnit2 || { unit_code: '', unit_name: 'ไม่ระบุ' },
+                tax1: product.tax1 || 'N',
+                bulk_unit_price: product.bulk_unit_price || 0,
+                retail_unit_price: product.retail_unit_price || 0
+            };
+
+            console.log('Enhanced product for adding:', enhancedProduct);
+
             setSelectedProducts(prev => [...prev, product.product_code]);
-            setProducts(prev => [...prev, product]);
+            setProducts(prev => [...prev, enhancedProduct]);
+
+            // กำหนดค่า unit_code เริ่มต้น
+            const defaultUnitCode =
+                product.productUnit1?.unit_code ||
+                '';
+
+            console.log('Setting default unit code:', defaultUnitCode);
 
             // Initialize associated state
             setQuantities(prev => ({ ...prev, [product.product_code]: 1 }));
-            setUnits(prev => ({ ...prev, [product.product_code]: product.productUnit1.unit_code }));
-            setUnitPrices(prev => ({ ...prev, [product.product_code]: product.bulk_unit_price }));
+            setUnits(prev => ({ ...prev, [product.product_code]: defaultUnitCode }));
+            setUnitPrices(prev => ({ ...prev, [product.product_code]: product.bulk_unit_price || 0 }));
             setExpiryDates(prev => ({ ...prev, [product.product_code]: new Date() }));
+            setTemperatures(prev => ({ ...prev, [product.product_code]: '38' }));
+            setTaxStatus(prev => ({ ...prev, [product.product_code]: product.tax1 || 'N' }));
 
             // Calculate initial total
-            const initialTotal = product.bulk_unit_price * 1;
+            const initialTotal = (product.bulk_unit_price || 0) * 1;
             setTotals(prev => ({ ...prev, [product.product_code]: initialTotal }));
             setTotal(prev => prev + initialTotal);
         }
@@ -333,35 +585,122 @@ export default function CreateGoodsReceiptWarehouse({ onBack }) {
     };
 
     const handleUnitChange = (productCode, newUnit) => {
+        console.log(`Changing unit for ${productCode} from ${units[productCode]} to ${newUnit}`);
+
         setUnits(prev => ({ ...prev, [productCode]: newUnit }));
 
         const product = products.find(p => p.product_code === productCode);
-        const newPrice = newUnit === product.productUnit1.unit_code
-            ? product.bulk_unit_price
-            : product.retail_unit_price;
+        if (!product) {
+            console.error(`Product ${productCode} not found in handleUnitChange`);
+            return;
+        }
 
+        console.log('Product:', product);
+        console.log('Product units:', {
+            productUnit1: product.productUnit1,
+            productUnit2: product.productUnit2
+        });
+
+        // คำนวณราคาตามหน่วยที่เลือก
+        let newPrice = 0;
+        if (product.productUnit1 && newUnit === product.productUnit1.unit_code) {
+            console.log(`Using bulk price: ${product.bulk_unit_price}`);
+            newPrice = product.bulk_unit_price || 0;
+        } else if (product.productUnit2 && newUnit === product.productUnit2.unit_code) {
+            console.log(`Using retail price: ${product.retail_unit_price}`);
+            newPrice = product.retail_unit_price || 0;
+        } else {
+            console.log('Could not determine price from unit, using current price');
+            newPrice = unitPrices[productCode] || 0;
+        }
+
+        console.log(`New price for ${productCode}: ${newPrice}`);
         setUnitPrices(prev => ({ ...prev, [productCode]: newPrice }));
 
         // Update total
-        const qty = quantities[productCode];
+        const qty = quantities[productCode] || 0;
         const newTotal = qty * newPrice;
+        console.log(`New total for ${productCode}: ${newTotal}`);
         setTotals(prev => ({ ...prev, [productCode]: newTotal }));
-        setTotal(Object.values({ ...totals, [productCode]: newTotal }).reduce((a, b) => a + b, 0));
+
+        // คำนวณผลรวมใหม่
+        const updatedTotals = { ...totals, [productCode]: newTotal };
+        const updatedTotal = Object.values(updatedTotals).reduce((a, b) => a + b, 0);
+        console.log(`Updated grand total: ${updatedTotal}`);
+        setTotal(updatedTotal);
     };
 
     const handleExpiryDateChange = (productCode, date) => {
         setExpiryDates(prev => ({ ...prev, [productCode]: date }));
     };
 
+    const handleTemperatureChange = (productCode, temp) => {
+        setTemperatures(prev => ({ ...prev, [productCode]: temp }));
+    };
+
+    const handleTaxStatusChange = (productCode, value) => {
+        setTaxStatus(prev => ({ ...prev, [productCode]: value }));
+    };
+
+    // Calculate tax based on products with tax1='Y'
+    const calculateTax = () => {
+        let taxableAmount = 0;
+        products.forEach(product => {
+            const productCode = product.product_code;
+            if (taxStatus[productCode] === 'Y') {
+                const quantity = quantities[productCode] || 0;
+                const unitPrice = unitPrices[productCode] || 0;
+                taxableAmount += quantity * unitPrice;
+            }
+        });
+        return taxableAmount * 0.07;
+    };
+
+    // Calculate taxable and non-taxable amounts
+    const calculateTaxableAndNonTaxable = () => {
+        let taxable = 0;
+        let nonTaxable = 0;
+
+        products.forEach(product => {
+            const productCode = product.product_code;
+            const quantity = quantities[productCode] || 0;
+            const unitPrice = unitPrices[productCode] || 0;
+            const lineTotal = quantity * unitPrice;
+
+            if (taxStatus[productCode] === 'Y') {
+                taxable += lineTotal;
+            } else {
+                nonTaxable += lineTotal;
+            }
+        });
+
+        return { taxable, nonTaxable };
+    };
+
     const handleSave = async () => {
-        if (!saveKitchen || products.length === 0) {
+        if ( !saveKitchen || products.length === 0) {
             Swal.fire({
                 icon: 'warning',
                 title: 'Missing Information',
-                text: 'Please select a kitchen and at least one product.',
+                text: 'Please select a kitchen, and at least one product.',
                 timer: 1500
             });
             return;
+        }
+
+        // First check if the current refno already exists in kt_rfw
+        try {
+            const usedRefnosResponse = await dispatch(Kt_rfwUsedRefnos()).unwrap();
+            const usedRefnos = usedRefnosResponse.result ? usedRefnosResponse.data : [];
+
+            if (usedRefnos.includes(lastRefNo)) {
+                // If refno is already used, silently return without showing alert
+                console.log(`Refno ${lastRefNo} is already used. Skipping save operation.`);
+                return;
+            }
+        } catch (error) {
+            console.error("Error checking used refnos:", error);
+            // Continue anyway, the server will catch duplicates
         }
 
         try {
@@ -373,37 +712,49 @@ export default function CreateGoodsReceiptWarehouse({ onBack }) {
                 }
             });
 
+            const { taxable, nonTaxable } = calculateTaxableAndNonTaxable();
+            const totalWithTax = total + calculateTax();
+
             const headerData = {
                 refno: lastRefNo,
                 rdate: format(startDate, 'MM/dd/yyyy'),
-                kitchen_code: saveKitchen, // Changed from branch_code to kitchen_code
+                kitchen_code: saveKitchen,
                 trdate: format(startDate, 'yyyyMMdd'),
                 monthh: format(startDate, 'MM'),
                 myear: startDate.getFullYear(),
                 user_code: userData2?.user_code || '',
+                taxable: taxable,
+                nontaxable: nonTaxable,
+                total: total
             };
 
-            const productArrayData = products.map(product => ({
-                refno: headerData.refno,
-                product_code: product.product_code,
-                qty: quantities[product.product_code].toString(),
-                unit_code: units[product.product_code],
-                uprice: unitPrices[product.product_code].toString(),
-                amt: totals[product.product_code].toString(),
-                expire_date: format(expiryDates[product.product_code], 'MM/dd/yyyy'),
-                texpire_date: format(expiryDates[product.product_code], 'yyyyMMdd')
-            }));
+            const productArrayData = products.map(product => {
+                const productCode = product.product_code;
+                return {
+                    refno: headerData.refno,
+                    product_code: productCode,
+                    qty: quantities[productCode]?.toString() || "1",
+                    unit_code: units[productCode] || product.productUnit1?.unit_code || '',
+                    uprice: unitPrices[productCode]?.toString() || "0",
+                    tax1: taxStatus[productCode] || 'N',
+                    amt: totals[productCode]?.toString() || "0",
+                    expire_date: format(expiryDates[productCode] || new Date(), 'MM/dd/yyyy'),
+                    texpire_date: format(expiryDates[productCode] || new Date(), 'yyyyMMdd'),
+                    temperature1: temperatures[productCode] || '38'
+                };
+            });
 
-            const orderData = {
+            const footerData = {
+                taxable: taxable,
+                nontaxable: nonTaxable,
+                total: totalWithTax
+            };
+
+            await dispatch(addKt_rfw({
                 headerData,
                 productArrayData,
-                footerData: {
-                    total: total.toString()
-                }
-            };
-
-            console.log('Submitting order data:', orderData);
-            await dispatch(addKt_rfw(orderData)).unwrap();
+                footerData
+            })).unwrap();
 
             await Swal.fire({
                 icon: 'success',
@@ -414,35 +765,32 @@ export default function CreateGoodsReceiptWarehouse({ onBack }) {
             });
 
             resetForm();
-            if (typeof onBack === 'function') {
-                onBack();
-            } else {
-                console.error('onBack is not a function:', onBack);
-            }
+            onBack();
 
         } catch (error) {
             console.error('Error saving receipt:', error);
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: error.message || 'Error saving receipt',
-                confirmButtonText: 'OK'
-            });
-        }
-    };
 
-    // Calculate tax based on products with tax1='Y'
-    const calculateTax = () => {
-        let taxableAmount = 0;
-        products.forEach(product => {
-            if (product.tax1 === 'Y') {
-                const productCode = product.product_code;
-                const quantity = quantities[productCode] || 0;
-                const unitPrice = unitPrices[productCode] || 0;
-                taxableAmount += quantity * unitPrice;
+            // Check for specific error patterns related to duplicate entries
+            const errorString = JSON.stringify(error);
+
+            if (
+                errorString.includes('ER_DUP_ENTRY') ||
+                errorString.includes('Duplicate entry') ||
+                errorString.includes('must be unique') ||
+                errorString.includes('PRIMARY')
+            ) {
+                // Silently handle duplicate entry errors - just log to console without showing an alert
+                console.log(`Duplicate reference number "${lastRefNo}" detected during save.`);
+            } else {
+                // Handle other errors with alert
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: error.message || 'Error saving receipt',
+                    confirmButtonText: 'OK'
+                });
             }
-        });
-        return taxableAmount * 0.07;
+        }
     };
 
     const resetForm = () => {
@@ -453,60 +801,61 @@ export default function CreateGoodsReceiptWarehouse({ onBack }) {
         setUnitPrices({});
         setTotals({});
         setTotal(0);
+        setSaveSupplier('');
         setSaveKitchen('');
         setSearchTerm('');
         setExpiryDates({});
+        setTemperatures({});
+        setTaxStatus({});
+        setImageErrors({});
+        setSelectedDispatchRefno('');
+        setDispatchData(null);
     };
 
     const handlePageChange = (event, value) => {
         setPage(value);
     };
 
-    const handleBackClick = () => {
-        console.log('Back button clicked, calling onBack function');
-        if (typeof onBack === 'function') {
-            onBack();
-        } else {
-            console.error('onBack is not a function:', onBack);
-        }
-    };
-
     if (isLoading) {
         return (
-            <Box sx={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                minHeight: '100vh',
-                padding: 3
-            }}>
-                <CircularProgress size={60} />
-                <Typography variant="h6" sx={{ mt: 2 }}>
-                    Loading data...
-                </Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+                <CircularProgress sx={{ color: '#754C27' }} />
+                <Typography sx={{ ml: 2 }}>Loading data...</Typography>
             </Box>
         );
     }
 
     return (
-        <Box sx={{ padding: "10px", paddingBottom: "300px", fontFamily: "Arial, sans-serif" }}>
+        <Box sx={{ padding: "20px", fontFamily: "Arial, sans-serif" }}>
             <Button
                 startIcon={<ArrowBackIcon />}
-                onClick={handleBackClick}
+                onClick={onBack}
                 sx={{ marginBottom: "20px" }}
             >
                 Back to Goods Receipt Warehouse
             </Button>
 
+            {/* Status Information */}
+            <Box sx={{ mb: 2, p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
+                <Typography variant="subtitle2">
+                    <strong>Status:</strong> Creating new receipt |
+                    Products selected: {selectedProducts.length} |
+                    {selectedDispatchRefno && (
+                        <span> Based on dispatch: {selectedDispatchRefno} |</span>
+                    )}
+                    Supplier: {saveSupplier || 'None'} |
+                    Kitchen: {saveKitchen || 'None'}
+                </Typography>
+            </Box>
+
             {/* Main content */}
-            <Box display="flex" p={2} bgcolor="#F9F9F9">
+            <Box display="flex" p={2} bgcolor="#F9F9F9" borderRadius="12px" boxShadow={1}>
                 {/* Left Panel - Product Selection */}
                 <Box flex={2} pr={2} display="flex" flexDirection="column">
                     {/* Search and Filter Section */}
                     <Box sx={{ marginBottom: "20px", paddingTop: '20px' }}>
                         <TextField
-                            placeholder="Search products..."
+                            placeholder="Search products by name or code..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             sx={{
@@ -544,7 +893,12 @@ export default function CreateGoodsReceiptWarehouse({ onBack }) {
                                         border: selectedProducts.includes(product.product_code) ? '2px solid #4caf50' : 'none',
                                         bgcolor: selectedProducts.includes(product.product_code) ? '#f0fff0' : 'white',
                                         display: 'flex',
-                                        flexDirection: 'column'
+                                        flexDirection: 'column',
+                                        transition: 'all 0.2s ease-in-out',
+                                        '&:hover': {
+                                            transform: 'translateY(-4px)',
+                                            boxShadow: 4
+                                        }
                                     }}
                                     onClick={() => toggleSelectProduct(product)}
                                 >
@@ -556,7 +910,11 @@ export default function CreateGoodsReceiptWarehouse({ onBack }) {
                                         <Typography variant="body2" color="text.secondary" noWrap>
                                             {product.product_code}
                                         </Typography>
-                                        {/* Removed price display */}
+                                        {product.tax1 === 'Y' && (
+                                            <Typography variant="caption" color="success.main">
+                                                Taxable
+                                            </Typography>
+                                        )}
                                     </CardContent>
                                     {selectedProducts.includes(product.product_code) && (
                                         <CheckCircleIcon
@@ -586,64 +944,143 @@ export default function CreateGoodsReceiptWarehouse({ onBack }) {
                             showFirstButton
                             showLastButton
                             size="large"
+                            sx={{
+                                '& .MuiPaginationItem-root': {
+                                    '&.Mui-selected': {
+                                        backgroundColor: '#754C27',
+                                        color: 'white',
+                                        '&:hover': {
+                                            backgroundColor: '#5c3c1f',
+                                        }
+                                    }
+                                }
+                            }}
                         />
                     </Box>
                 </Box>
 
                 {/* Right Panel - Order Details */}
-                <Box flex={2} pl={2} bgcolor="#FFF" p={1} borderRadius="12px" boxShadow={3}>
-                    <Typography sx={{ fontSize: '16px', fontWeight: '600', mt: '18px' }}>
-                        Ref.no
-                    </Typography>
-                    <TextField
-                        value={lastRefNo}
-                        disabled
-                        size="small"
-                        sx={{
-                            mt: '8px',
-                            width: '95%',
-                            '& .MuiOutlinedInput-root': {
-                                borderRadius: '10px',
-                            },
-                        }}
-                    />
+                <Box flex={2} pl={2} bgcolor="#FFF" p={3} borderRadius="12px" boxShadow={3}>
+                    <Grid container spacing={3}>
+                        {/* Kitchen Selection - This must be first */}
+                        <Grid item xs={12}>
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>
+                                Kitchen (Select First)
+                            </Typography>
+                            <Select
+                                value={saveKitchen}
+                                onChange={(e) => handleKitchenChange(e.target.value)}
+                                displayEmpty
+                                size="small"
+                                fullWidth
+                                sx={{
+                                    mt: '8px',
+                                    borderRadius: '10px',
+                                }}
+                            >
+                                <MenuItem value=""><em>Select Kitchen</em></MenuItem>
+                                {kitchens.map((kitchen) => (
+                                    <MenuItem key={kitchen.kitchen_code} value={kitchen.kitchen_code}>
+                                        {kitchen.kitchen_name}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </Grid>
 
-                    <Typography sx={{ fontSize: '16px', fontWeight: '600', mt: '18px' }}>
-                        Date
-                    </Typography>
-                    <DatePicker
-                        selected={startDate}
-                        onChange={(date) => {
-                            setStartDate(date);
-                            handleGetLastRefNo(date);
-                        }}
-                        dateFormat="MM/dd/yyyy"
-                        customInput={<CustomInput />}
-                    />
+                        {/* Dispatch Selection - Only enabled if kitchen is selected */}
+                        <Grid item xs={12}>
+                            <Box sx={{ opacity: saveKitchen ? 1 : 0.5 }}>
+                                <Typography variant="subtitle1" fontWeight="bold" mb={1}>
+                                    Select from Available Dispatches
+                                </Typography>
+                                <Autocomplete
+                                    options={dispatchRefnos}
+                                    getOptionLabel={(option) =>
+                                        typeof option === 'string'
+                                            ? option
+                                            : `${option.refno} - To: ${option.kitchen} (${option.formattedDate})`
+                                    }
+                                    onChange={(_, newValue) => handleDispatchSelection(newValue?.refno || '')}
+                                    disabled={!saveKitchen}
+                                    noOptionsText={saveKitchen ? "No available dispatches found" : "Select a kitchen first"}
+                                    isOptionEqualToValue={(option, value) =>
+                                        option.refno === (typeof value === 'string' ? value : value?.refno)
+                                    }
+                                    renderOption={(props, option) => (
+                                        <Box component="li" {...props}>
+                                            <Box>
+                                                <Typography variant="body1" fontWeight="bold">
+                                                    {option.refno}
+                                                </Typography>
+                                                <Typography variant="body2" color="text.secondary">
+                                                    To: {option.kitchen}
+                                                </Typography>
+                                                <Typography variant="caption" color="primary">
+                                                    Date: {option.formattedDate}
+                                                </Typography>
+                                            </Box>
+                                        </Box>
+                                    )}
+                                    renderInput={(params) => (
+                                        <TextField
+                                            {...params}
+                                            label="Search dispatch reference"
+                                            placeholder={saveKitchen ? "Select dispatch to create receipt from" : "Select a kitchen first"}
+                                            variant="outlined"
+                                            InputProps={{
+                                                ...params.InputProps,
+                                                endAdornment: (
+                                                    <>
+                                                        {loadingDispatch ? <CircularProgress color="inherit" size={20} /> : null}
+                                                        {params.InputProps.endAdornment}
+                                                    </>
+                                                ),
+                                            }}
+                                        />
+                                    )}
+                                />
+                            </Box>
+                        </Grid>
 
-                    <Typography sx={{ fontSize: '16px', fontWeight: '600', mt: '18px' }}>
-                        Kitchen
-                    </Typography>
-                    <Select
-                        value={saveKitchen}
-                        onChange={(e) => setSaveKitchen(e.target.value)}
-                        displayEmpty
-                        size="small"
-                        sx={{
-                            mt: '8px',
-                            width: '95%',
-                            borderRadius: '10px',
-                        }}
-                    >
-                        <MenuItem value=""><em>Select Kitchen</em></MenuItem>
-                        {kitchens.map((kitchen) => (
-                            <MenuItem key={kitchen.kitchen_code} value={kitchen.kitchen_code}>
-                                {kitchen.kitchen_name}
-                            </MenuItem>
-                        ))}
-                    </Select>
+                        <Grid item xs={12}>
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>
+                                Ref.no
+                            </Typography>
+                            <TextField
+                                value={lastRefNo}
+                                disabled={true}
+                                size="small"
+                                fullWidth
+                                sx={{
+                                    mt: '8px',
+                                    '& .MuiOutlinedInput-root': {
+                                        borderRadius: '10px',
+                                    },
+                                    '& .Mui-disabled': {
+                                        WebkitTextFillColor: !lastRefNo || lastRefNo === 'Please select dispatch to kitchen'
+                                            ? '#d32f2f'
+                                            : 'rgba(0, 0, 0, 0.38)',
+                                    }
+                                }}
+                            />
+                        </Grid>
 
-                    <Divider sx={{ my: 2 }} />
+                        <Grid item xs={12} md={6}>
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>
+                                Date
+                            </Typography>
+                            <DatePicker
+                                selected={startDate}
+                                onChange={(date) => {
+                                    setStartDate(date);
+                                }}
+                                dateFormat="MM/dd/yyyy"
+                                customInput={<CustomInput />}
+                            />
+                        </Grid>
+                    </Grid>
+
+                    <Divider sx={{ my: 3 }} />
 
                     {/* Current Order Section */}
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -663,6 +1100,7 @@ export default function CreateGoodsReceiptWarehouse({ onBack }) {
                                     },
                                     ml: 1
                                 }}
+                                disabled={products.length === 0}
                             >
                                 Clear All
                             </Button>
@@ -670,18 +1108,26 @@ export default function CreateGoodsReceiptWarehouse({ onBack }) {
                     </Box>
 
                     {/* Order Table */}
-                    <TableContainer sx={{ mt: 2, maxHeight: '400px', overflow: 'auto' }}>
+                    <TableContainer component={Paper} sx={{
+                        mt: 2,
+                        maxHeight: '400px',
+                        overflow: 'auto',
+                        boxShadow: 'none',
+                        border: '1px solid #e0e0e0',
+                        borderRadius: '8px'
+                    }}>
                         <Table stickyHeader>
                             <TableHead>
-                                <TableRow>
+                                <TableRow sx={{ bgcolor: '#f5f5f5' }}>
                                     <TableCell>No.</TableCell>
                                     <TableCell>Image</TableCell>
-                                    <TableCell>Product Code</TableCell>
-                                    <TableCell>Product Name</TableCell>
+                                    <TableCell>Product</TableCell>
+                                    <TableCell>Tax</TableCell>
                                     <TableCell>Expiry Date</TableCell>
+                                    <TableCell>Temperature</TableCell>
                                     <TableCell>Quantity</TableCell>
                                     <TableCell>Unit</TableCell>
-                                    {/* Removed Unit Price column */}
+                                    {/* Removed Price column */}
                                     {/* Removed Total column */}
                                     <TableCell>Actions</TableCell>
                                 </TableRow>
@@ -689,9 +1135,9 @@ export default function CreateGoodsReceiptWarehouse({ onBack }) {
                             <TableBody>
                                 {products.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
+                                        <TableCell colSpan={9} align="center">
                                             <Typography color="text.secondary">
-                                                No products selected. Click on products to add them to your order.
+                                                No products selected. Select a dispatch from the dropdown or add products from the grid.
                                             </Typography>
                                         </TableCell>
                                     </TableRow>
@@ -712,14 +1158,43 @@ export default function CreateGoodsReceiptWarehouse({ onBack }) {
                                                     {renderProductImage(product, 'table')}
                                                 </Box>
                                             </TableCell>
-                                            <TableCell>{product.product_code}</TableCell>
-                                            <TableCell>{product.product_name}</TableCell>
+                                            <TableCell>
+                                                <Typography variant="body2" fontWeight="bold" noWrap sx={{ maxWidth: 150 }}>
+                                                    {product.product_name}
+                                                </Typography>
+                                                <Typography variant="caption" color="text.secondary">
+                                                    {product.product_code}
+                                                </Typography>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Select
+                                                    value={taxStatus[product.product_code] || 'N'}
+                                                    onChange={(e) => handleTaxStatusChange(product.product_code, e.target.value)}
+                                                    size="small"
+                                                    sx={{ minWidth: 60 }}
+                                                >
+                                                    <MenuItem value="Y">Yes</MenuItem>
+                                                    <MenuItem value="N">No</MenuItem>
+                                                </Select>
+                                            </TableCell>
                                             <TableCell>
                                                 <DatePicker
-                                                    selected={expiryDates[product.product_code]}
+                                                    selected={expiryDates[product.product_code] || new Date()}
                                                     onChange={(date) => handleExpiryDateChange(product.product_code, date)}
                                                     dateFormat="MM/dd/yyyy"
                                                     customInput={<CustomInput />}
+                                                />
+                                            </TableCell>
+                                            <TableCell>
+                                                <TextField
+                                                    value={temperatures[product.product_code] || ''}
+                                                    onChange={(e) => handleTemperatureChange(product.product_code, e.target.value)}
+                                                    size="small"
+                                                    type="number"
+                                                    InputProps={{
+                                                        endAdornment: <InputAdornment position="end">°C</InputAdornment>,
+                                                    }}
+                                                    sx={{ width: '80px' }}
                                                 />
                                             </TableCell>
                                             <TableCell>
@@ -730,7 +1205,7 @@ export default function CreateGoodsReceiptWarehouse({ onBack }) {
                                                     >
                                                         <RemoveIcon />
                                                     </IconButton>
-                                                    <Typography sx={{ mx: 1 }}>{quantities[product.product_code]}</Typography>
+                                                    <Typography sx={{ mx: 1 }}>{quantities[product.product_code] || 0}</Typography>
                                                     <IconButton
                                                         onClick={() => handleQuantityChange(product.product_code, 1)}
                                                         size="small"
@@ -741,24 +1216,27 @@ export default function CreateGoodsReceiptWarehouse({ onBack }) {
                                             </TableCell>
                                             <TableCell>
                                                 <Select
-                                                    value={units[product.product_code]}
+                                                    value={units[product.product_code] || ''}
                                                     onChange={(e) => handleUnitChange(product.product_code, e.target.value)}
                                                     size="small"
+                                                    sx={{ minWidth: 120 }}
                                                 >
-                                                    <MenuItem value={product.productUnit1.unit_code}>
-                                                        {product.productUnit1.unit_name}
-                                                    </MenuItem>
-                                                    <MenuItem value={product.productUnit2.unit_code}>
-                                                        {product.productUnit2.unit_name}
+                                                    <MenuItem value={units[product.product_code] || product.unit_code || ''}>
+                                                        {(() => {
+                                                            // หาชื่อหน่วยที่ต้องแสดง
+                                                            const unit = products.find(p => p.product_code === product.product_code);
+                                                            if (unit && unit.unit_name) return unit.unit_name;
+                                                            if (unit && unit.tbl_unit && unit.tbl_unit.unit_name) return unit.tbl_unit.unit_name;
+                                                            return units[product.product_code] || 'ไม่ระบุ';
+                                                        })()}
                                                     </MenuItem>
                                                 </Select>
                                             </TableCell>
-                                            {/* Removed Unit Price cell */}
-                                            {/* Removed Total cell */}
                                             <TableCell>
                                                 <IconButton
                                                     onClick={() => toggleSelectProduct(product)}
                                                     color="error"
+                                                    size="small"
                                                 >
                                                     <DeleteIcon />
                                                 </IconButton>
@@ -770,7 +1248,7 @@ export default function CreateGoodsReceiptWarehouse({ onBack }) {
                         </Table>
                     </TableContainer>
 
-                    {/* Modified Order Summary - Hide prices */}
+                    {/* Order Summary - Modified to hide price information */}
                     <Box sx={{
                         bgcolor: '#EAB86C',
                         borderRadius: '10px',
@@ -788,10 +1266,12 @@ export default function CreateGoodsReceiptWarehouse({ onBack }) {
                                 {Object.values(quantities).reduce((sum, qty) => sum + qty, 0)}
                             </Typography>
                         </Box>
-                        {/* <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
-                            <Typography variant="h5">Ready to Process</Typography>
-                            <Typography variant="h5">{products.length > 0 ? '✓' : '✗'}</Typography>
-                        </Box> */}
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                            <Typography>Taxable Items</Typography>
+                            <Typography>
+                                {Object.values(taxStatus).filter(status => status === 'Y').length}
+                            </Typography>
+                        </Box>
                     </Box>
 
                     {/* Save Button */}
@@ -799,6 +1279,7 @@ export default function CreateGoodsReceiptWarehouse({ onBack }) {
                         variant="contained"
                         fullWidth
                         onClick={handleSave}
+                        disabled={!lastRefNo || lastRefNo === 'Please select dispatch to kitchen' || products.length === 0}
                         sx={{
                             mt: 2,
                             bgcolor: '#754C27',

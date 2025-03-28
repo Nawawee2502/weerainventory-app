@@ -7,13 +7,19 @@ import {
     Drawer,
     IconButton,
     Stack,
-    Pagination
+    Pagination,
+    Checkbox,
+    Divider,
+    FormControl,
+    Select,
+    MenuItem
 } from '@mui/material';
 import React, { useState, useEffect } from 'react';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
 import SearchIcon from '@mui/icons-material/Search';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import CloseIcon from '@mui/icons-material/Close';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import { styled } from '@mui/material/styles';
 import Table from '@mui/material/Table';
@@ -38,9 +44,18 @@ import {
     countKt_stockcard
 } from '../../../api/kitchen/kt_stockcardApi';
 import { kitchenAll } from '../../../api/kitchenApi';
-import { Checkbox } from '@mui/material';
-// import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 
+// SweetAlert2 Style Override
+document.head.insertAdjacentHTML(
+    'beforeend',
+    `<style>
+      .swal2-container {
+        z-index: 9999 !important; /* Much higher than MUI's Modal z-index of 1300 */
+      }
+    </style>`
+);
+
+// Styled Components
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
     [`&.${tableCellClasses.head}`]: {
         backgroundColor: '#754C27',
@@ -99,6 +114,14 @@ const convertToLasVegasTime = (date) => {
     return new Date(newDate.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
 };
 
+const formatDate = (date) => {
+    if (!date) return "";
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${month}/${day}/${year}`;
+};
+
 export default function BeginningInventory() {
     const dispatch = useDispatch();
     const [openDrawer, setOpenDrawer] = useState(false);
@@ -116,58 +139,10 @@ export default function BeginningInventory() {
     const [filterDate, setFilterDate] = useState(() => convertToLasVegasTime(new Date()));
     const [searchTerm, setSearchTerm] = useState('');
     const [selected, setSelected] = useState([]);
-    const [kitchenSearchTerm, setKitchenSearchTerm] = useState('');
-    const [showKitchenDropdown, setShowKitchenDropdown] = useState(false);
-    const [filteredKitchens, setFilteredKitchens] = useState([]);
+    const [selectedKitchenCode, setSelectedKitchenCode] = useState('');
+    const [loading, setLoading] = useState(false);
 
-
-    useEffect(() => {
-        loadData(page);
-    }, [filterDate, tableSearchTerm, page]);
-
-    useEffect(() => {
-        const loadUnits = async () => {
-            try {
-                const response = await dispatch(unitAll({ offset: 0, limit: 100 })).unwrap();
-                setUnits(response.data);
-            } catch (err) {
-                console.error('Error loading units:', err);
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error Loading Units',
-                    text: err.message || 'Failed to load units',
-                    confirmButtonColor: '#754C27'
-                });
-            }
-        };
-        loadUnits();
-    }, [dispatch]);
-
-    useEffect(() => {
-        const loadKitchens = async () => {
-            try {
-                const response = await dispatch(kitchenAll({
-                    offset: 0,
-                    limit: 100
-                })).unwrap();
-                setKitchens(response.data);
-            } catch (err) {
-                console.error('Error loading kitchens:', err);
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error Loading Kitchens',
-                    text: err.message || 'Failed to load kitchens',
-                    confirmButtonColor: '#754C27'
-                });
-            }
-        };
-        loadKitchens();
-    }, [dispatch]);
-
-    useEffect(() => {
-        loadData(page);
-    }, [filterDate, tableSearchTerm, kitchenSearchTerm, page]);
-
+    // Initial Form Values
     const initialValues = {
         date: convertToLasVegasTime(new Date()),
         product_code: '',
@@ -182,28 +157,29 @@ export default function BeginningInventory() {
         monthh: ''
     };
 
-    const validationSchema = {
-        validate: values => {
-            const errors = {};
-            if (!values.product_code) errors.product_code = 'Product is required';
-            if (!values.unit_code) errors.unit_code = 'Unit is required';
-            if (!values.kitchen_code) errors.kitchen_code = 'Kitchen is required';
-            if (!values.amount || values.amount <= 0) errors.amount = 'Amount must be greater than 0';
-            if (!values.unit_price || values.unit_price <= 0) errors.unit_price = 'Unit price must be greater than 0';
-            if (!values.date) errors.date = 'Date is required';  // เพิ่มการ validate วันที่
-            return errors;
-        }
+    // Form Validation
+    const validate = values => {
+        const errors = {};
+        if (!values.product_code) errors.product_code = 'Product is required';
+        if (!values.unit_code) errors.unit_code = 'Unit is required';
+        if (!values.kitchen_code) errors.kitchen_code = 'Kitchen is required';
+        if (!values.amount || values.amount <= 0) errors.amount = 'Amount must be greater than 0';
+        if (!values.unit_price || values.unit_price <= 0) errors.unit_price = 'Unit price must be greater than 0';
+        return errors;
     };
 
     const formik = useFormik({
         initialValues,
-        validate: validationSchema.validate,
+        validate,
         validateOnChange: false,
         onSubmit: async (values) => {
             try {
                 const year = values.date.getFullYear();
                 const month = (values.date.getMonth() + 1).toString().padStart(2, '0');
                 const day = values.date.getDate().toString().padStart(2, '0');
+
+                const rdate = `${month}/${day}/${year}`;
+                const trdate = `${year}${month}${day}`;
 
                 // Calculate amounts
                 const amount = Number(values.amount) || 0;
@@ -213,12 +189,12 @@ export default function BeginningInventory() {
                 const stockcardData = {
                     myear: values.isEditing ? values.myear : year.toString(),
                     monthh: values.isEditing ? values.monthh : month,
-                    kitchen_code: values.kitchen_code,  // ตรวจสอบว่ามีค่าแน่ๆ
+                    kitchen_code: values.kitchen_code,
                     product_code: values.product_code,
                     unit_code: values.unit_code,
                     refno: values.isEditing ? values.refno : 'BEG',
-                    rdate: `${month}/${day}/${year}`,
-                    trdate: `${year}${month}${day}`,
+                    rdate: rdate,  // ส่ง rdate ไปด้วยเสมอ
+                    trdate: trdate,
                     beg1: amount,
                     in1: 0,
                     out1: 0,
@@ -228,11 +204,14 @@ export default function BeginningInventory() {
                     in1_amt: 0,
                     out1_amt: 0,
                     upd1_amt: 0,
-                    balance: amount,  // เพิ่ม balance
-                    balance_amount: totalAmount  // เพิ่ม balance_amount
+                    balance: amount,
+                    balance_amount: totalAmount
                 };
 
-                console.log('Submitting stockcard data:', stockcardData); // เพิ่ม log เพื่อตรวจสอบ
+                setOpenDrawer(false);
+
+                // แสดงข้อมูลที่จะส่งไปที่ API เพื่อดีบัก
+                console.log("Sending to API:", stockcardData);
 
                 const action = values.isEditing ? updateKt_stockcard : addKt_stockcard;
                 const result = await dispatch(action(stockcardData)).unwrap();
@@ -245,76 +224,113 @@ export default function BeginningInventory() {
                         timer: 1500
                     });
 
-                    setOpenDrawer(false);
                     resetForm();
                     loadData(page);
                 }
             } catch (error) {
-                console.error('Submit error:', error); // เพิ่ม log เพื่อตรวจสอบ error
+                console.error('Error:', error);
+
+                // Re-open the drawer so the user can correct the data
+                setOpenDrawer(true);
+
+                // Then show the SweetAlert with high z-index
                 if (error.type === 'DUPLICATE_RECORD') {
-                    Swal.fire({
-                        icon: 'warning',
-                        title: 'Duplicate Entry',
-                        text: error.message,
-                        confirmButtonColor: '#754C27'
-                    });
+                    setTimeout(() => {
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Duplicate Entry',
+                            text: error.message,
+                            confirmButtonColor: '#754C27'
+                        });
+                    }, 100); // Small delay to ensure drawer is fully rendered
                 } else {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Error',
-                        text: error.message || 'An unexpected error occurred',
-                        confirmButtonColor: '#754C27'
-                    });
+                    setTimeout(() => {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: error.message || 'An unexpected error occurred',
+                            confirmButtonColor: '#754C27'
+                        });
+                    }, 100);
                 }
             }
         }
     });
 
-    const handleKitchenSearch = (e) => {
-        const value = e.target.value;
-        setKitchenSearchTerm(value);
+    // Load Units and Kitchens
+    useEffect(() => {
+        const loadInitialData = async () => {
+            try {
+                setLoading(true);
+                const [unitsResponse, kitchensResponse] = await Promise.all([
+                    dispatch(unitAll({ offset: 0, limit: 100 })).unwrap(),
+                    dispatch(kitchenAll({ offset: 0, limit: 100 })).unwrap()
+                ]);
 
-        if (value) {
-            const filtered = kitchens.filter(kitchen =>
-                kitchen.kitchen_name.toLowerCase().includes(value.toLowerCase())
-            );
-            setFilteredKitchens(filtered);
-            setShowKitchenDropdown(true);
-        } else {
-            setFilteredKitchens([]);
-            setShowKitchenDropdown(false);
-        }
-    };
+                setUnits(unitsResponse.data || []);
+                setKitchens(kitchensResponse.data || []);
+            } catch (err) {
+                console.error('Error loading initial data:', err);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error Loading Data',
+                    text: err.message || 'Failed to load initial data',
+                    confirmButtonColor: '#754C27'
+                });
+            } finally {
+                setLoading(false);
+            }
+        };
+        loadInitialData();
+    }, [dispatch]);
 
     const loadData = async (pageNumber = 1) => {
         try {
+            setLoading(true);
             const offset = (pageNumber - 1) * itemsPerPage;
-            const formattedDate = filterDate ? formatDate(filterDate) : null;
 
+            // Date parameters
+            let dateParams = {};
+            if (filterDate) {
+                const formattedDate = formatDate(filterDate);
+                dateParams = { rdate: formattedDate };
+            }
+
+            // Kitchen filter
+            let kitchenParams = {};
+            if (selectedKitchenCode) {
+                kitchenParams.kitchen_code = selectedKitchenCode;
+            }
+
+            // Fetch stockcard data with BEG refno filter
             const [stockcardsRes, countRes] = await Promise.all([
                 dispatch(Kt_stockcardAll({
                     offset,
                     limit: itemsPerPage,
-                    ...(formattedDate && { rdate: formattedDate }),
-                    ...(tableSearchTerm && { product_name: tableSearchTerm }),
-                    // เปลี่ยนจาก kitchen_name เป็น kitchen_code
-                    ...(kitchenSearchTerm && { kitchen_code: kitchenSearchTerm })
+                    ...dateParams,
+                    ...kitchenParams,
+                    product_name: tableSearchTerm,
+                    refno: 'BEG'
                 })).unwrap(),
                 dispatch(countKt_stockcard({
-                    ...(formattedDate && { rdate: formattedDate }),
-                    ...(tableSearchTerm && { product_name: tableSearchTerm }),
-                    // เปลี่ยนจาก kitchen_name เป็น kitchen_code
-                    ...(kitchenSearchTerm && { kitchen_code: kitchenSearchTerm })
+                    ...dateParams,
+                    ...kitchenParams,
+                    product_name: tableSearchTerm,
+                    refno: 'BEG'
                 })).unwrap()
             ]);
 
             if (stockcardsRes.result && Array.isArray(stockcardsRes.data)) {
                 setStockcards(stockcardsRes.data);
-                const totalPages = Math.ceil(countRes.data / itemsPerPage);
+
+                const totalRecords = countRes.data;
+
+                // Calculate total pages
+                const totalPages = Math.max(1, Math.ceil(totalRecords / itemsPerPage));
                 setCount(totalPages);
             } else {
                 setStockcards([]);
-                setCount(0);
+                setCount(1);
             }
         } catch (error) {
             console.error('Error loading data:', error);
@@ -324,9 +340,124 @@ export default function BeginningInventory() {
                 text: error.message || 'Failed to load stockcard data',
                 confirmButtonColor: '#754C27'
             });
+            setStockcards([]);
+            setCount(1);
+        } finally {
+            setLoading(false);
         }
     };
 
+    useEffect(() => {
+        loadData(page);
+    }, [filterDate, tableSearchTerm, selectedKitchenCode, page]);
+
+    // Handle Kitchen Change
+    const handleKitchenChange = (e) => {
+        setSelectedKitchenCode(e.target.value);
+        setPage(1);
+        setSelected([]);
+    };
+
+    // Handle Product Search
+    const handleSearchChange = async (e) => {
+        try {
+            const value = e.target.value;
+            setSearchTerm(value);
+            setProductSearchTerm(value);
+
+            if (value.length > 0) {
+                const response = await dispatch(searchProductName({ product_name: value })).unwrap();
+                if (response.data) {
+                    const sortedResults = [...response.data].sort((a, b) => {
+                        const aExact = a.product_name.toLowerCase() === value.toLowerCase();
+                        const bExact = b.product_name.toLowerCase() === value.toLowerCase();
+                        if (aExact && !bExact) return -1;
+                        if (!aExact && bExact) return 1;
+                        return a.product_name.length - b.product_name.length;
+                    });
+                    setSearchResults(sortedResults);
+                    setShowDropdown(true);
+                }
+            } else {
+                setSearchResults([]);
+                setShowDropdown(false);
+            }
+        } catch (err) {
+            console.error('Error searching products:', err);
+            Swal.fire({
+                icon: 'error',
+                title: 'Search Error',
+                text: err.message || 'Failed to search products',
+                confirmButtonColor: '#754C27'
+            });
+        }
+    };
+
+    // Handle Table Search
+    const handleTableSearch = (e) => {
+        setTableSearchTerm(e.target.value);
+        setPage(1);
+        setSelected([]);
+    };
+
+    // Handle Product Selection
+    const handleProductSelect = (product) => {
+        const newValues = {
+            ...formik.values,
+            product_code: product.product_code,
+            product_name: product.product_name,
+            unit_code: product.productUnit2?.unit_code || '',
+            unit_price: product.retail_unit_price || ''
+        };
+
+        formik.resetForm({ values: newValues });
+        setSelectedProduct(product);
+        setProductSearchTerm(product.product_name);
+        setSearchTerm(product.product_name);
+        setShowDropdown(false);
+    };
+
+    // Reset Form
+    const resetForm = () => {
+        formik.resetForm();
+        setProductSearchTerm('');
+        setSearchTerm('');
+        setSelectedProduct(null);
+        setShowDropdown(false);
+    };
+
+    // Handle Date Change
+    const handleDateChange = (date) => {
+        if (!date) return;
+        const vegasDate = convertToLasVegasTime(date);
+        setFilterDate(vegasDate);
+        setPage(1);
+        setSelected([]);
+    };
+
+    // Clear Filters
+    const clearFilters = () => {
+        setTableSearchTerm('');
+        setSelectedKitchenCode('');
+        setFilterDate(convertToLasVegasTime(new Date()));
+        setPage(1);
+        setSelected([]);
+        loadData(1);
+    };
+
+    // Handle Page Change
+    const handlePageChange = (event, value) => {
+        setPage(value);
+    };
+
+    // Calculate Total
+    const calculateTotal = () => {
+        const amount = Number(formik.values.amount) || 0;
+        const unitPrice = Number(formik.values.unit_price) || 0;
+        return (amount * unitPrice).toFixed(2);
+    };
+
+    // Handle Edit
     const handleEdit = async (row) => {
         try {
             const productData = {
@@ -334,7 +465,7 @@ export default function BeginningInventory() {
                 product_name: row.tbl_product?.product_name || '',
                 productUnit2: {
                     unit_code: row.unit_code,
-                    unit_name: row.tbl_unit?.unit_name || ''  // เพิ่ม unit_name
+                    unit_name: row.tbl_unit?.unit_name || ''
                 },
                 retail_unit_price: row.uprice
             };
@@ -343,7 +474,6 @@ export default function BeginningInventory() {
             const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
             date.setHours(0, 0, 0, 0);
 
-            // Set form values
             formik.setValues({
                 date,
                 product_code: row.product_code,
@@ -359,7 +489,7 @@ export default function BeginningInventory() {
             });
 
             setProductSearchTerm(row.tbl_product?.product_name || '');
-            setSearchTerm(row.tbl_product?.product_name || '');  // เพิ่มบรรทัดนี้
+            setSearchTerm(row.tbl_product?.product_name || '');
             setSelectedProduct(productData);
             setOpenDrawer(true);
         } catch (err) {
@@ -373,6 +503,7 @@ export default function BeginningInventory() {
         }
     };
 
+    // Handle Delete
     const handleDelete = async (row) => {
         try {
             const result = await Swal.fire({
@@ -390,7 +521,9 @@ export default function BeginningInventory() {
                     refno: row.refno,
                     myear: row.myear,
                     monthh: row.monthh,
-                    product_code: row.product_code
+                    product_code: row.product_code,
+                    kitchen_code: row.kitchen_code,  // เพิ่ม kitchen_code
+                    rdate: row.rdate  // เพิ่ม rdate
                 })).unwrap();
 
                 await Swal.fire({
@@ -413,138 +546,7 @@ export default function BeginningInventory() {
         }
     };
 
-    const handleDateChange = (date) => {
-        if (!date) return;
-        const vegasDate = convertToLasVegasTime(date);
-        setFilterDate(vegasDate);
-        setPage(1);
-        loadData(1);
-    };
-
-    const formatDate = (date) => {
-        if (!date) return "";
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        const year = date.getFullYear();
-        return `${month}/${day}/${year}`;
-    };
-
-    const resetForm = () => {
-        formik.resetForm();
-        setProductSearchTerm('');
-        setSearchTerm('');  // เพิ่มบรรทัดนี้
-        setSelectedProduct(null);
-        setShowDropdown(false);  // เพิ่มบรรทัดนี้
-    };
-
-    const toggleDrawer = (open) => () => {
-        setOpenDrawer(open);
-        if (!open) {
-            resetForm();
-        }
-    };
-
-    // Search Handlers
-    const handleSearchChange = async (e) => {
-        const value = e.target.value;
-        setSearchTerm(value);
-        setProductSearchTerm(value);
-
-        if (value.length > 0) {
-            try {
-                const response = await dispatch(searchProductName({ product_name: value })).unwrap();
-                if (response.data) {
-                    const sortedResults = [...response.data].sort((a, b) => {
-                        const aExact = a.product_name.toLowerCase() === value.toLowerCase();
-                        const bExact = b.product_name.toLowerCase() === value.toLowerCase();
-                        if (aExact && !bExact) return -1;
-                        if (!aExact && bExact) return 1;
-                        return a.product_name.length - b.product_name.length;
-                    });
-                    setSearchResults(sortedResults);
-                    setShowDropdown(true);
-                }
-            } catch (err) {
-                console.error('Error searching products:', err);
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Search Error',
-                    text: err.message || 'Failed to search products',
-                    confirmButtonColor: '#754C27'
-                });
-            }
-        } else {
-            setSearchResults([]);
-            setShowDropdown(false);
-        }
-    };
-
-    // Table search handler
-    const handleTableSearch = (e) => {
-        setTableSearchTerm(e.target.value);
-        setPage(1); // Reset to first page when searching
-    };
-
-    const clearFilters = () => {
-        setTableSearchTerm('');
-        const today = convertToLasVegasTime(new Date());
-        setFilterDate(today);
-        setPage(1);
-        loadData(1);
-    };
-
-    const handleProductSelect = (product) => {
-        // Update formik values
-        const newValues = {
-            ...formik.values,
-            product_code: product.product_code,
-            product_name: product.product_name,
-            unit_code: product.productUnit2?.unit_code || '',
-            unit_price: product.retail_unit_price || ''
-        };
-
-        formik.resetForm({ values: newValues });
-        setSelectedProduct(product);
-        setProductSearchTerm(product.product_name);
-        setSearchTerm(product.product_name);  // เพิ่มบรรทัดนี้
-        setShowDropdown(false);
-    };
-
-    // Calculation Functions
-    const calculateTotal = () => {
-        const amount = Number(formik.values.amount) || 0;
-        const unitPrice = Number(formik.values.unit_price) || 0;
-        return (amount * unitPrice).toFixed(2);
-    };
-
-    // Handle checkbox selection
-    const handleCheckboxChange = (event, stockcard) => {
-        const selectedIndex = selected.findIndex(item =>
-            item.refno === stockcard.refno &&
-            item.product_code === stockcard.product_code
-        );
-        let newSelected = [];
-
-        if (selectedIndex === -1) {
-            newSelected = [...selected, stockcard];
-        } else {
-            newSelected = [
-                ...selected.slice(0, selectedIndex),
-                ...selected.slice(selectedIndex + 1),
-            ];
-        }
-        setSelected(newSelected);
-    };
-
-    // Handle select all
-    const handleSelectAllClick = (event) => {
-        if (event.target.checked) {
-            setSelected(stockcards);
-        } else {
-            setSelected([]);
-        }
-    };
-
+    // Handle Batch Delete
     const handleBatchDelete = async () => {
         if (selected.length === 0) return;
 
@@ -566,7 +568,9 @@ export default function BeginningInventory() {
                         refno: item.refno,
                         myear: item.myear,
                         monthh: item.monthh,
-                        product_code: item.product_code
+                        product_code: item.product_code,
+                        kitchen_code: item.kitchen_code,  // เพิ่ม kitchen_code
+                        rdate: item.rdate  // เพิ่ม rdate
                     })).unwrap();
                 }
 
@@ -593,12 +597,56 @@ export default function BeginningInventory() {
         }
     };
 
+    // Handle Select All Click
+    const handleSelectAllClick = (event) => {
+        if (event.target.checked) {
+            setSelected(stockcards);
+        } else {
+            setSelected([]);
+        }
+    };
+
+    // Handle Checkbox Change
+    const handleCheckboxChange = (event, stockcard) => {
+        const selectedIndex = selected.findIndex(item =>
+            item.refno === stockcard.refno &&
+            item.product_code === stockcard.product_code
+        );
+        let newSelected = [];
+
+        if (selectedIndex === -1) {
+            newSelected = [...selected, stockcard];
+        } else {
+            newSelected = [
+                ...selected.slice(0, selectedIndex),
+                ...selected.slice(selectedIndex + 1),
+            ];
+        }
+        setSelected(newSelected);
+    };
+
+    // Toggle Drawer
+    const toggleDrawer = (open) => () => {
+        setOpenDrawer(open);
+        if (!open) {
+            resetForm();
+        }
+    };
 
     return (
         <>
-            <Box sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', p: '48px' }}>
+            <Box sx={{
+                width: '100%',
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                p: '24px'
+            }}>
+                {/* Create Button */}
                 <Button onClick={toggleDrawer(true)} sx={{
-                    width: '209px', height: '70px',
+                    width: '209px',
+                    height: '70px',
                     background: 'linear-gradient(180deg, #AD7A2C 0%, #754C27 100%)',
                     borderRadius: '15px',
                     boxShadow: '0px 4px 4px 0px #00000040',
@@ -607,7 +655,8 @@ export default function BeginningInventory() {
                     alignItems: 'center',
                     '&:hover': {
                         background: 'linear-gradient(180deg, #8C5D1E 0%, #5D3A1F 100%)',
-                    }
+                    },
+                    mt: '48px'
                 }}>
                     <AddCircleIcon sx={{ fontSize: '42px', color: '#FFFFFF', mr: '12px' }} />
                     <Typography sx={{ fontSize: '24px', fontWeight: '600', color: '#FFFFFF' }}>
@@ -615,111 +664,61 @@ export default function BeginningInventory() {
                     </Typography>
                 </Button>
 
-                {/* Replace existing search box with this */}
-                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mt: '48px', width: '90%', gap: '20px' }}>
-                    <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>
-                        Search
-                    </Typography>
-                    <Box sx={{ position: 'relative', }}>
-                        <TextField
-                            value={tableSearchTerm}
-                            onChange={async (e) => {
-                                const value = e.target.value;
-                                setTableSearchTerm(value);
-
-                                if (value.trim()) {
-                                    try {
-                                        const response = await dispatch(searchProductName({ product_name: value })).unwrap();
-                                        setSearchResults(response.data || []);
-                                        setShowDropdown(true);
-                                    } catch (err) {
-                                        console.error('Error searching products:', err);
-                                    }
-                                } else {
-                                    setSearchResults([]);
-                                    setShowDropdown(false);
-                                }
-                            }}
-                            placeholder="Search Product"
-                            sx={{
-                                '& .MuiInputBase-root': { height: '38px' },
-                                '& .MuiOutlinedInput-input': { padding: '8.5px 14px' }
-                            }}
-                            InputProps={{
-                                startAdornment: (
-                                    <InputAdornment position="start">
-                                        <SearchIcon sx={{ color: '#5A607F' }} />
-                                    </InputAdornment>
-                                )
-                            }}
-                        />
-                        {showDropdown && searchResults.length > 0 && (
-                            <Box sx={{
-                                position: 'absolute',
-                                top: '100%',
-                                left: 0,
-                                right: 0,
-                                backgroundColor: 'white',
-                                boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-                                borderRadius: '4px',
-                                zIndex: 1000,
-                                maxHeight: '200px',
-                                overflowY: 'auto',
-                                mt: '4px'
-                            }}>
-                                {searchResults.map((product) => (
-                                    <Box
-                                        key={product.product_code}
-                                        onClick={() => {
-                                            setTableSearchTerm(product.product_name);
-                                            setShowDropdown(false);
-                                            loadData(page);
-                                        }}
-                                        sx={{
-                                            p: 1.5,
-                                            cursor: 'pointer',
-                                            '&:hover': {
-                                                backgroundColor: '#f5f5f5'
-                                            },
-                                            borderBottom: '1px solid #eee'
-                                        }}
-                                    >
-                                        <Typography sx={{ fontSize: '14px', fontWeight: '600' }}>
-                                            {product.product_name}
-                                        </Typography>
-                                    </Box>
-                                ))}
-                            </Box>
-                        )}
-                    </Box>
-                    <Box
-                        component="select"
-                        value={kitchenSearchTerm}
-                        onChange={(e) => {
-                            setKitchenSearchTerm(e.target.value);
-                        }}
+                {/* Search Filters */}
+                <Box sx={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    mt: '48px',
+                    width: '90%',
+                    gap: '20px'
+                }}>
+                    <FormControl sx={{ width: '30%' }}>
+                        <Select
+                            value={selectedKitchenCode}
+                            onChange={handleKitchenChange}
+                            displayEmpty
+                            size="small"
+                        >
+                            <MenuItem value="">
+                                <em>All Kitchens</em>
+                            </MenuItem>
+                            {kitchens.map((kitchen) => (
+                                <MenuItem key={kitchen.kitchen_code} value={kitchen.kitchen_code}>
+                                    {kitchen.kitchen_name}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
+                    <TextField
+                        value={tableSearchTerm}
+                        onChange={handleTableSearch}
+                        placeholder="Search product"
                         sx={{
-                            height: '38px',
-                            width: '25%',
-                            borderRadius: '4px',
-                            border: '1px solid rgba(0, 0, 0, 0.23)',
-                            padding: '0 14px',
-                            backgroundColor: '#fff'
+                            '& .MuiInputBase-root': {
+                                height: '38px',
+                                width: '100%'
+                            },
+                            '& .MuiOutlinedInput-input': {
+                                padding: '8.5px 14px',
+                                bgcolor: '#FFFFFF'
+                            },
+                            width: '35%'
                         }}
-                    >
-                        <option value="">All Kitchens</option>
-                        {kitchens.map((kitchen) => (
-                            <option key={kitchen.kitchen_code} value={kitchen.kitchen_code}>
-                                {kitchen.kitchen_name}
-                            </option>
-                        ))}
-                    </Box>
+                        InputProps={{
+                            startAdornment: (
+                                <InputAdornment position="start">
+                                    <SearchIcon sx={{ color: '#5A607F' }} />
+                                </InputAdornment>
+                            ),
+                        }}
+                    />
                     <Box sx={{ width: '200px' }}>
                         <DatePicker
                             selected={filterDate}
                             onChange={handleDateChange}
                             dateFormat="MM/dd/yyyy"
-                            placeholderText="Filter by date"
+                            placeholderText="MM/DD/YYYY"
                             customInput={<CustomInput />}
                         />
                     </Box>
@@ -741,7 +740,8 @@ export default function BeginningInventory() {
                     </Button>
                 </Box>
 
-                <Box sx={{ width: '80%', mt: '24px' }}>
+                {/* Batch Delete Button */}
+                <Box sx={{ width: '100%', mt: '24px' }}>
                     <Button
                         variant="contained"
                         color="error"
@@ -753,8 +753,9 @@ export default function BeginningInventory() {
                     </Button>
                 </Box>
 
-                <TableContainer component={Paper} sx={{ width: '80%', mt: '24px' }}>
-                    <Table aria-label="customized table">
+                {/* Table */}
+                <TableContainer component={Paper} sx={{ width: '100%', mt: '24px' }}>
+                    <Table>
                         <TableHead>
                             <TableRow>
                                 <StyledTableCell padding="checkbox">
@@ -775,102 +776,102 @@ export default function BeginningInventory() {
                                     />
                                 </StyledTableCell>
                                 <StyledTableCell width='1%'>No.</StyledTableCell>
-                                <StyledTableCell align="center">Refno</StyledTableCell>
+                                <StyledTableCell align="center">Date</StyledTableCell>
                                 <StyledTableCell align="center">Product Code</StyledTableCell>
                                 <StyledTableCell align="center">Product Name</StyledTableCell>
-                                <StyledTableCell align="center">Kitchen Name</StyledTableCell>
+                                <StyledTableCell align="center">Kitchen</StyledTableCell>
                                 <StyledTableCell align="center">Amount</StyledTableCell>
-                                <StyledTableCell align="center">Unit Price</StyledTableCell>
-                                <StyledTableCell align="center">Total</StyledTableCell>
-                                <StyledTableCell width='1%' align="center"></StyledTableCell>
-                                <StyledTableCell width='1%' align="center"></StyledTableCell>
+                                {/* <StyledTableCell align="center">Unit Price</StyledTableCell> */}
+                                {/* <StyledTableCell align="center">Total</StyledTableCell> */}
+                                <StyledTableCell width='1%' align="center">Edit</StyledTableCell>
+                                <StyledTableCell width='1%' align="center">Delete</StyledTableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {stockcards.map((row, index) => {
-                                const isSelected = selected.some(item =>
-                                    item.refno === row.refno &&
-                                    item.product_code === row.product_code
-                                );
+                            {loading ? (
+                                <StyledTableRow>
+                                    <StyledTableCell colSpan={11} align="center">Loading...</StyledTableCell>
+                                </StyledTableRow>
+                            ) : stockcards.length === 0 ? (
+                                <StyledTableRow>
+                                    <StyledTableCell colSpan={11} align="center">No records found</StyledTableCell>
+                                </StyledTableRow>
+                            ) : (
+                                stockcards.map((row, index) => {
+                                    const isSelected = selected.some(item =>
+                                        item.refno === row.refno &&
+                                        item.product_code === row.product_code
+                                    );
 
-                                return (
-                                    <StyledTableRow
-                                        key={`${row.refno}-${row.product_code}`}
-                                        selected={isSelected}
-                                    >
-                                        <StyledTableCell padding="checkbox">
-                                            <Checkbox
-                                                color="primary"
-                                                checked={isSelected}
-                                                onChange={(event) => handleCheckboxChange(event, row)}
-                                                sx={{
-                                                    '&.Mui-checked': {
-                                                        color: '#754C27',
-                                                    }
-                                                }}
-                                            />
-                                        </StyledTableCell>
-                                        <StyledTableCell>
-                                            {(page - 1) * itemsPerPage + index + 1}
-                                        </StyledTableCell>
-                                        <StyledTableCell align="center">
-                                            {row.refno}
-                                        </StyledTableCell>
-                                        <StyledTableCell align="center">
-                                            {row.product_code}
-                                        </StyledTableCell>
-                                        <StyledTableCell align="center">
-                                            {row.tbl_product?.product_name || ''}
-                                        </StyledTableCell>
-                                        <StyledTableCell align="center">
-                                            {row.tbl_kitchen?.kitchen_name || ''}
-                                        </StyledTableCell>
-                                        <StyledTableCell align="center">
-                                            {row.beg1}
-                                        </StyledTableCell>
-                                        <StyledTableCell align="center">
-                                            {row.uprice?.toLocaleString('en-US', {
-                                                minimumFractionDigits: 2,
-                                                maximumFractionDigits: 2
-                                            })}
-                                        </StyledTableCell>
-                                        <StyledTableCell align="center">
-                                            {row.beg1_amt?.toLocaleString('en-US', {
-                                                minimumFractionDigits: 2,
-                                                maximumFractionDigits: 2
-                                            })}
-                                        </StyledTableCell>
-                                        <StyledTableCell align="center">
-                                            <IconButton
-                                                onClick={() => handleEdit(row)}
-                                                sx={{ border: '1px solid #AD7A2C', borderRadius: '7px' }}
-                                            >
-                                                <EditIcon sx={{ color: '#AD7A2C' }} />
-                                            </IconButton>
-                                        </StyledTableCell>
-                                        <StyledTableCell align="center">
-                                            <IconButton
-                                                onClick={() => handleDelete(row)}
-                                                sx={{ border: '1px solid #F62626', borderRadius: '7px' }}
-                                            >
-                                                <DeleteIcon sx={{ color: '#F62626' }} />
-                                            </IconButton>
-                                        </StyledTableCell>
-                                    </StyledTableRow>
-                                );
-                            })}
+                                    return (
+                                        <StyledTableRow
+                                            key={`${row.refno}-${row.product_code}-${index}`}
+                                            selected={isSelected}
+                                        >
+                                            <StyledTableCell padding="checkbox">
+                                                <Checkbox
+                                                    color="primary"
+                                                    checked={isSelected}
+                                                    onChange={(event) => handleCheckboxChange(event, row)}
+                                                    sx={{
+                                                        '&.Mui-checked': {
+                                                            color: '#754C27',
+                                                        }
+                                                    }}
+                                                />
+                                            </StyledTableCell>
+                                            <StyledTableCell>{(page - 1) * itemsPerPage + index + 1}</StyledTableCell>
+                                            <StyledTableCell align="center">{row.rdate}</StyledTableCell>
+                                            <StyledTableCell align="center">{row.product_code}</StyledTableCell>
+                                            <StyledTableCell align="center">
+                                                {row.tbl_product?.product_name || row.product_code}
+                                            </StyledTableCell>
+                                            <StyledTableCell align="center">
+                                                {row.tbl_kitchen?.kitchen_name || row.kitchen_code || 'N/A'}
+                                            </StyledTableCell>
+                                            <StyledTableCell align="center">{row.beg1}</StyledTableCell>
+                                            {/* <StyledTableCell align="center">
+                                                {row.uprice?.toLocaleString('en-US', {
+                                                    minimumFractionDigits: 2,
+                                                    maximumFractionDigits: 2
+                                                })}
+                                            </StyledTableCell>
+                                            <StyledTableCell align="center">
+                                                {row.beg1_amt?.toLocaleString('en-US', {
+                                                    minimumFractionDigits: 2,
+                                                    maximumFractionDigits: 2
+                                                })}
+                                            </StyledTableCell> */}
+                                            <StyledTableCell align="center">
+                                                <IconButton
+                                                    onClick={() => handleEdit(row)}
+                                                    sx={{ border: '1px solid #AD7A2C', borderRadius: '7px' }}
+                                                >
+                                                    <EditIcon sx={{ color: '#AD7A2C' }} />
+                                                </IconButton>
+                                            </StyledTableCell>
+                                            <StyledTableCell align="center">
+                                                <IconButton
+                                                    onClick={() => handleDelete(row)}
+                                                    sx={{ border: '1px solid #F62626', borderRadius: '7px' }}
+                                                >
+                                                    <DeleteIcon sx={{ color: '#F62626' }} />
+                                                </IconButton>
+                                            </StyledTableCell>
+                                        </StyledTableRow>
+                                    );
+                                })
+                            )}
                         </TableBody>
                     </Table>
                 </TableContainer>
 
+                {/* Pagination */}
                 <Stack spacing={2} sx={{ mt: 2, display: 'flex', alignItems: 'center' }}>
                     <Pagination
                         count={count}
                         page={page}
-                        onChange={(event, value) => {
-                            setPage(value);
-                            loadData(value);
-                        }}
+                        onChange={handlePageChange}
                         shape="rounded"
                         showFirstButton
                         showLastButton
@@ -878,6 +879,7 @@ export default function BeginningInventory() {
                 </Stack>
             </Box>
 
+            {/* Drawer for Add/Edit */}
             <Drawer
                 anchor="right"
                 open={openDrawer}
@@ -890,302 +892,300 @@ export default function BeginningInventory() {
                 PaperProps={{
                     sx: {
                         boxShadow: 'none',
-                        width: '25%',
-                        borderRadius: '20px',
+                        width: '30%',
+                        borderRadius: '20px 0 0 20px',
                         border: '1px solid #E4E4E4',
                         bgcolor: '#FAFAFA',
-                        mt: '36px'
+                        mt: '36px',
+                        mb: '36px'
                     },
                 }}
             >
-                <Box sx={{ width: '100%', mt: '80px', flexDirection: 'column' }}>
-                    <Box sx={{
-                        position: 'absolute',
-                        top: '48px',
-                        left: '0',
-                        width: '200px',
-                        bgcolor: '#AD7A2C',
-                        color: '#FFFFFF',
-                        px: '8px',
-                        py: '4px',
-                        borderRadius: '20px',
-                        fontWeight: 'bold',
-                        zIndex: 1,
-                        height: '89px',
-                        display: 'flex',
-                        justifyContent: 'center',
-                    }}>
-                        <Typography sx={{ fontWeight: '600', fontSize: '14px' }}>
-                            Beginning Inventory
+                <Box sx={{ width: '100%', mt: '40px', p: 3 }}>
+                    {/* Header */}
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                        <Typography
+                            variant="h6"
+                            component="h2"
+                            fontWeight="bold"
+                            color="#754C27"
+                        >
+                            {formik.values.isEditing ? 'Edit Inventory Item' : 'Add Inventory Item'}
                         </Typography>
+                        <IconButton
+                            onClick={toggleDrawer(false)}
+                            size="small"
+                            sx={{ bgcolor: '#f5f5f5' }}
+                        >
+                            <CloseIcon fontSize="small" />
+                        </IconButton>
                     </Box>
-                    <Box sx={{
-                        display: 'flex',
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        flexDirection: 'column',
-                        border: '1px solid #E4E4E4',
-                        borderRadius: '10px',
-                        bgcolor: '#FFFFFF',
-                        height: '100%',
-                        p: '16px',
-                        position: 'relative',
-                        zIndex: 2,
-                    }}>
-                        <form onSubmit={formik.handleSubmit} style={{ width: '80%' }}>
-                            <Box sx={{ width: '100%', mt: '24px' }}>
-                                <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
-                                    Date
-                                </Typography>
-                                <DatePicker
-                                    selected={formik.values.date}
-                                    onChange={(date) => formik.setFieldValue('date', date)}
-                                    dateFormat="dd/MM/yyyy"
-                                    customInput={
-                                        <TextField
-                                            size="small"
-                                            sx={{
-                                                mt: '8px',
-                                                width: '100%',
-                                                '& .MuiOutlinedInput-root': {
-                                                    borderRadius: '10px',
-                                                },
-                                            }}
-                                        />
-                                    }
-                                />
 
-                                <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
-                                    Product
-                                </Typography>
-                                <Box sx={{ position: 'relative', width: '100%' }}>
-                                    <TextField
-                                        size="small"
-                                        value={searchTerm}
-                                        onChange={handleSearchChange}
-                                        placeholder="Search Product"
-                                        error={formik.touched.product_code && Boolean(formik.errors.product_code)}
-                                        helperText={formik.touched.product_code && formik.errors.product_code}
-                                        sx={{
-                                            mt: '8px',
-                                            width: '100%',
-                                            '& .MuiOutlinedInput-root': {
-                                                borderRadius: '10px',
-                                            },
-                                        }}
-                                    />
-                                    {showDropdown && searchResults.length > 0 && (
-                                        <Box sx={{
-                                            position: 'absolute',
-                                            top: '100%',
-                                            left: 0,
-                                            right: 0,
-                                            backgroundColor: 'white',
-                                            boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-                                            borderRadius: '4px',
-                                            zIndex: 1000,
-                                            maxHeight: '200px',
-                                            overflowY: 'auto',
-                                            mt: '4px'
-                                        }}>
-                                            {searchResults.map((product) => (
-                                                <Box
-                                                    key={product.product_code}
-                                                    onClick={() => handleProductSelect(product)}
-                                                    sx={{
-                                                        p: 1.5,
-                                                        cursor: 'pointer',
-                                                        '&:hover': {
-                                                            backgroundColor: '#f5f5f5'
-                                                        },
-                                                        borderBottom: '1px solid #eee'
-                                                    }}
-                                                >
-                                                    <Typography sx={{ fontSize: '14px', fontWeight: '600' }}>
-                                                        {product.product_name}
-                                                    </Typography>
-                                                </Box>
-                                            ))}
-                                        </Box>
-                                    )}
-                                </Box>
+                    <Divider sx={{ mb: 3 }} />
 
-                                <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
-                                    Kitchen
-                                </Typography>
-                                <Box
-                                    component="select"
-                                    name="kitchen_code"
-                                    value={formik.values.kitchen_code}
-                                    onChange={formik.handleChange}
-                                    onBlur={formik.handleBlur}
+                    <form onSubmit={formik.handleSubmit}>
+                        <Box sx={{ mb: 2 }}>
+                            <Typography sx={{ mb: 1, fontSize: '14px', fontWeight: '600', color: '#754C27' }}>
+                                Date
+                            </Typography>
+                            <DatePicker
+                                selected={formik.values.date}
+                                onChange={(date) => {
+                                    const vegasDate = convertToLasVegasTime(date);
+                                    formik.setFieldValue('date', vegasDate);
+                                }}
+                                dateFormat="MM/dd/yyyy"
+                                placeholderText="MM/DD/YYYY"
+                                customInput={<CustomInput />}
+                            />
+                        </Box>
+
+                        <Box sx={{ mb: 2 }}>
+                            <Typography sx={{ mb: 1, fontSize: '14px', fontWeight: '600', color: '#754C27' }}>
+                                Product
+                            </Typography>
+                            <Box sx={{ position: 'relative', width: '100%' }}>
+                                <TextField
+                                    fullWidth
+                                    size="small"
+                                    value={searchTerm}
+                                    onChange={handleSearchChange}
+                                    placeholder="Search Product"
+                                    error={formik.touched.product_code && Boolean(formik.errors.product_code)}
+                                    helperText={formik.touched.product_code && formik.errors.product_code}
                                     sx={{
-                                        mt: '8px',
-                                        width: '100%',
-                                        height: '40px',
-                                        borderRadius: '10px',
-                                        padding: '0 14px',
-                                        border: formik.touched.kitchen_code && formik.errors.kitchen_code
-                                            ? '1px solid #d32f2f'
-                                            : '1px solid rgba(0, 0, 0, 0.23)',
-                                        fontSize: '16px',
-                                        backgroundColor: '#ffffff',
-                                        '&:focus': {
-                                            outline: 'none',
-                                            borderColor: '#754C27',
+                                        '& .MuiOutlinedInput-root': {
+                                            borderRadius: '10px',
                                         },
                                     }}
-                                >
-                                    <option value="">Select Kitchen</option>
-                                    {kitchens.map((kitchen) => (
-                                        <option key={kitchen.kitchen_code} value={kitchen.kitchen_code}>
-                                            {kitchen.kitchen_name}
-                                        </option>
-                                    ))}
-                                </Box>
-                                {formik.touched.kitchen_code && formik.errors.kitchen_code && (
-                                    <Typography color="error" variant="caption" sx={{ ml: 1 }}>
-                                        {formik.errors.kitchen_code}
-                                    </Typography>
+                                />
+                                {showDropdown && searchResults.length > 0 && (
+                                    <Box sx={{
+                                        position: 'absolute',
+                                        top: '100%',
+                                        left: 0,
+                                        right: 0,
+                                        backgroundColor: 'white',
+                                        boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                                        borderRadius: '4px',
+                                        zIndex: 1000,
+                                        maxHeight: '200px',
+                                        overflowY: 'auto',
+                                        mt: '4px'
+                                    }}>
+                                        {searchResults.map((product) => (
+                                            <Box
+                                                key={product.product_code}
+                                                onClick={() => handleProductSelect(product)}
+                                                sx={{
+                                                    p: 1.5,
+                                                    cursor: 'pointer',
+                                                    '&:hover': {
+                                                        backgroundColor: '#f5f5f5'
+                                                    },
+                                                    borderBottom: '1px solid #eee'
+                                                }}
+                                            >
+                                                <Typography sx={{ fontSize: '14px', fontWeight: '600' }}>
+                                                    {product.product_name}
+                                                </Typography>
+                                            </Box>
+                                        ))}
+                                    </Box>
                                 )}
+                            </Box>
+                        </Box>
 
-                                <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
-                                    Unit
+                        <Box sx={{ mb: 2 }}>
+                            <Typography sx={{ mb: 1, fontSize: '14px', fontWeight: '600', color: '#754C27' }}>
+                                Kitchen
+                            </Typography>
+                            <Box
+                                component="select"
+                                name="kitchen_code"
+                                value={formik.values.kitchen_code}
+                                onChange={formik.handleChange}
+                                onBlur={formik.handleBlur}
+                                sx={{
+                                    width: '100%',
+                                    height: '40px',
+                                    borderRadius: '10px',
+                                    padding: '0 14px',
+                                    border: formik.touched.kitchen_code && formik.errors.kitchen_code
+                                        ? '1px solid #d32f2f'
+                                        : '1px solid rgba(0, 0, 0, 0.23)',
+                                    fontSize: '16px',
+                                    '&:focus': {
+                                        outline: 'none',
+                                        borderColor: '#754C27',
+                                    },
+                                }}
+                            >
+                                <option value="">Select Kitchen</option>
+                                {kitchens.map(kitchen => (
+                                    <option key={kitchen.kitchen_code} value={kitchen.kitchen_code}>
+                                        {kitchen.kitchen_name}
+                                    </option>
+                                ))}
+                            </Box>
+                            {formik.touched.kitchen_code && formik.errors.kitchen_code && (
+                                <Typography color="error" variant="caption" sx={{ ml: 1 }}>
+                                    {formik.errors.kitchen_code}
                                 </Typography>
-                                <Box
-                                    component="select"
-                                    name="unit_code"
-                                    value={formik.values.unit_code}
-                                    disabled={true}
-                                    sx={{
-                                        mt: '8px',
-                                        width: '100%',
-                                        height: '40px',
+                            )}
+                        </Box>
+
+                        <Box sx={{ mb: 2 }}>
+                            <Typography sx={{ mb: 1, fontSize: '14px', fontWeight: '600', color: '#754C27' }}>
+                                Unit
+                            </Typography>
+                            <Box
+                                component="select"
+                                name="unit_code"
+                                value={formik.values.unit_code}
+                                onChange={formik.handleChange}
+                                onBlur={formik.handleBlur}
+                                disabled={true}
+                                sx={{
+                                    width: '100%',
+                                    height: '40px',
+                                    borderRadius: '10px',
+                                    padding: '0 14px',
+                                    border: formik.touched.unit_code && formik.errors.unit_code
+                                        ? '1px solid #d32f2f'
+                                        : '1px solid rgba(0, 0, 0, 0.23)',
+                                    fontSize: '16px',
+                                    backgroundColor: '#f5f5f5',
+                                    '&:focus': {
+                                        outline: 'none',
+                                        borderColor: '#754C27',
+                                    },
+                                }}
+                            >
+                                <option value="">Unit</option>
+                                {selectedProduct && units.map(unit => (
+                                    <option key={unit.unit_code} value={unit.unit_code}>
+                                        {unit.unit_name}
+                                    </option>
+                                ))}
+                            </Box>
+                            {formik.touched.unit_code && formik.errors.unit_code && (
+                                <Typography color="error" variant="caption" sx={{ ml: 1 }}>
+                                    {formik.errors.unit_code}
+                                </Typography>
+                            )}
+                        </Box>
+
+                        <Box sx={{ mb: 2 }}>
+                            <Typography sx={{ mb: 1, fontSize: '14px', fontWeight: '600', color: '#754C27' }}>
+                                Amount
+                            </Typography>
+                            <TextField
+                                fullWidth
+                                size="small"
+                                type="number"
+                                name="amount"
+                                value={formik.values.amount}
+                                onChange={(e) => {
+                                    const value = e.target.value;
+                                    formik.setFieldValue('amount', value === '' ? '' : Number(value), false);
+                                }}
+                                onBlur={formik.handleBlur}
+                                placeholder="Enter Amount"
+                                error={formik.touched.amount && Boolean(formik.errors.amount)}
+                                helperText={formik.touched.amount && formik.errors.amount}
+                                sx={{
+                                    '& .MuiOutlinedInput-root': {
                                         borderRadius: '10px',
-                                        padding: '0 14px',
-                                        border: formik.touched.unit_code && formik.errors.unit_code
-                                            ? '1px solid #d32f2f'
-                                            : '1px solid rgba(0, 0, 0, 0.23)',
-                                        fontSize: '16px',
-                                        backgroundColor: '#f5f5f5',
-                                        appearance: 'none',
-                                        '-webkit-appearance': 'none',
-                                        '-moz-appearance': 'none',
-                                        '&:focus': {
-                                            outline: 'none',
-                                            borderColor: '#754C27',
-                                        },
-                                    }}
-                                >
-                                    <option value="">Unit</option>
-                                    {selectedProduct && (
-                                        <option value={selectedProduct.productUnit2.unit_code}>
-                                            {selectedProduct.productUnit2.unit_name}
-                                        </option>
-                                    )}
-                                </Box>
-                                {formik.touched.unit_code && formik.errors.unit_code && (
-                                    <Typography color="error" variant="caption" sx={{ ml: 1 }}>
-                                        {formik.errors.unit_code}
-                                    </Typography>
-                                )}
+                                    },
+                                }}
+                            />
+                        </Box>
 
-                                <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
-                                    Amount
-                                </Typography>
-                                <TextField
-                                    size="small"
-                                    type="number"
-                                    name="amount"
-                                    value={formik.values.amount}
-                                    onChange={formik.handleChange}
-                                    onBlur={formik.handleBlur}
-                                    placeholder="Enter Amount"
-                                    error={formik.touched.amount && Boolean(formik.errors.amount)}
-                                    helperText={formik.touched.amount && formik.errors.amount}
-                                    sx={{
-                                        mt: '8px',
-                                        width: '100%',
-                                        '& .MuiOutlinedInput-root': {
-                                            borderRadius: '10px',
-                                        },
-                                    }}
-                                />
+                        {/* <Box sx={{ mb: 2 }}>
+                            <Typography sx={{ mb: 1, fontSize: '14px', fontWeight: '600', color: '#754C27' }}>
+                                Unit Price
+                            </Typography>
+                            <TextField
+                                fullWidth
+                                size="small"
+                                type="number"
+                                name="unit_price"
+                                value={formik.values.unit_price}
+                                onChange={(e) => {
+                                    const value = e.target.value;
+                                    formik.setFieldValue('unit_price', value === '' ? '' : Number(value), false);
+                                }}
+                                onBlur={formik.handleBlur}
+                                placeholder="Enter Unit Price"
+                                error={formik.touched.unit_price && Boolean(formik.errors.unit_price)}
+                                helperText={formik.touched.unit_price && formik.errors.unit_price}
+                                sx={{
+                                    '& .MuiOutlinedInput-root': {
+                                        borderRadius: '10px',
+                                    },
+                                }}
+                            />
+                        </Box> */}
 
-                                <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
-                                    Unit Price
-                                </Typography>
-                                <TextField
-                                    size="small"
-                                    type="number"
-                                    name="unit_price"
-                                    value={formik.values.unit_price}
-                                    onChange={formik.handleChange}
-                                    onBlur={formik.handleBlur}
-                                    placeholder="Enter Unit Price"
-                                    error={formik.touched.unit_price && Boolean(formik.errors.unit_price)}
-                                    helperText={formik.touched.unit_price && formik.errors.unit_price}
-                                    sx={{
-                                        mt: '8px',
-                                        width: '100%',
-                                        '& .MuiOutlinedInput-root': {
-                                            borderRadius: '10px',
-                                        },
-                                    }}
-                                />
+                        {/* <Box sx={{ mb: 3 }}>
+                            <Typography sx={{ mb: 1, fontSize: '14px', fontWeight: '600', color: '#754C27' }}>
+                                Total
+                            </Typography>
+                            <TextField
+                                fullWidth
+                                size="small"
+                                value={Number(calculateTotal()).toLocaleString('en-US', {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2
+                                })}
+                                disabled
+                                sx={{
+                                    '& .MuiOutlinedInput-root': {
+                                        borderRadius: '10px',
+                                        backgroundColor: '#f5f5f5'
+                                    },
+                                }}
+                            />
+                        </Box> */}
 
-                                <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
-                                    Total
-                                </Typography>
-                                <TextField
-                                    size="small"
-                                    value={Number(calculateTotal()).toLocaleString('en-US', {
-                                        minimumFractionDigits: 2,
-                                        maximumFractionDigits: 2
-                                    })}
-                                    disabled
-                                    sx={{
-                                        mt: '8px',
-                                        width: '100%',
-                                        '& .MuiOutlinedInput-root': {
-                                            borderRadius: '10px',
-                                        },
-                                    }}
-                                />
-                            </Box>
-
-                            <Box sx={{ mt: '24px', display: 'flex', justifyContent: 'flex-end' }}>
-                                <Button
-                                    type="button"
-                                    variant='contained'
-                                    onClick={toggleDrawer(false)}
-                                    sx={{
-                                        width: '100px',
-                                        bgcolor: '#F62626',
-                                        '&:hover': {
-                                            bgcolor: '#D32F2F',
-                                        },
-                                    }}
-                                >
-                                    Cancel
-                                </Button>
-                                <Button
-                                    type="submit"
-                                    variant='contained'
-                                    sx={{
-                                        width: '100px',
-                                        bgcolor: '#754C27',
-                                        '&:hover': {
-                                            bgcolor: '#5A3D1E',
-                                        },
-                                        ml: '24px'
-                                    }}
-                                >
-                                    Save
-                                </Button>
-                            </Box>
-                        </form>
-                    </Box>
+                        <Box sx={{
+                            display: 'flex',
+                            gap: 2,
+                            justifyContent: 'flex-end',
+                            mt: 4
+                        }}>
+                            <Button
+                                type="button"
+                                variant="outlined"
+                                onClick={toggleDrawer(false)}
+                                sx={{
+                                    borderColor: '#F62626',
+                                    color: '#F62626',
+                                    '&:hover': {
+                                        borderColor: '#d32f2f',
+                                        backgroundColor: 'rgba(246, 38, 38, 0.04)'
+                                    },
+                                    width: '100px'
+                                }}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                type="submit"
+                                variant="contained"
+                                sx={{
+                                    bgcolor: '#754C27',
+                                    '&:hover': {
+                                        bgcolor: '#5A3D1E',
+                                    },
+                                    width: '100px'
+                                }}
+                            >
+                                Save
+                            </Button>
+                        </Box>
+                    </form>
                 </Box>
             </Drawer>
         </>

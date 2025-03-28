@@ -94,3 +94,15 @@ export const wh_dpbrefno = createAsyncThunk(
         }
     }
 );
+
+export const getWhDpbByRefno = createAsyncThunk(
+    "wh_dpb/getByRefno",
+    async (refno, { dispatch }) => {
+        try {
+            const res = await axios.post(BASE_URL + "/api/getWhDpbByRefno", { refno });
+            return res.data;
+        } catch (error) {
+            throw error;
+        }
+    }
+);

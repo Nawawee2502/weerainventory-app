@@ -93,7 +93,9 @@ export const Kt_trwdtAlljoindt = createAsyncThunk(
     "kt_trwdt/readAllJoin",
     async (refno, { dispatch }) => {
         try {
-            const res = await axios.post(BASE_URL + "/api/Kt_trwdtAlljoindt", { refno });
+
+            const payload = typeof refno === 'object' ? refno : { refno };
+            const res = await axios.post(BASE_URL + "/api/Kt_trwdtAlljoindt", payload);
             return res.data;
         } catch (error) {
             throw error;

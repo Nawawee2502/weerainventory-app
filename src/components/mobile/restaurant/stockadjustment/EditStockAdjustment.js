@@ -32,7 +32,7 @@ import 'react-datepicker/dist/react-datepicker.css';
 import { useDispatch } from "react-redux";
 import { searchProductName } from '../../../../api/productrecordApi';
 import { branchAll } from '../../../../api/branchApi';
-import { Br_safAlljoindt, updateBr_saf } from '../../../../api/restaurant/br_safApi';
+import { updateBr_saf, getSafByRefno } from '../../../../api/restaurant/br_safApi';
 import { Br_safdtAlljoindt } from '../../../../api/restaurant/br_safdtApi';
 import Swal from 'sweetalert2';
 import { format } from 'date-fns';
@@ -117,12 +117,38 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
 
                 // Load main stock adjustment data
                 if (editRefno) {
-                    const orderResponse = await dispatch(Br_safAlljoindt({ refno: editRefno })).unwrap();
+                    // ใช้ API getSafByRefno เพื่อดึงข้อมูลเฉพาะรายการที่ต้องการแก้ไข
+                    const orderResponse = await dispatch(getSafByRefno(editRefno)).unwrap();
 
-                    if (orderResponse && orderResponse.data && orderResponse.data.length > 0) {
-                        const headerData = orderResponse.data[0];
+                    if (orderResponse && orderResponse.result && orderResponse.data) {
+                        const headerData = orderResponse.data;
+                        console.log('Header data for edit:', headerData);
+
                         setSaveBranch(headerData.branch_code || '');
-                        setStartDate(headerData.rdate ? new Date(headerData.rdate) : new Date());
+
+                        // ดึงวันที่จากข้อมูลที่ได้
+                        if (headerData.trdate && headerData.trdate.length === 8) {
+                            const year = parseInt(headerData.trdate.substring(0, 4));
+                            const month = parseInt(headerData.trdate.substring(4, 6)) - 1;
+                            const day = parseInt(headerData.trdate.substring(6, 8));
+                            setStartDate(new Date(year, month, day));
+                        } else if (headerData.rdate) {
+                            // ใช้ฟังก์ชันช่วยในการแปลงวันที่
+                            const parsedDate = new Date(headerData.rdate);
+                            if (!isNaN(parsedDate.getTime())) {
+                                setStartDate(parsedDate);
+                            } else {
+                                // ถ้าแปลงไม่สำเร็จ ลองวิเคราะห์รูปแบบวันที่ต่างๆ
+                                const dateParts = headerData.rdate.split('/');
+                                if (dateParts.length === 3) {
+                                    const month = parseInt(dateParts[0]) - 1;
+                                    const day = parseInt(dateParts[1]);
+                                    const year = parseInt(dateParts[2]);
+                                    setStartDate(new Date(year, month, day));
+                                }
+                            }
+                        }
+
                         setTotal(parseFloat(headerData.total) || 0);
 
                         // Load order details
@@ -151,6 +177,8 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
     // Process detail data
     const processDetailData = async (detailData) => {
         try {
+            console.log('Processing detail data:', detailData);
+
             // Set selected product codes first
             const productCodes = detailData.map(item => item.product_code);
             setSelectedProducts(productCodes);
@@ -158,18 +186,18 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
             // Then set the products array directly from detailData 
             const products = detailData.map(item => ({
                 product_code: item.product_code,
-                product_name: item.tbl_product?.product_name,
+                product_name: item.tbl_product?.product_name || item.product_name,
                 product_img: item.tbl_product?.product_img,
                 productUnit1: item.tbl_product?.productUnit1,
                 productUnit2: item.tbl_product?.productUnit2,
-                bulk_unit_price: item.tbl_product?.bulk_unit_price,
-                retail_unit_price: item.tbl_product?.retail_unit_price
+                bulk_unit_price: item.tbl_product?.bulk_unit_price || 0,
+                retail_unit_price: item.tbl_product?.retail_unit_price || 0
             }));
 
             // Set all necessary states
             setProducts(products);
 
-            // Prepare other state objects
+            // Prepare other state objects with better error handling
             const newQuantities = {};
             const newUnits = {};
             const newUnitPrices = {};
@@ -178,18 +206,36 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
 
             detailData.forEach((item) => {
                 const productCode = item.product_code;
+                if (!productCode) return; // Skip items without product code
+
                 newQuantities[productCode] = parseFloat(item.qty) || 1;
                 newUnits[productCode] = item.unit_code || item.tbl_product?.productUnit1?.unit_code || '';
                 newUnitPrices[productCode] = parseFloat(item.uprice) || 0;
                 newTotals[productCode] = parseFloat(item.amt) || 0;
 
-                if (item.texpire_date) {
-                    const year = item.texpire_date.substring(0, 4);
-                    const month = item.texpire_date.substring(4, 6);
-                    const day = item.texpire_date.substring(6, 8);
-                    newExpiryDates[productCode] = new Date(`${year}-${month}-${day}`);
+                // Better date parsing
+                if (item.texpire_date && item.texpire_date.length === 8) {
+                    try {
+                        const year = parseInt(item.texpire_date.substring(0, 4));
+                        const month = parseInt(item.texpire_date.substring(4, 6)) - 1;
+                        const day = parseInt(item.texpire_date.substring(6, 8));
+                        newExpiryDates[productCode] = new Date(year, month, day);
+                    } catch (e) {
+                        console.error("Error parsing texpire_date:", e);
+                        newExpiryDates[productCode] = new Date();
+                    }
                 } else if (item.expire_date) {
-                    newExpiryDates[productCode] = new Date(item.expire_date);
+                    try {
+                        const parsedDate = new Date(item.expire_date);
+                        if (!isNaN(parsedDate.getTime())) {
+                            newExpiryDates[productCode] = parsedDate;
+                        } else {
+                            newExpiryDates[productCode] = new Date();
+                        }
+                    } catch (e) {
+                        console.error("Error parsing expire_date:", e);
+                        newExpiryDates[productCode] = new Date();
+                    }
                 } else {
                     newExpiryDates[productCode] = new Date();
                 }
@@ -202,17 +248,18 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
             setTotals(newTotals);
             setExpiryDates(newExpiryDates);
 
-            // Calculate and set total
-            const totalSum = Object.values(newTotals).reduce((sum, value) => sum + value, 0);
+            // Calculate and set total with better error handling
+            const totalSum = Object.values(newTotals).reduce((sum, value) => sum + (isNaN(value) ? 0 : value), 0);
             setTotal(totalSum);
 
-            // Log for debugging
-            console.log('Detail Data:', {
+            console.log('Detail Data Processed:', {
                 products,
                 quantities: newQuantities,
                 units: newUnits,
                 unitPrices: newUnitPrices,
-                totals: newTotals
+                totals: newTotals,
+                expiryDates: newExpiryDates,
+                total: totalSum
             });
 
         } catch (error) {
@@ -330,13 +377,12 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
         }
 
         try {
-            Swal.fire({
-                title: 'Updating stock adjustment...',
-                allowOutsideClick: false,
-                didOpen: () => {
-                    Swal.showLoading();
-                }
-            });
+            setIsLoading(true);
+
+            // แสดง log เพื่อตรวจสอบข้อมูลที่จะส่ง
+            console.log('Date to update:', startDate, format(startDate, 'MM/dd/yyyy'));
+            console.log('Branch code:', saveBranch);
+            console.log('Products to update:', products.length);
 
             const headerData = {
                 refno: editRefno,
@@ -361,6 +407,17 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
             }));
 
             const orderData = {
+                // ข้อมูลหลักที่จำเป็นสำหรับ controller
+                refno: editRefno,
+                rdate: format(startDate, 'MM/dd/yyyy'),
+                branch_code: saveBranch,
+                trdate: format(startDate, 'yyyyMMdd'),
+                monthh: format(startDate, 'MM'),
+                myear: startDate.getFullYear(),
+                user_code: userData2.user_code || '',
+                total: total.toString(),
+
+                // รักษาโครงสร้างเดิมสำหรับความเข้ากันได้
                 headerData,
                 productArrayData,
                 footerData: {
@@ -368,7 +425,11 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
                 }
             };
 
-            await dispatch(updateBr_saf(orderData)).unwrap();
+            // แสดง log ของข้อมูลก่อนส่ง
+            console.log('Sending update data:', orderData);
+
+            const result = await dispatch(updateBr_saf(orderData)).unwrap();
+            console.log('Update result:', result);
 
             await Swal.fire({
                 icon: 'success',
@@ -381,12 +442,15 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
             onBack();
 
         } catch (error) {
+            console.error('Update error:', error);
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
                 text: error.message || 'Error updating stock adjustment',
                 confirmButtonText: 'OK'
             });
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -625,6 +689,16 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
                         onChange={(date) => setStartDate(date)}
                         dateFormat="MM/dd/yyyy"
                         customInput={<CustomInput />}
+                        popperProps={{
+                            positionFixed: true,
+                            modifiers: {
+                                preventOverflow: {
+                                    enabled: true,
+                                    escapeWithReference: false,
+                                    boundariesElement: 'viewport'
+                                }
+                            }
+                        }}
                     />
 
                     <Typography sx={{ fontSize: '16px', fontWeight: '600', mt: '18px' }}>

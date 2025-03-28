@@ -156,13 +156,13 @@ function Room4Room5(props) {
         }
 
         // Stock Adjustment
-        // if (permissions.menu_setkt_stock_adjustment === 'Y') {
-        //     menu.push({
-        //         segment: 'stock-adjustment',
-        //         title: 'Stock Adjustment',
-        //         icon: <Inventory2OutlinedIcon />,
-        //     });
-        // }
+        if (permissions.menu_setkt_stock_adjustment === 'Y') {
+            menu.push({
+                segment: 'stock-adjustment',
+                title: 'Stock Adjustment',
+                icon: <Inventory2OutlinedIcon />,
+            });
+        }
 
         // Daily Closing
         if (permissions.menu_setkt_dailyclosing === 'Y') {

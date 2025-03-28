@@ -22,24 +22,23 @@ export const addKt_rfs = createAsyncThunk(
 
 export const updateKt_rfs = createAsyncThunk(
     "kt_rfs/update",
-    async ({ refno, rdate, trdate, myear, monthh, kitchen_code, taxable, nontaxable, total, user_code }, { dispatch }) => {
+    async (orderData, { dispatch }) => {
         try {
-            const res = await axios.post(BASE_URL + "/api/updateKt_rfs", {
-                refno,
-                rdate,
-                trdate,
-                myear,
-                monthh,
-                kitchen_code,
-                taxable,
-                nontaxable,
-                total,
-                user_code
-            });
+            // ตรวจสอบว่า orderData มีข้อมูลและมี refno
+            if (!orderData || !orderData.refno) {
+                throw new Error('Missing required data or refno');
+            }
+
+            console.log("Sending to API:", { refno: orderData.refno });
+
+            // ส่งข้อมูลไปยัง API
+            const res = await axios.post(BASE_URL + "/api/updateKt_rfs", orderData);
             return res.data;
         } catch (error) {
-            console.error('Update KT RFS Error:', error.message);
-            throw error;
+            // ปรับปรุงการแสดงข้อผิดพลาด
+            const errorMessage = error.response?.data?.message || error.message;
+            console.error('Update KT RFS Error:', errorMessage);
+            throw new Error(errorMessage);
         }
     }
 );
@@ -173,6 +172,18 @@ export const searchKt_rfsRunno = createAsyncThunk(
             return res.data;
         } catch (error) {
             console.error('Search KT RFS Runno Error:', error.message);
+            throw error;
+        }
+    }
+);
+
+export const getKtRfsByRefno = createAsyncThunk(
+    "kt_rfs/getByRefno",
+    async (refno, { dispatch }) => {
+        try {
+            const res = await axios.post(BASE_URL + "/api/getKtRfsByRefno", { refno });
+            return res.data;
+        } catch (error) {
             throw error;
         }
     }

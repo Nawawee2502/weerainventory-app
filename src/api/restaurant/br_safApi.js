@@ -148,3 +148,15 @@ export const countBr_saf = createAsyncThunk(
         }
     }
 );
+
+export const getSafByRefno = createAsyncThunk(
+    "br_saf/getByRefno",
+    async (refno, { dispatch }) => {
+        try {
+            const res = await axios.post(BASE_URL + "/api/getSafByRefno", { refno });
+            return res.data;
+        } catch (error) {
+            throw error;
+        }
+    }
+);

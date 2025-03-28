@@ -24,6 +24,8 @@ import Pagination from '@mui/material/Pagination';
 import Stack from '@mui/material/Stack';
 import Swal from 'sweetalert2';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import { exportToPdfProduct } from './ExportPdfProduct';
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
     [`&.${tableCellClasses.head}`]: {
@@ -61,13 +63,23 @@ export default function ProductRecord() {
     const [openEditDrawer, setOpenEditDrawer] = useState(false);
     const [editProduct, setEditProduct] = useState(null);
 
+    const sortProductsAlphabetically = (products) => {
+        if (!products || products.length === 0) return [];
+
+        // Create a copy of the array to avoid mutating the original
+        return [...products].sort((a, b) => {
+            // Case-insensitive sorting by product_name
+            return a.product_name.toLowerCase().localeCompare(b.product_name.toLowerCase());
+        });
+    };
+
     const handleTypeChange = async (event) => {
         const newTypeProduct = event.target.value;
         setSelectedTypeProduct(newTypeProduct);
         setPage(1);
 
         try {
-            // โหลดข้อมูลใหม่ตาม type ที่เลือก
+            // Load new data by selected type
             const [productResponse, countResponse] = await Promise.all([
                 dispatch(productAlltypeproduct({
                     typeproduct_code: newTypeProduct || null,
@@ -79,16 +91,21 @@ export default function ProductRecord() {
                 })).unwrap()
             ]);
 
-            // อัพเดทข้อมูลในตาราง
+            // Update table data with sorted products
             if (productResponse.data) {
-                const productsWithIds = productResponse.data.map((item, index) => ({
+                // Sort the products alphabetically
+                const sortedProducts = sortProductsAlphabetically(productResponse.data);
+
+                // Add IDs to sorted products
+                const productsWithIds = sortedProducts.map((item, index) => ({
                     ...item,
                     id: index + 1
                 }));
+
                 setProductAllTypeproduct(productsWithIds);
             }
 
-            // อัพเดทจำนวนหน้า
+            // Update page count
             setCount(Math.ceil(countResponse.data / itemsPerPage));
         } catch (error) {
             console.error("Error fetching products by type:", error);
@@ -101,31 +118,36 @@ export default function ProductRecord() {
         setPage(1); // Reset page when searching
 
         try {
-            // ดีเลย์การค้นหาเพื่อลดการเรียก API บ่อยเกินไป
+            // Delay search to reduce API calls
             const delayDebounceFn = setTimeout(async () => {
                 const [productResponse, countResponse] = await Promise.all([
                     dispatch(productAlltypeproduct({
                         typeproduct_code: selectedTypeProduct || null,
-                        product_name: value, // ส่งค่า search term
+                        product_name: value,
                         offset: 0,
                         limit: itemsPerPage
                     })).unwrap(),
                     dispatch(countProduct({
                         typeproduct_code: selectedTypeProduct || null,
-                        product_name: value // ส่งค่า search term
+                        product_name: value
                     })).unwrap()
                 ]);
 
                 if (productResponse.data) {
-                    const productsWithIds = productResponse.data.map((item, index) => ({
+                    // Sort the products alphabetically
+                    const sortedProducts = sortProductsAlphabetically(productResponse.data);
+
+                    // Add IDs to sorted products
+                    const productsWithIds = sortedProducts.map((item, index) => ({
                         ...item,
                         id: index + 1
                     }));
+
                     setProductAllTypeproduct(productsWithIds);
                 }
 
                 setCount(Math.ceil(countResponse.data / itemsPerPage));
-            }, 300); // ดีเลย์ 300ms
+            }, 300);
 
             return () => clearTimeout(delayDebounceFn);
         } catch (error) {
@@ -162,7 +184,12 @@ export default function ProductRecord() {
                 ]);
 
                 if (productResponse.data) {
-                    const productsWithIds = productResponse.data.map((item, index) => ({
+                    // เรียงข้อมูลตามชื่อสินค้า A-Z ก่อนแสดงผล
+                    const sortedProducts = [...productResponse.data].sort((a, b) =>
+                        a.product_name.toLowerCase().localeCompare(b.product_name.toLowerCase())
+                    );
+
+                    const productsWithIds = sortedProducts.map((item, index) => ({
                         ...item,
                         id: offset + index + 1
                     }));
@@ -179,7 +206,7 @@ export default function ProductRecord() {
         };
 
         loadData();
-    }, [dispatch, page, selectedTypeProduct, searchTerm, itemsPerPage]); // Add searchTerm to dependencies
+    }, [dispatch, page, selectedTypeProduct, searchTerm, itemsPerPage]); // เพิ่ม dependencies
 
     const handleChange = (event, value) => {
         setPage(value);
@@ -193,21 +220,26 @@ export default function ProductRecord() {
             const [productResponse, countResponse] = await Promise.all([
                 dispatch(productAlltypeproduct({
                     typeproduct_code: selectedTypeProduct || null,
-                    product_name: searchTerm || null, // Add search term
+                    product_name: searchTerm || null,
                     offset,
                     limit
                 })).unwrap(),
                 dispatch(countProduct({
                     typeproduct_code: selectedTypeProduct || null,
-                    product_name: searchTerm || null // Add search term
+                    product_name: searchTerm || null
                 })).unwrap()
             ]);
 
             if (productResponse.data) {
-                const productsWithIds = productResponse.data.map((item, index) => ({
+                // Sort the products alphabetically
+                const sortedProducts = sortProductsAlphabetically(productResponse.data);
+
+                // Add IDs to sorted products
+                const productsWithIds = sortedProducts.map((item, index) => ({
                     ...item,
                     id: offset + index + 1
                 }));
+
                 setProductAllTypeproduct(productsWithIds);
             }
 
@@ -228,7 +260,8 @@ export default function ProductRecord() {
 
     const handleSelectAllClick = (event) => {
         if (event.target.checked) {
-            const newSelected = product.map((row) => row.product_code);
+            // Use productAllTypeproduct instead of product
+            const newSelected = productAllTypeproduct.map((row) => row.product_code);
             setSelected(newSelected);
         } else {
             setSelected([]);
@@ -616,6 +649,77 @@ export default function ProductRecord() {
         refetchData(1);
     };
 
+    const handleExportPdf = async () => {
+        try {
+            // Check if we have data to export
+            if (!productAllTypeproduct || productAllTypeproduct.length === 0) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'No Data',
+                    text: 'There is no data to export to PDF',
+                    confirmButtonColor: '#754C27'
+                });
+                return;
+            }
+
+            // If we're filtering by page, consider fetching all data before exporting
+            let dataToExport = productAllTypeproduct;
+
+            // If we want to export all data regardless of pagination
+            if (count > itemsPerPage) {
+                try {
+                    // Show loading message
+                    Swal.fire({
+                        title: 'Generating PDF',
+                        text: 'Please wait while we prepare your document...',
+                        allowOutsideClick: false,
+                        didOpen: () => {
+                            Swal.showLoading();
+                        }
+                    });
+
+                    // Fetch all data
+                    const response = await dispatch(productAlltypeproduct({
+                        typeproduct_code: selectedTypeProduct || null,
+                        product_name: searchTerm || null,
+                        offset: 0,
+                        limit: 9999 // A large number to get all records
+                    })).unwrap();
+
+                    if (response.data) {
+                        const allProductsWithIds = response.data.map((item, index) => ({
+                            ...item,
+                            id: index + 1
+                        }));
+                        dataToExport = allProductsWithIds;
+                    }
+
+                    Swal.close();
+                } catch (error) {
+                    console.error("Error fetching all products for PDF:", error);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Failed to generate PDF with all data. Exporting current page only.',
+                        confirmButtonColor: '#754C27'
+                    });
+                }
+            }
+
+            // Export the data to PDF (the sorting will be handled in the exportToPdfProduct function)
+            await exportToPdfProduct(dataToExport, selectedTypeProduct);
+
+        } catch (error) {
+            console.error("Error exporting to PDF:", error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Failed to export to PDF. Please try again later.',
+                confirmButtonColor: '#754C27'
+            });
+        }
+    };
+
     return (
         <>
             <Box
@@ -674,7 +778,7 @@ export default function ProductRecord() {
                         justifyContent: 'center',
                         alignItems: 'center',
                         mt: '48px',
-                        width: '60%'
+                        width: '80%'
                     }}
                 >
                     <Typography sx={{ fontSize: '16px', fontWeight: '600', mr: '24px' }}>
@@ -722,6 +826,28 @@ export default function ProductRecord() {
                             ))}
                         </Select>
                     </FormControl>
+
+                    <Button
+                        onClick={handleExportPdf}
+                        sx={{
+                            height: '38px',
+                            background: 'linear-gradient(180deg, #AD7A2C 0%, #754C27 100%)',
+                            borderRadius: '5px',
+                            boxShadow: '0px 4px 4px 0px #00000040',
+                            display: 'flex',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            '&:hover': {
+                                background: 'linear-gradient(180deg, #8C5D1E 0%, #5D3A1F 100%)',
+                            },
+                            ml: '24px'
+                        }}
+                    >
+                        <PictureAsPdfIcon sx={{ fontSize: '20px', color: '#FFFFFF', mr: '12px' }} />
+                        <Typography sx={{ fontSize: '12px', fontWeight: '600', color: '#FFFFFF' }}>
+                            PDF
+                        </Typography>
+                    </Button>
                 </Box>
                 <Box sx={{ width: '90%', mt: '24px' }}>
                     <Button
@@ -741,8 +867,8 @@ export default function ProductRecord() {
                                 <StyledTableCell sx={{ width: '1%', textAlign: 'center' }}>
                                     <Checkbox
                                         sx={{ color: '#FFF' }}
-                                        indeterminate={selected.length > 0 && selected.length < product.length}
-                                        checked={product.length > 0 && selected.length === product.length}
+                                        indeterminate={selected.length > 0 && selected.length < productAllTypeproduct.length}
+                                        checked={productAllTypeproduct.length > 0 && selected.length === productAllTypeproduct.length}
                                         onChange={handleSelectAllClick}
                                     />
                                 </StyledTableCell>

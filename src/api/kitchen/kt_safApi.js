@@ -149,3 +149,28 @@ export const countKt_saf = createAsyncThunk(
         }
     }
 );
+
+export const getKtSafByRefno = createAsyncThunk(
+    "kt_saf/getByRefno",
+    async (params, { dispatch }) => {
+        try {
+            // แก้ไขให้รองรับทั้งรูปแบบ object และรูปแบบ string
+            let refnoValue;
+            
+            if (typeof params === 'object' && params !== null) {
+                refnoValue = params.refno || '';
+                console.log('Extracted refno from object:', refnoValue);
+            } else {
+                refnoValue = params;
+            }
+            
+            console.log('Processing refno:', refnoValue, 'Type:', typeof refnoValue);
+            
+            const res = await axios.post(BASE_URL + "/api/getKtSafByRefno", { refno: refnoValue });
+            return res.data;
+        } catch (error) {
+            console.error("Error in getKtSafByRefno:", error.response?.data || error.message);
+            throw error;
+        }
+    }
+);

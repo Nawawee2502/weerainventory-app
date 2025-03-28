@@ -182,3 +182,15 @@ export const countwh_pos = createAsyncThunk(
         }
     }
 );
+
+export const getWhPosByRefno = createAsyncThunk(
+    "wh_pos/getByRefno",
+    async (refno, { dispatch }) => {
+        try {
+            const res = await axios.post(BASE_URL + "/api/getWhPosByRefno", { refno });
+            return res.data;
+        } catch (error) {
+            throw error;
+        }
+    }
+);

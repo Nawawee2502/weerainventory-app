@@ -120,11 +120,12 @@ export const searchKt_trwrefno = createAsyncThunk(
 
 export const Kt_trwrefno = createAsyncThunk(
     "kt_trw/getRefno",
-    async ({ month, year }, { dispatch }) => {
+    async ({ month, year, kitchen_code }, { dispatch }) => {
         try {
             const res = await axios.post(BASE_URL + "/api/Kt_trwrefno", {
                 month,
-                year
+                year,
+                kitchen_code  // Make sure this parameter is included
             });
             return res.data;
         } catch (error) {
@@ -141,6 +142,18 @@ export const searchKt_trwRunno = createAsyncThunk(
                 myear,
                 monthh
             });
+            return res.data;
+        } catch (error) {
+            throw error;
+        }
+    }
+);
+
+export const getKtTrwByRefno = createAsyncThunk(
+    "kt_trw/getByRefno",
+    async (refno, { dispatch }) => {
+        try {
+            const res = await axios.post(BASE_URL + "/api/getKtTrwByRefno", { refno });
             return res.data;
         } catch (error) {
             throw error;

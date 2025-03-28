@@ -109,12 +109,9 @@ export default function ReportMonthlyStockCard() {
                 .unwrap()
                 .then((res) => {
                     if (res.data) {
+                        // Sort results alphabetically by product_name (A-Z)
                         const sortedResults = [...res.data].sort((a, b) => {
-                            const aExact = a.product_name.toLowerCase() === value.toLowerCase();
-                            const bExact = b.product_name.toLowerCase() === value.toLowerCase();
-                            if (aExact && !bExact) return -1;
-                            if (!aExact && bExact) return 1;
-                            return a.product_name.length - b.product_name.length;
+                            return a.product_name.localeCompare(b.product_name);
                         });
                         setSearchResults(sortedResults);
                         setShowDropdown(true);
@@ -176,6 +173,16 @@ export default function ReportMonthlyStockCard() {
             return;
         }
 
+        if (!selectedBranch) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Please select a restaurant',
+                text: 'A restaurant must be selected before showing data',
+                confirmButtonColor: '#754C27'
+            });
+            return;
+        }
+
         try {
             setLoading(true);
             setError(null);
@@ -185,14 +192,10 @@ export default function ReportMonthlyStockCard() {
                 rdate2: formatDateForApi(endDate),
                 product_code: selectedProduct.product_code,
                 product_name: selectedProduct.product_name,
+                branch_code: selectedBranch, // Always include branch_code since it's required
                 limit: 99999,
                 offset: 0
             };
-
-            // Add branch_code to params if a branch is selected
-            if (selectedBranch) {
-                params.branch_code = selectedBranch;
-            }
 
             const response = await dispatch(Br_stockcardAll(params)).unwrap();
 
@@ -306,6 +309,9 @@ export default function ReportMonthlyStockCard() {
         });
     };
 
+    // Check if Show button should be enabled
+    const isShowButtonDisabled = !selectedBranch;
+
     return (
         <Box sx={{
             width: '100%',
@@ -394,6 +400,50 @@ export default function ReportMonthlyStockCard() {
                                 />
                             </Grid2>
 
+                            {/* Branch Selection - Moved before Product Search */}
+                            <Grid2 item size={{ xs: 12, md: 6 }}>
+                                <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
+                                    Restaurant *
+                                </Typography>
+                                <FormControl
+                                    fullWidth
+                                    size="small"
+                                    sx={{
+                                        mt: '8px',
+                                        '& .MuiOutlinedInput-root': {
+                                            borderRadius: '10px',
+                                            bgcolor: 'white',
+                                            height: '38px',
+                                        },
+                                    }}
+                                >
+                                    <Select
+                                        value={selectedBranch}
+                                        onChange={(e) => setSelectedBranch(e.target.value)}
+                                        displayEmpty
+                                        startAdornment={
+                                            <InputAdornment position="start">
+                                                <StoreIcon sx={{ color: '#754C27' }} />
+                                            </InputAdornment>
+                                        }
+                                        required
+                                    >
+                                        <MenuItem value="">
+                                            <em>Select Restaurant</em>
+                                        </MenuItem>
+                                        {loadingBranches ? (
+                                            <MenuItem disabled>Loading Restaurant...</MenuItem>
+                                        ) : (
+                                            branches.map((branch) => (
+                                                <MenuItem key={branch.branch_code} value={branch.branch_code}>
+                                                    {branch.branch_name}
+                                                </MenuItem>
+                                            ))
+                                        )}
+                                    </Select>
+                                </FormControl>
+                            </Grid2>
+
                             {/* Product Search */}
                             <Grid2 item size={{ xs: 12, md: 6 }}>
                                 <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
@@ -462,60 +512,18 @@ export default function ReportMonthlyStockCard() {
                                 </Box>
                             </Grid2>
 
-                            {/* Branch Selection */}
-                            <Grid2 item size={{ xs: 12, md: 6 }}>
-                                <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
-                                    Restaurant
-                                </Typography>
-                                <FormControl
-                                    fullWidth
-                                    size="small"
-                                    sx={{
-                                        mt: '8px',
-                                        '& .MuiOutlinedInput-root': {
-                                            borderRadius: '10px',
-                                            bgcolor: 'white',
-                                            height: '38px',
-                                        },
-                                    }}
-                                >
-                                    <Select
-                                        value={selectedBranch}
-                                        onChange={(e) => setSelectedBranch(e.target.value)}
-                                        displayEmpty
-                                        startAdornment={
-                                            <InputAdornment position="start">
-                                                <StoreIcon sx={{ color: '#754C27' }} />
-                                            </InputAdornment>
-                                        }
-                                    >
-                                        <MenuItem value="">
-                                            <em>All Restaurant</em>
-                                        </MenuItem>
-                                        {loadingBranches ? (
-                                            <MenuItem disabled>Loading Restaurant...</MenuItem>
-                                        ) : (
-                                            branches.map((branch) => (
-                                                <MenuItem key={branch.branch_code} value={branch.branch_code}>
-                                                    {branch.branch_name}
-                                                </MenuItem>
-                                            ))
-                                        )}
-                                    </Select>
-                                </FormControl>
-                            </Grid2>
-
                             <Grid2 item size={{ xs: 12, md: 12 }} sx={{ mt: 2 }}>
                                 <Button
                                     fullWidth
                                     variant="contained"
                                     onClick={loadData}
+                                    disabled={isShowButtonDisabled}
                                     sx={{
-                                        bgcolor: '#754C27',
+                                        bgcolor: isShowButtonDisabled ? '#cccccc' : '#754C27',
                                         color: 'white',
                                         height: '48px',
                                         '&:hover': {
-                                            bgcolor: '#5c3c1f'
+                                            bgcolor: isShowButtonDisabled ? '#cccccc' : '#5c3c1f'
                                         }
                                     }}
                                 >
@@ -570,14 +578,12 @@ export default function ReportMonthlyStockCard() {
                                     {productSearch || "Not selected"}
                                 </Typography>
                             </Box>
-                            {selectedBranch && (
-                                <Box sx={{ display: 'flex' }}>
-                                    <Typography sx={{ fontWeight: '700', color: '#AD7A2C', width: '100px' }}>Restaurant:</Typography>
-                                    <Typography>
-                                        {branches.find(b => b.branch_code === selectedBranch)?.branch_name || ''}
-                                    </Typography>
-                                </Box>
-                            )}
+                            <Box sx={{ display: 'flex' }}>
+                                <Typography sx={{ fontWeight: '700', color: '#AD7A2C', width: '100px' }}>Restaurant:</Typography>
+                                <Typography>
+                                    {branches.find(b => b.branch_code === selectedBranch)?.branch_name || 'Not selected'}
+                                </Typography>
+                            </Box>
                         </Box>
 
                         <Box sx={{ display: 'flex', gap: 2, flexDirection: 'column' }}>
@@ -642,17 +648,17 @@ export default function ReportMonthlyStockCard() {
                         flexDirection: 'column',
                         mb: '12px',
                         mt: 3,
-                        overflow: 'hidden', // Changed from 'auto' to 'hidden'
+                        overflow: 'hidden',
                     }}>
                         <Box sx={{
                             width: '100%',
-                            overflowX: 'auto', // Added container with horizontal scroll
-                            pb: 2, // Padding bottom to ensure scrollbar visibility
+                            overflowX: 'auto',
+                            pb: 2,
                         }}>
                             <table style={{
                                 width: '100%',
                                 marginTop: '24px',
-                                minWidth: excludePrice ? '800px' : '1400px', // Ensure minimum width for all columns
+                                minWidth: '800px',
                                 borderCollapse: 'separate',
                                 borderSpacing: 0,
                             }}>
@@ -686,19 +692,9 @@ export default function ReportMonthlyStockCard() {
                                         <th style={{ padding: '12px 16px', textAlign: 'right', color: '#754C27', minWidth: '80px' }}>Out</th>
                                         <th style={{ padding: '12px 16px', textAlign: 'right', color: '#754C27', minWidth: '80px' }}>Update</th>
                                         <th style={{ padding: '12px 16px', textAlign: 'right', color: '#754C27', minWidth: '80px' }}>Balance</th>
-                                        {!excludePrice && (
-                                            <>
-                                                <th style={{ padding: '12px 16px', textAlign: 'right', color: '#754C27', minWidth: '100px' }}>Unit Price</th>
-                                                <th style={{ padding: '12px 16px', textAlign: 'right', color: '#754C27', minWidth: '100px' }}>Beg Amt</th>
-                                                <th style={{ padding: '12px 16px', textAlign: 'right', color: '#754C27', minWidth: '100px' }}>In Amt</th>
-                                                <th style={{ padding: '12px 16px', textAlign: 'right', color: '#754C27', minWidth: '100px' }}>Out Amt</th>
-                                                <th style={{ padding: '12px 16px', textAlign: 'right', color: '#754C27', minWidth: '100px' }}>Update Amt</th>
-                                                <th style={{ padding: '12px 16px', textAlign: 'right', color: '#754C27', minWidth: '120px' }}>Balance Amount</th>
-                                            </>
-                                        )}
                                     </tr>
                                     <tr>
-                                        <td colSpan={excludePrice ? 8 : 14}>
+                                        <td colSpan={8}>
                                             <Divider sx={{ width: '100%', color: '#754C27', border: '1px solid #754C27' }} />
                                         </td>
                                     </tr>
@@ -706,24 +702,23 @@ export default function ReportMonthlyStockCard() {
                                 <tbody>
                                     {loading ? (
                                         <tr>
-                                            <td colSpan={excludePrice ? 8 : 14} style={{ textAlign: 'center', padding: '20px' }}>Loading...</td>
+                                            <td colSpan={8} style={{ textAlign: 'center', padding: '20px' }}>Loading...</td>
                                         </tr>
                                     ) : error ? (
                                         <tr>
-                                            <td colSpan={excludePrice ? 8 : 14} style={{ textAlign: 'center', padding: '20px', color: 'red' }}>{error}</td>
+                                            <td colSpan={8} style={{ textAlign: 'center', padding: '20px', color: 'red' }}>{error}</td>
                                         </tr>
                                     ) : !hasSearched || !productSearch.trim() ? (
                                         <tr>
-                                            <td colSpan={excludePrice ? 8 : 14} style={{ textAlign: 'center', padding: '20px' }}>Please select a product</td>
+                                            <td colSpan={8} style={{ textAlign: 'center', padding: '20px' }}>Please select a product</td>
                                         </tr>
                                     ) : stockcardData.length === 0 ? (
                                         <tr>
-                                            <td colSpan={excludePrice ? 8 : 14} style={{ textAlign: 'center', padding: '20px' }}>No data found</td>
+                                            <td colSpan={8} style={{ textAlign: 'center', padding: '20px' }}>No data found</td>
                                         </tr>
                                     ) : (
                                         stockcardData.map((item, index) => {
                                             const balance = ((item.beg1 || 0) + (item.in1 || 0) - (item.out1 || 0)) + (item.upd1 || 0);
-                                            const balanceAmount = ((item.beg1_amt || 0) + (item.in1_amt || 0) - (item.out1_amt || 0)) + (item.upd1_amt || 0);
 
                                             return (
                                                 <tr key={item.refno}>
@@ -750,17 +745,7 @@ export default function ReportMonthlyStockCard() {
                                                     <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(item.in1)}</td>
                                                     <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(item.out1)}</td>
                                                     <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(item.upd1)}</td>
-                                                    <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(balance)}</td>
-                                                    {!excludePrice && (
-                                                        <>
-                                                            <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(item.uprice)}</td>
-                                                            <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(item.beg1_amt)}</td>
-                                                            <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(item.in1_amt)}</td>
-                                                            <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(item.out1_amt)}</td>
-                                                            <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(item.upd1_amt)}</td>
-                                                            <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(balanceAmount)}</td>
-                                                        </>
-                                                    )}
+                                                    <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(item.balance)}</td>
                                                 </tr>
                                             );
                                         })
@@ -769,22 +754,19 @@ export default function ReportMonthlyStockCard() {
                                 {stockcardData.length > 0 && (
                                     <tfoot>
                                         <tr>
-                                            <td colSpan={excludePrice ? 8 : 14}>
+                                            <td colSpan={8}>
                                                 <Divider sx={{ width: '100%', color: '#754C27', border: '1px solid #754C27' }} />
                                             </td>
                                         </tr>
                                         <tr>
                                             <td style={{
-                                                textAlign: 'right',
                                                 padding: '12px 16px',
-                                                fontWeight: 'bold',
-                                                color: '#754C27',
                                                 backgroundColor: 'white',
                                                 position: 'sticky',
                                                 left: 0,
-                                                zIndex: 2
-                                            }}>
-                                            </td>
+                                                zIndex: 2,
+                                                boxShadow: '2px 0px 3px rgba(0,0,0,0.1)'
+                                            }}></td>
                                             <td style={{
                                                 textAlign: 'right',
                                                 padding: '12px 16px',
@@ -793,11 +775,12 @@ export default function ReportMonthlyStockCard() {
                                                 backgroundColor: 'white',
                                                 position: 'sticky',
                                                 left: '60px',
-                                                zIndex: 2
+                                                zIndex: 2,
+                                                boxShadow: '2px 0px 3px rgba(0,0,0,0.1)'
                                             }}>
                                                 Total:
                                             </td>
-                                            <td style={{ textAlign: 'right', padding: '12px 16px', fontWeight: 'bold', color: '#754C27' }}>
+                                            <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>
                                             </td>
                                             <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>
                                                 {formatNumber(stockcardData.reduce((sum, item) => sum + (item.beg1 || 0), 0))}
@@ -810,29 +793,6 @@ export default function ReportMonthlyStockCard() {
                                             </td>
                                             <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>-</td>
                                             <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>-</td>
-                                            {!excludePrice && (
-                                                <>
-                                                    <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>-</td>
-                                                    <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>
-                                                        {formatNumber(stockcardData.reduce((sum, item) => sum + (item.beg1_amt || 0), 0))}
-                                                    </td>
-                                                    <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>
-                                                        {formatNumber(stockcardData.reduce((sum, item) => sum + (item.in1_amt || 0), 0))}
-                                                    </td>
-                                                    <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>
-                                                        {formatNumber(stockcardData.reduce((sum, item) => sum + (item.out1_amt || 0), 0))}
-                                                    </td>
-                                                    <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>
-                                                        {formatNumber(stockcardData.reduce((sum, item) => sum + (item.upd1_amt || 0), 0))}
-                                                    </td>
-                                                    <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>
-                                                        {formatNumber(stockcardData.reduce((sum, item) => {
-                                                            const balanceAmount = ((item.beg1_amt || 0) + (item.in1_amt || 0) - (item.out1_amt || 0)) + (item.upd1_amt || 0);
-                                                            return sum + balanceAmount;
-                                                        }, 0))}
-                                                    </td>
-                                                </>
-                                            )}
                                         </tr>
                                     </tfoot>
                                 )}

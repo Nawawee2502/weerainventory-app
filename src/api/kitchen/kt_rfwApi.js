@@ -168,3 +168,30 @@ export const searchKt_rfwRunno = createAsyncThunk(
         }
     }
 );
+
+// Add the missing function Kt_rfwUsedRefnos
+export const Kt_rfwUsedRefnos = createAsyncThunk(
+    "kt_rfw/usedRefnos",
+    async (_, thunkAPI) => {
+        try {
+            const response = await axios.post(BASE_URL + "/api/kt-rfw-used-refnos");
+            return response.data;
+        } catch (error) {
+            return thunkAPI.rejectWithValue(
+                error.response ? error.response.data : error.message
+            );
+        }
+    }
+);
+
+export const getKtRfwByRefno = createAsyncThunk(
+    "kt_rfw/getByRefno",
+    async (refno, { dispatch }) => {
+        try {
+            const res = await axios.post(BASE_URL + "/api/getKtRfwByRefno", { refno });
+            return res.data;
+        } catch (error) {
+            throw error;
+        }
+    }
+);

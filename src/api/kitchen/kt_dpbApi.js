@@ -81,16 +81,27 @@ export const kt_dpbAlljoindt = createAsyncThunk(
 
 export const kt_dpbrefno = createAsyncThunk(
     "kt_dpb/code",
-    async ({ test, month, year }, { dispatch }) => {
+    async ({ kitchen_code, date }, { dispatch }) => {
         try {
             const res = await axios.post(BASE_URL + "/api/kt_dpbrefno", {
-                test: test,
-                month: month,
-                year: year
+                kitchen_code: kitchen_code,
+                date: date
             });
             return res.data;
         } catch (error) {
             console.error(error.message);
+            throw error;
+        }
+    }
+);
+
+export const getKtDpbByRefno = createAsyncThunk(
+    "kt_dpb/getByRefno",
+    async (refno, { dispatch }) => {
+        try {
+            const res = await axios.post(BASE_URL + "/api/getKtDpbByRefno", { refno });
+            return res.data;
+        } catch (error) {
             throw error;
         }
     }

@@ -38,14 +38,20 @@ export const updateKt_stockcard = createAsyncThunk(
 
 export const deleteKt_stockcard = createAsyncThunk(
     "kt_stockcard/delete",
-    async ({ refno, myear, monthh, product_code }, { rejectWithValue }) => {
+    async ({ refno, myear, monthh, product_code, kitchen_code, rdate }, { rejectWithValue }) => {
         try {
-            const res = await axios.post(BASE_URL + "/api/deleteKt_stockcard", {
+            const payload = {
                 refno,
                 myear,
                 monthh,
                 product_code
-            });
+            };
+
+            // เพิ่มเงื่อนไขถ้ามีข้อมูล
+            if (kitchen_code) payload.kitchen_code = kitchen_code;
+            if (rdate) payload.rdate = rdate;
+
+            const res = await axios.post(BASE_URL + "/api/deleteKt_stockcard", payload);
             return res.data;
         } catch (error) {
             return rejectWithValue(error.response?.data || {

@@ -32,7 +32,7 @@ import { useDispatch } from "react-redux";
 import { searchProductName } from '../../../../api/productrecordApi';
 import { branchAll } from '../../../../api/branchApi';
 import { supplierAll } from '../../../../api/supplierApi';
-import { Br_rfwAlljoindt, updateBr_rfw } from '../../../../api/restaurant/br_rfwApi';
+import { updateBr_rfw, getRfwByRefno } from '../../../../api/restaurant/br_rfwApi';
 import { Br_rfwdtAlljoindt } from '../../../../api/restaurant/br_rfwdtApi';
 import Swal from 'sweetalert2';
 import { format } from 'date-fns';
@@ -69,6 +69,7 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
 export default function EditGoodsReceiptWarehouse({ onBack, editRefno }) {
     const dispatch = useDispatch();
     const [isLoading, setIsLoading] = useState(true);
+    const [debugInfo, setDebugInfo] = useState({});
     const [startDate, setStartDate] = useState(new Date());
     const [branches, setBranches] = useState([]);
     const [suppliers, setSuppliers] = useState([]);
@@ -96,40 +97,74 @@ export default function EditGoodsReceiptWarehouse({ onBack, editRefno }) {
     const userDataJson = localStorage.getItem("userData2");
     const userData2 = JSON.parse(userDataJson || "{}");
 
-    // Fetch initial data
+    // ในส่วน useEffect
     useEffect(() => {
         const fetchData = async () => {
             try {
                 setIsLoading(true);
+                console.log('Fetching data for refno:', editRefno);
 
-                // Load suppliers and branches
+                // โหลด suppliers และ branches
                 const [branchResponse, supplierResponse] = await Promise.all([
                     dispatch(branchAll({ offset: 0, limit: 100 })).unwrap(),
                     dispatch(supplierAll({ offset: 0, limit: 100 })).unwrap()
                 ]);
 
-                if (branchResponse?.data) setBranches(branchResponse.data);
-                if (supplierResponse?.data) setSuppliers(supplierResponse.data);
+                if (branchResponse && branchResponse.data) {
+                    setBranches(branchResponse.data);
+                }
 
-                // Load all products for catalog
+                if (supplierResponse && supplierResponse.data) {
+                    setSuppliers(supplierResponse.data);
+                }
+
+                // โหลด products
                 const productsResponse = await dispatch(searchProductName({ product_name: '' })).unwrap();
-                if (productsResponse?.data) {
+                if (productsResponse && productsResponse.data) {
                     setAllProducts(productsResponse.data);
                     setFilteredProducts(productsResponse.data);
                 }
 
                 if (editRefno) {
-                    const orderResponse = await dispatch(Br_rfwAlljoindt({ refno: editRefno })).unwrap();
+                    // ใช้ API ใหม่เพื่อดึงข้อมูลเฉพาะรายการที่ต้องการแก้ไข
+                    const receiptResponse = await dispatch(getRfwByRefno(editRefno)).unwrap();
 
-                    if (orderResponse?.data?.[0]) {
-                        const headerData = orderResponse.data[0];
+                    if (receiptResponse && receiptResponse.result && receiptResponse.data) {
+                        const headerData = receiptResponse.data;
+                        console.log('Header data for edit:', headerData);
+
                         setSaveBranch(headerData.branch_code || '');
                         setSaveSupplier(headerData.supplier_code || '');
-                        setStartDate(headerData.rdate ? new Date(headerData.rdate) : new Date());
+
+                        // ดึงวันที่จากข้อมูลที่ได้
+                        if (headerData.trdate && headerData.trdate.length === 8) {
+                            const year = parseInt(headerData.trdate.substring(0, 4));
+                            const month = parseInt(headerData.trdate.substring(4, 6)) - 1;
+                            const day = parseInt(headerData.trdate.substring(6, 8));
+                            setStartDate(new Date(year, month, day));
+                        } else if (headerData.rdate) {
+                            // ใช้ฟังก์ชันช่วยในการแปลงวันที่
+                            const parsedDate = new Date(headerData.rdate);
+                            if (!isNaN(parsedDate.getTime())) {
+                                setStartDate(parsedDate);
+                            } else {
+                                // ถ้าแปลงไม่สำเร็จ ลองวิเคราะห์รูปแบบวันที่ต่างๆ
+                                const dateParts = headerData.rdate.split('/');
+                                if (dateParts.length === 3) {
+                                    const month = parseInt(dateParts[0]) - 1;
+                                    const day = parseInt(dateParts[1]);
+                                    const year = parseInt(dateParts[2]);
+                                    setStartDate(new Date(year, month, day));
+                                }
+                            }
+                        }
+
                         setTotal(parseFloat(headerData.total) || 0);
 
+                        // ดึงรายละเอียดต่อ
                         const detailResponse = await dispatch(Br_rfwdtAlljoindt(editRefno)).unwrap();
-                        if (detailResponse?.data) {
+
+                        if (detailResponse && detailResponse.data && detailResponse.data.length > 0) {
                             await processDetailData(detailResponse.data);
                         }
                     }
@@ -139,7 +174,7 @@ export default function EditGoodsReceiptWarehouse({ onBack, editRefno }) {
                 Swal.fire({
                     icon: 'error',
                     title: 'Error',
-                    text: 'Failed to load receipt data'
+                    text: 'Failed to load warehouse receipt data'
                 });
             } finally {
                 setIsLoading(false);
@@ -151,21 +186,28 @@ export default function EditGoodsReceiptWarehouse({ onBack, editRefno }) {
 
     const processDetailData = async (detailData) => {
         try {
+            console.log('Processing detail data:', detailData);
+
+            // Set selected product codes first
             const productCodes = detailData.map(item => item.product_code);
             setSelectedProducts(productCodes);
 
+            // Then set the products array directly from detailData 
             const products = detailData.map(item => ({
                 product_code: item.product_code,
-                product_name: item.tbl_product?.product_name,
+                product_name: item.tbl_product?.product_name || item.product_name,
+                product_img: item.tbl_product?.product_img,
                 productUnit1: item.tbl_product?.productUnit1,
                 productUnit2: item.tbl_product?.productUnit2,
-                bulk_unit_price: item.tbl_product?.bulk_unit_price,
-                retail_unit_price: item.tbl_product?.retail_unit_price,
-                product_img: item.tbl_product?.product_img
+                bulk_unit_price: item.tbl_product?.bulk_unit_price || 0,
+                retail_unit_price: item.tbl_product?.retail_unit_price || 0,
+                tax1: item.tbl_product?.tax1 || item.tax1
             }));
 
+            // Set all necessary states
             setProducts(products);
 
+            // Prepare other state objects with better error handling
             const newQuantities = {};
             const newUnits = {};
             const newUnitPrices = {};
@@ -174,31 +216,61 @@ export default function EditGoodsReceiptWarehouse({ onBack, editRefno }) {
 
             detailData.forEach((item) => {
                 const productCode = item.product_code;
+                if (!productCode) return; // Skip items without product code
+
                 newQuantities[productCode] = parseFloat(item.qty) || 1;
                 newUnits[productCode] = item.unit_code || item.tbl_product?.productUnit1?.unit_code || '';
                 newUnitPrices[productCode] = parseFloat(item.uprice) || 0;
                 newTotals[productCode] = parseFloat(item.amt) || 0;
 
-                if (item.texpire_date) {
-                    const year = item.texpire_date.substring(0, 4);
-                    const month = item.texpire_date.substring(4, 6);
-                    const day = item.texpire_date.substring(6, 8);
-                    newExpiryDates[productCode] = new Date(`${year}-${month}-${day}`);
+                // Better date parsing
+                if (item.texpire_date && item.texpire_date.length === 8) {
+                    try {
+                        const year = parseInt(item.texpire_date.substring(0, 4));
+                        const month = parseInt(item.texpire_date.substring(4, 6)) - 1;
+                        const day = parseInt(item.texpire_date.substring(6, 8));
+                        newExpiryDates[productCode] = new Date(year, month, day);
+                    } catch (e) {
+                        console.error("Error parsing texpire_date:", e);
+                        newExpiryDates[productCode] = new Date();
+                    }
                 } else if (item.expire_date) {
-                    newExpiryDates[productCode] = new Date(item.expire_date);
+                    try {
+                        const parsedDate = new Date(item.expire_date);
+                        if (!isNaN(parsedDate.getTime())) {
+                            newExpiryDates[productCode] = parsedDate;
+                        } else {
+                            newExpiryDates[productCode] = new Date();
+                        }
+                    } catch (e) {
+                        console.error("Error parsing expire_date:", e);
+                        newExpiryDates[productCode] = new Date();
+                    }
                 } else {
                     newExpiryDates[productCode] = new Date();
                 }
             });
 
+            // Update all states at once
             setQuantities(newQuantities);
             setUnits(newUnits);
             setUnitPrices(newUnitPrices);
             setTotals(newTotals);
             setExpiryDates(newExpiryDates);
 
-            const totalSum = Object.values(newTotals).reduce((sum, value) => sum + value, 0);
+            // Calculate and set total with better error handling
+            const totalSum = Object.values(newTotals).reduce((sum, value) => sum + (isNaN(value) ? 0 : value), 0);
             setTotal(totalSum);
+
+            console.log('Detail Data Processed:', {
+                products,
+                quantities: newQuantities,
+                units: newUnits,
+                unitPrices: newUnitPrices,
+                totals: newTotals,
+                expiryDates: newExpiryDates,
+                total: totalSum
+            });
 
         } catch (error) {
             console.error('Error processing detail data:', error);
@@ -233,6 +305,183 @@ export default function EditGoodsReceiptWarehouse({ onBack, editRefno }) {
         const endIndex = startIndex + productsPerPage;
         setPaginatedProducts(filteredProducts.slice(startIndex, endIndex));
     }, [filteredProducts, page, productsPerPage]);
+
+    const toggleSelectProduct = (product) => {
+        const isSelected = selectedProducts.includes(product.product_code);
+
+        if (isSelected) {
+            setSelectedProducts(prev => prev.filter(id => id !== product.product_code));
+            setProducts(prev => prev.filter(p => p.product_code !== product.product_code));
+
+            const { [product.product_code]: _, ...newQuantities } = quantities;
+            const { [product.product_code]: __, ...newUnits } = units;
+            const { [product.product_code]: ___, ...newPrices } = unitPrices;
+            const { [product.product_code]: ____, ...newTotals } = totals;
+            const { [product.product_code]: _____, ...newExpiryDates } = expiryDates;
+
+            setQuantities(newQuantities);
+            setUnits(newUnits);
+            setUnitPrices(newPrices);
+            setTotals(newTotals);
+            setExpiryDates(newExpiryDates);
+
+            setTotal(Object.values(newTotals).reduce((sum, curr) => sum + curr, 0));
+        } else {
+            setSelectedProducts(prev => [...prev, product.product_code]);
+            setProducts(prev => [...prev, product]);
+
+            setQuantities(prev => ({ ...prev, [product.product_code]: 1 }));
+            setUnits(prev => ({ ...prev, [product.product_code]: product.productUnit1?.unit_code || '' }));
+            setUnitPrices(prev => ({ ...prev, [product.product_code]: product.bulk_unit_price || 0 }));
+            setExpiryDates(prev => ({ ...prev, [product.product_code]: new Date() }));
+
+            const initialTotal = (product.bulk_unit_price || 0) * 1;
+            setTotals(prev => ({ ...prev, [product.product_code]: initialTotal }));
+            setTotal(prev => prev + initialTotal);
+        }
+    };
+
+    const handleQuantityChange = (productCode, delta) => {
+        const currentQty = quantities[productCode] || 0;
+        const newQty = Math.max(1, currentQty + delta);
+
+        setQuantities(prev => ({ ...prev, [productCode]: newQty }));
+
+        const price = unitPrices[productCode] || 0;
+        const newTotal = newQty * price;
+        setTotals(prev => ({ ...prev, [productCode]: newTotal }));
+        setTotal(Object.values({ ...totals, [productCode]: newTotal }).reduce((a, b) => a + b, 0));
+    };
+
+    const handleUnitChange = (productCode, newUnit) => {
+        setUnits(prev => ({ ...prev, [productCode]: newUnit }));
+
+        const product = products.find(p => p.product_code === productCode);
+        if (!product) return;
+
+        const newPrice = newUnit === product.productUnit1?.unit_code
+            ? (product.bulk_unit_price || 0)
+            : (product.retail_unit_price || 0);
+
+        setUnitPrices(prev => ({ ...prev, [productCode]: newPrice }));
+
+        const qty = quantities[productCode] || 0;
+        const newTotal = qty * newPrice;
+        setTotals(prev => ({ ...prev, [productCode]: newTotal }));
+        setTotal(Object.values({ ...totals, [productCode]: newTotal }).reduce((a, b) => a + b, 0));
+    };
+
+    const handleExpiryDateChange = (productCode, date) => {
+        setExpiryDates(prev => ({ ...prev, [productCode]: date }));
+    };
+
+    const handleUpdate = async () => {
+        if (!saveBranch || products.length === 0) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Missing Information',
+                text: 'Please select a branch, supplier and add at least one product.',
+                timer: 1500
+            });
+            return;
+        }
+
+        try {
+            setIsLoading(true);
+            const tax = calculateTax();
+
+            // แสดง log เพื่อตรวจสอบข้อมูลที่จะส่ง
+            console.log('Date to update:', startDate, format(startDate, 'MM/dd/yyyy'));
+            console.log('Branch code:', saveBranch);
+            console.log('Supplier code:', saveSupplier);
+            console.log('Products to update:', products.length);
+
+            // สร้างข้อมูลสำหรับส่งไป API
+            const orderData = {
+                // ข้อมูลหลักที่จำเป็นสำหรับ controller
+                refno: editRefno,
+                rdate: format(startDate, 'MM/dd/yyyy'),
+                branch_code: saveBranch,
+                supplier_code: saveSupplier,
+                trdate: format(startDate, 'yyyyMMdd'),
+                monthh: format(startDate, 'MM'),
+                myear: startDate.getFullYear(),
+                user_code: userData2.user_code || '',
+                taxable: tax.toString(),
+                nontaxable: (total - tax).toString(),
+                total: total.toString(),
+
+                // รักษาโครงสร้างเดิมสำหรับความเข้ากันได้
+                headerData: {
+                    refno: editRefno,
+                    rdate: format(startDate, 'MM/dd/yyyy'),
+                    branch_code: saveBranch,
+                    supplier_code: saveSupplier,
+                    trdate: format(startDate, 'yyyyMMdd'),
+                    monthh: format(startDate, 'MM'),
+                    myear: startDate.getFullYear(),
+                    user_code: userData2.user_code || '',
+                    taxable: tax.toString(),
+                    nontaxable: (total - tax).toString(),
+                    total: total.toString()
+                },
+                productArrayData: products.map(product => ({
+                    refno: editRefno,
+                    product_code: product.product_code,
+                    qty: (quantities[product.product_code] || 1).toString(),
+                    unit_code: units[product.product_code] || product.productUnit1?.unit_code || '',
+                    uprice: (unitPrices[product.product_code] || 0).toString(),
+                    amt: (totals[product.product_code] || 0).toString(),
+                    tax1: product.tax1 || 'N',
+                    expire_date: format(expiryDates[product.product_code] || new Date(), 'MM/dd/yyyy'),
+                    texpire_date: format(expiryDates[product.product_code] || new Date(), 'yyyyMMdd')
+                })),
+                footerData: {
+                    total: total.toString()
+                }
+            };
+
+            // แสดง log ของข้อมูลก่อนส่ง
+            console.log('Sending update data:', orderData);
+
+            const result = await dispatch(updateBr_rfw(orderData)).unwrap();
+            console.log('Update result:', result);
+
+            await Swal.fire({
+                icon: 'success',
+                title: 'Updated warehouse receipt successfully',
+                text: `Reference No: ${editRefno}`,
+                showConfirmButton: false,
+                timer: 1500
+            });
+
+            onBack();
+
+        } catch (error) {
+            console.error('Update error:', error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: error.message || 'Error updating warehouse receipt',
+                confirmButtonText: 'OK'
+            });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const calculateTax = () => {
+        let taxableAmount = 0;
+        products.forEach(product => {
+            if (product.tax1 === 'Y') {
+                const productCode = product.product_code;
+                const quantity = quantities[productCode] || 0;
+                const unitPrice = unitPrices[productCode] || 0;
+                taxableAmount += quantity * unitPrice;
+            }
+        });
+        return taxableAmount * 0.07;
+    };
 
     const renderProductImage = (product, size = 'small') => {
         if (!product?.product_img) {
@@ -300,149 +549,6 @@ export default function EditGoodsReceiptWarehouse({ onBack, editRefno }) {
         );
     };
 
-    const toggleSelectProduct = (product) => {
-        const isSelected = selectedProducts.includes(product.product_code);
-
-        if (isSelected) {
-            setSelectedProducts(prev => prev.filter(id => id !== product.product_code));
-            setProducts(prev => prev.filter(p => p.product_code !== product.product_code));
-
-            const { [product.product_code]: _, ...newQuantities } = quantities;
-            const { [product.product_code]: __, ...newUnits } = units;
-            const { [product.product_code]: ___, ...newPrices } = unitPrices;
-            const { [product.product_code]: ____, ...newTotals } = totals;
-            const { [product.product_code]: _____, ...newExpiryDates } = expiryDates;
-
-            setQuantities(newQuantities);
-            setUnits(newUnits);
-            setUnitPrices(newPrices);
-            setTotals(newTotals);
-            setExpiryDates(newExpiryDates);
-
-            setTotal(Object.values(newTotals).reduce((sum, curr) => sum + curr, 0));
-
-        } else {
-            setSelectedProducts(prev => [...prev, product.product_code]);
-            setProducts(prev => [...prev, product]);
-
-            setQuantities(prev => ({ ...prev, [product.product_code]: 1 }));
-            setUnits(prev => ({ ...prev, [product.product_code]: product.productUnit1?.unit_code || '' }));
-            setUnitPrices(prev => ({ ...prev, [product.product_code]: product.bulk_unit_price || 0 }));
-            setExpiryDates(prev => ({ ...prev, [product.product_code]: new Date() }));
-
-            const initialTotal = (product.bulk_unit_price || 0) * 1;
-            setTotals(prev => ({ ...prev, [product.product_code]: initialTotal }));
-            setTotal(prev => prev + initialTotal);
-        }
-    };
-
-    const handleQuantityChange = (productCode, delta) => {
-        const currentQty = quantities[productCode] || 0;
-        const newQty = Math.max(1, currentQty + delta);
-
-        setQuantities(prev => ({ ...prev, [productCode]: newQty }));
-
-        const price = unitPrices[productCode] || 0;
-        const newTotal = newQty * price;
-        setTotals(prev => ({ ...prev, [productCode]: newTotal }));
-        setTotal(Object.values({ ...totals, [productCode]: newTotal }).reduce((a, b) => a + b, 0));
-    };
-
-    const handleUnitChange = (productCode, newUnit) => {
-        setUnits(prev => ({ ...prev, [productCode]: newUnit }));
-
-        const product = products.find(p => p.product_code === productCode);
-        if (!product) return;
-
-        const newPrice = newUnit === product.productUnit1?.unit_code
-            ? (product.bulk_unit_price || 0)
-            : (product.retail_unit_price || 0);
-
-        setUnitPrices(prev => ({ ...prev, [productCode]: newPrice }));
-
-        const qty = quantities[productCode] || 0;
-        const newTotal = qty * newPrice;
-        setTotals(prev => ({ ...prev, [productCode]: newTotal }));
-        setTotal(Object.values({ ...totals, [productCode]: newTotal }).reduce((a, b) => a + b, 0));
-    };
-
-    const handleExpiryDateChange = (productCode, date) => {
-        setExpiryDates(prev => ({ ...prev, [productCode]: date }));
-    };
-
-    const handleUpdate = async () => {
-        if (!saveBranch || !saveSupplier || products.length === 0) {
-            Swal.fire({
-                icon: 'warning',
-                title: 'Missing Information',
-                text: 'Please select a branch, supplier and at least one product.',
-                timer: 1500
-            });
-            return;
-        }
-
-        try {
-            Swal.fire({
-                title: 'Updating receipt...',
-                allowOutsideClick: false,
-                didOpen: () => {
-                    Swal.showLoading();
-                }
-            });
-
-            const headerData = {
-                refno: editRefno,
-                rdate: format(startDate, 'MM/dd/yyyy'),
-                branch_code: saveBranch,
-                supplier_code: saveSupplier,
-                trdate: format(startDate, 'yyyyMMdd'),
-                monthh: format(startDate, 'MM'),
-                myear: startDate.getFullYear(),
-                user_code: userData2.user_code || '',
-            };
-
-            const productArrayData = products.map(product => ({
-                refno: headerData.refno,
-                product_code: product.product_code,
-                qty: (quantities[product.product_code] || 1).toString(),
-                unit_code: units[product.product_code] || product.productUnit1?.unit_code || '',
-                uprice: (unitPrices[product.product_code] || 0).toString(),
-                amt: (totals[product.product_code] || 0).toString(),
-                expire_date: format(expiryDates[product.product_code] || new Date(), 'MM/dd/yyyy'),
-                texpire_date: format(expiryDates[product.product_code] || new Date(), 'yyyyMMdd')
-            }));
-
-            const orderData = {
-                headerData,
-                productArrayData,
-                footerData: {
-                    total: total.toString()
-                }
-            };
-
-            await dispatch(updateBr_rfw(orderData)).unwrap();
-
-            await Swal.fire({
-                icon: 'success',
-                title: 'Updated receipt successfully',
-                text: `Reference No: ${editRefno}`,
-                showConfirmButton: false,
-                timer: 1500
-            });
-
-            onBack();
-
-        } catch (error) {
-            console.error('Update error:', error);
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: error.message || 'Error updating receipt',
-                confirmButtonText: 'OK'
-            });
-        }
-    };
-
     const resetForm = () => {
         Swal.fire({
             title: 'Reset Changes',
@@ -469,7 +575,7 @@ export default function EditGoodsReceiptWarehouse({ onBack, editRefno }) {
                 flexDirection: 'column',
                 gap: 2
             }}>
-                <Typography variant="h6">Loading receipt data...</Typography>
+                <Typography variant="h6">Loading warehouse receipt data...</Typography>
                 <CircularProgress color="primary" />
             </Box>
         );
@@ -482,7 +588,7 @@ export default function EditGoodsReceiptWarehouse({ onBack, editRefno }) {
                     startIcon={<ArrowBackIcon />}
                     onClick={onBack}
                 >
-                    Back to Goods Receipt
+                    Back to Goods Receipt Warehouse
                 </Button>
             </Box>
 
@@ -526,47 +632,51 @@ export default function EditGoodsReceiptWarehouse({ onBack, editRefno }) {
 
                     {/* Products Grid */}
                     <Box display="flex" flexWrap="wrap" gap={2} justifyContent="center" sx={{ flex: 1, overflow: 'auto' }}>
-                        {paginatedProducts.map((product) => (
-                            <Card
-                                key={product.product_code}
-                                sx={{
-                                    width: 160,
-                                    borderRadius: '16px',
-                                    boxShadow: 3,
-                                    position: 'relative',
-                                    cursor: 'pointer',
-                                    border: selectedProducts.includes(product.product_code) ? '2px solid #4caf50' : 'none',
-                                    bgcolor: selectedProducts.includes(product.product_code) ? '#f0fff0' : 'white'
-                                }}
-                                onClick={() => toggleSelectProduct(product)}
-                            >
-                                {renderProductImage(product, 'small')}
-                                <CardContent>
-                                    <Typography variant="body1" fontWeight={500} noWrap>
-                                        {product.product_name}
-                                    </Typography>
-                                    <Typography variant="body2" color="text.secondary" noWrap>
-                                        {product.product_code}
-                                    </Typography>
-                                    <Typography variant="h6" color="#D9A05B" mt={1}>
-                                        ${(product.bulk_unit_price || 0).toFixed(2)}
-                                    </Typography>
-                                </CardContent>
-                                {selectedProducts.includes(product.product_code) && (
-                                    <CheckCircleIcon
-                                        sx={{
-                                            color: '#4caf50',
-                                            position: 'absolute',
-                                            top: 8,
-                                            right: 8,
-                                            fontSize: 30,
-                                            backgroundColor: 'rgba(255,255,255,0.7)',
-                                            borderRadius: '50%'
-                                        }}
-                                    />
-                                )}
-                            </Card>
-                        ))}
+                        {paginatedProducts.map((product) => {
+                            if (!product || !product.product_code) return null;
+
+                            return (
+                                <Card
+                                    key={product.product_code}
+                                    sx={{
+                                        width: 160,
+                                        borderRadius: '16px',
+                                        boxShadow: 3,
+                                        position: 'relative',
+                                        cursor: 'pointer',
+                                        border: selectedProducts.includes(product.product_code) ? '2px solid #4caf50' : 'none',
+                                        bgcolor: selectedProducts.includes(product.product_code) ? '#f0fff0' : 'white'
+                                    }}
+                                    onClick={() => toggleSelectProduct(product)}
+                                >
+                                    {renderProductImage(product, 'small')}
+                                    <CardContent>
+                                        <Typography variant="body1" fontWeight={500} noWrap>
+                                            {product.product_name}
+                                        </Typography>
+                                        <Typography variant="body2" color="text.secondary" noWrap>
+                                            {product.product_code}
+                                        </Typography>
+                                        <Typography variant="h6" color="#D9A05B" mt={1}>
+                                            ${(product.bulk_unit_price || 0).toFixed(2)}
+                                        </Typography>
+                                    </CardContent>
+                                    {selectedProducts.includes(product.product_code) && (
+                                        <CheckCircleIcon
+                                            sx={{
+                                                color: '#4caf50',
+                                                position: 'absolute',
+                                                top: 8,
+                                                right: 8,
+                                                fontSize: 30,
+                                                backgroundColor: 'rgba(255,255,255,0.7)',
+                                                borderRadius: '50%'
+                                            }}
+                                        />
+                                    )}
+                                </Card>
+                            );
+                        })}
                     </Box>
 
                     {/* Pagination */}
@@ -612,7 +722,7 @@ export default function EditGoodsReceiptWarehouse({ onBack, editRefno }) {
                     />
 
                     <Typography sx={{ fontSize: '16px', fontWeight: '600', mt: '18px' }}>
-                        Branch
+                        Restaurant
                     </Typography>
                     <Select
                         value={saveBranch}
@@ -625,32 +735,10 @@ export default function EditGoodsReceiptWarehouse({ onBack, editRefno }) {
                             borderRadius: '10px',
                         }}
                     >
-                        <MenuItem value=""><em>Select Branch</em></MenuItem>
+                        <MenuItem value=""><em>Select Restaurant</em></MenuItem>
                         {branches.map((branch) => (
                             <MenuItem key={branch.branch_code} value={branch.branch_code}>
                                 {branch.branch_name}
-                            </MenuItem>
-                        ))}
-                    </Select>
-
-                    <Typography sx={{ fontSize: '16px', fontWeight: '600', mt: '18px' }}>
-                        Supplier
-                    </Typography>
-                    <Select
-                        value={saveSupplier}
-                        onChange={(e) => setSaveSupplier(e.target.value)}
-                        displayEmpty
-                        size="small"
-                        sx={{
-                            mt: '8px',
-                            width: '95%',
-                            borderRadius: '10px',
-                        }}
-                    >
-                        <MenuItem value=""><em>Select Supplier</em></MenuItem>
-                        {suppliers.map((supplier) => (
-                            <MenuItem key={supplier.supplier_code} value={supplier.supplier_code}>
-                                {supplier.supplier_name}
                             </MenuItem>
                         ))}
                     </Select>
@@ -699,7 +787,13 @@ export default function EditGoodsReceiptWarehouse({ onBack, editRefno }) {
                                 </TableRow>
                             </TableHead>
                             <TableBody>
-                                {products.length === 0 ? (
+                                {isLoading ? (
+                                    <TableRow>
+                                        <TableCell colSpan={10} align="center">
+                                            <CircularProgress />
+                                        </TableCell>
+                                    </TableRow>
+                                ) : (!products || products.length === 0) ? (
                                     <TableRow>
                                         <TableCell colSpan={10} align="center">
                                             <Typography color="text.secondary">
@@ -758,6 +852,7 @@ export default function EditGoodsReceiptWarehouse({ onBack, editRefno }) {
                                                     value={units[product.product_code] || ''}
                                                     onChange={(e) => handleUnitChange(product.product_code, e.target.value)}
                                                     size="small"
+                                                    sx={{ minWidth: 120 }}
                                                 >
                                                     {product.productUnit1 && (
                                                         <MenuItem value={product.productUnit1.unit_code}>
@@ -771,12 +866,17 @@ export default function EditGoodsReceiptWarehouse({ onBack, editRefno }) {
                                                     )}
                                                 </Select>
                                             </TableCell>
-                                            <TableCell>${(unitPrices[product.product_code] || 0).toFixed(2)}</TableCell>
-                                            <TableCell>${(totals[product.product_code] || 0).toFixed(2)}</TableCell>
+                                            <TableCell>
+                                                ${(unitPrices[product.product_code] || 0).toFixed(2)}
+                                            </TableCell>
+                                            <TableCell>
+                                                ${(totals[product.product_code] || 0).toFixed(2)}
+                                            </TableCell>
                                             <TableCell>
                                                 <IconButton
                                                     onClick={() => toggleSelectProduct(product)}
                                                     color="error"
+                                                    size="small"
                                                 >
                                                     <DeleteIcon />
                                                 </IconButton>
@@ -802,11 +902,11 @@ export default function EditGoodsReceiptWarehouse({ onBack, editRefno }) {
                         </Box>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                             <Typography>Tax (7%)</Typography>
-                            <Typography>${(total * 0.07).toFixed(2)}</Typography>
+                            <Typography>${calculateTax().toFixed(2)}</Typography>
                         </Box>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
                             <Typography variant="h5">Total</Typography>
-                            <Typography variant="h5">${(total * 1.07).toFixed(2)}</Typography>
+                            <Typography variant="h5">${(total + calculateTax()).toFixed(2)}</Typography>
                         </Box>
                     </Box>
 

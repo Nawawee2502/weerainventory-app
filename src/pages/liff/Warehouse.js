@@ -10,6 +10,7 @@ import IconButton from '@mui/material/IconButton';
 import Badge from '@mui/material/Badge';
 
 import HomeReceiptFromSupplier from "../../components/mobile/warehouse/goodsreceiptfromsupplier/HomeReceiptFromSupplier";
+import HomeStockAdjustment from "../../components/mobile/warehouse/stockadjustment/HomeStockAdjustment";
 // import HomeGoodsReceiptFromSupplier from "../../components/mobile/warehouse/goodsreceiptfromsupplier/HomeGoodsReceiptFromSupplier";
 // import HomeStockCount from "../../components/mobile/warehouse/stockcount/HomeStockCount";
 // เพิ่ม component อื่นๆ ที่จำเป็นสำหรับ Warehouse
@@ -33,11 +34,11 @@ const MWareHouse = () => {
       icon: <ListAltIcon style={{ color: "#fff" }} />,
       component: <HomeReceiptFromSupplier />
     },
-    // {
-    //   label: "Stock Count",
-    //   icon: <ListAltIcon style={{ color: "#fff" }} />,
-    //   component: <HomeStockCount />
-    // },
+    {
+      label: "Stock Count",
+      icon: <ListAltIcon style={{ color: "#fff" }} />,
+      component: <HomeStockAdjustment />
+    },
     // สามารถเพิ่มรายการเมนูอื่นๆ ได้ตามต้องการ
   ];
 

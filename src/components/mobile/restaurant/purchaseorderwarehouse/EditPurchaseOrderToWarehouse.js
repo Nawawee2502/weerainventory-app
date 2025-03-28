@@ -18,7 +18,9 @@ import {
     Select,
     MenuItem,
     Pagination,
-    CircularProgress
+    CircularProgress,
+    Paper,
+    Grid
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SearchIcon from '@mui/icons-material/Search';
@@ -30,11 +32,11 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { useDispatch } from "react-redux";
 import { searchProductName } from '../../../../api/productrecordApi';
-import { supplierAll } from '../../../../api/supplierApi';
-import { Br_powAlljoindt, updateBr_pow } from '../../../../api/restaurant/br_powApi';
+import { Br_powAlljoindt, updateBr_pow, getPowByRefno } from '../../../../api/restaurant/br_powApi';
 import { Br_powdtAlljoindt } from '../../../../api/restaurant/br_powdtApi';
+import { branchAll } from '../../../../api/branchApi';
 import Swal from 'sweetalert2';
-import { format } from 'date-fns';
+import { format, parse } from 'date-fns';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 
 const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
@@ -70,8 +72,8 @@ export default function EditPurchaseOrderToWarehouse({ onBack, editRefno }) {
     const [isLoading, setIsLoading] = useState(true);
     const [debugInfo, setDebugInfo] = useState({});
     const [startDate, setStartDate] = useState(new Date());
-    const [suppliers, setSuppliers] = useState([]);
-    const [saveSupplier, setSaveSupplier] = useState('');
+    const [saveSupplier, setSaveSupplier] = useState('-');
+    const [saveBranch, setSaveBranch] = useState('');
     const [products, setProducts] = useState([]);
     const [quantities, setQuantities] = useState({});
     const [units, setUnits] = useState({});
@@ -84,6 +86,7 @@ export default function EditPurchaseOrderToWarehouse({ onBack, editRefno }) {
     const [selectedProducts, setSelectedProducts] = useState([]);
     const [expiryDates, setExpiryDates] = useState({});
     const [imageErrors, setImageErrors] = useState({});
+    const [branches, setBranches] = useState([]);
 
     // Pagination state
     const [page, setPage] = useState(1);
@@ -94,17 +97,76 @@ export default function EditPurchaseOrderToWarehouse({ onBack, editRefno }) {
     const userDataJson = localStorage.getItem("userData2");
     const userData2 = JSON.parse(userDataJson || "{}");
 
-    // Fetch initial data
+    // Helper function to parse date from different formats
+    const parseDateSafely = (dateString) => {
+        if (!dateString) return new Date();
+
+        console.log("Attempting to parse date:", dateString);
+
+        try {
+            // ลองแปลงตามรูปแบบต่างๆ
+            const formats = [
+                'MM/dd/yyyy', // US format
+                'dd/MM/yyyy', // Thai/UK format
+                'yyyy-MM-dd', // ISO format
+                'yyyy/MM/dd',
+                'MM-dd-yyyy',
+                'dd-MM-yyyy',
+                'yyyyMMdd'    // Compact format
+            ];
+
+            // ถ้าเป็นรูปแบบ yyyyMMdd (เช่น 20240321)
+            if (dateString.length === 8 && !isNaN(dateString)) {
+                const year = dateString.substring(0, 4);
+                const month = dateString.substring(4, 6);
+                const day = dateString.substring(6, 8);
+                console.log(`Parsing as yyyyMMdd: ${year}-${month}-${day}`);
+                const date = new Date(`${year}-${month}-${day}`);
+
+                if (!isNaN(date.getTime())) {
+                    return date;
+                }
+            }
+
+            // ลองแปลงตามรูปแบบต่างๆที่กำหนด
+            for (const format of formats) {
+                try {
+                    const parsed = parse(dateString, format, new Date());
+                    if (!isNaN(parsed.getTime())) {
+                        console.log(`Successfully parsed as ${format}:`, parsed);
+                        return parsed;
+                    }
+                } catch (e) {
+                    // ลองรูปแบบถัดไป
+                }
+            }
+
+            // ถ้าล้มเหลวทุกรูปแบบ ลองใช้ Date constructor
+            const dateObject = new Date(dateString);
+            if (!isNaN(dateObject.getTime())) {
+                console.log('Parsed using native Date constructor:', dateObject);
+                return dateObject;
+            }
+
+        } catch (e) {
+            console.error("Error parsing date:", e, dateString);
+        }
+
+        console.warn("Could not parse date, using current date as fallback");
+        return new Date();
+    };
+
+    // ในส่วน useEffect
     useEffect(() => {
         const fetchData = async () => {
             try {
                 setIsLoading(true);
                 console.log('Fetching data for refno:', editRefno);
 
-                // Load suppliers
-                const supplierResponse = await dispatch(supplierAll({ offset: 0, limit: 100 })).unwrap();
-                if (supplierResponse && supplierResponse.data) {
-                    setSuppliers(supplierResponse.data);
+                // Load branches (เพิ่มส่วนนี้)
+                const branchResponse = await dispatch(branchAll({ offset: 0, limit: 100 })).unwrap();
+                if (branchResponse && branchResponse.data) {
+                    setBranches(branchResponse.data);
                 }
 
                 // Load all products for catalog
@@ -114,17 +176,28 @@ export default function EditPurchaseOrderToWarehouse({ onBack, editRefno }) {
                     setFilteredProducts(productsResponse.data);
                 }
 
-                // Load main purchase order data
+                // ใช้ API ใหม่เพื่อดึงข้อมูลเฉพาะรายการที่ต้องการแก้ไข
                 if (editRefno) {
-                    const orderResponse = await dispatch(Br_powAlljoindt({ refno: editRefno })).unwrap();
+                    // 1. ดึงข้อมูลหลักของรายการ
+                    const orderResponse = await dispatch(getPowByRefno(editRefno)).unwrap();
 
-                    if (orderResponse && orderResponse.data && orderResponse.data.length > 0) {
-                        const headerData = orderResponse.data[0];
-                        setSaveSupplier(headerData.supplier_code || '');
-                        setStartDate(headerData.rdate ? new Date(headerData.rdate) : new Date());
+                    if (orderResponse && orderResponse.result && orderResponse.data) {
+                        const headerData = orderResponse.data;
+                        console.log('Header data for edit:', headerData);
+
+                        setSaveSupplier('-'); // Always set to default value
+                        setSaveBranch(headerData.branch_code || '');
+
+                        // ดึงวันที่จาก headerData ที่ได้
+                        if (headerData.rdate) {
+                            console.log('Using rdate from API:', headerData.rdate);
+                            const parsedDate = parseDateSafely(headerData.rdate);
+                            setStartDate(parsedDate);
+                        }
+
                         setTotal(parseFloat(headerData.total) || 0);
 
-                        // Load order details
+                        // 2. ดึงรายละเอียดรายการสินค้า
                         const detailResponse = await dispatch(Br_powdtAlljoindt(editRefno)).unwrap();
 
                         if (detailResponse && detailResponse.data && detailResponse.data.length > 0) {
@@ -157,11 +230,13 @@ export default function EditPurchaseOrderToWarehouse({ onBack, editRefno }) {
             // Then set the products array directly from detailData 
             const products = detailData.map(item => ({
                 product_code: item.product_code,
-                product_name: item.tbl_product?.product_name,
+                product_name: item.tbl_product?.product_name || item.product_name,
+                product_img: item.tbl_product?.product_img,
                 productUnit1: item.tbl_product?.productUnit1,
                 productUnit2: item.tbl_product?.productUnit2,
-                bulk_unit_price: item.tbl_product?.bulk_unit_price,
-                retail_unit_price: item.tbl_product?.retail_unit_price
+                bulk_unit_price: item.tbl_product?.bulk_unit_price || 0,
+                retail_unit_price: item.tbl_product?.retail_unit_price || 0,
+                tax1: item.tbl_product?.tax1 || item.tax1
             }));
 
             // Set all necessary states
@@ -187,7 +262,7 @@ export default function EditPurchaseOrderToWarehouse({ onBack, editRefno }) {
                     const day = item.texpire_date.substring(6, 8);
                     newExpiryDates[productCode] = new Date(`${year}-${month}-${day}`);
                 } else if (item.expire_date) {
-                    newExpiryDates[productCode] = new Date(item.expire_date);
+                    newExpiryDates[productCode] = parseDateSafely(item.expire_date);
                 } else {
                     newExpiryDates[productCode] = new Date();
                 }
@@ -205,7 +280,7 @@ export default function EditPurchaseOrderToWarehouse({ onBack, editRefno }) {
             setTotal(totalSum);
 
             // Log for debugging
-            console.log('Detail Data:', {
+            console.log('Detail Data Processed:', {
                 products,
                 quantities: newQuantities,
                 units: newUnits,
@@ -317,11 +392,11 @@ export default function EditPurchaseOrderToWarehouse({ onBack, editRefno }) {
     };
 
     const handleUpdate = async () => {
-        if (!saveSupplier || products.length === 0) {
+        if (products.length === 0) {
             Swal.fire({
                 icon: 'warning',
                 title: 'Missing Information',
-                text: 'Please select a supplier and at least one product.',
+                text: 'Please add at least one product.',
                 timer: 1500
             });
             return;
@@ -336,36 +411,59 @@ export default function EditPurchaseOrderToWarehouse({ onBack, editRefno }) {
                 }
             });
 
-            const headerData = {
+            // Calculate tax and nontaxable amounts
+            const tax = calculateTax();
+            const nontaxable = total - tax;
+
+            // Prepare data for API
+            const orderData = {
+                // Top level data for the controller
                 refno: editRefno,
                 rdate: format(startDate, 'MM/dd/yyyy'),
-                supplier_code: saveSupplier,
+                supplier_code: "-",
+                branch_code: saveBranch,
                 trdate: format(startDate, 'yyyyMMdd'),
                 monthh: format(startDate, 'MM'),
                 myear: startDate.getFullYear(),
                 user_code: userData2.user_code || '',
-            };
+                taxable: tax.toString(),
+                nontaxable: nontaxable.toString(),
+                total: total.toString(),
 
-            const productArrayData = products.map(product => ({
-                refno: headerData.refno,
-                product_code: product.product_code,
-                qty: (quantities[product.product_code] || 1).toString(),
-                unit_code: units[product.product_code] || product.productUnit1?.unit_code || '',
-                uprice: (unitPrices[product.product_code] || 0).toString(),
-                amt: (totals[product.product_code] || 0).toString(),
-                expire_date: format(expiryDates[product.product_code] || new Date(), 'MM/dd/yyyy'),
-                texpire_date: format(expiryDates[product.product_code] || new Date(), 'yyyyMMdd')
-            }));
-
-            const orderData = {
-                headerData,
-                productArrayData,
+                // Keep original structure for compatibility
+                headerData: {
+                    refno: editRefno,
+                    rdate: format(startDate, 'MM/dd/yyyy'),
+                    supplier_code: "-",
+                    branch_code: saveBranch,
+                    trdate: format(startDate, 'yyyyMMdd'),
+                    monthh: format(startDate, 'MM'),
+                    myear: startDate.getFullYear(),
+                    user_code: userData2.user_code || '',
+                    taxable: tax.toString(),
+                    nontaxable: nontaxable.toString()
+                },
+                productArrayData: products.map(product => ({
+                    refno: editRefno,
+                    product_code: product.product_code,
+                    qty: (quantities[product.product_code] || 1).toString(),
+                    unit_code: units[product.product_code] || product.productUnit1?.unit_code || '',
+                    uprice: (unitPrices[product.product_code] || 0).toString(),
+                    amt: (totals[product.product_code] || 0).toString(),
+                    tax1: product.tax1 || 'N', // Default to 'N' if not specified
+                    expire_date: format(expiryDates[product.product_code] || new Date(), 'MM/dd/yyyy'),
+                    texpire_date: format(expiryDates[product.product_code] || new Date(), 'yyyyMMdd')
+                })),
                 footerData: {
                     total: total.toString()
                 }
             };
 
-            await dispatch(updateBr_pow(orderData)).unwrap();
+            // Log the data being sent
+            console.log('Sending update data:', orderData);
+
+            const result = await dispatch(updateBr_pow(orderData)).unwrap();
+            console.log('Update result:', result);
 
             await Swal.fire({
                 icon: 'success',
@@ -378,6 +476,7 @@ export default function EditPurchaseOrderToWarehouse({ onBack, editRefno }) {
             onBack();
 
         } catch (error) {
+            console.error('Update error:', error);
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
@@ -513,21 +612,19 @@ export default function EditPurchaseOrderToWarehouse({ onBack, editRefno }) {
             <Box sx={{ mb: 2, p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
                 <Typography variant="subtitle2">
                     <strong>Status:</strong> Editing ref #{editRefno} |
-                    Products selected: {selectedProducts.length} |
-                    Products loaded: {products.length} |
-                    Supplier: {saveSupplier || 'None'} |
-                    Total: ${total.toFixed(2)}
+                    Restaurant: {saveBranch} |
+                    Products selected: {selectedProducts.length}
                 </Typography>
             </Box>
 
             {/* Main content */}
-            <Box display="flex" p={2} bgcolor="#F9F9F9">
+            <Box display="flex" p={2} bgcolor="#F9F9F9" borderRadius="12px" boxShadow={1}>
                 {/* Left Panel - Product Selection */}
                 <Box flex={2} pr={2} display="flex" flexDirection="column">
                     {/* Search Section */}
                     <Box sx={{ marginBottom: "20px", paddingTop: '20px' }}>
                         <TextField
-                            placeholder="Search products..."
+                            placeholder="Search products by name or code..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             sx={{
@@ -561,7 +658,14 @@ export default function EditPurchaseOrderToWarehouse({ onBack, editRefno }) {
                                         position: 'relative',
                                         cursor: 'pointer',
                                         border: selectedProducts.includes(product.product_code) ? '2px solid #4caf50' : 'none',
-                                        bgcolor: selectedProducts.includes(product.product_code) ? '#f0fff0' : 'white'
+                                        bgcolor: selectedProducts.includes(product.product_code) ? '#f0fff0' : 'white',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        transition: 'all 0.2s ease-in-out',
+                                        '&:hover': {
+                                            transform: 'translateY(-4px)',
+                                            boxShadow: 4
+                                        }
                                     }}
                                     onClick={() => toggleSelectProduct(product)}
                                 >
@@ -573,9 +677,7 @@ export default function EditPurchaseOrderToWarehouse({ onBack, editRefno }) {
                                         <Typography variant="body2" color="text.secondary" noWrap>
                                             {product.product_code}
                                         </Typography>
-                                        <Typography variant="h6" color="#D9A05B" mt={1}>
-                                            ${(product.bulk_unit_price || 0).toFixed(2)}
-                                        </Typography>
+                                        {/* Removed price display */}
                                     </CardContent>
                                     {selectedProducts.includes(product.product_code) && (
                                         <CheckCircleIcon
@@ -605,61 +707,90 @@ export default function EditPurchaseOrderToWarehouse({ onBack, editRefno }) {
                             showFirstButton
                             showLastButton
                             size="large"
+                            sx={{
+                                '& .MuiPaginationItem-root': {
+                                    '&.Mui-selected': {
+                                        backgroundColor: '#754C27',
+                                        color: 'white',
+                                        '&:hover': {
+                                            backgroundColor: '#5c3c1f',
+                                        }
+                                    }
+                                }
+                            }}
                         />
                     </Box>
                 </Box>
 
                 {/* Right Panel - Order Details */}
-                <Box flex={2} pl={2} bgcolor="#FFF" p={1} borderRadius="12px" boxShadow={3}>
-                    <Typography sx={{ fontSize: '16px', fontWeight: '600', mt: '18px' }}>
-                        Ref.no
-                    </Typography>
-                    <TextField
-                        value={editRefno}
-                        disabled
-                        size="small"
-                        sx={{
-                            mt: '8px',
-                            width: '95%',
-                            '& .MuiOutlinedInput-root': {
-                                borderRadius: '10px',
-                            },
-                        }}
-                    />
+                <Box flex={2} pl={2} bgcolor="#FFF" p={3} borderRadius="12px" boxShadow={3}>
+                    <Grid container spacing={3}>
+                        <Grid item xs={12}>
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>
+                                Ref.no
+                            </Typography>
+                            <TextField
+                                value={editRefno}
+                                disabled
+                                size="small"
+                                fullWidth
+                                sx={{
+                                    mt: '8px',
+                                    '& .MuiOutlinedInput-root': {
+                                        borderRadius: '10px',
+                                    },
+                                }}
+                            />
+                        </Grid>
 
-                    <Typography sx={{ fontSize: '16px', fontWeight: '600', mt: '18px' }}>
-                        Date
-                    </Typography>
-                    <DatePicker
-                        selected={startDate}
-                        onChange={(date) => setStartDate(date)}
-                        dateFormat="MM/dd/yyyy"
-                        customInput={<CustomInput />}
-                    />
+                        <Grid item xs={12} sx={{ position: 'relative', zIndex: 9999 }}>
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>
+                                Date
+                            </Typography>
+                            <DatePicker
+                                selected={startDate}
+                                onChange={(date) => setStartDate(date)}
+                                dateFormat="MM/dd/yyyy"
+                                customInput={<CustomInput />}
+                                popperProps={{
+                                    positionFixed: true,
+                                    modifiers: {
+                                        preventOverflow: {
+                                            enabled: true,
+                                            escapeWithReference: false,
+                                            boundariesElement: 'viewport'
+                                        }
+                                    }
+                                }}
+                            />
+                        </Grid>
 
-                    <Typography sx={{ fontSize: '16px', fontWeight: '600', mt: '18px' }}>
-                        Supplier
-                    </Typography>
-                    <Select
-                        value={saveSupplier}
-                        onChange={(e) => setSaveSupplier(e.target.value)}
-                        displayEmpty
-                        size="small"
-                        sx={{
-                            mt: '8px',
-                            width: '95%',
-                            borderRadius: '10px',
-                        }}
-                    >
-                        <MenuItem value=""><em>Select Supplier</em></MenuItem>
-                        {suppliers.map((supplier) => (
-                            <MenuItem key={supplier.supplier_code} value={supplier.supplier_code}>
-                                {supplier.supplier_name}
-                            </MenuItem>
-                        ))}
-                    </Select>
+                        <Grid item xs={12} md={6}>
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>
+                                Restaurant
+                            </Typography>
+                            <Select
+                                value={saveBranch}
+                                onChange={(e) => setSaveBranch(e.target.value)}
+                                displayEmpty
+                                size="small"
+                                fullWidth
+                                sx={{
+                                    mt: '8px',
+                                    borderRadius: '10px',
+                                }}
+                            >
+                                <MenuItem value=""><em>Select Restaurant</em></MenuItem>
+                                {branches.map((branch) => (
+                                    <MenuItem key={branch.branch_code} value={branch.branch_code}>
+                                        {branch.branch_name}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </Grid>
+                    </Grid>
 
-                    <Divider sx={{ my: 2 }} />
+                    <Divider sx={{ my: 3 }} />
 
                     {/* Current Order Section */}
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -686,34 +817,39 @@ export default function EditPurchaseOrderToWarehouse({ onBack, editRefno }) {
                     </Box>
 
                     {/* Order Table */}
-                    <TableContainer sx={{ mt: 2, maxHeight: '400px', overflow: 'auto' }}>
+                    <TableContainer component={Paper} sx={{
+                        mt: 2,
+                        maxHeight: '400px',
+                        overflow: 'auto',
+                        boxShadow: 'none',
+                        border: '1px solid #e0e0e0',
+                        borderRadius: '8px'
+                    }}>
                         <Table stickyHeader>
                             <TableHead>
-                                <TableRow>
+                                <TableRow sx={{ bgcolor: '#f5f5f5' }}>
                                     <TableCell>No.</TableCell>
                                     <TableCell>Image</TableCell>
-                                    <TableCell>Product Code</TableCell>
-                                    <TableCell>Product Name</TableCell>
+                                    <TableCell>Product</TableCell>
                                     <TableCell>Expiry Date</TableCell>
                                     <TableCell>Quantity</TableCell>
                                     <TableCell>Unit</TableCell>
-                                    <TableCell>Unit Price</TableCell>
-                                    <TableCell>Total</TableCell>
                                     <TableCell>Actions</TableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>
                                 {isLoading ? (
                                     <TableRow>
-                                        <TableCell colSpan={10} align="center">
+                                        <TableCell colSpan={7} align="center">
                                             <CircularProgress />
                                         </TableCell>
                                     </TableRow>
                                 ) : (!products || products.length === 0) ? (
                                     <TableRow>
-                                        <TableCell colSpan={10} align="center">
+                                        <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
                                             <Typography color="text.secondary">
-                                                No products selected or failed to load product data
+                                                No products selected or failed to load product data.
+                                                Click on products to add them to your order.
                                             </Typography>
                                         </TableCell>
                                     </TableRow>
@@ -734,14 +870,26 @@ export default function EditPurchaseOrderToWarehouse({ onBack, editRefno }) {
                                                     {renderProductImage(product, 'table')}
                                                 </Box>
                                             </TableCell>
-                                            <TableCell>{product.product_code}</TableCell>
-                                            <TableCell>{product.product_name}</TableCell>
                                             <TableCell>
+                                                <Typography variant="body2" fontWeight="bold">
+                                                    {product.product_name}
+                                                </Typography>
+                                                <Typography variant="caption" color="text.secondary">
+                                                    {product.product_code}
+                                                </Typography>
+                                            </TableCell>
+                                            <TableCell sx={{ zIndex: 1001 }}>
                                                 <DatePicker
                                                     selected={expiryDates[product.product_code] || new Date()}
                                                     onChange={(date) => handleExpiryDateChange(product.product_code, date)}
                                                     dateFormat="MM/dd/yyyy"
                                                     customInput={<CustomInput />}
+                                                    popperPlacement="auto"
+                                                    popperModifiers={{
+                                                        preventOverflow: {
+                                                            enabled: true,
+                                                        },
+                                                    }}
                                                 />
                                             </TableCell>
                                             <TableCell>
@@ -768,7 +916,7 @@ export default function EditPurchaseOrderToWarehouse({ onBack, editRefno }) {
                                                     value={units[product.product_code] || ''}
                                                     onChange={(e) => handleUnitChange(product.product_code, e.target.value)}
                                                     size="small"
-                                                    sx={{ minWidth: 120 }}
+                                                    sx={{ minWidth: 80 }}
                                                 >
                                                     {product.productUnit1 && (
                                                         <MenuItem value={product.productUnit1.unit_code}>
@@ -781,12 +929,6 @@ export default function EditPurchaseOrderToWarehouse({ onBack, editRefno }) {
                                                         </MenuItem>
                                                     )}
                                                 </Select>
-                                            </TableCell>
-                                            <TableCell>
-                                                ${(unitPrices[product.product_code] || 0).toFixed(2)}
-                                            </TableCell>
-                                            <TableCell>
-                                                ${(totals[product.product_code] || 0).toFixed(2)}
                                             </TableCell>
                                             <TableCell>
                                                 <IconButton
@@ -804,7 +946,7 @@ export default function EditPurchaseOrderToWarehouse({ onBack, editRefno }) {
                         </Table>
                     </TableContainer>
 
-                    {/* Order Summary */}
+                    {/* Order Summary - Modified to hide prices */}
                     <Box sx={{
                         bgcolor: '#EAB86C',
                         borderRadius: '10px',
@@ -813,16 +955,14 @@ export default function EditPurchaseOrderToWarehouse({ onBack, editRefno }) {
                         color: 'white'
                     }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                            <Typography>Subtotal</Typography>
-                            <Typography>${total.toFixed(2)}</Typography>
+                            <Typography>Total Items</Typography>
+                            <Typography>{products.length}</Typography>
                         </Box>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                            <Typography>Tax (7%)</Typography>
-                            <Typography>${calculateTax().toFixed(2)}</Typography>
-                        </Box>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
-                            <Typography variant="h5">Total</Typography>
-                            <Typography variant="h5">${(total + calculateTax()).toFixed(2)}</Typography>
+                            <Typography>Total Quantity</Typography>
+                            <Typography>
+                                {Object.values(quantities).reduce((sum, qty) => sum + qty, 0)}
+                            </Typography>
                         </Box>
                     </Box>
 

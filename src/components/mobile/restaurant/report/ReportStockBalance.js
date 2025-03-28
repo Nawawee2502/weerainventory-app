@@ -79,6 +79,16 @@ export default function ReportMonthlyStockBalance() {
             return;
         }
 
+        if (!selectedBranch) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Please select a restaurant',
+                text: 'A restaurant must be selected before showing data',
+                confirmButtonColor: '#754C27'
+            });
+            return;
+        }
+
         try {
             setLoading(true);
             setError(null);
@@ -86,14 +96,10 @@ export default function ReportMonthlyStockBalance() {
             const params = {
                 rdate1: formatDateForApi(startDate),
                 rdate2: formatDateForApi(endDate),
+                branch_code: selectedBranch, // Always include branch_code since it's required
                 limit: 99999,
                 offset: 0
             };
-
-            // Add branch_code to params if a branch is selected
-            if (selectedBranch) {
-                params.branch_code = selectedBranch;
-            }
 
             const response = await dispatch(Br_stockcardAll(params)).unwrap();
 
@@ -146,8 +152,8 @@ export default function ReportMonthlyStockBalance() {
 
                 // Convert the grouped data back to an array and sort by product name
                 const processedData = Object.values(productGroups).sort((a, b) => {
-                    const nameA = a.tbl_product?.product_name || '';
-                    const nameB = b.tbl_product?.product_name || '';
+                    const nameA = (a.tbl_product?.product_name || '').toLowerCase();
+                    const nameB = (b.tbl_product?.product_name || '').toLowerCase();
                     return nameA.localeCompare(nameB);
                 });
 
@@ -255,6 +261,9 @@ export default function ReportMonthlyStockBalance() {
         });
     };
 
+    // Check if Show button should be enabled
+    const isShowButtonDisabled = !selectedBranch;
+
     return (
         <Box sx={{
             width: '100%',
@@ -346,7 +355,7 @@ export default function ReportMonthlyStockBalance() {
                             {/* Branch Selection */}
                             <Grid2 item size={{ xs: 12, md: 12 }}>
                                 <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
-                                    Restaurant
+                                    Restaurant *
                                 </Typography>
                                 <FormControl
                                     fullWidth
@@ -363,12 +372,13 @@ export default function ReportMonthlyStockBalance() {
                                         value={selectedBranch}
                                         onChange={(e) => setSelectedBranch(e.target.value)}
                                         displayEmpty
+                                        required
                                     >
                                         <MenuItem value="">
-                                            <em>All Restaurant</em>
+                                            <em>Select Restaurant</em>
                                         </MenuItem>
                                         {loadingBranches ? (
-                                            <MenuItem disabled>Loading branches...</MenuItem>
+                                            <MenuItem disabled>Loading restaurants...</MenuItem>
                                         ) : (
                                             branches.map((branch) => (
                                                 <MenuItem key={branch.branch_code} value={branch.branch_code}>
@@ -385,12 +395,13 @@ export default function ReportMonthlyStockBalance() {
                                     fullWidth
                                     variant="contained"
                                     onClick={fetchStockBalance}
+                                    disabled={isShowButtonDisabled}
                                     sx={{
-                                        bgcolor: '#754C27',
+                                        bgcolor: isShowButtonDisabled ? '#cccccc' : '#754C27',
                                         color: 'white',
                                         height: '48px',
                                         '&:hover': {
-                                            bgcolor: '#5c3c1f'
+                                            bgcolor: isShowButtonDisabled ? '#cccccc' : '#5c3c1f'
                                         }
                                     }}
                                 >

@@ -20,10 +20,43 @@ export const addBr_rfs = createAsyncThunk(
     }
 );
 
+// export const updateBr_rfs = createAsyncThunk(
+//     "br_rfs/update",
+//     async (orderData, { dispatch }) => {
+//         try {
+//             // ปัญหาอยู่ตรงนี้ มีการแตกข้อมูลออกมาแล้วส่งเฉพาะ headerData
+//             const { headerData, productArrayData, footerData } = orderData;
+
+//             // ส่งเฉพาะข้อมูล headerData ไม่ได้ส่ง productArrayData ไปด้วย
+//             const res = await axios.post(BASE_URL + "/api/updateBr_rfs", {
+//                 refno: headerData.refno,
+//                 rdate: headerData.rdate,
+//                 trdate: headerData.trdate,
+//                 myear: headerData.myear,
+//                 monthh: headerData.monthh,
+//                 branch_code: headerData.branch_code,
+//                 supplier_code: headerData.supplier_code,
+//                 taxable: headerData.taxable || 0,
+//                 nontaxable: headerData.nontaxable || 0,
+//                 total: headerData.total || 0,
+//                 instant_saving: headerData.instant_saving || 0,
+//                 delivery_surcharge: headerData.delivery_surcharge || 0,
+//                 sale_tax: headerData.sale_tax || 0,
+//                 total_due: headerData.total_due || 0,
+//                 user_code: headerData.user_code
+//             });
+//             return res.data;
+//         } catch (error) {
+//             throw error;
+//         }
+//     }
+// );
+
 export const updateBr_rfs = createAsyncThunk(
     "br_rfs/update",
     async (orderData, { dispatch }) => {
         try {
+            // ส่ง orderData ทั้งหมดโดยไม่ต้องแตกโครงสร้าง
             const res = await axios.post(BASE_URL + "/api/updateBr_rfs", orderData);
             return res.data;
         } catch (error) {
@@ -129,6 +162,18 @@ export const searchBr_rfsRunno = createAsyncThunk(
                 myear,
                 monthh
             });
+            return res.data;
+        } catch (error) {
+            throw error;
+        }
+    }
+);
+
+export const getRfsByRefno = createAsyncThunk(
+    "br_rfs/getByRefno",
+    async (refno, { dispatch }) => {
+        try {
+            const res = await axios.post(BASE_URL + "/api/getRfsByRefno", { refno });
             return res.data;
         } catch (error) {
             throw error;

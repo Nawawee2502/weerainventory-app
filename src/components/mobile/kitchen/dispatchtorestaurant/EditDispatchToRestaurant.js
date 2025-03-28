@@ -17,10 +17,10 @@ import { useDispatch } from "react-redux";
 import { searchProductName } from '../../../../api/productrecordApi';
 import { kitchenAll } from '../../../../api/kitchenApi';
 import { branchAll } from '../../../../api/branchApi';
-import { Kt_dpbByRefno, updateKt_dpb } from '../../../../api/kitchen/kt_dpbApi';
+import { getKtDpbByRefno, updateKt_dpb } from '../../../../api/kitchen/kt_dpbApi';
 import { Kt_dpbdtAlljoindt } from '../../../../api/kitchen/kt_dpbdtApi';
 import Swal from 'sweetalert2';
-import { format, parse } from 'date-fns';
+import { format } from 'date-fns';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 
 // Custom date picker input component
@@ -93,10 +93,6 @@ export default function EditDispatchToRestaurant({ onBack, editRefno }) {
                 setIsLoading(true);
                 console.log('Fetching data for refno:', editRefno);
 
-                // ตรวจสอบว่า editRefno เป็น string
-                const refnoParam = typeof editRefno === 'object' ? editRefno.refno || '' : editRefno;
-                console.log('Using refno param:', refnoParam);
-
                 // Load all products for catalog
                 const productsResponse = await dispatch(searchProductName({ product_name: '' })).unwrap();
                 if (productsResponse && productsResponse.data) {
@@ -112,23 +108,32 @@ export default function EditDispatchToRestaurant({ onBack, editRefno }) {
                 const branchResponse = await dispatch(branchAll({ offset: 0, limit: 100 })).unwrap();
                 setBranches(branchResponse.data || []);
 
-                // Fetch dispatch data
+                // Fetch dispatch data using the getKtDpbByRefno function
                 if (editRefno) {
-                    // Make sure we're sending the refno as an object
-                    const refnoObj = { refno: refnoParam };
-                    console.log('Sending refno object to API:', refnoObj);
-
-                    const dispatchResponse = await dispatch(Kt_dpbByRefno(refnoObj)).unwrap();
+                    const dispatchResponse = await dispatch(getKtDpbByRefno(typeof editRefno === 'object' ? editRefno : { refno: editRefno })).unwrap();
 
                     if (dispatchResponse.result && dispatchResponse.data) {
                         const dispatchData = dispatchResponse.data;
                         setDebugInfo({ headerData: dispatchData });
 
                         // Set header data
-                        if (dispatchData.rdate) {
+                        if (dispatchData.trdate && dispatchData.trdate.length === 8) {
+                            const year = parseInt(dispatchData.trdate.substring(0, 4));
+                            const month = parseInt(dispatchData.trdate.substring(4, 6)) - 1;
+                            const day = parseInt(dispatchData.trdate.substring(6, 8));
+                            setDispatchDate(new Date(year, month, day));
+                        } else if (dispatchData.rdate) {
+                            // Try to parse the date safely
                             try {
-                                const parsedDate = parse(dispatchData.rdate, 'MM/dd/yyyy', new Date());
-                                setDispatchDate(parsedDate);
+                                const dateParts = dispatchData.rdate.split('/');
+                                if (dateParts.length === 3) {
+                                    const month = parseInt(dateParts[0]) - 1;
+                                    const day = parseInt(dateParts[1]);
+                                    const year = parseInt(dateParts[2]);
+                                    setDispatchDate(new Date(year, month, day));
+                                } else {
+                                    setDispatchDate(new Date());
+                                }
                             } catch (e) {
                                 console.error("Date parsing error:", e);
                                 setDispatchDate(new Date());
@@ -139,9 +144,9 @@ export default function EditDispatchToRestaurant({ onBack, editRefno }) {
                         setBranchCode(dispatchData.branch_code || '');
                         setTotal(parseFloat(dispatchData.total) || 0);
 
-                        // Fetch detail data - use the same refno object format
-                        console.log('Fetching detail data with refno:', refnoObj);
-                        const detailResponse = await dispatch(Kt_dpbdtAlljoindt(refnoObj)).unwrap();
+                        // Fetch detail data
+                        const refnoParam = typeof editRefno === 'object' ? editRefno : { refno: editRefno };
+                        const detailResponse = await dispatch(Kt_dpbdtAlljoindt(refnoParam)).unwrap();
                         setDebugInfo(prev => ({ ...prev, detailData: detailResponse.data }));
 
                         if (detailResponse.result && detailResponse.data && detailResponse.data.length > 0) {
@@ -201,9 +206,27 @@ export default function EditDispatchToRestaurant({ onBack, editRefno }) {
                 newTaxStatus[productCode] = item.tax1 || 'N';
 
                 // Parse expiry date
-                if (item.expire_date) {
+                if (item.texpire_date && item.texpire_date.length === 8) {
                     try {
-                        newExpiryDates[productCode] = parse(item.expire_date, 'MM/dd/yyyy', new Date());
+                        const year = parseInt(item.texpire_date.substring(0, 4));
+                        const month = parseInt(item.texpire_date.substring(4, 6)) - 1;
+                        const day = parseInt(item.texpire_date.substring(6, 8));
+                        newExpiryDates[productCode] = new Date(year, month, day);
+                    } catch (e) {
+                        console.error("Error parsing texpire_date:", e);
+                        newExpiryDates[productCode] = new Date();
+                    }
+                } else if (item.expire_date) {
+                    try {
+                        const dateParts = item.expire_date.split('/');
+                        if (dateParts.length === 3) {
+                            const month = parseInt(dateParts[0]) - 1;
+                            const day = parseInt(dateParts[1]);
+                            const year = parseInt(dateParts[2]);
+                            newExpiryDates[productCode] = new Date(year, month, day);
+                        } else {
+                            newExpiryDates[productCode] = new Date();
+                        }
                     } catch (e) {
                         console.error("Expiry date parsing error:", e);
                         newExpiryDates[productCode] = new Date();
@@ -504,6 +527,7 @@ export default function EditDispatchToRestaurant({ onBack, editRefno }) {
                 taxable: taxableAmount.toString(),
                 nontaxable: nontaxableAmount.toString(),
                 user_code: userData2?.user_code || '',
+                total: total.toString(),
             };
 
             const productArrayData = products.map(product => ({
@@ -520,6 +544,8 @@ export default function EditDispatchToRestaurant({ onBack, editRefno }) {
             }));
 
             await dispatch(updateKt_dpb({
+                // Send as both direct properties and nested objects to maintain compatibility
+                ...headerData,
                 headerData,
                 productArrayData,
                 footerData: {

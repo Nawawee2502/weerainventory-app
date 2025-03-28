@@ -34,7 +34,6 @@ import 'react-datepicker/dist/react-datepicker.css';
 import { useDispatch } from "react-redux";
 import { searchProductName } from '../../../../api/productrecordApi';
 import { branchAll } from '../../../../api/branchApi';
-import { supplierAll } from '../../../../api/supplierApi';
 import { addBr_rfw, Br_rfwrefno, Br_rfwUsedRefnos } from '../../../../api/restaurant/br_rfwApi';
 import { Wh_dpbdtAlljoindt } from '../../../../api/warehouse/wh_dpbdtApi';
 import { Wh_dpbByRefno, wh_dpbAlljoindt } from '../../../../api/warehouse/wh_dpbApi';
@@ -75,8 +74,6 @@ export default function CreateGoodsReceiptWarehouse({ onBack }) {
     const [startDate, setStartDate] = useState(new Date());
     const [lastRefNo, setLastRefNo] = useState('Please select dispatch to branch');
     const [branches, setBranches] = useState([]);
-    const [suppliers, setSuppliers] = useState([]);
-    const [saveSupplier, setSaveSupplier] = useState('');
     const [saveBranch, setSaveBranch] = useState('');
     const [products, setProducts] = useState([]);
     const [quantities, setQuantities] = useState({});
@@ -117,14 +114,6 @@ export default function CreateGoodsReceiptWarehouse({ onBack }) {
             .unwrap()
             .then((res) => {
                 setBranches(res.data);
-            })
-            .catch((err) => console.log(err.message));
-
-        // Fetch suppliers
-        dispatch(supplierAll({ offset: 0, limit: 100 }))
-            .unwrap()
-            .then((res) => {
-                setSuppliers(res.data);
             })
             .catch((err) => console.log(err.message));
 
@@ -591,11 +580,11 @@ export default function CreateGoodsReceiptWarehouse({ onBack }) {
     };
 
     const handleSave = async () => {
-        if (!saveSupplier || !saveBranch || products.length === 0) {
+        if (!saveBranch || products.length === 0) {
             Swal.fire({
                 icon: 'warning',
                 title: 'Missing Information',
-                text: 'Please select a supplier, restaurant, and at least one product.',
+                text: 'Please select a restaurant and at least one product.',
                 timer: 1500
             });
             return;
@@ -631,7 +620,7 @@ export default function CreateGoodsReceiptWarehouse({ onBack }) {
             const headerData = {
                 refno: lastRefNo,
                 rdate: format(startDate, 'MM/dd/yyyy'),
-                supplier_code: saveSupplier,
+                supplier_code: "-", // Set supplier_code to "-" as default
                 branch_code: saveBranch,
                 trdate: format(startDate, 'yyyyMMdd'),
                 monthh: format(startDate, 'MM'),
@@ -715,7 +704,6 @@ export default function CreateGoodsReceiptWarehouse({ onBack }) {
         setUnitPrices({});
         setTotals({});
         setTotal(0);
-        setSaveSupplier('');
         setSaveBranch('');
         setSearchTerm('');
         setExpiryDates({});
@@ -757,7 +745,6 @@ export default function CreateGoodsReceiptWarehouse({ onBack }) {
                     {selectedDispatchRefno && (
                         <span> Based on dispatch: {selectedDispatchRefno} |</span>
                     )}
-                    Supplier: {saveSupplier || 'None'} |
                     Restaurant: {saveBranch || 'None'}
                 </Typography>
             </Box>
@@ -980,7 +967,7 @@ export default function CreateGoodsReceiptWarehouse({ onBack }) {
                             />
                         </Grid>
 
-                        <Grid item xs={12} md={6}>
+                        <Grid item xs={12}>
                             <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>
                                 Date
                             </Typography>
@@ -992,30 +979,6 @@ export default function CreateGoodsReceiptWarehouse({ onBack }) {
                                 dateFormat="MM/dd/yyyy"
                                 customInput={<CustomInput />}
                             />
-                        </Grid>
-
-                        <Grid item xs={12} md={6}>
-                            <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>
-                                Supplier
-                            </Typography>
-                            <Select
-                                value={saveSupplier}
-                                onChange={(e) => setSaveSupplier(e.target.value)}
-                                displayEmpty
-                                size="small"
-                                fullWidth
-                                sx={{
-                                    mt: '8px',
-                                    borderRadius: '10px',
-                                }}
-                            >
-                                <MenuItem value=""><em>Select Supplier</em></MenuItem>
-                                {suppliers.map((supplier) => (
-                                    <MenuItem key={supplier.supplier_code} value={supplier.supplier_code}>
-                                        {supplier.supplier_name}
-                                    </MenuItem>
-                                ))}
-                            </Select>
                         </Grid>
                     </Grid>
 
@@ -1063,7 +1026,7 @@ export default function CreateGoodsReceiptWarehouse({ onBack }) {
                                     <TableCell>Product</TableCell>
                                     <TableCell>Tax</TableCell>
                                     <TableCell>Expiry Date</TableCell>
-                                    <TableCell>Temperature</TableCell>
+                                    <TableCell width="150px">Temperature</TableCell>
                                     <TableCell>Quantity</TableCell>
                                     <TableCell>Unit</TableCell>
                                     {/* Removed Price column */}
@@ -1133,7 +1096,12 @@ export default function CreateGoodsReceiptWarehouse({ onBack }) {
                                                     InputProps={{
                                                         endAdornment: <InputAdornment position="end">°C</InputAdornment>,
                                                     }}
-                                                    sx={{ width: '80px' }}
+                                                    sx={{
+                                                        width: '120px',
+                                                        '& .MuiInputBase-root': {
+                                                            height: '38px'
+                                                        }
+                                                    }}
                                                 />
                                             </TableCell>
                                             <TableCell>
@@ -1219,7 +1187,7 @@ export default function CreateGoodsReceiptWarehouse({ onBack }) {
                         variant="contained"
                         fullWidth
                         onClick={handleSave}
-                        disabled={!lastRefNo || lastRefNo === 'Please select dispatch to branch' || !saveSupplier || products.length === 0}
+                        disabled={!lastRefNo || lastRefNo === 'Please select dispatch to branch' || products.length === 0}
                         sx={{
                             mt: 2,
                             bgcolor: '#754C27',

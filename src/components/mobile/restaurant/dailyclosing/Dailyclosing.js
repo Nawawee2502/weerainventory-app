@@ -277,7 +277,7 @@ export default function Dailyclosing() {
                                 <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>No</th>
                                 <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Product</th>
                                 <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Unit</th>
-                                <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Branch</th>
+                                <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Restaurant</th>
                                 <th style={{ padding: '12px 16px', textAlign: 'right', color: '#754C27' }}>Beg</th>
                                 <th style={{ padding: '12px 16px', textAlign: 'right', color: '#754C27' }}>In</th>
                                 <th style={{ padding: '12px 16px', textAlign: 'right', color: '#754C27' }}>Out</th>

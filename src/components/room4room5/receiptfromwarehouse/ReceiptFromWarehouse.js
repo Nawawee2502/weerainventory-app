@@ -1,19 +1,30 @@
+import { Box, Button, InputAdornment, TextField, Typography, tableCellClasses, TableContainer, Table, TableHead, TableRow, TableCell, TableBody, Paper, Checkbox, IconButton, Switch } from '@mui/material';
 import React, { useState, useEffect } from 'react';
-import { styled } from '@mui/material/styles';
-import { Box, Button, InputAdornment, TextField, Typography, tableCellClasses, TableContainer, Table, TableHead, TableRow, TableCell, TableBody, Paper, Checkbox, Switch } from '@mui/material';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
 import SearchIcon from '@mui/icons-material/Search';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import PrintIcon from '@mui/icons-material/Print';
+import { styled } from '@mui/material/styles';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
 import Stack from '@mui/material/Stack';
 import Pagination from '@mui/material/Pagination';
-import { useDispatch } from "react-redux";
-import { Kt_rfwAlljoindt, countKt_rfw, deleteKt_rfw, Kt_rfwByRefno } from '../../../api/kitchen/kt_rfwApi';
+import { useDispatch } from 'react-redux';
+import { Kt_rfwAlljoindt, deleteKt_rfw } from '../../../api/kitchen/kt_rfwApi';
 import { kitchenAll } from '../../../api/kitchenApi';
+import { searchProductName } from '../../../api/productrecordApi';
 import Swal from 'sweetalert2';
 
-// Styled components
+const formatDate = (date) => {
+    if (!date) return "";
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${month}/${day}/${year}`;
+};
+
 const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
     <Box sx={{ position: 'relative', display: 'inline-block', width: '100%' }}>
         <TextField
@@ -36,7 +47,7 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
             InputProps={{
                 readOnly: true,
                 endAdornment: (
-                    <InputAdornment position="start">
+                    <InputAdornment position="end">
                         <CalendarTodayIcon sx={{ color: '#754C27', cursor: 'pointer' }} />
                     </InputAdornment>
                 ),
@@ -64,151 +75,125 @@ const StyledTableRow = styled(TableRow)(({ theme }) => ({
     },
 }));
 
-export default function ReceiptFromWarehouse({ onCreate }) {
+export default function ReceiptFromWarehouse({ onCreate, onEdit }) {
     const dispatch = useDispatch();
-    const [searchTerm, setSearchTerm] = useState("");
+    const [searchProduct, setSearchProduct] = useState("");
+    const [searchResults, setSearchResults] = useState([]);
+    const [showDropdown, setShowDropdown] = useState(false);
     const [filterDate, setFilterDate] = useState(new Date());
     const [selected, setSelected] = useState([]);
     const [page, setPage] = useState(1);
     const [count, setCount] = useState(1);
+    const [data, setData] = useState([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const [excludePrice, setExcludePrice] = useState(false);
+    const [searchKitchen, setSearchKitchen] = useState("");
     const [kitchens, setKitchens] = useState([]);
-    const [loading, setLoading] = useState(false);
-    const [orders, setOrders] = useState([]);
-    const [kitchenSearchTerm, setKitchenSearchTerm] = useState('');
+    const limit = 5;
 
+    // Load branches and suppliers on component mount
     useEffect(() => {
-        const loadKitchens = async () => {
+        const loadData = async () => {
             try {
-                const response = await dispatch(kitchenAll({
-                    offset: 0,
-                    limit: 100
-                })).unwrap();
-                setKitchens(response.data);
-            } catch (err) {
-                console.error('Error loading kitchens:', err);
+                const kitchenResponse = await dispatch(kitchenAll({ offset: 0, limit: 100 })).unwrap();
+                if (kitchenResponse.result && kitchenResponse.data) {
+                    setKitchens(kitchenResponse.data);
+                }
+            } catch (error) {
+                console.error('Error loading data:', error);
                 Swal.fire({
                     icon: 'error',
                     title: 'Error',
-                    text: err.message || 'Failed to load kitchens',
-                    confirmButtonColor: '#754C27'
+                    text: 'Failed to load initial data'
                 });
             }
         };
-        loadKitchens();
-        fetchData();
+        loadData();
     }, [dispatch]);
 
     useEffect(() => {
         fetchData();
-    }, [page, searchTerm, filterDate, kitchenSearchTerm]);
-
-    // Helper functions
-    const formatDate = (date) => {
-        if (!date) return "";
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        const year = date.getFullYear();
-        return `${month}/${day}/${year}`;
-    };
+    }, [page, searchKitchen, searchProduct, filterDate]);
 
     const fetchData = async () => {
         try {
-            setLoading(true);
-            const formattedDate = formatDate(filterDate);
+            setIsLoading(true);
+            const offset = (page - 1) * limit;
 
-            const [ordersRes, countRes] = await Promise.all([
-                dispatch(Kt_rfwAlljoindt({
-                    offset: (page - 1) * 10,
-                    limit: 10,
-                    rdate: formattedDate,
-                    kitchen_code: kitchenSearchTerm,
-                })).unwrap(),
-                dispatch(countKt_rfw({
-                    rdate: formattedDate
-                })).unwrap()
-            ]);
+            const formattedDate = filterDate.toISOString().slice(0, 10).replace(/-/g, '');
 
-            if (ordersRes.result) {
-                setOrders(ordersRes.data);
-                const totalPages = Math.ceil(countRes.data / 10);
-                setCount(totalPages);
+            const response = await dispatch(Kt_rfwAlljoindt({
+                offset,
+                limit,
+                rdate1: formattedDate,
+                rdate2: formattedDate,
+                kitchen_code: searchKitchen,
+                product_code: searchProduct
+            })).unwrap();
+
+            if (response.result && response.data) {
+                setData(response.data);
+                const totalPages = Math.ceil(response.data.length / limit);
+                setCount(totalPages || 1);
+                console.log(response.data);
             }
-        } catch (err) {
-            console.error('Error fetching data:', err);
+        } catch (error) {
+            console.error('Error fetching data:', error);
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
-                text: err.message || 'Failed to fetch data'
+                text: 'Failed to fetch data'
             });
         } finally {
-            setLoading(false);
+            setIsLoading(false);
         }
     };
 
-    const handleDeleteSelected = async () => {
-        if (selected.length === 0) return;
-
+    const handleDelete = async (refno) => {
         try {
-            const result = await Swal.fire({
+            await Swal.fire({
                 title: 'Are you sure?',
                 text: "You won't be able to revert this!",
                 icon: 'warning',
                 showCancelButton: true,
-                confirmButtonColor: '#754C27',
+                confirmButtonColor: '#3085d6',
                 cancelButtonColor: '#d33',
                 confirmButtonText: 'Yes, delete it!'
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    await dispatch(deleteKt_rfw({ refno })).unwrap();
+                    Swal.fire(
+                        'Deleted!',
+                        'Record has been deleted.',
+                        'success'
+                    );
+                    fetchData();
+                }
             });
-
-            if (result.isConfirmed) {
-                await Promise.all(
-                    selected.map(refno =>
-                        dispatch(deleteKt_rfw({ refno })).unwrap()
-                    )
-                );
-
-                setSelected([]);
-                await fetchData();
-
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Deleted!',
-                    text: 'Selected items have been deleted.',
-                    timer: 1500
-                });
-            }
         } catch (error) {
-            console.error('Delete error:', error);
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
-                text: error.message || 'Failed to delete items'
+                text: 'Failed to delete record'
             });
         }
     };
 
-    const handleSearchChange = (e) => {
-        setSearchTerm(e.target.value);
+    const handleSelectAll = (event) => {
+        if (event.target.checked) {
+            const newSelected = data.map(row => row.refno);
+            setSelected(newSelected);
+        } else {
+            setSelected([]);
+        }
     };
 
-    const handleDateChange = (date) => {
-        setFilterDate(date);
-    };
-
-    const handleKitchenChange = (e) => {
-        setKitchenSearchTerm(e.target.value);
-        setPage(1);
-    };
-
-    const handlePageChange = (event, value) => {
-        setPage(value);
-    };
-
-    const handleCheckboxChange = (event, kitchen_code) => {
-        const selectedIndex = selected.indexOf(kitchen_code);
+    const handleSelectOne = (event, refno) => {
+        const selectedIndex = selected.indexOf(refno);
         let newSelected = [];
 
         if (selectedIndex === -1) {
-            newSelected = newSelected.concat(selected, kitchen_code);
+            newSelected = newSelected.concat(selected, refno);
         } else if (selectedIndex === 0) {
             newSelected = newSelected.concat(selected.slice(1));
         } else if (selectedIndex === selected.length - 1) {
@@ -216,14 +201,97 @@ export default function ReceiptFromWarehouse({ onCreate }) {
         } else if (selectedIndex > 0) {
             newSelected = newSelected.concat(
                 selected.slice(0, selectedIndex),
-                selected.slice(selectedIndex + 1)
+                selected.slice(selectedIndex + 1),
             );
         }
 
         setSelected(newSelected);
     };
 
-    // Keep the same helper functions (formatDate, handleKitchenChange, handleCheckboxChange, etc.)
+    const handleDeleteSelected = async () => {
+        try {
+            await Swal.fire({
+                title: 'Are you sure?',
+                text: "You won't be able to revert this!",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Yes, delete them!'
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    await Promise.all(
+                        selected.map(refno => dispatch(deleteKt_rfw({ refno })).unwrap())
+                    );
+                    Swal.fire(
+                        'Deleted!',
+                        'Records have been deleted.',
+                        'success'
+                    );
+                    setSelected([]);
+                    fetchData();
+                }
+            });
+        } catch (error) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Failed to delete records'
+            });
+        }
+    };
+
+    // const handleSearchBranchChange = (e) => {
+    //   setSearchBranch(e.target.value);
+    //   setPage(1);
+    // };
+
+    // const handleSearchSupplierChange = (e) => {
+    //   setSearchSupplier(e.target.value);
+    //   setPage(1);
+    // };
+
+    // const handleSearchProductChange = async (e) => {
+    //   const value = e.target.value;
+    //   setSearchProduct(value);
+    //   setPage(1);
+
+    //   if (value.length > 0) {
+    //     try {
+    //       const response = await dispatch(searchProductName({ product_name: value })).unwrap();
+    //       if (response.data) {
+    //         setSearchResults(response.data);
+    //         setShowDropdown(true);
+    //       }
+    //     } catch (error) {
+    //       console.error('Error searching products:', error);
+    //       Swal.fire({
+    //         icon: 'error',
+    //         title: 'Error',
+    //         text: 'Failed to search products'
+    //       });
+    //     }
+    //   } else {
+    //     setSearchResults([]);
+    //     setShowDropdown(false);
+    //   }
+    // };
+
+    const handleDateChange = (date) => {
+        setFilterDate(date);
+        setPage(1);
+    };
+
+    const handleSearchKitchenChange = (e) => {
+        setSearchKitchen(e.target.value);
+        setPage(1);
+    };
+
+    const clearFilters = () => {
+        setSearchKitchen("");
+        setFilterDate(new Date());
+        setPage(1);
+    };
 
     return (
         <Box sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -251,22 +319,17 @@ export default function ReceiptFromWarehouse({ onCreate }) {
             </Button>
 
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mt: '48px', width: '90%', gap: '20px' }}>
-
                 <Box
                     component="select"
-                    value={kitchenSearchTerm}
-                    onChange={handleKitchenChange}
+                    value={searchKitchen}
+                    onChange={handleSearchKitchenChange}
                     sx={{
-                        mt: '0px',
-                        width: '40%',
-                        height: '40px',
+                        height: '38px',
+                        width: '25%',
                         borderRadius: '4px',
+                        border: '1px solid rgba(0, 0, 0, 0.23)',
                         padding: '0 14px',
-                        fontSize: '16px',
-                        '&:focus': {
-                            outline: 'none',
-                            borderColor: '#754C27',
-                        }
+                        backgroundColor: '#fff'
                     }}
                 >
                     <option value="">All Kitchens</option>
@@ -276,31 +339,56 @@ export default function ReceiptFromWarehouse({ onCreate }) {
                         </option>
                     ))}
                 </Box>
-
-                <Box sx={{ width: '230px' }}>
+                <Box sx={{ width: '200px' }}>
                     <DatePicker
                         selected={filterDate}
                         onChange={handleDateChange}
-                        dateFormat="dd/MM/yyyy"
-                        placeholderText="Filter by date"
+                        dateFormat="MM/dd/yyyy"
+                        placeholderText="MM/DD/YYYY"
                         customInput={<CustomInput />}
                         popperClassName="custom-popper"
                     />
                 </Box>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Switch
+                            checked={excludePrice}
+                            onChange={(e) => setExcludePrice(e.target.checked)}
+                        />
+                        <Typography sx={{ fontWeight: '500', color: '#7E84A3' }}>
+                            Exclude price in file
+                        </Typography>
+                    </Box>
+                </Box>
             </Box>
 
-            <TableContainer component={Paper} sx={{ width: '90%', mt: '24px' }}>
+            <Box sx={{ width: '100%', mt: '24px' }}>
+                <Button
+                    variant="contained"
+                    color="error"
+                    onClick={handleDeleteSelected}
+                    sx={{ mt: 2 }}
+                    disabled={selected.length === 0}
+                >
+                    Delete Selected ({selected.length})
+                </Button>
+            </Box>
+
+            <TableContainer component={Paper} sx={{ width: '100%', mt: '24px' }}>
                 <Table sx={{}} aria-label="customized table">
                     <TableHead>
                         <TableRow>
                             <StyledTableCell sx={{ width: '1%', textAlign: 'center' }}>
-                                <Checkbox />
+                                <Checkbox
+                                    checked={data.length > 0 && selected.length === data.length}
+                                    onChange={handleSelectAll}
+                                />
                             </StyledTableCell>
                             <StyledTableCell width='1%'>No.</StyledTableCell>
                             <StyledTableCell align="center">Ref.no</StyledTableCell>
                             <StyledTableCell align="center">Date</StyledTableCell>
                             <StyledTableCell align="center">Kitchen</StyledTableCell>
-                            <StyledTableCell align="center">Amount</StyledTableCell>
+                            <StyledTableCell align="center">Total Amount</StyledTableCell>
                             <StyledTableCell align="center">Username</StyledTableCell>
                             <StyledTableCell width='1%' align="center"></StyledTableCell>
                             <StyledTableCell width='1%' align="center"></StyledTableCell>
@@ -308,48 +396,73 @@ export default function ReceiptFromWarehouse({ onCreate }) {
                         </TableRow>
                     </TableHead>
                     <TableBody>
-                        {loading ? (
+                        {isLoading ? (
                             <TableRow>
                                 <TableCell colSpan={10} align="center">Loading...</TableCell>
                             </TableRow>
-                        ) : orders.length === 0 ? (
+                        ) : data.length === 0 ? (
                             <TableRow>
                                 <TableCell colSpan={10} align="center">No data found</TableCell>
                             </TableRow>
                         ) : (
-                            orders.map((row, index) => (
-                                <StyledTableRow key={row.refno}>
-                                    <TableCell padding="checkbox">
-                                        <Checkbox
-                                            checked={selected.includes(row.kitchen_code)}
-                                            onChange={(e) => handleCheckboxChange(e, row.kitchen_code)}
-                                        />
-                                    </TableCell>
-                                    <TableCell>{((page - 1) * 10) + index + 1}</TableCell>
-                                    <TableCell align="center">{row.refno}</TableCell>
-                                    <TableCell align="center">{row.rdate}</TableCell>
-                                    <TableCell align="center">{row.tbl_kitchen?.kitchen_name}</TableCell>
-                                    <TableCell align="center">
-                                        {row.total?.toLocaleString('en-US', {
-                                            minimumFractionDigits: 2,
-                                            maximumFractionDigits: 2
-                                        })}
-                                    </TableCell>
-                                    <TableCell align="center">{row.user?.username}</TableCell>
-                                    <TableCell align="center">
-                                    </TableCell>
-                                </StyledTableRow>
-                            ))
+                            data.map((row, index) => {
+                                const isSelected = selected.indexOf(row.refno) !== -1;
+                                const branchName = row.branch_name || row.branch?.branch_name || '-';
+                                const supplierName = row.supplier_name || row.supplier?.supplier_name || '-';
+
+                                return (
+                                    <StyledTableRow key={row.refno}>
+                                        <StyledTableCell padding="checkbox">
+                                            <Checkbox
+                                                checked={isSelected}
+                                                onChange={(event) => handleSelectOne(event, row.refno)}
+                                            />
+                                        </StyledTableCell>
+                                        <StyledTableCell component="th" scope="row">
+                                            {((page - 1) * limit) + index + 1}
+                                        </StyledTableCell>
+                                        <StyledTableCell align="center">{row.refno}</StyledTableCell>
+                                        <StyledTableCell align="center">{row.rdate}</StyledTableCell>
+                                        <StyledTableCell align="center">{row.kitchen_name}</StyledTableCell>
+                                        <StyledTableCell align="center">{row.total.toFixed(2)}</StyledTableCell>
+                                        <StyledTableCell align="center">{row.user?.username || '-'}</StyledTableCell>
+                                        <StyledTableCell align="center">
+                                            <IconButton
+                                                onClick={() => onEdit(row.refno)}
+                                                sx={{ border: '1px solid #AD7A2C', borderRadius: '7px' }}
+                                            >
+                                                <EditIcon sx={{ color: '#AD7A2C' }} />
+                                            </IconButton>
+                                        </StyledTableCell>
+                                        <StyledTableCell align="center">
+                                            <IconButton
+                                                onClick={() => handleDelete(row.refno)}
+                                                sx={{ border: '1px solid #F62626', borderRadius: '7px' }}
+                                            >
+                                                <DeleteIcon sx={{ color: '#F62626' }} />
+                                            </IconButton>
+                                        </StyledTableCell>
+                                        <StyledTableCell align="center">
+                                            <IconButton
+                                                onClick={() => {/* Add print functionality later */ }}
+                                                sx={{ border: '1px solid #5686E1', borderRadius: '7px' }}
+                                            >
+                                                <PrintIcon sx={{ color: '#5686E1' }} />
+                                            </IconButton>
+                                        </StyledTableCell>
+                                    </StyledTableRow>
+                                );
+                            })
                         )}
                     </TableBody>
                 </Table>
             </TableContainer>
 
-            <Stack spacing={2} sx={{ mt: 2, mb: 2, display: 'flex', alignItems: 'center' }}>
+            <Stack spacing={2} sx={{ mt: 2, mb: 4, display: 'flex', alignItems: 'center' }}>
                 <Pagination
                     count={count}
                     page={page}
-                    onChange={handlePageChange}
+                    onChange={(event, value) => setPage(value)}
                     shape="rounded"
                     showFirstButton
                     showLastButton

@@ -148,3 +148,15 @@ export const Br_rfwUsedRefnos = createAsyncThunk(
         }
     }
 );
+
+export const getRfwByRefno = createAsyncThunk(
+    "br_rfw/getByRefno",
+    async (refno, { dispatch }) => {
+        try {
+            const res = await axios.post(BASE_URL + "/api/getRfwByRefno", { refno });
+            return res.data;
+        } catch (error) {
+            throw error;
+        }
+    }
+);

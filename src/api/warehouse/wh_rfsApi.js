@@ -144,12 +144,24 @@ export const countwh_rfs = createAsyncThunk(
     async ({ rdate }, { dispatch }) => {
         try {
             console.log("Counting with date:", rdate);
-            const res = await axios.post(BASE_URL + "/api/countWh_rfs", { 
-                rdate: rdate 
+            const res = await axios.post(BASE_URL + "/api/countWh_rfs", {
+                rdate: rdate
             });
             return res.data;
         } catch (error) {
             console.error(error.message);
+            throw error;
+        }
+    }
+);
+
+export const getWhRfsByRefno = createAsyncThunk(
+    "wh_rfs/getByRefno",
+    async (refno, { dispatch }) => {
+        try {
+            const res = await axios.post(BASE_URL + "/api/getWhRfsByRefno", { refno });
+            return res.data;
+        } catch (error) {
             throw error;
         }
     }

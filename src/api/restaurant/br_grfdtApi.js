@@ -19,6 +19,7 @@ export const addBr_grfdt = createAsyncThunk(
             });
             return res.data;
         } catch (error) {
+            console.error("Error in addBr_grfdt:", error);
             throw error;
         }
     }
@@ -40,6 +41,7 @@ export const updateBr_grfdt = createAsyncThunk(
             });
             return res.data;
         } catch (error) {
+            console.error("Error in updateBr_grfdt:", error);
             throw error;
         }
     }
@@ -55,6 +57,7 @@ export const deleteBr_grfdt = createAsyncThunk(
             });
             return res.data;
         } catch (error) {
+            console.error("Error in deleteBr_grfdt:", error);
             throw error;
         }
     }
@@ -70,6 +73,7 @@ export const Br_grfdtAllinnerjoin = createAsyncThunk(
             });
             return res.data;
         } catch (error) {
+            console.error("Error in Br_grfdtAllinnerjoin:", error);
             throw error;
         }
     }
@@ -77,11 +81,20 @@ export const Br_grfdtAllinnerjoin = createAsyncThunk(
 
 export const Br_grfdtAlljoindt = createAsyncThunk(
     "br_grfdt/readAll",
-    async ({ refno }, { dispatch }) => {  // เปลี่ยนจาก refno เป็น { refno }
+    async (param, { dispatch }) => {
         try {
+            // Handle both string and object parameters for backward compatibility
+            const refno = typeof param === 'string' ? param : param.refno;
+            
+            if (!refno) {
+                throw new Error("Missing required parameter: refno");
+            }
+            
+            console.log("Calling Br_grfdtAlljoindt with refno:", refno);
             const res = await axios.post(BASE_URL + "/api/Br_grfdtAlljoindt", { refno });
             return res.data;
         } catch (error) {
+            console.error("Error in Br_grfdtAlljoindt:", error);
             throw error;
         }
     }
@@ -94,6 +107,7 @@ export const countBr_grfdt = createAsyncThunk(
             const res = await axios.post(BASE_URL + "/api/countBr_grfdt", { refno });
             return res.data;
         } catch (error) {
+            console.error("Error in countBr_grfdt:", error);
             throw error;
         }
     }

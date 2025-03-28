@@ -26,18 +26,30 @@ export const updateKt_pow = createAsyncThunk(
     "kt_pow/update",
     async (orderData, { dispatch }) => {
         try {
-            const res = await axios.post(BASE_URL + "/api/updateKt_pow", {
-                refno: orderData.refno,
-                rdate: orderData.rdate,
-                trdate: orderData.trdate,
-                myear: orderData.myear,
-                monthh: orderData.monthh,
-                kitchen_code: orderData.kitchen_code,
-                taxable: orderData.taxable,
-                nontaxable: orderData.nontaxable,
-                total: orderData.total,
-                user_code: orderData.user_code
-            });
+            // ตรวจสอบข้อมูลที่รับมา
+            console.log("Updating KT_POW with data:", orderData);
+
+            // สร้าง payload ที่ถูกต้อง
+            const payload = {
+                headerData: {
+                    refno: orderData.refno || orderData.headerData?.refno,
+                    rdate: orderData.rdate || orderData.headerData?.rdate,
+                    trdate: orderData.trdate || orderData.headerData?.trdate,
+                    myear: orderData.myear || orderData.headerData?.myear,
+                    monthh: orderData.monthh || orderData.headerData?.monthh,
+                    kitchen_code: orderData.kitchen_code || orderData.headerData?.kitchen_code,
+                    taxable: orderData.taxable || orderData.headerData?.taxable || "0",
+                    nontaxable: orderData.nontaxable || orderData.headerData?.nontaxable || "0",
+                    total: orderData.total || orderData.headerData?.total || "0",
+                    user_code: orderData.user_code || orderData.headerData?.user_code || ""
+                },
+                productArrayData: orderData.productArrayData || [],
+                footerData: orderData.footerData || {
+                    total: orderData.total || orderData.headerData?.total || "0"
+                }
+            };
+
+            const res = await axios.post(BASE_URL + "/api/updateKt_pow", payload);
             return res.data;
         } catch (error) {
             console.error('Update KT POW Error:', error.message);
@@ -165,6 +177,18 @@ export const searchKt_powRunno = createAsyncThunk(
             return res.data;
         } catch (error) {
             console.error('Search KT POW Runno Error:', error.message);
+            throw error;
+        }
+    }
+);
+
+export const getKtPowByRefno = createAsyncThunk(
+    "kt_pow/getByRefno",
+    async (refno, { dispatch }) => {
+        try {
+            const res = await axios.post(BASE_URL + "/api/getKtPowByRefno", { refno });
+            return res.data;
+        } catch (error) {
             throw error;
         }
     }

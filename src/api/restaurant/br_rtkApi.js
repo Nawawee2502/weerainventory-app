@@ -151,3 +151,16 @@ export const countBr_rtk = createAsyncThunk(
         }
     }
 );
+
+// br_rtkApi.js
+export const getRtkByRefno = createAsyncThunk(
+    "br_rtk/getByRefno",
+    async (refno, { dispatch }) => {
+        try {
+            const res = await axios.post(BASE_URL + "/api/getRtkByRefno", { refno });
+            return res.data;
+        } catch (error) {
+            throw error;
+        }
+    }
+);

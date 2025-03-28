@@ -73,8 +73,6 @@ export default function CreatePurchaseOrderToWarehouse({ onBack }) {
     const [isLoading, setIsLoading] = useState(false);
     const [startDate, setStartDate] = useState(new Date());
     const [lastRefNo, setLastRefNo] = useState('');
-    const [suppliers, setSuppliers] = useState([]);
-    const [saveSupplier, setSaveSupplier] = useState('');
     const [branches, setBranches] = useState([]);
     const [saveBranch, setSaveBranch] = useState('');
     const [products, setProducts] = useState([]);
@@ -102,11 +100,6 @@ export default function CreatePurchaseOrderToWarehouse({ onBack }) {
         const loadInitialData = async () => {
             setIsLoading(true);
             try {
-                // Load suppliers
-                const suppliersResponse = await dispatch(supplierAll({ offset: 0, limit: 100 })).unwrap();
-                if (suppliersResponse?.data) {
-                    setSuppliers(suppliersResponse.data);
-                }
 
                 // Load branches
                 const branchesResponse = await dispatch(branchAll({ offset: 0, limit: 100 })).unwrap();
@@ -212,13 +205,6 @@ export default function CreatePurchaseOrderToWarehouse({ onBack }) {
         }
     };
 
-    // Also modify the supplier selection handler (optional, for better UX)
-    const handleSupplierChange = (event) => {
-        const newSupplierCode = event.target.value;
-        setSaveSupplier(newSupplierCode);
-        // Don't affect the refno based on supplier changes
-    };
-
     // Update date change handler if needed
     const handleDateChange = (date) => {
         setStartDate(date);
@@ -312,7 +298,7 @@ export default function CreatePurchaseOrderToWarehouse({ onBack }) {
     };
 
     const handleSave = async () => {
-        if (!saveBranch || !saveSupplier || products.length === 0 || !lastRefNo) {
+        if (!saveBranch || products.length === 0 || !lastRefNo) {
             Swal.fire({
                 icon: 'warning',
                 title: 'Missing Information',
@@ -329,7 +315,7 @@ export default function CreatePurchaseOrderToWarehouse({ onBack }) {
             const headerData = {
                 refno: lastRefNo,
                 rdate: format(startDate, 'MM/dd/yyyy'),
-                supplier_code: saveSupplier,
+                supplier_code: "-",
                 branch_code: saveBranch,
                 trdate: format(startDate, 'yyyyMMdd'),
                 monthh: format(startDate, 'MM'),
@@ -392,7 +378,6 @@ export default function CreatePurchaseOrderToWarehouse({ onBack }) {
         setUnitPrices({});
         setTotals({});
         setTotal(0);
-        setSaveSupplier('');
         setSaveBranch('');
         setSearchTerm('');
         setExpiryDates({});
@@ -659,30 +644,6 @@ export default function CreatePurchaseOrderToWarehouse({ onBack }) {
                                 ))}
                             </Select>
                         </Grid>
-
-                        <Grid item xs={12}>
-                            <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>
-                                Supplier
-                            </Typography>
-                            <Select
-                                value={saveSupplier}
-                                onChange={handleSupplierChange}
-                                displayEmpty
-                                size="small"
-                                fullWidth
-                                sx={{
-                                    mt: '8px',
-                                    borderRadius: '10px',
-                                }}
-                            >
-                                <MenuItem value=""><em>Select Supplier</em></MenuItem>
-                                {suppliers.map((supplier) => (
-                                    <MenuItem key={supplier.supplier_code} value={supplier.supplier_code}>
-                                        {supplier.supplier_name}
-                                    </MenuItem>
-                                ))}
-                            </Select>
-                        </Grid>
                     </Grid>
 
                     <Divider sx={{ my: 3 }} />
@@ -850,7 +811,7 @@ export default function CreatePurchaseOrderToWarehouse({ onBack }) {
                         variant="contained"
                         fullWidth
                         onClick={handleSave}
-                        disabled={isLoading || !lastRefNo || !saveSupplier || products.length === 0}
+                        disabled={isLoading || !lastRefNo || products.length === 0}
                         sx={{
                             mt: 2,
                             bgcolor: '#754C27',

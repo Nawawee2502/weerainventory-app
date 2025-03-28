@@ -38,14 +38,20 @@ export const updateBr_stockcard = createAsyncThunk(
 
 export const deleteBr_stockcard = createAsyncThunk(
     "br_stockcard/delete",
-    async ({ refno, myear, monthh, product_code }, { rejectWithValue }) => {
+    async ({ refno, myear, monthh, product_code, branch_code, rdate }, { rejectWithValue }) => {
         try {
-            const res = await axios.post(BASE_URL + "/api/deleteBr_stockcard", {
+            const payload = {
                 refno,
                 myear,
                 monthh,
                 product_code
-            });
+            };
+
+            // เพิ่มเงื่อนไขถ้ามีข้อมูล
+            if (branch_code) payload.branch_code = branch_code;
+            if (rdate) payload.rdate = rdate;
+
+            const res = await axios.post(BASE_URL + "/api/deleteBr_stockcard", payload);
             return res.data;
         } catch (error) {
             return rejectWithValue(error.response?.data || {

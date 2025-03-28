@@ -153,7 +153,6 @@ export default function BeginningInventory() {
         return errors;
     };
 
-    // Initialize Formik
     const formik = useFormik({
         initialValues,
         validate,
@@ -164,6 +163,9 @@ export default function BeginningInventory() {
                 const month = (values.date.getMonth() + 1).toString().padStart(2, '0');
                 const day = values.date.getDate().toString().padStart(2, '0');
 
+                const rdate = `${month}/${day}/${year}`;
+                const trdate = `${year}${month}${day}`;
+
                 const stockcardData = {
                     myear: values.isEditing ? values.myear : year,
                     monthh: values.isEditing ? values.monthh : month,
@@ -171,8 +173,8 @@ export default function BeginningInventory() {
                     unit_code: values.unit_code,
                     branch_code: values.branch_code,
                     refno: values.isEditing ? values.refno : 'BEG',
-                    rdate: `${month}/${day}/${year}`,
-                    trdate: `${year}${month}${day}`,
+                    rdate: rdate,  // ให้ส่ง rdate ไปด้วยเสมอ
+                    trdate: trdate,
                     beg1: Number(values.amount),
                     in1: 0,
                     out1: 0,
@@ -183,6 +185,9 @@ export default function BeginningInventory() {
                     out1_amt: 0,
                     upd1_amt: 0
                 };
+
+                // แสดงข้อมูลที่จะส่งไปที่ API เพื่อดีบัก
+                console.log("Sending to API:", stockcardData);
 
                 const action = values.isEditing ? updateBr_stockcard : addBr_stockcard;
                 const result = await dispatch(action(stockcardData)).unwrap();
@@ -465,7 +470,9 @@ export default function BeginningInventory() {
                     refno: row.refno,
                     myear: row.myear,
                     monthh: row.monthh,
-                    product_code: row.product_code
+                    product_code: row.product_code,
+                    branch_code: row.branch_code,  // เพิ่ม branch_code
+                    rdate: row.rdate  // เพิ่ม rdate
                 })).unwrap();
 
                 await Swal.fire({
@@ -510,7 +517,9 @@ export default function BeginningInventory() {
                         refno: item.refno,
                         myear: item.myear,
                         monthh: item.monthh,
-                        product_code: item.product_code
+                        product_code: item.product_code,
+                        branch_code: item.branch_code,  // เพิ่ม branch_code
+                        rdate: item.rdate  // เพิ่ม rdate
                     })).unwrap();
                 }
 

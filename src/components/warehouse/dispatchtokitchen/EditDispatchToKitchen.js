@@ -247,9 +247,9 @@ function EditDispatchToKitchen({ onBack, editRefno }) {
     const handleUnitChange = (productCode, newUnit) => {
         setUnits(prev => ({ ...prev, [productCode]: newUnit }));
         const product = products.find(p => p.product_code === productCode);
-        const newPrice = newUnit === product.productUnit1.unit_code ? 
+        const newPrice = newUnit === product.productUnit1.unit_code ?
             product.bulk_unit_price : product.retail_unit_price;
-        
+
         setUnitPrices(prev => ({ ...prev, [productCode]: newPrice }));
         const updatedPrices = { ...unitPrices, [productCode]: newPrice };
         calculateOrderTotals(products, quantities, { ...units, [productCode]: newUnit }, updatedPrices);
@@ -283,11 +283,19 @@ function EditDispatchToKitchen({ onBack, editRefno }) {
                 didOpen: () => Swal.showLoading()
             });
 
+            // Format date without timezone conversion
+            const formatTrDate = (date) => {
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                return `${year}${month}${day}`;
+            };
+
             const headerData = {
                 refno: editRefno,
                 rdate: formatDate(editDate),
                 kitchen_code: saveKitchen,
-                trdate: editDate.toISOString().slice(0, 10).replace(/-/g, ''),
+                trdate: formatTrDate(editDate), // Fixed date handling
                 monthh: String(editDate.getMonth() + 1).padStart(2, '0'),
                 myear: editDate.getFullYear(),
                 taxable: taxableAmount.toString(),
@@ -312,6 +320,15 @@ function EditDispatchToKitchen({ onBack, editRefno }) {
 
             // Update existing and add new products
             for (const product of products) {
+                // Format expiry date the same way - without timezone conversion
+                const formatExpiryTrDate = (date) => {
+                    if (!date) return '';
+                    const year = date.getFullYear();
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const day = String(date.getDate()).padStart(2, '0');
+                    return `${year}${month}${day}`;
+                };
+
                 const productData = {
                     refno: editRefno,
                     product_code: product.product_code,
@@ -320,7 +337,7 @@ function EditDispatchToKitchen({ onBack, editRefno }) {
                     uprice: (unitPrices[product.product_code] || product.bulk_unit_price).toString(),
                     tax1: product.tax1,
                     expire_date: formatDate(expiryDates[product.product_code]),
-                    texpire_date: expiryDates[product.product_code]?.toISOString().slice(0, 10).replace(/-/g, ''),
+                    texpire_date: formatExpiryTrDate(expiryDates[product.product_code]),
                     amt: totals[product.product_code].toString()
                 };
 

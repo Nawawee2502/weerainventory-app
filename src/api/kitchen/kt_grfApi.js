@@ -137,3 +137,15 @@ export const searchKt_grfRunno = createAsyncThunk(
         }
     }
 );
+
+export const getKtGrfByRefno = createAsyncThunk(
+    "kt_grf/getByRefno",
+    async (refno, { dispatch }) => {
+        try {
+            const res = await axios.post(BASE_URL + "/api/getKtGrfByRefno", { refno });
+            return res.data;
+        } catch (error) {
+            throw error;
+        }
+    }
+);

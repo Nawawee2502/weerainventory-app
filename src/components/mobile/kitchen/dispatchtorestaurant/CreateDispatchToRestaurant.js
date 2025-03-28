@@ -180,49 +180,32 @@ export default function CreateDispatchToRestaurant({ onBack }) {
 
         try {
             setIsLoadingRefNo(true);
-            const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
-            const year = selectedDate.getFullYear().toString().slice(-2);
-            const kitchenPrefix = selectedKitchen.substring(0, 3).toUpperCase();
 
-            // Get the last reference number from the database including kitchen code
+            // เรียก API แบบใหม่ที่ส่ง kitchen_code และ date
             const res = await dispatch(kt_dpbrefno({
                 kitchen_code: selectedKitchen,
-                month,
-                year
+                date: format(selectedDate, 'yyyy-MM-dd')
             })).unwrap();
 
-            // If no reference numbers exist yet, start with 001
-            if (!res.data || !res.data.refno) {
-                const prefix = `KTDPB${kitchenPrefix}${year}${month}`;
-                setLastRefNo(`${prefix}001`);
-                return;
-            }
-
-            const lastRefNo = res.data.refno;
-            const prefix = `KTDPB${kitchenPrefix}${year}${month}`;
-
-            // Check if the last reference number has the same year/month/kitchen prefix
-            if (lastRefNo && lastRefNo.startsWith(prefix)) {
-                // Extract the numerical part (last 3 digits)
-                const lastNumber = parseInt(lastRefNo.slice(-3));
-                // Increment and pad to 3 digits
-                const newNumber = lastNumber + 1;
-                setLastRefNo(`${prefix}${String(newNumber).padStart(3, '0')}`);
+            if (res?.result && res?.data?.refno) {
+                setLastRefNo(res.data.refno);
             } else {
-                // If the month/year/kitchen has changed, start with 001 for the new combination
-                setLastRefNo(`${prefix}001`);
+                // ถ้า API ไม่ส่ง refno กลับมา สร้าง default
+                const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+                const year = selectedDate.getFullYear().toString().slice(-2);
+                setLastRefNo(`KTDPB${selectedKitchen}${year}${month}001`);
             }
         } catch (err) {
             console.error("Error generating refno:", err);
-            // Fallback to a basic pattern if API call fails
+            // Fallback pattern if API call fails
             const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
             const year = selectedDate.getFullYear().toString().slice(-2);
-            const kitchenPrefix = selectedKitchen.substring(0, 3).toUpperCase();
-            setLastRefNo(`KTDPB${kitchenPrefix}${year}${month}001`);
+            setLastRefNo(`KTDPB${selectedKitchen}${year}${month}001`);
         } finally {
             setIsLoadingRefNo(false);
         }
     };
+
 
     // Handle kitchen change
     const handleKitchenChange = (e) => {

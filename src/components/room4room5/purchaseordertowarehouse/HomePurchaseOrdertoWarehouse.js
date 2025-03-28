@@ -6,7 +6,7 @@ import { useTheme } from '@mui/material/styles';
 import Paper from '@mui/material/Paper';
 import PurchaseOrderToWarehouse from './PurchaseOrderToWarehouse';
 import CreatePurchaseOrderToWarehouse from './CreatePurchaseOrderToWarehouse';
-// import EditPurchaseOrderToWarehouse from './EditPruchaseordertoWarehouse';
+import EditPurchaseOrderToWarehouse from './EditPurchaseorderToWarehouse'; // แก้การสะกดชื่อไฟล์ให้ถูกต้อง
 
 
 const NAVIGATION = [
@@ -28,6 +28,7 @@ export default function HomePurchaseOrdertoWarehouse() {
   const handleEdit = (refno) => {
     setEditRefno(refno);
     setCurrentView('edit');
+    console.log("Editing refno:", refno); // เพิ่ม log เพื่อดีบัก
   };
 
   const handleBack = () => {
@@ -36,12 +37,11 @@ export default function HomePurchaseOrdertoWarehouse() {
   };
 
   const renderComponent = () => {
-    switch(currentView) {
+    switch (currentView) {
       case 'create':
         return <CreatePurchaseOrderToWarehouse onBack={handleBack} />;
       case 'edit':
-        // return <EditPurchaseOrderToSupplier onBack={handleBack} editRefno={editRefno} />;
-        // return <EditPurchaseOrderToSupplier onBack={handleBack} editRefno={editRefno} />
+        return <EditPurchaseOrderToWarehouse onBack={handleBack} editRefno={editRefno} />;
       default:
         return <PurchaseOrderToWarehouse onCreate={handleCreate} onEdit={handleEdit} />;
     }

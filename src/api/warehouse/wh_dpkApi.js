@@ -44,14 +44,17 @@ export const updateWh_dpk = createAsyncThunk(
     }
 );
 
+// In wh_dpkApi.js
 export const Wh_dpkByRefno = createAsyncThunk(
     "wh_dpk/read",
-    async (refno, { dispatch }) => {
+    async (refnoObject, { dispatch }) => {
         try {
-            const res = await axios.post(BASE_URL + "/api/wh_dpkbyrefno", { refno });
+            const payload = typeof refnoObject === 'object' ? refnoObject : { refno: refnoObject };
+            // Match the exact URL shown in the error
+            const res = await axios.post(BASE_URL + "/api/wh_dpkbyrefno", payload);
             return res.data;
         } catch (error) {
-            console.error(error.message);
+            console.error("Wh_dpkByRefno error:", error);
             throw error;
         }
     }
@@ -105,6 +108,18 @@ export const wh_dpkrefno = createAsyncThunk(
             return res.data;
         } catch (error) {
             console.error(error.message);
+            throw error;
+        }
+    }
+);
+
+export const getWhDpkByRefno = createAsyncThunk(
+    "wh_dpk/getByRefno",
+    async (refno, { dispatch }) => {
+        try {
+            const res = await axios.post(BASE_URL + "/api/getWhDpkByRefno", { refno });
+            return res.data;
+        } catch (error) {
             throw error;
         }
     }

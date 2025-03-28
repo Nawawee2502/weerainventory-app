@@ -24,9 +24,27 @@ export const updateBr_grf = createAsyncThunk(
     "br_grf/update",
     async (orderData, { dispatch }) => {
         try {
+            // Validate that we have all required data
+            if (!orderData.headerData || !orderData.headerData.refno) {
+                throw new Error("Missing required refno in headerData");
+            }
+
+            console.log("Updating BR_GRF with refno:", orderData.headerData.refno);
+
+            // Make sure productArrayData is an array
+            if (!Array.isArray(orderData.productArrayData)) {
+                orderData.productArrayData = [];
+            }
+
+            // Make sure footerData exists
+            if (!orderData.footerData) {
+                orderData.footerData = { total: "0" };
+            }
+
             const res = await axios.post(BASE_URL + "/api/updateBr_grf", orderData);
             return res.data;
         } catch (error) {
+            console.error("Error in updateBr_grf:", error);
             throw error;
         }
     }
@@ -129,6 +147,18 @@ export const searchBr_grfRunno = createAsyncThunk(
                 myear,
                 monthh
             });
+            return res.data;
+        } catch (error) {
+            throw error;
+        }
+    }
+);
+
+export const getGrfByRefno = createAsyncThunk(
+    "br_grf/getByRefno",
+    async (refno, { dispatch }) => {
+        try {
+            const res = await axios.post(BASE_URL + "/api/getGrfByRefno", { refno });
             return res.data;
         } catch (error) {
             throw error;

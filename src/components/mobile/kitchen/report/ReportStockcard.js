@@ -4,16 +4,13 @@ import { useDispatch } from 'react-redux';
 import { Box, Typography, TextField, Grid2, Button, InputAdornment, FormControl, Select, MenuItem } from '@mui/material';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
-import { Switch, Divider } from '@mui/material';
+import { Divider } from '@mui/material';
 import { Kt_stockcardAll } from '../../../../api/kitchen/kt_stockcardApi';
 import { searchProductName } from '../../../../api/productrecordApi';
 import { kitchenAll } from '../../../../api/kitchenApi';
 import { format } from 'date-fns';
 import Swal from 'sweetalert2';
 import { createRoot } from 'react-dom/client';
-// import PrintPreviewMonthlyKitchenStockcard from './PrintPreviewMonthlyKitchenStockcard';
-// import { exportToExcelMonthlyKitchenStockCard } from './ExportExcelMonthlyKitchenStockcard';
-// import { exportToPdfMonthlyKitchenStockCard } from './ExportPdfMonthlyKitchenStockcard';
 import PrintPreviewMonthlyKitchenStockcard from './PrintPreviewMonthlyKitchenStockCard';
 import { exportToExcelMonthlyKitchenStockCard } from './ExportToExcelMonthlyKitchenStockCard';
 import { exportToPdfMonthlyKitchenStockCard } from './ExportToPdfMonthlyKitchenStockCard';
@@ -67,7 +64,6 @@ export default function ReportMonthlyKitchenStockCard() {
     const [stockcardData, setStockcardData] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
-    const [excludePrice, setExcludePrice] = useState(false);
     const [hasSearched, setHasSearched] = useState(false);
     const [searchResults, setSearchResults] = useState([]);
     const [showDropdown, setShowDropdown] = useState(false);
@@ -235,7 +231,7 @@ export default function ReportMonthlyKitchenStockCard() {
             });
             return;
         }
-        exportToExcelMonthlyKitchenStockCard(stockcardData, excludePrice, startDate, endDate);
+        exportToExcelMonthlyKitchenStockCard(stockcardData, false, startDate, endDate);
     };
 
     const handleExportPdf = () => {
@@ -248,7 +244,7 @@ export default function ReportMonthlyKitchenStockCard() {
             });
             return;
         }
-        exportToPdfMonthlyKitchenStockCard(stockcardData, excludePrice, startDate, endDate);
+        exportToPdfMonthlyKitchenStockCard(stockcardData, false, startDate, endDate);
     };
 
     const handlePrint = () => {
@@ -289,7 +285,7 @@ export default function ReportMonthlyKitchenStockCard() {
         root.render(
             <PrintPreviewMonthlyKitchenStockcard
                 data={stockcardData}
-                excludePrice={excludePrice}
+                excludePrice={false}
                 startDate={startDate}
                 endDate={endDate}
                 kitchen={kitchens.find(k => k.kitchen_code === selectedKitchen)?.kitchen_name || ''}
@@ -583,59 +579,46 @@ export default function ReportMonthlyKitchenStockCard() {
                             )}
                         </Box>
 
-                        <Box sx={{ display: 'flex', gap: 2, flexDirection: 'column' }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <Switch
-                                    checked={excludePrice}
-                                    onChange={(e) => setExcludePrice(e.target.checked)}
-                                />
-                                <Typography sx={{ fontWeight: '500', color: '#7E84A3' }}>
-                                    Exclude price in file
-                                </Typography>
-                            </Box>
-                            <Box>
-                                <Button
-                                    onClick={handlePrint}
-                                    variant="outlined"
-                                    sx={{
-                                        color: '#754C27',
-                                        borderColor: '#754C27',
-                                        '&:hover': {
-                                            borderColor: '#5c3c1f',
-                                        }
-                                    }}
-                                >
-                                    Print
-                                </Button>
-                                <Button
-                                    onClick={handleExportExcel}
-                                    variant="outlined"
-                                    sx={{
-                                        color: '#754C27',
-                                        borderColor: '#754C27',
-                                        '&:hover': {
-                                            borderColor: '#5c3c1f',
-                                        },
-                                        ml: '24px'
-                                    }}
-                                >
-                                    Excel
-                                </Button>
-                                <Button
-                                    onClick={handleExportPdf}
-                                    variant="outlined"
-                                    sx={{
-                                        color: '#754C27',
-                                        borderColor: '#754C27',
-                                        '&:hover': {
-                                            borderColor: '#5c3c1f',
-                                        },
-                                        ml: '24px'
-                                    }}
-                                >
-                                    PDF
-                                </Button>
-                            </Box>
+                        <Box sx={{ display: 'flex', gap: 2 }}>
+                            <Button
+                                onClick={handlePrint}
+                                variant="outlined"
+                                sx={{
+                                    color: '#754C27',
+                                    borderColor: '#754C27',
+                                    '&:hover': {
+                                        borderColor: '#5c3c1f',
+                                    }
+                                }}
+                            >
+                                Print
+                            </Button>
+                            <Button
+                                onClick={handleExportExcel}
+                                variant="outlined"
+                                sx={{
+                                    color: '#754C27',
+                                    borderColor: '#754C27',
+                                    '&:hover': {
+                                        borderColor: '#5c3c1f',
+                                    }
+                                }}
+                            >
+                                Excel
+                            </Button>
+                            <Button
+                                onClick={handleExportPdf}
+                                variant="outlined"
+                                sx={{
+                                    color: '#754C27',
+                                    borderColor: '#754C27',
+                                    '&:hover': {
+                                        borderColor: '#5c3c1f',
+                                    }
+                                }}
+                            >
+                                PDF
+                            </Button>
                         </Box>
                     </Box>
                     {/* Data Table - Updated overflow handling */}
@@ -645,17 +628,17 @@ export default function ReportMonthlyKitchenStockCard() {
                         flexDirection: 'column',
                         mb: '12px',
                         mt: 3,
-                        overflow: 'hidden', // Changed from 'auto' to 'hidden'
+                        overflow: 'hidden',
                     }}>
                         <Box sx={{
                             width: '100%',
-                            overflowX: 'auto', // Added container with horizontal scroll
-                            pb: 2, // Padding bottom to ensure scrollbar visibility
+                            overflowX: 'auto',
+                            pb: 2,
                         }}>
                             <table style={{
                                 width: '100%',
                                 marginTop: '24px',
-                                minWidth: excludePrice ? '800px' : '1400px', // Ensure minimum width for all columns
+                                minWidth: '800px',
                                 borderCollapse: 'separate',
                                 borderSpacing: 0,
                             }}>
@@ -689,19 +672,9 @@ export default function ReportMonthlyKitchenStockCard() {
                                         <th style={{ padding: '12px 16px', textAlign: 'right', color: '#754C27', minWidth: '80px' }}>Out</th>
                                         <th style={{ padding: '12px 16px', textAlign: 'right', color: '#754C27', minWidth: '80px' }}>Update</th>
                                         <th style={{ padding: '12px 16px', textAlign: 'right', color: '#754C27', minWidth: '80px' }}>Balance</th>
-                                        {!excludePrice && (
-                                            <>
-                                                <th style={{ padding: '12px 16px', textAlign: 'right', color: '#754C27', minWidth: '100px' }}>Unit Price</th>
-                                                <th style={{ padding: '12px 16px', textAlign: 'right', color: '#754C27', minWidth: '100px' }}>Beg Amt</th>
-                                                <th style={{ padding: '12px 16px', textAlign: 'right', color: '#754C27', minWidth: '100px' }}>In Amt</th>
-                                                <th style={{ padding: '12px 16px', textAlign: 'right', color: '#754C27', minWidth: '100px' }}>Out Amt</th>
-                                                <th style={{ padding: '12px 16px', textAlign: 'right', color: '#754C27', minWidth: '100px' }}>Update Amt</th>
-                                                <th style={{ padding: '12px 16px', textAlign: 'right', color: '#754C27', minWidth: '120px' }}>Balance Amount</th>
-                                            </>
-                                        )}
                                     </tr>
                                     <tr>
-                                        <td colSpan={excludePrice ? 8 : 14}>
+                                        <td colSpan={8}>
                                             <Divider sx={{ width: '100%', color: '#754C27', border: '1px solid #754C27' }} />
                                         </td>
                                     </tr>
@@ -709,24 +682,23 @@ export default function ReportMonthlyKitchenStockCard() {
                                 <tbody>
                                     {loading ? (
                                         <tr>
-                                            <td colSpan={excludePrice ? 8 : 14} style={{ textAlign: 'center', padding: '20px' }}>Loading...</td>
+                                            <td colSpan={8} style={{ textAlign: 'center', padding: '20px' }}>Loading...</td>
                                         </tr>
                                     ) : error ? (
                                         <tr>
-                                            <td colSpan={excludePrice ? 8 : 14} style={{ textAlign: 'center', padding: '20px', color: 'red' }}>{error}</td>
+                                            <td colSpan={8} style={{ textAlign: 'center', padding: '20px', color: 'red' }}>{error}</td>
                                         </tr>
                                     ) : !hasSearched || !productSearch.trim() ? (
                                         <tr>
-                                            <td colSpan={excludePrice ? 8 : 14} style={{ textAlign: 'center', padding: '20px' }}>Please select a product</td>
+                                            <td colSpan={8} style={{ textAlign: 'center', padding: '20px' }}>Please select a product</td>
                                         </tr>
                                     ) : stockcardData.length === 0 ? (
                                         <tr>
-                                            <td colSpan={excludePrice ? 8 : 14} style={{ textAlign: 'center', padding: '20px' }}>No data found</td>
+                                            <td colSpan={8} style={{ textAlign: 'center', padding: '20px' }}>No data found</td>
                                         </tr>
                                     ) : (
                                         stockcardData.map((item, index) => {
                                             const balance = ((item.beg1 || 0) + (item.in1 || 0) - (item.out1 || 0)) + (item.upd1 || 0);
-                                            const balanceAmount = ((item.beg1_amt || 0) + (item.in1_amt || 0) - (item.out1_amt || 0)) + (item.upd1_amt || 0);
 
                                             return (
                                                 <tr key={item.refno}>
@@ -753,17 +725,7 @@ export default function ReportMonthlyKitchenStockCard() {
                                                     <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(item.in1)}</td>
                                                     <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(item.out1)}</td>
                                                     <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(item.upd1)}</td>
-                                                    <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(balance)}</td>
-                                                    {!excludePrice && (
-                                                        <>
-                                                            <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(item.uprice)}</td>
-                                                            <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(item.beg1_amt)}</td>
-                                                            <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(item.in1_amt)}</td>
-                                                            <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(item.out1_amt)}</td>
-                                                            <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(item.upd1_amt)}</td>
-                                                            <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(balanceAmount)}</td>
-                                                        </>
-                                                    )}
+                                                    <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(item.balance)}</td>
                                                 </tr>
                                             );
                                         })
@@ -772,22 +734,19 @@ export default function ReportMonthlyKitchenStockCard() {
                                 {stockcardData.length > 0 && (
                                     <tfoot>
                                         <tr>
-                                            <td colSpan={excludePrice ? 8 : 14}>
+                                            <td colSpan={8}>
                                                 <Divider sx={{ width: '100%', color: '#754C27', border: '1px solid #754C27' }} />
                                             </td>
                                         </tr>
                                         <tr>
                                             <td style={{
-                                                textAlign: 'right',
                                                 padding: '12px 16px',
-                                                fontWeight: 'bold',
-                                                color: '#754C27',
                                                 backgroundColor: 'white',
                                                 position: 'sticky',
                                                 left: 0,
-                                                zIndex: 2
-                                            }}>
-                                            </td>
+                                                zIndex: 2,
+                                                boxShadow: '2px 0px 3px rgba(0,0,0,0.1)'
+                                            }}></td>
                                             <td style={{
                                                 textAlign: 'right',
                                                 padding: '12px 16px',
@@ -796,11 +755,12 @@ export default function ReportMonthlyKitchenStockCard() {
                                                 backgroundColor: 'white',
                                                 position: 'sticky',
                                                 left: '60px',
-                                                zIndex: 2
+                                                zIndex: 2,
+                                                boxShadow: '2px 0px 3px rgba(0,0,0,0.1)'
                                             }}>
                                                 Total:
                                             </td>
-                                            <td style={{ textAlign: 'right', padding: '12px 16px', fontWeight: 'bold', color: '#754C27' }}>
+                                            <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>
                                             </td>
                                             <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>
                                                 {formatNumber(stockcardData.reduce((sum, item) => sum + (item.beg1 || 0), 0))}
@@ -813,29 +773,6 @@ export default function ReportMonthlyKitchenStockCard() {
                                             </td>
                                             <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>-</td>
                                             <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>-</td>
-                                            {!excludePrice && (
-                                                <>
-                                                    <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>-</td>
-                                                    <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>
-                                                        {formatNumber(stockcardData.reduce((sum, item) => sum + (item.beg1_amt || 0), 0))}
-                                                    </td>
-                                                    <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>
-                                                        {formatNumber(stockcardData.reduce((sum, item) => sum + (item.in1_amt || 0), 0))}
-                                                    </td>
-                                                    <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>
-                                                        {formatNumber(stockcardData.reduce((sum, item) => sum + (item.out1_amt || 0), 0))}
-                                                    </td>
-                                                    <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>
-                                                        {formatNumber(stockcardData.reduce((sum, item) => sum + (item.upd1_amt || 0), 0))}
-                                                    </td>
-                                                    <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>
-                                                        {formatNumber(stockcardData.reduce((sum, item) => {
-                                                            const balanceAmount = ((item.beg1_amt || 0) + (item.in1_amt || 0) - (item.out1_amt || 0)) + (item.upd1_amt || 0);
-                                                            return sum + balanceAmount;
-                                                        }, 0))}
-                                                    </td>
-                                                </>
-                                            )}
                                         </tr>
                                     </tfoot>
                                 )}

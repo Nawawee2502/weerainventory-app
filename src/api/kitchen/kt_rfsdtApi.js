@@ -90,8 +90,10 @@ export const Kt_rfsdtAlljoindt = createAsyncThunk(
     "kt_rfsdt/alljoindt",
     async ({ refno }, { dispatch }) => {
         try {
+            console.log("Fetching product details for refno:", refno);
+
             const res = await axios.post(BASE_URL + "/api/Kt_rfsdtAlljoindt", {
-                refno
+                refno // ส่ง refno ไปที่ API
             });
             return res.data;
         } catch (error) {

@@ -141,8 +141,11 @@ export default function PurchaseOrderWarehouse({ onCreate, onEdit }) {
         product_code: searchProduct
       });
 
-      const formattedDate = filterDate.toISOString().slice(0, 10).replace(/-/g, '');
-
+      const year = filterDate.getFullYear();
+      const month = String(filterDate.getMonth() + 1).padStart(2, '0');
+      const day = String(filterDate.getDate()).padStart(2, '0');
+      const formattedDate = `${year}${month}${day}`;
+      
       try {
         const response = await dispatch(kt_powAlljoindt({
           offset,

@@ -1,4 +1,3 @@
-
 import { Box, Button, InputAdornment, TextField, Typography, IconButton, Grid2, Divider } from '@mui/material';
 import React, { useState, useEffect } from 'react';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -10,9 +9,7 @@ import { useDispatch } from "react-redux";
 import { searchProductName } from '../../../api/productrecordApi';
 import {
     addKt_pow,
-    kt_powAlljoindt,
-    kt_powRefno,
-    countkt_pow
+    kt_powRefno
 } from '../../../api/kitchen/kt_powApi';
 import { kitchenAll } from '../../../api/kitchenApi';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
@@ -83,23 +80,33 @@ export default function CreatePurchaseOrderToWinery({ onBack }) {
     const [taxableAmount, setTaxableAmount] = useState(0);
     const [nonTaxableAmount, setNonTaxableAmount] = useState(0);
     const [total, setTotal] = useState(0);
-    const [lastMonth, setLastMonth] = useState('');
-    const [lastYear, setLastYear] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
 
     const TAX_RATE = 0.07;
     const userDataJson = localStorage.getItem("userData2");
-    const userData2 = JSON.parse(userDataJson);
+    const userData2 = userDataJson ? JSON.parse(userDataJson) : null;
 
     useEffect(() => {
-        const currentDate = new Date();
-        const currentMonth = (currentDate.getMonth() + 1).toString().padStart(2, '0');
-        const currentYear = currentDate.getFullYear().toString().slice(-2);
-        setLastMonth(currentMonth);
-        setLastYear(currentYear);
-        handleGetLastRefNo(currentDate);
+        const loadInitialData = async () => {
+            try {
+                setIsLoading(true);
 
-        // Load kitchens
-        loadKitchens();
+                // เฉพาะโหลด Kitchen เท่านั้น ยังไม่ generate RefNo
+                await loadKitchens();
+
+            } catch (error) {
+                console.error('Error loading initial data:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Failed to load initial data. Please try again.'
+                });
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        loadInitialData();
     }, []);
 
     const loadKitchens = async () => {
@@ -117,116 +124,54 @@ export default function CreatePurchaseOrderToWinery({ onBack }) {
         }
     };
 
-    const handleGetLastRefNo = async (selectedDate) => {
+    const handleGetLastRefNo = async (selectedDate, selectedKitchen) => {
         try {
-            const res = await dispatch(kt_powRefno()).unwrap();
-            const year = selectedDate.getFullYear().toString().slice(-2);
-            const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
-
-            if (!res.data || !res.data.refno) {
-                setLastRefNo(`KPOW${year}${month}001`);
+            if (!selectedKitchen) {
+                setLastRefNo('');
                 return;
             }
 
-            const lastRefNo = res.data.refno;
-            const lastRefMonth = lastRefNo.substring(6, 8);
-            const lastRefYear = lastRefNo.substring(4, 6);
+            const res = await dispatch(kt_powRefno({
+                kitchen_code: selectedKitchen,
+                date: selectedDate
+            })).unwrap();
 
-            if (lastRefMonth !== month || lastRefYear !== year) {
-                setLastRefNo(`KPOW${year}${month}001`);
-                return;
+            if (res.result && res.data?.refno) {
+                setLastRefNo(res.data.refno);
+            } else {
+                // Fallback if API doesn't return a reference number
+                const year = selectedDate.getFullYear().toString().slice(-2);
+                const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+                const newRefNo = `KPOW${year}${month}001`;
+                setLastRefNo(newRefNo);
             }
-
-            const lastNumber = parseInt(lastRefNo.slice(-3));
-            const newNumber = lastNumber + 1;
-            setLastRefNo(`KPOW${year}${month}${String(newNumber).padStart(3, '0')}`);
-
-            setLastMonth(month);
-            setLastYear(year);
         } catch (err) {
             console.error("Error generating refno:", err);
+
+            if (!selectedKitchen) {
+                setLastRefNo('');
+                return;
+            }
+
+            // Fallback with local generation
+            const year = selectedDate.getFullYear().toString().slice(-2);
+            const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+            const newRefNo = `KPOW${year}${month}001`;
+            setLastRefNo(newRefNo);
         }
     };
 
-    // Improved handleProductSelect function with duplicate checking
-    const handleProductSelect = (product) => {
-        // Check if product already exists in the list
-        if (products.some(p => p.product_code === product.product_code)) {
-            // Show warning with better styling and more helpful message
-            Swal.fire({
-                icon: 'warning',
-                title: 'Duplicate Product',
-                text: `${product.product_name} is already in your purchase order. Please adjust the quantity instead.`,
-                confirmButtonColor: '#754C27'
-            });
-            setSearchTerm('');
-            setShowDropdown(false);
-            return;
-        }
-
-        setSearchTerm(product.product_name);
-        setShowDropdown(false);
-
-        const newProducts = [...products, product];
-        setProducts(newProducts);
-
-        const initialQuantity = 1;
-        const initialUnitCode = product.productUnit1.unit_code;
-        const initialUnitPrice = product.productUnit1.unit_code === initialUnitCode
-            ? product.bulk_unit_price
-            : product.retail_unit_price;
-
-        const initialAmount = initialQuantity * initialUnitPrice;
-        const newTaxable = product.tax1 === 'Y' ? initialAmount : 0;
-        const newNonTaxable = product.tax1 === 'Y' ? 0 : initialAmount;
-
-        setTaxableAmount(prev => prev + newTaxable);
-        setNonTaxableAmount(prev => prev + newNonTaxable);
-        setTotal(prev => prev + (newTaxable * (1 + TAX_RATE)) + newNonTaxable);
-
-        setQuantities(prev => ({
-            ...prev,
-            [product.product_code]: initialQuantity
-        }));
-        setUnits(prev => ({
-            ...prev,
-            [product.product_code]: initialUnitCode
-        }));
-        setUnitPrices(prev => ({
-            ...prev,
-            [product.product_code]: initialUnitPrice
-        }));
-        setTotals(prev => ({
-            ...prev,
-            [product.product_code]: initialAmount
-        }));
-
-        setSearchTerm('');
-    };
-
-    // Updated handleSearchChange with Enter key functionality
+    // Improved handleSearchChange with debounce
     const handleSearchChange = async (e) => {
         const value = e.target.value;
         setSearchTerm(value);
 
-        // Add Enter key functionality
         if (e.key === 'Enter' && value.trim() !== '') {
-            try {
-                const response = await dispatch(searchProductName({ product_name: value })).unwrap();
-                if (response.data && response.data.length > 0) {
-                    // Find exact match or use the first result
-                    const exactMatch = response.data.find(
-                        product => product.product_name.toLowerCase() === value.toLowerCase()
-                    );
-                    const selectedProduct = exactMatch || response.data[0];
+            await searchProduct(value);
+            return;
+        }
 
-                    // Handle product selection with duplicate check
-                    handleProductSelect(selectedProduct);
-                }
-            } catch (err) {
-                console.error('Error searching products:', err);
-            }
-        } else if (value.length > 0) {
+        if (value.length > 0) {
             try {
                 const response = await dispatch(searchProductName({ product_name: value })).unwrap();
                 if (response.data) {
@@ -247,6 +192,94 @@ export default function CreatePurchaseOrderToWinery({ onBack }) {
             setSearchResults([]);
             setShowDropdown(false);
         }
+    };
+
+    // Search product by name or code
+    const searchProduct = async (term) => {
+        try {
+            const response = await dispatch(searchProductName({ product_name: term })).unwrap();
+            if (response.data && response.data.length > 0) {
+                // Find exact match or use the first result
+                const exactMatch = response.data.find(
+                    product => product.product_name.toLowerCase() === term.toLowerCase() ||
+                        product.product_code.toLowerCase() === term.toLowerCase()
+                );
+                const selectedProduct = exactMatch || response.data[0];
+
+                // Handle product selection with duplicate check
+                handleProductSelect(selectedProduct);
+                setSearchTerm('');
+                setShowDropdown(false);
+            } else {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Product Not Found',
+                    text: 'No products found matching your search.',
+                    confirmButtonColor: '#754C27'
+                });
+            }
+        } catch (err) {
+            console.error('Error searching products:', err);
+            Swal.fire({
+                icon: 'error',
+                title: 'Search Error',
+                text: err.message || 'Failed to search products',
+                confirmButtonColor: '#754C27'
+            });
+        }
+    };
+
+    const handleProductSelect = (product) => {
+        // Check if product already exists in the list
+        if (products.some(p => p.product_code === product.product_code)) {
+            // Show warning with better styling and more helpful message
+            Swal.fire({
+                icon: 'warning',
+                title: 'Duplicate Product',
+                text: `${product.product_name} is already in your purchase order. Please adjust the quantity instead.`,
+                confirmButtonColor: '#754C27'
+            });
+            setSearchTerm('');
+            setShowDropdown(false);
+            return;
+        }
+
+        setSearchTerm('');
+        setShowDropdown(false);
+
+        const newProducts = [...products, product];
+        setProducts(newProducts);
+
+        const initialQuantity = 1;
+        const initialUnitCode = product.productUnit1.unit_code;
+        const initialUnitPrice = product.productUnit1.unit_code === initialUnitCode
+            ? product.bulk_unit_price
+            : product.retail_unit_price;
+
+        const initialAmount = initialQuantity * initialUnitPrice;
+        const newTaxable = product.tax1 === 'Y' ? initialAmount : 0;
+        const newNonTaxable = product.tax1 === 'Y' ? 0 : initialAmount;
+
+        setTaxableAmount(prev => prev + newTaxable);
+        setNonTaxableAmount(prev => prev + newNonTaxable);
+        setTotal(prev => prev + initialAmount);
+
+        setQuantities(prev => ({
+            ...prev,
+            [product.product_code]: initialQuantity
+        }));
+        setUnits(prev => ({
+            ...prev,
+            [product.product_code]: initialUnitCode
+        }));
+        setUnitPrices(prev => ({
+            ...prev,
+            [product.product_code]: initialUnitPrice
+        }));
+        setTotals(prev => ({
+            ...prev,
+            [product.product_code]: initialAmount
+        }));
     };
 
     const calculateProductTotal = (productCode, quantity, unitPrice, tax1) => {
@@ -272,7 +305,7 @@ export default function CreatePurchaseOrderToWinery({ onBack }) {
 
             setTaxableAmount(newTaxable);
             setNonTaxableAmount(newNonTaxable);
-            setTotal((newTaxable * (1 + TAX_RATE)) + newNonTaxable);
+            setTotal(newTaxable + newNonTaxable);
 
             return newTotals;
         });
@@ -281,6 +314,7 @@ export default function CreatePurchaseOrderToWinery({ onBack }) {
     const calculateOrderTotals = () => {
         let newTaxable = 0;
         let newNonTaxable = 0;
+        let newTotal = 0;
 
         products.forEach(product => {
             const productCode = product.product_code;
@@ -288,21 +322,18 @@ export default function CreatePurchaseOrderToWinery({ onBack }) {
             const unitPrice = unitPrices[productCode] || 0;
             const amount = quantity * unitPrice;
 
-            // เปลี่ยนการคำนวณตรงนี้
             if (product.tax1 === 'Y') {
-                // เก็บค่าก่อนคำนวณภาษี
                 newTaxable += amount;
             } else {
                 newNonTaxable += amount;
             }
+
+            newTotal += amount;
         });
 
         setTaxableAmount(newTaxable);
         setNonTaxableAmount(newNonTaxable);
-
-        // คำนวณภาษีและ total ที่นี่
-        const totalWithTax = (newTaxable * (1 + TAX_RATE)) + newNonTaxable;
-        setTotal(totalWithTax);
+        setTotal(newTotal);
     };
 
     const handleDeleteProduct = (productCode) => {
@@ -321,6 +352,81 @@ export default function CreatePurchaseOrderToWinery({ onBack }) {
         setUnits(newUnits);
         setUnitPrices(newUnitPrices);
         setTotals(newTotals);
+
+        calculateOrderTotals();
+    };
+
+    const handleQuantityChange = (productCode, value) => {
+        const newValue = parseInt(value);
+        if (isNaN(newValue) || newValue < 1) return;
+
+        setQuantities(prev => ({
+            ...prev,
+            [productCode]: newValue
+        }));
+
+        const product = products.find(p => p.product_code === productCode);
+        if (!product) return;
+
+        const unitPrice = unitPrices[productCode] || 0;
+        const newTotal = newValue * unitPrice;
+
+        setTotals(prev => ({
+            ...prev,
+            [productCode]: newTotal
+        }));
+
+        calculateOrderTotals();
+    };
+
+    const handleUnitChange = (productCode, newUnit) => {
+        setUnits(prev => ({
+            ...prev,
+            [productCode]: newUnit
+        }));
+
+        const product = products.find(p => p.product_code === productCode);
+        if (!product) return;
+
+        // Update price based on the unit
+        const newPrice = newUnit === product.productUnit1?.unit_code
+            ? product.bulk_unit_price
+            : product.retail_unit_price;
+
+        setUnitPrices(prev => ({
+            ...prev,
+            [productCode]: newPrice
+        }));
+
+        // Update total
+        const quantity = quantities[productCode] || 1;
+        const newTotal = quantity * newPrice;
+
+        setTotals(prev => ({
+            ...prev,
+            [productCode]: newTotal
+        }));
+
+        calculateOrderTotals();
+    };
+
+    const handleUnitPriceChange = (productCode, value) => {
+        const newPrice = parseFloat(value);
+        if (isNaN(newPrice) || newPrice < 0) return;
+
+        setUnitPrices(prev => ({
+            ...prev,
+            [productCode]: newPrice
+        }));
+
+        // Update total
+        const quantity = quantities[productCode] || 1;
+        const newTotal = quantity * newPrice;
+
+        setTotals(prev => ({
+            ...prev,
+            [productCode]: newTotal
+        }));
 
         calculateOrderTotals();
     };
@@ -347,6 +453,15 @@ export default function CreatePurchaseOrderToWinery({ onBack }) {
         }
 
         try {
+            Swal.fire({
+                title: 'Saving...',
+                text: 'Creating purchase order',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
             const headerData = {
                 refno: lastRefNo,
                 rdate: formatDate(startDate),
@@ -385,6 +500,7 @@ export default function CreatePurchaseOrderToWinery({ onBack }) {
                     confirmButtonColor: '#754C27'
                 });
                 resetForm();
+                onBack();
             }
         } catch (error) {
             console.error('Error saving POW:', error);
@@ -407,13 +523,32 @@ export default function CreatePurchaseOrderToWinery({ onBack }) {
         setTaxableAmount(0);
         setNonTaxableAmount(0);
         setTotal(0);
-
-        const date = new Date();
-        setStartDate(date);
-        await handleGetLastRefNo(date);
+        setLastRefNo('');
     };
 
+    const handleDateChange = (date) => {
+        if (!date) return;
+        const vegasDate = convertToLasVegasTime(date);
+        setStartDate(vegasDate);
 
+        // Generate refno again only if kitchen is already selected
+        if (saveKitchen) {
+            handleGetLastRefNo(vegasDate, saveKitchen);
+        }
+    };
+
+    const handleKitchenChange = (e) => {
+        const newKitchenCode = e.target.value;
+        setSaveKitchen(newKitchenCode);
+
+        // Generate refno only when kitchen is selected
+        if (newKitchenCode) {
+            handleGetLastRefNo(startDate, newKitchenCode);
+        } else {
+            // Clear refno when kitchen is deselected
+            setLastRefNo('');
+        }
+    };
 
     return (
         <Box sx={{ width: '100%' }}>
@@ -441,7 +576,7 @@ export default function CreatePurchaseOrderToWinery({ onBack }) {
                             Ref.no
                         </Typography>
                         <TextField
-                            value={lastRefNo}
+                            value={lastRefNo || "Please select kitchen first"}
                             disabled
                             size="small"
                             sx={{
@@ -450,6 +585,9 @@ export default function CreatePurchaseOrderToWinery({ onBack }) {
                                 '& .MuiOutlinedInput-root': {
                                     borderRadius: '10px',
                                     fontWeight: '700'
+                                },
+                                '& .Mui-disabled': {
+                                    WebkitTextFillColor: !lastRefNo ? '#d32f2f' : 'rgba(0, 0, 0, 0.38)',
                                 }
                             }}
                         />
@@ -462,12 +600,7 @@ export default function CreatePurchaseOrderToWinery({ onBack }) {
                         </Typography>
                         <DatePicker
                             selected={startDate}
-                            onChange={(date) => {
-                                const vegasDate = convertToLasVegasTime(date);
-                                setStartDate(vegasDate);
-                                handleGetLastRefNo(vegasDate);
-                            }}
-
+                            onChange={handleDateChange}
                             dateFormat="MM/dd/yyyy"
                             customInput={<CustomInput />}
                         />
@@ -481,7 +614,7 @@ export default function CreatePurchaseOrderToWinery({ onBack }) {
                         <Box
                             component="select"
                             value={saveKitchen}
-                            onChange={(e) => setSaveKitchen(e.target.value)}
+                            onChange={handleKitchenChange}
                             sx={{
                                 mt: 1,
                                 width: '100%',
@@ -521,10 +654,9 @@ export default function CreatePurchaseOrderToWinery({ onBack }) {
                             <TextField
                                 value={searchTerm}
                                 onChange={handleSearchChange}
-                                onKeyDown={handleSearchChange}
-                                onKeyUp={(e) => {
-                                    if (e.key === 'Enter' && searchResults.length > 0) {
-                                        handleProductSelect(searchResults[0]);
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        searchProduct(searchTerm);
                                     }
                                 }}
                                 placeholder="Search products..."
@@ -589,118 +721,80 @@ export default function CreatePurchaseOrderToWinery({ onBack }) {
                             </tr>
                         </thead>
                         <tbody>
-                            {products.map((product, index) => (
-                                <tr key={product.product_code}>
-                                    <td style={{ padding: '12px' }}>{index + 1}</td>
-                                    <td style={{ padding: '12px' }}>{product.product_code}</td>
-                                    <td style={{ padding: '12px' }}>{product.product_name}</td>
-                                    <td style={{ padding: '12px' }}>
-                                        <input
-                                            type="number"
-                                            min="1"
-                                            value={quantities[product.product_code] || 1}
-                                            onChange={(e) => {
-                                                const newValue = parseInt(e.target.value) || 1;
-                                                setQuantities(prev => ({
-                                                    ...prev,
-                                                    [product.product_code]: newValue
-                                                }));
-                                                calculateProductTotal(
-                                                    product.product_code,
-                                                    newValue,
-                                                    unitPrices[product.product_code],
-                                                    product.tax1
-                                                );
-                                            }}
-                                            style={{
-                                                width: '60px',
-                                                padding: '4px',
-                                                textAlign: 'right'
-                                            }}
-                                        />
-                                    </td>
-                                    <td style={{ padding: '12px' }}>
-                                        <select
-                                            value={units[product.product_code] || product.productUnit1.unit_code}
-                                            onChange={(e) => {
-                                                const newUnit = e.target.value;
-                                                setUnits(prev => ({
-                                                    ...prev,
-                                                    [product.product_code]: newUnit
-                                                }));
-
-                                                const newPrice = newUnit === product.productUnit1.unit_code
-                                                    ? product.bulk_unit_price
-                                                    : product.retail_unit_price;
-
-                                                setUnitPrices(prev => ({
-                                                    ...prev,
-                                                    [product.product_code]: newPrice
-                                                }));
-
-                                                calculateProductTotal(
-                                                    product.product_code,
-                                                    quantities[product.product_code],
-                                                    newPrice,
-                                                    product.tax1
-                                                );
-                                            }}
-                                            style={{
-                                                padding: '4px',
-                                                width: '100px'
-                                            }}
-                                        >
-                                            <option value={product.productUnit1.unit_code}>
-                                                {product.productUnit1.unit_name}
-                                            </option>
-                                            <option value={product.productUnit2.unit_code}>
-                                                {product.productUnit2.unit_name}
-                                            </option>
-                                        </select>
-                                    </td>
-                                    <td style={{ padding: '12px' }}>
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            step="0.01"
-                                            value={unitPrices[product.product_code] || 0}
-                                            onChange={(e) => {
-                                                const newPrice = parseFloat(e.target.value) || 0;
-                                                setUnitPrices(prev => ({
-                                                    ...prev,
-                                                    [product.product_code]: newPrice
-                                                }));
-                                                calculateProductTotal(
-                                                    product.product_code,
-                                                    quantities[product.product_code],
-                                                    newPrice,
-                                                    product.tax1
-                                                );
-                                            }}
-                                            style={{
-                                                width: '100px',
-                                                padding: '4px',
-                                                textAlign: 'right'
-                                            }}
-                                        />
-                                    </td>
-                                    <td style={{ padding: '12px', textAlign: 'center' }}>
-                                        {product.tax1 === 'Y' ? 'Yes' : 'No'}
-                                    </td>
-                                    <td style={{ padding: '12px', textAlign: 'right' }}>
-                                        {(totals[product.product_code] || 0).toFixed(2)}
-                                    </td>
-                                    <td style={{ padding: '12px', textAlign: 'center' }}>
-                                        <IconButton
-                                            onClick={() => handleDeleteProduct(product.product_code)}
-                                            size="small"
-                                            sx={{ color: 'error.main' }}
-                                        >
-                                            <CancelIcon />
-                                        </IconButton>
+                            {products.length === 0 ? (
+                                <tr>
+                                    <td colSpan={9} style={{ textAlign: 'center', padding: '20px' }}>
+                                        No products added yet. Search and add products to your order.
                                     </td>
                                 </tr>
-                            ))}
+                            ) : (
+                                products.map((product, index) => (
+                                    <tr key={product.product_code}>
+                                        <td style={{ padding: '12px' }}>{index + 1}</td>
+                                        <td style={{ padding: '12px' }}>{product.product_code}</td>
+                                        <td style={{ padding: '12px' }}>{product.product_name}</td>
+                                        <td style={{ padding: '12px' }}>
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                value={quantities[product.product_code] || 1}
+                                                onChange={(e) => handleQuantityChange(product.product_code, e.target.value)}
+                                                style={{
+                                                    width: '60px',
+                                                    padding: '4px',
+                                                    textAlign: 'right'
+                                                }}
+                                            />
+                                        </td>
+                                        <td style={{ padding: '12px' }}>
+                                            <select
+                                                value={units[product.product_code] || product.productUnit1?.unit_code}
+                                                onChange={(e) => handleUnitChange(product.product_code, e.target.value)}
+                                                style={{
+                                                    padding: '4px',
+                                                    width: '100px'
+                                                }}
+                                            >
+                                                <option value={product.productUnit1.unit_code}>
+                                                    {product.productUnit1.unit_name}
+                                                </option>
+                                                <option value={product.productUnit2.unit_code}>
+                                                    {product.productUnit2.unit_name}
+                                                </option>
+                                            </select>
+                                        </td>
+                                        <td style={{ padding: '12px' }}>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                step="0.01"
+                                                value={unitPrices[product.product_code] || 0}
+                                                onChange={(e) => handleUnitPriceChange(product.product_code, e.target.value)}
+                                                style={{
+                                                    width: '100px',
+                                                    padding: '4px',
+                                                    textAlign: 'right'
+                                                }}
+                                            />
+                                        </td>
+                                        <td style={{ padding: '12px', textAlign: 'center' }}>
+                                            {product.tax1 === 'Y' ? 'Yes' : 'No'}
+                                        </td>
+                                        <td style={{ padding: '12px', textAlign: 'right' }}>
+                                            {(totals[product.product_code] || 0).toFixed(2)}
+                                        </td>
+                                        <td style={{ padding: '12px', textAlign: 'center' }}>
+                                            <IconButton
+                                                onClick={() => handleDeleteProduct(product.product_code)}
+                                                size="small"
+                                                sx={{ color: 'error.main' }}
+                                            >
+                                                <CancelIcon />
+                                            </IconButton>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
                         </tbody>
                     </table>
                 </Box>
@@ -731,6 +825,7 @@ export default function CreatePurchaseOrderToWinery({ onBack }) {
                 <Button
                     onClick={handleSave}
                     variant="contained"
+                    disabled={!lastRefNo || products.length === 0}
                     fullWidth
                     sx={{
                         mt: 2,
