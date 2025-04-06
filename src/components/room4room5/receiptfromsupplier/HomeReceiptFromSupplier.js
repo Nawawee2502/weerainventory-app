@@ -6,15 +6,14 @@ import { useTheme } from '@mui/material/styles';
 import Paper from '@mui/material/Paper';
 import ReceiptFromSupplier from './ReceiptFromSupplier';
 import CreateReceiptFromSupplier from './CreateReceiptFromSupplier';
-// import EditPurchaseOrderToWarehouse from './EditPruchaseordertoWarehouse';
-
+import EditReceiptFromSupplier from './EditReceiptFromSupplier';
 
 const NAVIGATION = [
   { segment: '', title: '' },
   { segment: 'orders', title: 'Orders' },
 ];
 
-export default function HomePurchaseOrdertoWarehouse() {
+export default function HomeReceiptFromSupplier() {
   const router = useDemoRouter('/');
   const theme = useTheme();
 
@@ -36,12 +35,11 @@ export default function HomePurchaseOrdertoWarehouse() {
   };
 
   const renderComponent = () => {
-    switch(currentView) {
+    switch (currentView) {
       case 'create':
         return <CreateReceiptFromSupplier onBack={handleBack} />;
       case 'edit':
-        // return <EditPurchaseOrderToSupplier onBack={handleBack} editRefno={editRefno} />;
-        // return <EditPurchaseOrderToSupplier onBack={handleBack} editRefno={editRefno} />
+        return <EditReceiptFromSupplier onBack={handleBack} editRefno={editRefno} />;
       default:
         return <ReceiptFromSupplier onCreate={handleCreate} onEdit={handleEdit} />;
     }

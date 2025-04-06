@@ -24,9 +24,22 @@ export const updateKt_grf = createAsyncThunk(
     "kt_grf/update",
     async (orderData, { dispatch }) => {
         try {
+            // Log the data to help with debugging
+            console.log("updateKt_grf API called with data:", orderData);
+
+            // Ensure we have a properly structured object
+            if (!orderData || !orderData.headerData || !orderData.headerData.refno) {
+                throw new Error("Missing required data: headerData or refno");
+            }
+
             const res = await axios.post(BASE_URL + "/api/updateKt_grf", orderData);
+
+            // Log the response for debugging
+            console.log("updateKt_grf API response:", res.data);
+
             return res.data;
         } catch (error) {
+            console.error("updateKt_grf API error:", error);
             throw error;
         }
     }

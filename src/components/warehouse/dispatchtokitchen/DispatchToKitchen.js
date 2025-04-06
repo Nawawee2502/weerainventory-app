@@ -14,6 +14,11 @@ import Pagination from '@mui/material/Pagination';
 import { useDispatch } from 'react-redux';
 import { wh_dpkAlljoindt, deleteWh_dpk } from '../../../api/warehouse/wh_dpkApi';
 import Swal from 'sweetalert2';
+import { pdf } from '@react-pdf/renderer';
+import { generateKitchenPDF } from './Wh_dpkPDF';
+import { Wh_dpkByRefno } from '../../../api/warehouse/wh_dpkApi';
+import Switch from '@mui/material/Switch';
+import FormControlLabel from '@mui/material/FormControlLabel';
 
 const formatDate = (date) => {
     if (!date) return "";
@@ -82,6 +87,8 @@ export default function DispatchToKitchen({ onCreate, onEdit }) {
     const [count, setCount] = useState(1);
     const [data, setData] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [excludePrice, setExcludePrice] = useState(false);
+
     const limit = 5;
 
     useEffect(() => {
@@ -230,6 +237,68 @@ export default function DispatchToKitchen({ onCreate, onEdit }) {
         setPage(1);
     };
 
+    const handlePrintPDF = async (refno) => {
+        try {
+            Swal.fire({
+                title: 'กำลังโหลดข้อมูล...',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            const orderResponse = await dispatch(Wh_dpkByRefno({ refno })).unwrap();
+
+            console.log("API Response Data (Complete):", orderResponse);
+
+            if (orderResponse.result && orderResponse.data) {
+                const data = orderResponse.data;
+
+                console.log("Products data:", data.wh_dpkdts);
+
+                if (data.wh_dpkdts) {
+                    console.log("Number of products:",
+                        Array.isArray(data.wh_dpkdts) ?
+                            data.wh_dpkdts.length :
+                            (typeof data.wh_dpkdts === 'object' ?
+                                Object.keys(data.wh_dpkdts).length :
+                                'Not an array or object'));
+
+                    // Sample data
+                    if (Array.isArray(data.wh_dpkdts) && data.wh_dpkdts.length > 0) {
+                        console.log("First product:", data.wh_dpkdts[0]);
+                    } else if (typeof data.wh_dpkdts === 'object') {
+                        console.log("First product:", data.wh_dpkdts[Object.keys(data.wh_dpkdts)[0]]);
+                    }
+                } else {
+                    console.log("No products data found in API response");
+                }
+
+                // Pass the includePrices parameter (false when excludePrice is true)
+                const pdfContent = await generateKitchenPDF(refno, data, !excludePrice);
+
+                if (pdfContent) {
+                    Swal.close();
+                    const asBlob = await pdf(pdfContent).toBlob();
+                    const url = URL.createObjectURL(asBlob);
+                    window.open(url, '_blank');
+                } else {
+                    throw new Error("Failed to generate PDF content");
+                }
+            } else {
+                throw new Error("Order data not found or invalid");
+            }
+        } catch (error) {
+            console.error('Error generating PDF:', error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error generating PDF',
+                text: error.message || 'Please try again later',
+                confirmButtonText: 'OK'
+            });
+        }
+    };
+
     return (
         <Box sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <Button
@@ -256,29 +325,11 @@ export default function DispatchToKitchen({ onCreate, onEdit }) {
             </Button>
 
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mt: '48px', width: '90%', gap: '20px' }}>
-                <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>Search</Typography>
-                <TextField
-                    value={searchTerm}
-                    onChange={handleSearchChange}
-                    placeholder="Search"
-                    sx={{
-                        '& .MuiInputBase-root': { height: '38px', width: '100%' },
-                        '& .MuiOutlinedInput-input': { padding: '8.5px 14px' },
-                        width: '35%'
-                    }}
-                    InputProps={{
-                        startAdornment: (
-                            <InputAdornment position="start">
-                                <SearchIcon sx={{ color: '#5A607F' }} />
-                            </InputAdornment>
-                        ),
-                    }}
-                />
                 <Box sx={{ width: '200px' }}>
                     <DatePicker
                         selected={filterDate}
                         onChange={handleDateChange}
-                        dateFormat="MM/dd/yyyy" 
+                        dateFormat="MM/dd/yyyy"
                         placeholderText="MM/DD/YYYY"
                         customInput={<CustomInput />}
                     />
@@ -299,6 +350,16 @@ export default function DispatchToKitchen({ onCreate, onEdit }) {
                 >
                     Clear
                 </Button>
+                <FormControlLabel
+                    control={
+                        <Switch
+                            checked={excludePrice}
+                            onChange={(e) => setExcludePrice(e.target.checked)}
+                        />
+                    }
+                    label="Exclude price in PDF"
+                    sx={{ color: '#7E84A3', '& .MuiFormControlLabel-label': { fontSize: '14px' } }}
+                />
             </Box>
 
             <Box sx={{ width: '100%', mt: '24px' }}>
@@ -380,7 +441,7 @@ export default function DispatchToKitchen({ onCreate, onEdit }) {
                                         </StyledTableCell>
                                         <StyledTableCell align="center">
                                             <IconButton
-                                                onClick={() => {/* Add print functionality later */ }}
+                                                onClick={() => handlePrintPDF(row.refno)}
                                                 sx={{ border: '1px solid #5686E1', borderRadius: '7px' }}
                                             >
                                                 <PrintIcon sx={{ color: '#5686E1' }} />

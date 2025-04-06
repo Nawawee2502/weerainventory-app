@@ -12,8 +12,8 @@ import 'react-datepicker/dist/react-datepicker.css';
 import { useDispatch } from "react-redux";
 import { searchProductName } from '../../../api/productrecordApi';
 import { kitchenAll } from '../../../api/kitchenApi';
-import { getKtPowByRefno, updateKt_pow } from '../../../api/kitchen/kt_powApi';
-import { Kt_powdtAlljoindt } from '../../../api/kitchen/kt_powdtApi';
+import { getKtTrwByRefno, updateKt_trw } from '../../../api/kitchen/kt_trwApi';
+import { Kt_trwdtAlljoindt } from '../../../api/kitchen/kt_trwdtApi';
 import Swal from 'sweetalert2';
 import { format } from 'date-fns';
 
@@ -49,15 +49,14 @@ const CustomDateInput = React.forwardRef(({ value, onClick, placeholder }, ref) 
     </Box>
 ));
 
-export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
+export default function EditTransferToWarehouse({ onBack, editRefno }) {
     const dispatch = useDispatch();
 
     // Form state
-    const [startDate, setStartDate] = useState(new Date());
+    const [transferDate, setTransferDate] = useState(new Date());
+    const [kitchenCode, setKitchenCode] = useState('');
     const [kitchens, setKitchens] = useState([]);
-    const [saveKitchen, setSaveKitchen] = useState('');
     const [isLoading, setIsLoading] = useState(true);
-    const [debugInfo, setDebugInfo] = useState({});
 
     // Product state
     const [products, setProducts] = useState([]);
@@ -75,7 +74,11 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
     const [allProducts, setAllProducts] = useState([]);
 
     // Additional product details
+    const [expiryDates, setExpiryDates] = useState({});
+    const [temperatures, setTemperatures] = useState({});
+    const [taxStatus, setTaxStatus] = useState({});
     const [imageErrors, setImageErrors] = useState({});
+    const [debugInfo, setDebugInfo] = useState({});
 
     // Get user data
     const userDataJson = localStorage.getItem("userData2");
@@ -88,94 +91,70 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
                 setIsLoading(true);
                 console.log('Fetching data for refno:', editRefno);
 
-                // Load kitchens and products in parallel
-                const [kitchenResponse, productsResponse] = await Promise.all([
-                    dispatch(kitchenAll({ offset: 0, limit: 100 })).unwrap(),
-                    dispatch(searchProductName({ product_name: '' })).unwrap()
-                ]);
-
-                if (kitchenResponse?.data) {
-                    setKitchens(kitchenResponse.data);
-                    console.log('Loaded kitchens:', kitchenResponse.data.length);
-                }
-
-                if (productsResponse?.data) {
+                // Load all products for catalog
+                const productsResponse = await dispatch(searchProductName({ product_name: '' })).unwrap();
+                if (productsResponse && productsResponse.data) {
                     setAllProducts(productsResponse.data);
-                    console.log('Loaded all products:', productsResponse.data.length);
                 }
 
-                // Fetch purchase order data using getKtPowByRefno
+                // Fetch kitchens
+                const kitchenResponse = await dispatch(kitchenAll({ offset: 0, limit: 100 })).unwrap();
+                setKitchens(kitchenResponse.data || []);
+
+                // Fetch transfer data using the getKtTrwByRefno function
                 if (editRefno) {
-                    console.log('Looking up with getKtPowByRefno for ref:', editRefno);
-                    // Pass refno directly as a string, not as an object
-                    const refno = typeof editRefno === 'object' ? editRefno.refno : editRefno;
-                    const orderResponse = await dispatch(getKtPowByRefno(refno)).unwrap();
-                    console.log('Response from getKtPowByRefno:', orderResponse);
+                    const transferResponse = await dispatch(getKtTrwByRefno(
+                        typeof editRefno === 'object' ? editRefno : { refno: editRefno }
+                    )).unwrap();
 
-                    if (orderResponse.result && orderResponse.data) {
-                        // Set header info
-                        const orderData = orderResponse.data;
-                        console.log('Header data found:', orderData);
-                        setDebugInfo({ headerData: orderData });
+                    if (transferResponse.result && transferResponse.data) {
+                        const transferData = transferResponse.data;
+                        setDebugInfo({ headerData: transferData });
 
-                        // Parse and set date
-                        if (orderData.trdate && orderData.trdate.length === 8) {
-                            const year = parseInt(orderData.trdate.substring(0, 4));
-                            const month = parseInt(orderData.trdate.substring(4, 6)) - 1;
-                            const day = parseInt(orderData.trdate.substring(6, 8));
-                            setStartDate(new Date(year, month, day));
-                        } else if (orderData.rdate) {
+                        // Set header data
+                        if (transferData.trdate && transferData.trdate.length === 8) {
+                            const year = parseInt(transferData.trdate.substring(0, 4));
+                            const month = parseInt(transferData.trdate.substring(4, 6)) - 1;
+                            const day = parseInt(transferData.trdate.substring(6, 8));
+                            setTransferDate(new Date(year, month, day));
+                        } else if (transferData.rdate) {
                             // Try to parse the date safely
                             try {
-                                const dateParts = orderData.rdate.split('/');
+                                const dateParts = transferData.rdate.split('/');
                                 if (dateParts.length === 3) {
                                     const month = parseInt(dateParts[0]) - 1;
                                     const day = parseInt(dateParts[1]);
                                     const year = parseInt(dateParts[2]);
-                                    setStartDate(new Date(year, month, day));
+                                    setTransferDate(new Date(year, month, day));
                                 } else {
-                                    setStartDate(new Date());
+                                    setTransferDate(new Date());
                                 }
                             } catch (e) {
                                 console.error("Date parsing error:", e);
-                                setStartDate(new Date());
+                                setTransferDate(new Date());
                             }
                         }
 
-                        setSaveKitchen(orderData.kitchen_code || '');
-                        setTotal(parseFloat(orderData.total) || 0);
+                        setKitchenCode(transferData.kitchen_code || '');
+                        setTotal(parseFloat(transferData.total) || 0);
 
                         // Fetch detail data
-                        const refno = typeof editRefno === 'object' ? editRefno.refno : editRefno;
-                        const detailResponse = await dispatch(Kt_powdtAlljoindt({ refno: refno })).unwrap();
-                        console.log('Detail response from Kt_powdtAlljoindt:', detailResponse);
+                        const refnoParam = typeof editRefno === 'object' ? editRefno : { refno: editRefno };
+                        const detailResponse = await dispatch(Kt_trwdtAlljoindt(refnoParam)).unwrap();
+                        console.log('Detail response:', JSON.stringify(detailResponse));
+                        setDebugInfo(prev => ({ ...prev, detailData: detailResponse.data }));
 
                         if (detailResponse.result && detailResponse.data && detailResponse.data.length > 0) {
-                            const detailData = detailResponse.data;
-                            console.log('Detail data found:', detailData.length, 'items');
-                            setDebugInfo(prev => ({ ...prev, detailData }));
-
-                            // Process detail data
-                            await processDetailData(detailData);
-                        } else {
-                            console.warn('No detail data found in Kt_powdtAlljoindt');
-                            setDebugInfo(prev => ({ ...prev, detailError: 'No detail data found in Kt_powdtAlljoindt' }));
+                            await processDetailData(detailResponse.data);
                         }
-                    } else {
-                        console.warn('No data found in getKtPowByRefno');
-                        setDebugInfo(prev => ({ ...prev, error: 'No data found in getKtPowByRefno' }));
                     }
-                } else {
-                    console.warn('No editRefno provided');
-                    setDebugInfo(prev => ({ ...prev, error: 'No editRefno provided' }));
                 }
             } catch (error) {
-                console.error('Error loading data:', error);
-                setDebugInfo(prev => ({ ...prev, error: error.toString() }));
+                console.error('Error loading transfer data:', error);
                 Swal.fire({
                     icon: 'error',
                     title: 'Error',
-                    text: 'Failed to load purchase order data: ' + error.message
+                    text: 'Failed to load transfer data: ' + error.message
                 });
             } finally {
                 setIsLoading(false);
@@ -208,6 +187,9 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
             const newUnits = {};
             const newUnitPrices = {};
             const newTotals = {};
+            const newExpiryDates = {};
+            const newTemperatures = {};
+            const newTaxStatus = {};
 
             detailData.forEach((item) => {
                 const productCode = item.product_code;
@@ -215,6 +197,38 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
                 newUnits[productCode] = item.unit_code || item.tbl_product?.productUnit1?.unit_code || '';
                 newUnitPrices[productCode] = parseFloat(item.uprice) || 0;
                 newTotals[productCode] = parseFloat(item.amt) || 0;
+                newTemperatures[productCode] = item.temperature1 || '';
+                newTaxStatus[productCode] = item.tax1 || 'N';
+
+                // Parse expiry date
+                if (item.texpire_date && item.texpire_date.length === 8) {
+                    try {
+                        const year = parseInt(item.texpire_date.substring(0, 4));
+                        const month = parseInt(item.texpire_date.substring(4, 6)) - 1;
+                        const day = parseInt(item.texpire_date.substring(6, 8));
+                        newExpiryDates[productCode] = new Date(year, month, day);
+                    } catch (e) {
+                        console.error("Error parsing texpire_date:", e);
+                        newExpiryDates[productCode] = new Date();
+                    }
+                } else if (item.expire_date) {
+                    try {
+                        const dateParts = item.expire_date.split('/');
+                        if (dateParts.length === 3) {
+                            const month = parseInt(dateParts[0]) - 1;
+                            const day = parseInt(dateParts[1]);
+                            const year = parseInt(dateParts[2]);
+                            newExpiryDates[productCode] = new Date(year, month, day);
+                        } else {
+                            newExpiryDates[productCode] = new Date();
+                        }
+                    } catch (e) {
+                        console.error("Expiry date parsing error:", e);
+                        newExpiryDates[productCode] = new Date();
+                    }
+                } else {
+                    newExpiryDates[productCode] = new Date();
+                }
             });
 
             // Update all states
@@ -222,6 +236,9 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
             setUnits(newUnits);
             setUnitPrices(newUnitPrices);
             setTotals(newTotals);
+            setExpiryDates(newExpiryDates);
+            setTemperatures(newTemperatures);
+            setTaxStatus(newTaxStatus);
 
             // Calculate and set total
             const totalSum = Object.values(newTotals).reduce((sum, value) => sum + value, 0);
@@ -229,32 +246,8 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
 
         } catch (error) {
             console.error('Error processing detail data:', error);
-            setDebugInfo(prev => ({ ...prev, processError: error.toString() }));
             throw error;
         }
-    };
-
-    // Calculate order totals
-    const calculateOrderTotals = (currentProducts = products) => {
-        let newTotals = {};
-        let newTotal = 0;
-
-        currentProducts.forEach(product => {
-            const productCode = product.product_code;
-            const quantity = quantities[productCode] || 1;
-            const price = unitPrices[productCode] || (
-                units[productCode] === product.productUnit1?.unit_code
-                    ? product.bulk_unit_price
-                    : product.retail_unit_price
-            );
-            const lineTotal = quantity * price;
-
-            newTotals[productCode] = lineTotal;
-            newTotal += lineTotal;
-        });
-
-        setTotals(newTotals);
-        setTotal(newTotal);
     };
 
     // Function to render product image with error handling
@@ -290,7 +283,7 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
             Swal.fire({
                 icon: 'warning',
                 title: 'Duplicate Product',
-                text: `${product.product_name} is already in your purchase order. Please adjust the quantity instead.`,
+                text: `${product.product_name} is already in your transfer. Please adjust the quantity instead.`,
                 confirmButtonColor: '#754C27'
             });
             setSearchTerm('');
@@ -306,11 +299,41 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
         setQuantities(prev => ({ ...prev, [product.product_code]: 1 }));
         setUnits(prev => ({ ...prev, [product.product_code]: product.productUnit1?.unit_code || '' }));
         setUnitPrices(prev => ({ ...prev, [product.product_code]: product.bulk_unit_price || 0 }));
+        setExpiryDates(prev => ({ ...prev, [product.product_code]: new Date() }));
+        setTemperatures(prev => ({ ...prev, [product.product_code]: '38' }));
+        setTaxStatus(prev => ({ ...prev, [product.product_code]: product.tax1 || 'N' }));
+
+        // Calculate initial total
+        const initialTotal = (product.bulk_unit_price || 0) * 1;
+        setTotals(prev => ({ ...prev, [product.product_code]: initialTotal }));
 
         // Reset search and calculate totals
         setSearchTerm('');
         setShowDropdown(false);
         calculateOrderTotals([...products, product]);
+    };
+
+    // Calculate order totals
+    const calculateOrderTotals = (currentProducts = products) => {
+        let newTotals = {};
+        let newTotal = 0;
+
+        currentProducts.forEach(product => {
+            const productCode = product.product_code;
+            const quantity = quantities[productCode] || 1;
+            const price = unitPrices[productCode] || (
+                units[productCode] === product.productUnit1?.unit_code
+                    ? product.bulk_unit_price
+                    : product.retail_unit_price
+            );
+            const lineTotal = quantity * price;
+
+            newTotals[productCode] = lineTotal;
+            newTotal += lineTotal;
+        });
+
+        setTotals(newTotals);
+        setTotal(newTotal);
     };
 
     // Handle search input changes
@@ -371,6 +394,14 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
             setSearchResults([]);
             setShowDropdown(false);
         }
+    };
+
+    // Handle expiry date change
+    const handleExpiryDateChange = (productCode, date) => {
+        setExpiryDates(prev => ({
+            ...prev,
+            [productCode]: date
+        }));
     };
 
     // Handle unit change
@@ -434,6 +465,22 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
         calculateOrderTotals();
     };
 
+    // Handle temperature change
+    const handleTemperatureChange = (productCode, value) => {
+        setTemperatures(prev => ({
+            ...prev,
+            [productCode]: value
+        }));
+    };
+
+    // Handle tax status change
+    const handleTaxStatusChange = (productCode, value) => {
+        setTaxStatus(prev => ({
+            ...prev,
+            [productCode]: value
+        }));
+    };
+
     // Handle product deletion
     const handleDeleteProduct = (productCode) => {
         setProducts(prev => prev.filter(p => p.product_code !== productCode));
@@ -444,21 +491,27 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
         const { [productCode]: __, ...newUnits } = units;
         const { [productCode]: ___, ...newPrices } = unitPrices;
         const { [productCode]: ____, ...newTotals } = totals;
+        const { [productCode]: _____, ...newExpiryDates } = expiryDates;
+        const { [productCode]: ______, ...newTemperatures } = temperatures;
+        const { [productCode]: _______, ...newTaxStatus } = taxStatus;
 
         setQuantities(newQuantities);
         setUnits(newUnits);
         setUnitPrices(newPrices);
         setTotals(newTotals);
+        setExpiryDates(newExpiryDates);
+        setTemperatures(newTemperatures);
+        setTaxStatus(newTaxStatus);
 
         calculateOrderTotals(products.filter(p => p.product_code !== productCode));
     };
 
-    // Calculate tax based on products with tax1='Y'
+    // Calculate tax
     const calculateTax = () => {
         let taxableAmount = 0;
         products.forEach(product => {
-            if (product.tax1 === 'Y') {
-                const productCode = product.product_code;
+            const productCode = product.product_code;
+            if (taxStatus[productCode] === 'Y') {
                 const quantity = quantities[productCode] || 0;
                 const unitPrice = unitPrices[productCode] || 0;
                 taxableAmount += quantity * unitPrice;
@@ -484,45 +537,9 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
         });
     };
 
-    // Debug button to show current state
-    const showDebugInfo = () => {
-        console.log('Debug Info:', {
-            editRefno,
-            headerInfo: debugInfo.headerData,
-            detailInfo: debugInfo.detailData,
-            products,
-            selectedProducts,
-            quantities,
-            units,
-            unitPrices,
-            error: debugInfo.error
-        });
-
-        Swal.fire({
-            title: 'Debug Information',
-            html: `
-                <div style="text-align: left; max-height: 400px; overflow-y: auto;">
-                    <p><strong>Edit RefNo:</strong> ${editRefno}</p>
-                    <p><strong>Selected Products:</strong> ${selectedProducts.length}</p>
-                    <p><strong>Products Array:</strong> ${products.length}</p>
-                    <p><strong>Kitchen:</strong> ${saveKitchen}</p>
-                    <p><strong>Total:</strong> ${total}</p>
-                    <p><strong>Error:</strong> ${debugInfo.error || debugInfo.detailError || debugInfo.processError || 'None'}</p>
-                    <hr/>
-                    <p><strong>Header Data:</strong></p>
-                    <pre style="font-size: 11px;">${JSON.stringify(debugInfo.headerData, null, 2)}</pre>
-                    <hr/>
-                    <p><strong>Detail Data (${debugInfo.detailData?.length || 0} items):</strong></p>
-                    <pre style="font-size: 11px;">${JSON.stringify(debugInfo.detailData?.slice(0, 3), null, 2)}</pre>
-                </div>
-            `,
-            width: 800,
-        });
-    };
-
     // Handle form submission (update)
     const handleUpdate = async () => {
-        if (!saveKitchen || products.length === 0) {
+        if (!kitchenCode || products.length === 0) {
             Swal.fire({
                 icon: 'warning',
                 title: 'Missing Information',
@@ -534,7 +551,7 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
 
         try {
             Swal.fire({
-                title: 'Updating purchase order...',
+                title: 'Updating transfer...',
                 allowOutsideClick: false,
                 didOpen: () => Swal.showLoading()
             });
@@ -546,7 +563,7 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
             products.forEach(product => {
                 const productCode = product.product_code;
                 const amount = totals[productCode] || 0;
-                if (product.tax1 === 'Y') {
+                if (taxStatus[productCode] === 'Y') {
                     taxableAmount += amount;
                 } else {
                     nontaxableAmount += amount;
@@ -555,65 +572,54 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
 
             const headerData = {
                 refno: editRefno,
-                rdate: format(startDate, 'MM/dd/yyyy'),
-                kitchen_code: saveKitchen,
-                trdate: format(startDate, 'yyyyMMdd'),
-                monthh: format(startDate, 'MM'),
-                myear: startDate.getFullYear(),
+                rdate: format(transferDate, 'MM/dd/yyyy'),
+                kitchen_code: kitchenCode,
+                trdate: format(transferDate, 'yyyyMMdd'),
+                monthh: format(transferDate, 'MM'),
+                myear: transferDate.getFullYear(),
                 taxable: taxableAmount.toString(),
                 nontaxable: nontaxableAmount.toString(),
-                user_code: userData2.user_code || '',
-                total: total.toString()
+                user_code: userData2?.user_code || '',
+                total: total.toString(),
             };
 
             const productArrayData = products.map(product => ({
-                refno: headerData.refno,
+                refno: editRefno,
                 product_code: product.product_code,
-                qty: (quantities[product.product_code] || 1).toString(),
-                unit_code: units[product.product_code] || product.productUnit1?.unit_code || '',
-                uprice: (unitPrices[product.product_code] || 0).toString(),
-                amt: (totals[product.product_code] || 0).toString()
+                qty: quantities[product.product_code].toString(),
+                unit_code: units[product.product_code],
+                uprice: unitPrices[product.product_code].toString(),
+                tax1: taxStatus[product.product_code],
+                amt: totals[product.product_code].toString(),
+                expire_date: format(expiryDates[product.product_code], 'MM/dd/yyyy'),
+                texpire_date: format(expiryDates[product.product_code], 'yyyyMMdd'),
+                temperature1: temperatures[product.product_code] || ''
             }));
 
-            const payload = {
-                headerData: headerData,
-                productArrayData: productArrayData,
+            await dispatch(updateKt_trw({
+                // Send as both direct properties and nested objects to maintain compatibility
+                ...headerData,
+                headerData,
+                productArrayData,
                 footerData: {
-                    total: total.toString()
+                    total: total.toString(),
                 }
-            };
+            })).unwrap();
 
-            console.log("Sending update with payload:", payload);
+            await Swal.fire({
+                icon: 'success',
+                title: 'Success!',
+                text: 'Transfer updated successfully',
+                timer: 1500
+            });
 
-            try {
-                const response = await dispatch(updateKt_pow(payload)).unwrap();
-                console.log("Update response:", response);
-
-                await Swal.fire({
-                    icon: 'success',
-                    title: 'Updated purchase order successfully',
-                    text: `Reference No: ${editRefno}`,
-                    showConfirmButton: false,
-                    timer: 1500
-                });
-
-                onBack();
-            } catch (apiError) {
-                console.error('Update API Error:', apiError);
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error',
-                    text: apiError.message || 'Error updating purchase order',
-                    confirmButtonText: 'OK'
-                });
-            }
+            onBack();
         } catch (error) {
-            console.error('Update error:', error);
+            console.error('Error updating data:', error);
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
-                text: error.message || 'Error updating purchase order',
-                confirmButtonText: 'OK'
+                text: error.message || 'Error updating data'
             });
         }
     };
@@ -623,29 +629,20 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
         return (
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
                 <CircularProgress sx={{ color: '#754C27' }} />
-                <Typography sx={{ ml: 2 }}>Loading purchase order data...</Typography>
+                <Typography sx={{ ml: 2 }}>Loading transfer data...</Typography>
             </Box>
         );
     }
 
     return (
         <Box sx={{ width: '100%' }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Button
-                    onClick={onBack}
-                    startIcon={<ArrowBackIcon />}
-                >
-                    Back to Purchase Order
-                </Button>
-                <Button
-                    variant="outlined"
-                    color="warning"
-                    onClick={showDebugInfo}
-                    size="small"
-                >
-                    Debug Info
-                </Button>
-            </Box>
+            <Button
+                onClick={onBack}
+                startIcon={<ArrowBackIcon />}
+                sx={{ mb: 2, mr: 'auto' }}
+            >
+                Back to Transfer to Warehouse
+            </Button>
             <Box sx={{ width: '100%', mt: '10px', flexDirection: 'column' }}>
                 <Box sx={{
                     display: 'flex',
@@ -688,8 +685,8 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
                                     Date
                                 </Typography>
                                 <DatePicker
-                                    selected={startDate}
-                                    onChange={(date) => setStartDate(date)}
+                                    selected={transferDate}
+                                    onChange={(date) => setTransferDate(date)}
                                     dateFormat="MM/dd/yyyy"
                                     customInput={<CustomDateInput />}
                                 />
@@ -701,8 +698,8 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
                                 </Typography>
                                 <Box
                                     component="select"
-                                    value={saveKitchen}
-                                    onChange={(e) => setSaveKitchen(e.target.value)}
+                                    value={kitchenCode}
+                                    onChange={(e) => setKitchenCode(e.target.value)}
                                     sx={{
                                         mt: '8px',
                                         width: '100%',
@@ -734,7 +731,7 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
 
                         <Box sx={{ display: 'flex', flexDirection: 'row', width: '100%', p: '24px 0px' }}>
                             <Typography sx={{ fontSize: '20px', fontWeight: '600' }}>
-                                Current Purchase Order
+                                Current Transfer
                             </Typography>
                             <Typography sx={{ ml: 'auto' }}>
                                 Product Search
@@ -828,7 +825,10 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
                                     <tr>
                                         <th style={{ padding: '4px', fontSize: '14px', width: '1%', color: '#754C27', fontWeight: '800' }}>No.</th>
                                         <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '15%', color: '#754C27', fontWeight: '800' }}>Product code</th>
-                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '25%', color: '#754C27', fontWeight: '800' }}>Product name</th>
+                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '15%', color: '#754C27', fontWeight: '800' }}>Product name</th>
+                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Expiry Date</th>
+                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Temperature</th>
+                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Tax</th>
                                         <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Quantity</th>
                                         <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '10%', color: '#754C27', fontWeight: '800' }}>Unit</th>
                                         <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Unit Price</th>
@@ -839,7 +839,7 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
                                 <tbody>
                                     {products.length === 0 ? (
                                         <tr>
-                                            <td colSpan={8} style={{ textAlign: 'center', padding: '16px', color: '#666' }}>
+                                            <td colSpan={11} style={{ textAlign: 'center', padding: '16px', color: '#666' }}>
                                                 No products added yet. Search and select products above.
                                             </td>
                                         </tr>
@@ -854,6 +854,7 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
                                                     ? product.bulk_unit_price
                                                     : product.retail_unit_price);
                                             const currentTotal = totals[productCode]?.toFixed(2) || '0.00';
+                                            const currentTaxStatus = taxStatus[productCode] || 'N';
 
                                             return (
                                                 <tr key={productCode}>
@@ -864,6 +865,51 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
                                                             {renderProductImage(product)}
                                                             {product.product_name}
                                                         </Box>
+                                                    </td>
+                                                    <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                                                        <DatePicker
+                                                            selected={expiryDates[productCode] || null}
+                                                            onChange={(date) => handleExpiryDateChange(productCode, date)}
+                                                            dateFormat="MM/dd/yyyy"
+                                                            placeholderText="Select exp date"
+                                                            customInput={
+                                                                <input
+                                                                    style={{
+                                                                        width: '110px',
+                                                                        padding: '4px',
+                                                                        borderRadius: '4px',
+                                                                        textAlign: 'center'
+                                                                    }}
+                                                                />
+                                                            }
+                                                        />
+                                                    </td>
+                                                    <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                                                        <input
+                                                            type="text"
+                                                            value={temperatures[productCode] || ""}
+                                                            onChange={(e) => handleTemperatureChange(productCode, e.target.value)}
+                                                            placeholder="°C"
+                                                            style={{
+                                                                width: '60px',
+                                                                padding: '4px',
+                                                                textAlign: 'center',
+                                                                borderRadius: '4px'
+                                                            }}
+                                                        />
+                                                    </td>
+                                                    <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                                                        <select
+                                                            value={currentTaxStatus}
+                                                            onChange={(e) => handleTaxStatusChange(productCode, e.target.value)}
+                                                            style={{
+                                                                padding: '4px',
+                                                                borderRadius: '4px'
+                                                            }}
+                                                        >
+                                                            <option value="Y">Yes</option>
+                                                            <option value="N">No</option>
+                                                        </select>
                                                     </td>
                                                     <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
                                                         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -974,7 +1020,7 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
 
                         <Button
                             onClick={handleUpdate}
-                            disabled={!saveKitchen || products.length === 0}
+                            disabled={!kitchenCode || products.length === 0}
                             sx={{
                                 width: '100%',
                                 height: '48px',
@@ -989,7 +1035,7 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
                                     color: '#808080'
                                 }
                             }}>
-                            Update Purchase Order
+                            Update Transfer
                         </Button>
                     </Box>
                 </Box>

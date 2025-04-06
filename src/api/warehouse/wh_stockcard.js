@@ -66,24 +66,30 @@ export const queryWh_stockcard = createAsyncThunk(
         rdate2,
         product_code,
         product_name,
-        trdate,
         refno
     }, { rejectWithValue }) => {
         try {
             const payload = {
                 offset,
-                limit,
-                ...(rdate && { rdate }),
-                ...(rdate1 && rdate2 && { rdate1, rdate2 }),
-                ...(product_code && { product_code }),
-                ...(product_name && { product_name }),
-                ...(trdate && { trdate }),
-                ...(refno && { refno })
+                limit
             };
 
+            // Add all optional parameters to payload if they exist
+            if (rdate) payload.rdate = rdate;
+            if (rdate1) payload.rdate1 = rdate1;
+            if (rdate2) payload.rdate2 = rdate2;
+            if (product_code) payload.product_code = product_code;
+            if (product_name) payload.product_name = product_name;
+            if (refno) payload.refno = refno;
+
+            console.log("API Request payload:", payload);
+            
             const res = await axios.post(BASE_URL + "/api/Query_Wh_stockcard", payload);
+            console.log("API Response:", res.data);
+            
             return res.data;
         } catch (error) {
+            console.error("API Error:", error);
             return rejectWithValue(error.response?.data || {
                 message: error.message || 'Failed to fetch stockcard data',
                 type: 'ERROR'
@@ -96,18 +102,16 @@ export const countWh_stockcard = createAsyncThunk(
     "wh_stockcard/count",
     async ({
         rdate,
-        trdate,
         rdate1,
         rdate2,
         product_name,
         refno
     }, { rejectWithValue }) => {
         try {
-            // สร้าง payload แบบที่มีการเช็คค่า null/undefined
             const payload = {};
 
+            // Add all optional parameters to payload
             if (rdate) payload.rdate = rdate;
-            if (trdate) payload.trdate = trdate;
             if (rdate1) payload.rdate1 = rdate1;
             if (rdate2) payload.rdate2 = rdate2;
             if (product_name) payload.product_name = product_name;

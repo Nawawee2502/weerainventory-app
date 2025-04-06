@@ -6,6 +6,7 @@ import { useTheme } from '@mui/material/styles';
 import Paper from '@mui/material/Paper';
 import TransferToWarehouse from './TransferToWarehouse';
 import CreateTransferToWarehouse from './CreateTransferToWarehouse';
+import EditTransferToWarehouse from './EditTransferToWarehouse';
 // import EditPurchaseOrderToSupplier from './EditPruchaseordertosupplier';
 
 
@@ -40,8 +41,7 @@ export default function HomeTransferToWarehouse() {
       case 'create':
         return <CreateTransferToWarehouse onBack={handleBack} />;
       case 'edit':
-        // return <EditPurchaseOrderToSupplier onBack={handleBack} editRefno={editRefno} />;
-        // return <EditPurchaseOrderToSupplier onBack={handleBack} editRefno={editRefno} />
+        return <EditTransferToWarehouse onBack={handleBack} editRefno={editRefno} />;
       default:
         return <TransferToWarehouse  onCreate={handleCreate} onEdit={handleEdit} />;
     }

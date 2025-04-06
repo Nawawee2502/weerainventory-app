@@ -1,33 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import {
-    Box,
-    Button,
-    TextField,
-    Typography,
-    IconButton,
-    Divider,
-    InputAdornment,
-    Card,
-    CardContent,
-    TableContainer,
-    Table,
-    TableHead,
-    TableRow,
-    TableCell,
-    TableBody,
-    Select,
-    MenuItem,
-    Pagination,
-    CircularProgress,
-    Paper,
-    Grid
+    Box, Button, TextField, Typography, IconButton, Divider, InputAdornment,
+    CircularProgress, Grid
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SearchIcon from '@mui/icons-material/Search';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import AddIcon from '@mui/icons-material/Add';
-import RemoveIcon from '@mui/icons-material/Remove';
-import DeleteIcon from '@mui/icons-material/Delete';
+import CancelIcon from '@mui/icons-material/Cancel';
+import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { useDispatch } from "react-redux";
@@ -36,9 +15,9 @@ import { kitchenAll } from '../../../api/kitchenApi';
 import { addKt_saf, Kt_safrefno } from '../../../api/kitchen/kt_safApi';
 import Swal from 'sweetalert2';
 import { format } from 'date-fns';
-import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 
-const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
+// Custom DatePicker Input Component
+const CustomDateInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
     <Box sx={{ position: 'relative', display: 'inline-block', width: '100%' }}>
         <TextField
             value={value}
@@ -51,14 +30,17 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
                     height: '38px',
                     width: '100%',
                     backgroundColor: '#fff',
-                    borderRadius: '10px'
+                },
+                '& .MuiOutlinedInput-input': {
+                    cursor: 'pointer',
+                    paddingRight: '40px',
                 }
             }}
             InputProps={{
                 readOnly: true,
                 endAdornment: (
                     <InputAdornment position="end">
-                        <CalendarTodayIcon sx={{ color: '#2E7D32', cursor: 'pointer' }} />
+                        <CalendarTodayIcon sx={{ color: '#754C27', cursor: 'pointer' }} />
                     </InputAdornment>
                 ),
             }}
@@ -69,57 +51,52 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
 export default function CreateStockAdjustment({ onBack }) {
     const dispatch = useDispatch();
 
-    // Loading states
-    const [isLoading, setIsLoading] = useState(false);
-    const [isLoadingRefNo, setIsLoadingRefNo] = useState(false);
-
-    // Form states
+    // Form state
     const [startDate, setStartDate] = useState(new Date());
     const [lastRefNo, setLastRefNo] = useState('');
     const [kitchens, setKitchens] = useState([]);
     const [saveKitchen, setSaveKitchen] = useState('');
+    const [isLoadingRefNo, setIsLoadingRefNo] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
 
-    // Product selection states
+    // Product state
     const [products, setProducts] = useState([]);
     const [quantities, setQuantities] = useState({});
     const [units, setUnits] = useState({});
     const [unitPrices, setUnitPrices] = useState({});
     const [totals, setTotals] = useState({});
     const [total, setTotal] = useState(0);
-    const [searchTerm, setSearchTerm] = useState("");
-    const [expiryDates, setExpiryDates] = useState({});
+    const [selectedProducts, setSelectedProducts] = useState([]);
 
-    // Product search results and UI states
+    // Search state
+    const [searchTerm, setSearchTerm] = useState("");
     const [searchResults, setSearchResults] = useState([]);
     const [showDropdown, setShowDropdown] = useState(false);
     const [allProducts, setAllProducts] = useState([]);
-    const [filteredProducts, setFilteredProducts] = useState([]);
-    const [selectedProducts, setSelectedProducts] = useState([]);
-    const [page, setPage] = useState(1);
-    const [productsPerPage] = useState(12);
-    const [totalPages, setTotalPages] = useState(1);
-    const [paginatedProducts, setPaginatedProducts] = useState([]);
+
+    // Additional product details
+    const [expiryDates, setExpiryDates] = useState({});
     const [imageErrors, setImageErrors] = useState({});
 
+    // Get user data
     const userDataJson = localStorage.getItem("userData2");
-    const userData2 = JSON.parse(userDataJson);
+    const userData2 = userDataJson ? JSON.parse(userDataJson) : {};
 
-    // Load initial data
+    // Initial Data Loading
     useEffect(() => {
-        const loadInitialData = async () => {
+        const fetchData = async () => {
             setIsLoading(true);
             try {
                 // Load kitchens
-                const kitchensResponse = await dispatch(kitchenAll({ offset: 0, limit: 100 })).unwrap();
-                if (kitchensResponse?.data) {
-                    setKitchens(kitchensResponse.data);
+                const kitchenResponse = await dispatch(kitchenAll({ offset: 0, limit: 100 })).unwrap();
+                if (kitchenResponse?.data) {
+                    setKitchens(kitchenResponse.data);
                 }
 
-                // Load products
+                // Load all products for faster searching
                 const productsResponse = await dispatch(searchProductName({ product_name: '' })).unwrap();
                 if (productsResponse?.data) {
                     setAllProducts(productsResponse.data);
-                    setFilteredProducts(productsResponse.data);
                 }
             } catch (error) {
                 console.error('Error loading initial data:', error);
@@ -133,43 +110,8 @@ export default function CreateStockAdjustment({ onBack }) {
             }
         };
 
-        loadInitialData();
+        fetchData();
     }, [dispatch]);
-
-    // Filter products based on search term
-    useEffect(() => {
-        const filtered = allProducts.filter(product =>
-            product.product_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            product.product_code?.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-
-        const sortedProducts = [...filtered].sort((a, b) => {
-            const aSelected = selectedProducts.includes(a.product_code);
-            const bSelected = selectedProducts.includes(b.product_code);
-            if (aSelected && !bSelected) return -1;
-            if (!aSelected && bSelected) return 1;
-            return 0;
-        });
-
-        setFilteredProducts(sortedProducts);
-        setTotalPages(Math.ceil(sortedProducts.length / productsPerPage));
-        setPage(1);
-
-        // For the dropdown search results
-        if (searchTerm.length > 0) {
-            setSearchResults(filtered.slice(0, 10)); // Show top 10 results
-            setShowDropdown(filtered.length > 0);
-        } else {
-            setShowDropdown(false);
-        }
-    }, [searchTerm, allProducts, selectedProducts, productsPerPage]);
-
-    // Update paginated products when page changes
-    useEffect(() => {
-        const startIndex = (page - 1) * productsPerPage;
-        const endIndex = startIndex + productsPerPage;
-        setPaginatedProducts(filteredProducts.slice(startIndex, endIndex));
-    }, [filteredProducts, page, productsPerPage]);
 
     // Generate reference number based on kitchen and date
     const handleGetLastRefNo = async (selectedKitchen, selectedDate) => {
@@ -246,6 +188,55 @@ export default function CreateStockAdjustment({ onBack }) {
         }
     };
 
+    // Calculate order totals
+    const calculateOrderTotals = (currentProducts = products) => {
+        let newTotals = {};
+        let newTotal = 0;
+
+        currentProducts.forEach(product => {
+            const productCode = product.product_code;
+            const quantity = quantities[productCode] || 1;
+            const price = unitPrices[productCode] || (
+                units[productCode] === product.productUnit1?.unit_code
+                    ? product.bulk_unit_price
+                    : product.retail_unit_price
+            );
+            const lineTotal = quantity * price;
+
+            newTotals[productCode] = lineTotal;
+            newTotal += lineTotal;
+        });
+
+        setTotals(newTotals);
+        setTotal(newTotal);
+    };
+
+    // Function to render product image with error handling
+    const renderProductImage = (product) => {
+        // If this image has errored before or no image
+        if (imageErrors[product.product_code] || !product?.product_img) {
+            return null;
+        }
+
+        const baseUrl = process.env.REACT_APP_URL_API || 'http://localhost:4001';
+        const imageUrl = `${baseUrl}/public/images/${product.product_img}`;
+
+        return (
+            <img
+                src={imageUrl}
+                alt={product.product_name}
+                style={{ width: '30px', height: '30px', objectFit: 'cover', marginRight: '8px' }}
+                onError={(e) => {
+                    console.error('Image load error:', imageUrl);
+                    setImageErrors(prev => ({
+                        ...prev,
+                        [product.product_code]: true
+                    }));
+                }}
+            />
+        );
+    };
+
     // Handle kitchen change
     const handleKitchenChange = (event) => {
         const newKitchenCode = event.target.value;
@@ -265,210 +256,185 @@ export default function CreateStockAdjustment({ onBack }) {
         }
     };
 
-    // Handle search input change
-    const handleSearchChange = (e) => {
-        const value = e.target.value;
-        setSearchTerm(value);
-    };
-
-    // Handle search with Enter key
-    const handleSearchKeyDown = (e) => {
-        if (e.key === 'Enter' && searchTerm.trim() !== '') {
-            searchProduct(searchTerm);
-        }
-    };
-
-    // Search product by name or code
-    const searchProduct = async (term) => {
-        if (!term.trim()) return;
-
-        try {
-            const response = await dispatch(searchProductName({ product_name: term })).unwrap();
-            if (response.data && response.data.length > 0) {
-                // Find exact match or use the first result
-                const exactMatch = response.data.find(
-                    product => product.product_name.toLowerCase() === term.toLowerCase() ||
-                        product.product_code.toLowerCase() === term.toLowerCase()
-                );
-                const selectedProduct = exactMatch || response.data[0];
-
-                // Handle product selection with duplicate check
-                handleProductSelect(selectedProduct);
-                setSearchTerm('');
-                setShowDropdown(false);
-            } else {
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'Product Not Found',
-                    text: 'No products found matching your search.',
-                    confirmButtonColor: '#754C27'
-                });
-            }
-        } catch (err) {
-            console.error('Error searching products:', err);
-            Swal.fire({
-                icon: 'error',
-                title: 'Search Error',
-                text: err.message || 'Failed to search products',
-                confirmButtonColor: '#754C27'
-            });
-        }
-    };
-
-    // Toggle product selection (for grid view)
-    const toggleSelectProduct = (product) => {
-        const isSelected = selectedProducts.includes(product.product_code);
-
-        if (isSelected) {
-            // Remove product
-            setSelectedProducts(prev => prev.filter(id => id !== product.product_code));
-            setProducts(prev => prev.filter(p => p.product_code !== product.product_code));
-
-            // Clean up associated state
-            const { [product.product_code]: _, ...newQuantities } = quantities;
-            const { [product.product_code]: __, ...newUnits } = units;
-            const { [product.product_code]: ___, ...newPrices } = unitPrices;
-            const { [product.product_code]: ____, ...newTotals } = totals;
-            const { [product.product_code]: _____, ...newExpiryDates } = expiryDates;
-
-            setQuantities(newQuantities);
-            setUnits(newUnits);
-            setUnitPrices(newPrices);
-            setTotals(newTotals);
-            setExpiryDates(newExpiryDates);
-
-            // Recalculate total
-            setTotal(Object.values(newTotals).reduce((sum, curr) => sum + curr, 0));
-        } else {
-            // Check if already exists in dropdown selection
-            if (products.some(p => p.product_code === product.product_code)) {
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'Duplicate Product',
-                    text: `${product.product_name} is already in your adjustment.`,
-                    timer: 1500
-                });
-                return;
-            }
-
-            // Add product
-            setSelectedProducts(prev => [...prev, product.product_code]);
-            setProducts(prev => [...prev, product]);
-
-            // Initialize associated state
-            setQuantities(prev => ({ ...prev, [product.product_code]: 1 }));
-            setUnits(prev => ({ ...prev, [product.product_code]: product.productUnit1?.unit_code }));
-            setUnitPrices(prev => ({ ...prev, [product.product_code]: product.bulk_unit_price }));
-            setExpiryDates(prev => ({ ...prev, [product.product_code]: new Date() }));
-
-            // Calculate initial total
-            const initialTotal = product.bulk_unit_price * 1;
-            setTotals(prev => ({ ...prev, [product.product_code]: initialTotal }));
-            setTotal(prev => prev + initialTotal);
-        }
-    };
-
-    // Handle product selection from dropdown
+    // Handle product selection
     const handleProductSelect = (product) => {
-        // Check if product already exists
-        if (products.some(p => p.product_code === product.product_code) ||
-            selectedProducts.includes(product.product_code)) {
+        // Check if product is already in the list
+        if (selectedProducts.includes(product.product_code)) {
             Swal.fire({
                 icon: 'warning',
                 title: 'Duplicate Product',
-                text: `${product.product_name} is already in your adjustment.`,
-                timer: 1500
+                text: `${product.product_name} is already in your stock adjustment. Please adjust the quantity instead.`,
+                confirmButtonColor: '#754C27'
             });
             setSearchTerm('');
             setShowDropdown(false);
             return;
         }
 
-        // Add product
+        // Add to selected products
         setSelectedProducts(prev => [...prev, product.product_code]);
         setProducts(prev => [...prev, product]);
 
-        // Initialize associated state
+        // Initialize product data
         setQuantities(prev => ({ ...prev, [product.product_code]: 1 }));
         setUnits(prev => ({ ...prev, [product.product_code]: product.productUnit1?.unit_code || '' }));
         setUnitPrices(prev => ({ ...prev, [product.product_code]: product.bulk_unit_price || 0 }));
         setExpiryDates(prev => ({ ...prev, [product.product_code]: new Date() }));
 
-        // Calculate initial total
-        const initialTotal = (product.bulk_unit_price || 0) * 1;
-        setTotals(prev => ({ ...prev, [product.product_code]: initialTotal }));
-        setTotal(prev => prev + initialTotal);
-
-        // Reset search
+        // Reset search and calculate totals
         setSearchTerm('');
         setShowDropdown(false);
+        calculateOrderTotals([...products, product]);
     };
 
-    // Handle quantity change with +/- buttons
-    const handleQuantityChange = (productCode, delta) => {
-        const currentQty = quantities[productCode] || 0;
-        const newQty = Math.max(1, currentQty + delta);
+    // Handle search input changes
+    const handleSearchChange = (e) => {
+        const value = e.target.value;
+        setSearchTerm(value);
 
-        setQuantities(prev => ({ ...prev, [productCode]: newQty }));
+        // Handle Enter key for quick selection
+        if (e.key === 'Enter' && value.trim() !== '') {
+            // First try to find in already loaded products
+            const exactMatch = allProducts.find(
+                product => product.product_name?.toLowerCase() === value.toLowerCase() ||
+                    product.product_code?.toLowerCase() === value.toLowerCase()
+            );
 
-        // Update total
-        const price = unitPrices[productCode] || 0;
-        const newTotal = newQty * price;
-        setTotals(prev => ({ ...prev, [productCode]: newTotal }));
-        setTotal(Object.values({ ...totals, [productCode]: newTotal }).reduce((a, b) => a + b, 0));
-    };
+            if (exactMatch) {
+                handleProductSelect(exactMatch);
+                return;
+            }
 
-    // Handle direct quantity input
-    const handleQuantityInput = (productCode, value) => {
-        const newValue = parseInt(value);
-        if (isNaN(newValue) || newValue < 1) return;
+            // If not found, search via API
+            dispatch(searchProductName({ product_name: value }))
+                .unwrap()
+                .then((res) => {
+                    if (res.data && res.data.length > 0) {
+                        const exactApiMatch = res.data.find(
+                            product => product.product_name?.toLowerCase() === value.toLowerCase() ||
+                                product.product_code?.toLowerCase() === value.toLowerCase()
+                        );
+                        const selectedProduct = exactApiMatch || res.data[0];
+                        handleProductSelect(selectedProduct);
+                    }
+                })
+                .catch((err) => console.log(err?.message));
+        } else if (value.length > 1) {
+            // Filter from already loaded products
+            const localResults = allProducts.filter(product =>
+                product.product_name?.toLowerCase().includes(value.toLowerCase()) ||
+                product.product_code?.toLowerCase().includes(value.toLowerCase())
+            ).slice(0, 10);
 
-        setQuantities(prev => ({
-            ...prev,
-            [productCode]: newValue
-        }));
-
-        const unitPrice = unitPrices[productCode] || 0;
-        const newTotal = newValue * unitPrice;
-
-        setTotals(prev => ({
-            ...prev,
-            [productCode]: newTotal
-        }));
-
-        // Recalculate total
-        calculateOrderTotal();
-    };
-
-    // Calculate total for the entire order
-    const calculateOrderTotal = () => {
-        const newTotal = Object.values(totals).reduce((sum, current) => sum + current, 0);
-        setTotal(newTotal);
-    };
-
-    // Handle unit change
-    const handleUnitChange = (productCode, newUnit) => {
-        setUnits(prev => ({ ...prev, [productCode]: newUnit }));
-
-        const product = products.find(p => p.product_code === productCode);
-        if (!product) return;
-
-        const newPrice = newUnit === product.productUnit1?.unit_code
-            ? product.bulk_unit_price
-            : product.retail_unit_price;
-
-        setUnitPrices(prev => ({ ...prev, [productCode]: newPrice }));
-
-        // Update total
-        const qty = quantities[productCode] || 0;
-        const newTotal = qty * newPrice;
-        setTotals(prev => ({ ...prev, [productCode]: newTotal }));
-        setTotal(Object.values({ ...totals, [productCode]: newTotal }).reduce((a, b) => a + b, 0));
+            if (localResults.length > 0) {
+                setSearchResults(localResults);
+                setShowDropdown(true);
+            } else {
+                // If no local results, search via API
+                dispatch(searchProductName({ product_name: value }))
+                    .unwrap()
+                    .then((res) => {
+                        if (res.data) {
+                            setSearchResults(res.data);
+                            setShowDropdown(true);
+                        }
+                    })
+                    .catch((err) => console.log(err?.message));
+            }
+        } else {
+            setSearchResults([]);
+            setShowDropdown(false);
+        }
     };
 
     // Handle expiry date change
     const handleExpiryDateChange = (productCode, date) => {
-        setExpiryDates(prev => ({ ...prev, [productCode]: date }));
+        setExpiryDates(prev => ({
+            ...prev,
+            [productCode]: date
+        }));
+    };
+
+    // Handle unit change
+    const handleUnitChange = (productCode, newUnitCode) => {
+        setUnits(prev => ({
+            ...prev,
+            [productCode]: newUnitCode
+        }));
+
+        const product = products.find(p => p.product_code === productCode);
+        if (!product) return;
+
+        const defaultUnitPrice = newUnitCode === product.productUnit1?.unit_code
+            ? product.bulk_unit_price
+            : product.retail_unit_price;
+
+        setUnitPrices(prev => ({
+            ...prev,
+            [productCode]: defaultUnitPrice
+        }));
+
+        calculateOrderTotals();
+    };
+
+    // Handle quantity change
+    const handleQuantityChange = (productCode, newQuantity) => {
+        const qty = parseInt(newQuantity);
+        if (isNaN(qty) || qty < 1) return;
+
+        setQuantities(prev => ({
+            ...prev,
+            [productCode]: qty
+        }));
+
+        calculateOrderTotals();
+    };
+
+    // Add +/- button handlers
+    const handleQuantityIncrease = (productCode) => {
+        const currentQty = quantities[productCode] || 1;
+        handleQuantityChange(productCode, currentQty + 1);
+    };
+
+    const handleQuantityDecrease = (productCode) => {
+        const currentQty = quantities[productCode] || 1;
+        if (currentQty > 1) {
+            handleQuantityChange(productCode, currentQty - 1);
+        }
+    };
+
+    // Handle unit price change
+    const handleUnitPriceChange = (productCode, value) => {
+        const newPrice = parseFloat(value);
+        if (isNaN(newPrice) || newPrice < 0) return;
+
+        setUnitPrices(prev => ({
+            ...prev,
+            [productCode]: newPrice
+        }));
+
+        calculateOrderTotals();
+    };
+
+    // Handle product deletion
+    const handleDeleteProduct = (productCode) => {
+        setProducts(prev => prev.filter(p => p.product_code !== productCode));
+        setSelectedProducts(prev => prev.filter(id => id !== productCode));
+
+        // Clean up associated state
+        const { [productCode]: _, ...newQuantities } = quantities;
+        const { [productCode]: __, ...newUnits } = units;
+        const { [productCode]: ___, ...newPrices } = unitPrices;
+        const { [productCode]: ____, ...newTotals } = totals;
+        const { [productCode]: _____, ...newExpiryDates } = expiryDates;
+
+        setQuantities(newQuantities);
+        setUnits(newUnits);
+        setUnitPrices(newPrices);
+        setTotals(newTotals);
+        setExpiryDates(newExpiryDates);
+
+        calculateOrderTotals(products.filter(p => p.product_code !== productCode));
     };
 
     // Reset form
@@ -480,9 +446,10 @@ export default function CreateStockAdjustment({ onBack }) {
         setUnitPrices({});
         setTotals({});
         setTotal(0);
+        setSaveKitchen('');
         setSearchTerm('');
         setExpiryDates({});
-        // Don't reset kitchen and date to improve UX
+        setLastRefNo(''); // Clear ref no when form is reset
     };
 
     // Handle form submission
@@ -504,9 +471,7 @@ export default function CreateStockAdjustment({ onBack }) {
             Swal.fire({
                 title: 'Saving stock adjustment...',
                 allowOutsideClick: false,
-                didOpen: () => {
-                    Swal.showLoading();
-                }
+                didOpen: () => Swal.showLoading()
             });
 
             // Prepare header data
@@ -542,7 +507,7 @@ export default function CreateStockAdjustment({ onBack }) {
             };
 
             // Submit the data
-            const result = await dispatch(addKt_saf(orderData)).unwrap();
+            await dispatch(addKt_saf(orderData)).unwrap();
 
             await Swal.fire({
                 icon: 'success',
@@ -567,516 +532,389 @@ export default function CreateStockAdjustment({ onBack }) {
         }
     };
 
-    // Render product image
-    const renderProductImage = (product, size = 'small') => {
-        // If no image
-        if (!product?.product_img) {
-            return (
-                <Box sx={{
-                    width: size === 'small' ? '100%' : (size === 'table' ? '100%' : 200),
-                    height: size === 'small' ? 100 : (size === 'table' ? '100%' : 200),
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    bgcolor: '#f5f5f5',
-                    border: '1px solid #ddd',
-                    borderRadius: size === 'table' ? '4px' : '8px'
-                }}>
-                    <Typography variant="body2" color="text.secondary">No Image</Typography>
-                </Box>
-            );
-        }
-
-        // Check if this image has errored before
-        if (imageErrors[product.product_code]) {
-            return (
-                <Box sx={{
-                    width: size === 'small' ? '100%' : (size === 'table' ? '100%' : 200),
-                    height: size === 'small' ? 100 : (size === 'table' ? '100%' : 200),
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    bgcolor: '#f5f5f5',
-                    border: '1px solid #ddd',
-                    borderRadius: size === 'table' ? '4px' : '8px'
-                }}>
-                    <Typography variant="body2" color="text.secondary">Image Error</Typography>
-                </Box>
-            );
-        }
-
-        const baseUrl = process.env.REACT_APP_URL_API || 'http://localhost:4001';
-        const imageUrl = `${baseUrl}/public/images/${product.product_img}`;
-
-        return (
-            <Box sx={{
-                width: '100%',
-                height: size === 'small' ? 100 : (size === 'table' ? '100%' : 200),
-                position: 'relative',
-                overflow: 'hidden'
-            }}>
-                <img
-                    src={imageUrl}
-                    alt={product.product_name}
-                    style={{
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'cover',
-                        borderRadius: size === 'table' ? '4px' : '8px 8px 0 0'
-                    }}
-                    onError={(e) => {
-                        console.error('Image load error:', imageUrl);
-                        setImageErrors(prev => ({
-                            ...prev,
-                            [product.product_code]: true
-                        }));
-                    }}
-                />
-            </Box>
-        );
-    };
-
+    // Loading state
     if (isLoading && !products.length) {
         return (
-            <Box sx={{
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                height: '100vh',
-                flexDirection: 'column',
-                gap: 2
-            }}>
-                <Typography variant="h6">Loading...</Typography>
-                <CircularProgress />
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+                <CircularProgress sx={{ color: '#754C27' }} />
+                <Typography sx={{ ml: 2 }}>Loading data...</Typography>
             </Box>
         );
     }
 
     return (
-        <Box sx={{ padding: "20px", fontFamily: "Arial, sans-serif" }}>
+        <Box sx={{ width: '100%' }}>
             <Button
-                startIcon={<ArrowBackIcon />}
                 onClick={onBack}
-                sx={{ marginBottom: "20px" }}
+                startIcon={<ArrowBackIcon />}
+                sx={{ mb: 2, mr: 'auto' }}
             >
                 Back to Stock Adjustments
             </Button>
-
-            {/* Main content */}
-            <Box display="flex" p={2} bgcolor="#F9F9F9" borderRadius="12px" boxShadow={1}>
-                {/* Left Panel - Product Selection */}
-                <Box flex={2} pr={2} display="flex" flexDirection="column">
-                    {/* Search and Filter Section */}
-                    <Box sx={{ marginBottom: "20px", paddingTop: '20px', position: 'relative' }}>
-                        <TextField
-                            placeholder="Search products by name or code..."
-                            value={searchTerm}
-                            onChange={handleSearchChange}
-                            onKeyDown={handleSearchKeyDown}
-                            sx={{
-                                width: '100%',
-                                '& .MuiOutlinedInput-root': {
-                                    borderRadius: '40px',
-                                }
-                            }}
-                            InputProps={{
-                                startAdornment: (
-                                    <InputAdornment position="start">
-                                        <SearchIcon sx={{ color: '#5A607F' }} />
-                                    </InputAdornment>
-                                ),
-                            }}
-                        />
-
-                        {/* Search Dropdown */}
-                        {showDropdown && searchResults.length > 0 && (
-                            <Box sx={{
-                                position: 'absolute',
-                                top: '100%',
-                                left: 0,
-                                right: 0,
-                                bgcolor: 'background.paper',
-                                boxShadow: 3,
-                                borderRadius: 1,
-                                zIndex: 1000,
-                                maxHeight: 300,
-                                overflow: 'auto'
-                            }}>
-                                {searchResults.map((product) => (
-                                    <Box
-                                        key={product.product_code}
-                                        onClick={() => handleProductSelect(product)}
-                                        sx={{
-                                            p: 1.5,
-                                            cursor: 'pointer',
-                                            '&:hover': { bgcolor: 'action.hover' },
-                                            borderBottom: '1px solid',
-                                            borderColor: 'divider',
-                                            display: 'flex',
-                                            alignItems: 'center'
-                                        }}
-                                    >
-                                        <Box sx={{ mr: 2, width: 40, height: 40 }}>
-                                            {renderProductImage(product, 'table')}
-                                        </Box>
-                                        <Box>
-                                            <Typography variant="body2">{product.product_name}</Typography>
-                                            <Typography variant="caption" color="text.secondary">{product.product_code}</Typography>
-                                        </Box>
-                                    </Box>
-                                ))}
-                            </Box>
-                        )}
-                    </Box>
-
-                    {/* Products Grid */}
-                    <Box display="flex" flexWrap="wrap" gap={2} justifyContent="center" sx={{ flex: 1, overflow: 'auto' }}>
-                        {paginatedProducts.length === 0 ? (
-                            <Typography sx={{ my: 4, color: 'text.secondary' }}>
-                                No products found. Try a different search term.
-                            </Typography>
-                        ) : (
-                            paginatedProducts.map((product) => (
-                                <Card
-                                    key={product.product_code}
+            <Box sx={{ width: '100%', mt: '10px', flexDirection: 'column' }}>
+                <Box sx={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    flexDirection: 'column',
+                    border: '1px solid #E4E4E4',
+                    borderRadius: '10px',
+                    bgcolor: '#FFFFFF',
+                    height: '100%',
+                    p: '16px',
+                    position: 'relative',
+                    zIndex: 2,
+                    mb: '50px'
+                }}>
+                    <Box sx={{ width: '90%', mt: '24px' }}>
+                        {/* Header Section */}
+                        <Grid container spacing={2}>
+                            <Grid item xs={12} md={6}>
+                                <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
+                                    Ref.no
+                                </Typography>
+                                <TextField
+                                    value={isLoadingRefNo ? "Generating..." : (lastRefNo || "Please select kitchen first")}
+                                    disabled
+                                    size="small"
+                                    placeholder='Ref.no'
                                     sx={{
-                                        width: 160,
-                                        borderRadius: '16px',
-                                        boxShadow: 3,
-                                        position: 'relative',
-                                        cursor: 'pointer',
-                                        border: selectedProducts.includes(product.product_code) ? '2px solid #4caf50' : 'none',
-                                        bgcolor: selectedProducts.includes(product.product_code) ? '#f0fff0' : 'white',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        transition: 'all 0.2s ease-in-out',
-                                        '&:hover': {
-                                            transform: 'translateY(-4px)',
-                                            boxShadow: 4
+                                        mt: '8px',
+                                        width: '100%',
+                                        '& .MuiOutlinedInput-root': {
+                                            borderRadius: '10px',
+                                            fontWeight: '700'
+                                        },
+                                        '& .Mui-disabled': {
+                                            WebkitTextFillColor: !lastRefNo ? '#d32f2f' : 'rgba(0, 0, 0, 0.38)',
                                         }
                                     }}
-                                    onClick={() => toggleSelectProduct(product)}
-                                >
-                                    {renderProductImage(product, 'small')}
-                                    <CardContent>
-                                        <Typography variant="body1" fontWeight={500} noWrap>
-                                            {product.product_name}
-                                        </Typography>
-                                        <Typography variant="body2" color="text.secondary" noWrap>
-                                            {product.product_code}
-                                        </Typography>
-                                        {product.tax1 === 'Y' && (
-                                            <Typography variant="caption" color="success.main">
-                                                Taxable
-                                            </Typography>
-                                        )}
-                                    </CardContent>
-                                    {selectedProducts.includes(product.product_code) && (
-                                        <CheckCircleIcon
-                                            sx={{
-                                                color: '#4caf50',
-                                                position: 'absolute',
-                                                top: 8,
-                                                right: 8,
-                                                fontSize: 30,
-                                                backgroundColor: 'rgba(255,255,255,0.7)',
-                                                borderRadius: '50%'
-                                            }}
-                                        />
-                                    )}
-                                </Card>
-                            ))
-                        )}
-                    </Box>
-
-                    {/* Pagination */}
-                    <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2, mb: 2 }}>
-                        <Pagination
-                            count={totalPages}
-                            page={page}
-                            onChange={(event, value) => setPage(value)}
-                            color="primary"
-                            showFirstButton
-                            showLastButton
-                            size="large"
-                            sx={{
-                                '& .MuiPaginationItem-root': {
-                                    '&.Mui-selected': {
-                                        backgroundColor: '#754C27',
-                                        color: 'white',
-                                        '&:hover': {
-                                            backgroundColor: '#5c3c1f',
-                                        }
-                                    }
-                                }
-                            }}
-                        />
-                    </Box>
-                </Box>
-
-                {/* Right Panel - Order Details */}
-                <Box flex={2} pl={2} bgcolor="#FFF" p={3} borderRadius="12px" boxShadow={3}>
-                    <Grid container spacing={3}>
-                        <Grid item xs={12}>
-                            <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>
-                                Ref.no
-                            </Typography>
-                            <TextField
-                                value={isLoadingRefNo ? "Generating..." : (lastRefNo || "Please select kitchen first")}
-                                disabled
-                                size="small"
-                                fullWidth
-                                sx={{
-                                    mt: '8px',
-                                    '& .MuiOutlinedInput-root': {
+                                    InputProps={{
+                                        endAdornment: isLoadingRefNo ? (
+                                            <InputAdornment position="end">
+                                                <span style={{ fontSize: '12px', color: '#757575' }}>Loading...</span>
+                                            </InputAdornment>
+                                        ) : null,
+                                    }}
+                                />
+                            </Grid>
+                            <Grid item xs={12} md={6}>
+                                <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
+                                    Date
+                                </Typography>
+                                <DatePicker
+                                    selected={startDate}
+                                    onChange={handleDateChange}
+                                    dateFormat="MM/dd/yyyy"
+                                    customInput={<CustomDateInput />}
+                                />
+                            </Grid>
+                            {/* Kitchen Section */}
+                            <Grid item xs={12} md={6}>
+                                <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
+                                    Commissary Kitchen
+                                </Typography>
+                                <Box
+                                    component="select"
+                                    value={saveKitchen}
+                                    onChange={handleKitchenChange}
+                                    sx={{
+                                        mt: '8px',
+                                        width: '100%',
+                                        height: '40px',
                                         borderRadius: '10px',
-                                    },
-                                    '& .Mui-disabled': {
-                                        WebkitTextFillColor: !lastRefNo ? '#d32f2f' : 'rgba(0, 0, 0, 0.38)',
-                                    }
-                                }}
-                                InputProps={{
-                                    endAdornment: isLoadingRefNo ? (
-                                        <InputAdornment position="end">
-                                            <CircularProgress size={20} />
-                                        </InputAdornment>
-                                    ) : null,
-                                }}
-                            />
+                                        padding: '0 14px',
+                                        border: '1px solid rgba(0, 0, 0, 0.23)',
+                                        fontSize: '16px',
+                                        '&:focus': {
+                                            outline: 'none',
+                                            borderColor: '#754C27',
+                                        },
+                                        '& option': {
+                                            fontSize: '16px',
+                                        },
+                                    }}
+                                >
+                                    <option value="">Select a Commissary Kitchen</option>
+                                    {kitchens.map((kitchen) => (
+                                        <option key={kitchen.kitchen_code} value={kitchen.kitchen_code}>
+                                            {kitchen.kitchen_name}
+                                        </option>
+                                    ))}
+                                </Box>
+                            </Grid>
                         </Grid>
 
-                        <Grid item xs={12} md={6}>
-                            <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>
-                                Date
-                            </Typography>
-                            <DatePicker
-                                selected={startDate}
-                                onChange={handleDateChange}
-                                dateFormat="MM/dd/yyyy"
-                                customInput={<CustomInput />}
-                            />
-                        </Grid>
+                        <Divider sx={{ mt: '24px' }} />
 
-                        <Grid item xs={12} md={6}>
-                            <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>
-                                Kitchen
+                        <Box sx={{ display: 'flex', flexDirection: 'row', width: '100%', p: '24px 0px' }}>
+                            <Typography sx={{ fontSize: '20px', fontWeight: '600' }}>
+                                Current Stock Adjustment
                             </Typography>
-                            <Select
-                                value={saveKitchen}
-                                onChange={handleKitchenChange}
-                                displayEmpty
-                                size="small"
-                                fullWidth
-                                sx={{
-                                    mt: '8px',
-                                    borderRadius: '10px',
-                                }}
-                            >
-                                <MenuItem value=""><em>Select Kitchen</em></MenuItem>
-                                {kitchens.map((kitchen) => (
-                                    <MenuItem key={kitchen.kitchen_code} value={kitchen.kitchen_code}>
-                                        {kitchen.kitchen_name}
-                                    </MenuItem>
-                                ))}
-                            </Select>
-                        </Grid>
-                    </Grid>
-
-                    <Divider sx={{ my: 3 }} />
-
-                    {/* Current Order Section */}
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Typography variant="h6" color="#754C27">Current Adjustment</Typography>
-                        <Box>
-                            <Typography variant="body2" color="text.secondary">
-                                {products.length} items selected
+                            <Typography sx={{ ml: 'auto' }}>
+                                Product Search
                             </Typography>
+                            <Box sx={{ position: 'relative', width: '50%', ml: '12px' }}>
+                                <TextField
+                                    value={searchTerm}
+                                    onChange={handleSearchChange}
+                                    onKeyDown={handleSearchChange}
+                                    placeholder="Search by product name or code"
+                                    sx={{
+                                        '& .MuiInputBase-root': {
+                                            height: '30px',
+                                            width: '100%'
+                                        },
+                                        '& .MuiOutlinedInput-input': {
+                                            padding: '8.5px 14px',
+                                        },
+                                        width: '100%'
+                                    }}
+                                    InputProps={{
+                                        startAdornment: (
+                                            <InputAdornment position="start">
+                                                <SearchIcon sx={{ color: '#5A607F' }} />
+                                            </InputAdornment>
+                                        ),
+                                    }}
+                                />
+                                {showDropdown && searchResults.length > 0 && (
+                                    <Box sx={{
+                                        position: 'absolute',
+                                        top: '100%',
+                                        left: 0,
+                                        right: 0,
+                                        backgroundColor: 'white',
+                                        boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                                        borderRadius: '4px',
+                                        zIndex: 1000,
+                                        maxHeight: '200px',
+                                        overflowY: 'auto',
+                                        mt: '4px'
+                                    }}>
+                                        {searchResults.map((product) => (
+                                            <Box
+                                                key={product.product_code}
+                                                onClick={() => handleProductSelect(product)}
+                                                sx={{
+                                                    p: 1.5,
+                                                    cursor: 'pointer',
+                                                    '&:hover': {
+                                                        backgroundColor: '#f5f5f5'
+                                                    },
+                                                    borderBottom: '1px solid #eee',
+                                                    display: 'flex',
+                                                    alignItems: 'center'
+                                                }}
+                                            >
+                                                {renderProductImage(product)}
+                                                <Box>
+                                                    <Typography sx={{ fontSize: '14px', fontWeight: '600' }}>
+                                                        {product.product_name}
+                                                    </Typography>
+                                                    <Typography sx={{ fontSize: '12px', color: 'text.secondary' }}>
+                                                        {product.product_code}
+                                                    </Typography>
+                                                </Box>
+                                            </Box>
+                                        ))}
+                                    </Box>
+                                )}
+                            </Box>
                             <Button
-                                variant="contained"
                                 onClick={resetForm}
                                 sx={{
-                                    background: "rgba(192, 231, 243, 0.88)",
-                                    color: '#3399FF',
+                                    ml: 'auto',
+                                    bgcolor: '#E2EDFB',
+                                    borderRadius: '6px',
+                                    width: '105px',
                                     '&:hover': {
-                                        background: "rgba(192, 231, 243, 0.95)",
-                                    },
-                                    ml: 1
+                                        bgcolor: '#d0e0f7'
+                                    }
                                 }}
-                                disabled={products.length === 0}
                             >
                                 Clear All
                             </Button>
                         </Box>
+
+                        <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', mb: '12px' }}>
+                            <table style={{ width: '100%', marginTop: '24px' }}>
+                                <thead>
+                                    <tr>
+                                        <th style={{ padding: '4px', fontSize: '14px', width: '1%', color: '#754C27', fontWeight: '800' }}>No.</th>
+                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '15%', color: '#754C27', fontWeight: '800' }}>Product code</th>
+                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '15%', color: '#754C27', fontWeight: '800' }}>Product name</th>
+                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Expiry Date</th>
+                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Quantity</th>
+                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '10%', color: '#754C27', fontWeight: '800' }}>Unit</th>
+                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Unit Price</th>
+                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Total</th>
+                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '1%', color: '#754C27', fontWeight: '800' }}></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {products.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={9} style={{ textAlign: 'center', padding: '16px', color: '#666' }}>
+                                                No products added yet. Search and select products above.
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        products.map((product, index) => {
+                                            const productCode = product.product_code;
+                                            const currentUnit = units[productCode] || product.productUnit1?.unit_code;
+                                            const currentQuantity = quantities[productCode] || 1;
+                                            const currentUnitPrice = unitPrices[productCode] !== undefined ?
+                                                unitPrices[productCode] :
+                                                (currentUnit === product.productUnit1?.unit_code
+                                                    ? product.bulk_unit_price
+                                                    : product.retail_unit_price);
+                                            const currentTotal = totals[productCode]?.toFixed(2) || '0.00';
+
+                                            return (
+                                                <tr key={productCode}>
+                                                    <td style={{ padding: '4px', fontSize: '12px', fontWeight: '800' }}>{index + 1}</td>
+                                                    <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>{productCode}</td>
+                                                    <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                            {renderProductImage(product)}
+                                                            {product.product_name}
+                                                        </Box>
+                                                    </td>
+                                                    <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                                                        <DatePicker
+                                                            selected={expiryDates[productCode] || null}
+                                                            onChange={(date) => handleExpiryDateChange(productCode, date)}
+                                                            dateFormat="MM/dd/yyyy"
+                                                            placeholderText="Select exp date"
+                                                            customInput={
+                                                                <input
+                                                                    style={{
+                                                                        width: '110px',
+                                                                        padding: '4px',
+                                                                        borderRadius: '4px',
+                                                                        textAlign: 'center'
+                                                                    }}
+                                                                />
+                                                            }
+                                                        />
+                                                    </td>
+                                                    <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                            <IconButton
+                                                                onClick={() => handleQuantityDecrease(productCode)}
+                                                                size="small"
+                                                                sx={{ fontSize: '14px', padding: '2px' }}
+                                                            >
+                                                                -
+                                                            </IconButton>
+                                                            <input
+                                                                type="number"
+                                                                min="1"
+                                                                value={currentQuantity}
+                                                                onChange={(e) => handleQuantityChange(productCode, e.target.value)}
+                                                                style={{
+                                                                    width: '50px',
+                                                                    textAlign: 'center',
+                                                                    fontWeight: '600',
+                                                                    padding: '4px'
+                                                                }}
+                                                            />
+                                                            <IconButton
+                                                                onClick={() => handleQuantityIncrease(productCode)}
+                                                                size="small"
+                                                                sx={{ fontSize: '14px', padding: '2px' }}
+                                                            >
+                                                                +
+                                                            </IconButton>
+                                                        </Box>
+                                                    </td>
+                                                    <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                                                        <select
+                                                            value={currentUnit}
+                                                            onChange={(e) => handleUnitChange(productCode, e.target.value)}
+                                                            style={{
+                                                                padding: '4px',
+                                                                borderRadius: '4px'
+                                                            }}
+                                                        >
+                                                            {product.productUnit1?.unit_code && (
+                                                                <option value={product.productUnit1.unit_code}>
+                                                                    {product.productUnit1.unit_name}
+                                                                </option>
+                                                            )}
+                                                            {product.productUnit2?.unit_code && (
+                                                                <option value={product.productUnit2.unit_code}>
+                                                                    {product.productUnit2.unit_name}
+                                                                </option>
+                                                            )}
+                                                        </select>
+                                                    </td>
+                                                    <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            step="0.01"
+                                                            value={currentUnitPrice}
+                                                            onChange={(e) => handleUnitPriceChange(productCode, e.target.value)}
+                                                            style={{
+                                                                width: '80px',
+                                                                textAlign: 'right',
+                                                                fontWeight: '600',
+                                                                padding: '4px'
+                                                            }}
+                                                        />
+                                                    </td>
+                                                    <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                                                        {currentTotal}
+                                                    </td>
+                                                    <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                                                        <IconButton
+                                                            onClick={() => handleDeleteProduct(productCode)}
+                                                            size="small"
+                                                        >
+                                                            <CancelIcon />
+                                                        </IconButton>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })
+                                    )}
+                                </tbody>
+                            </table>
+                        </Box>
+
+                        <Box sx={{ width: '100%', height: 'auto', bgcolor: '#EAB86C', borderRadius: '10px', p: '18px' }}>
+                            <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', mt: '8px' }}>
+                                <Typography sx={{ color: '#FFFFFF', fontSize: '30px', fontWeight: '600' }}>
+                                    Total
+                                </Typography>
+                                <Typography sx={{ color: '#FFFFFF', ml: 'auto', fontSize: '30px', fontWeight: '600' }}>
+                                    ${total.toFixed(2)}
+                                </Typography>
+                            </Box>
+                        </Box>
+
+                        <Button
+                            onClick={handleSave}
+                            disabled={!lastRefNo || products.length === 0}
+                            sx={{
+                                width: '100%',
+                                height: '48px',
+                                mt: '24px',
+                                bgcolor: '#754C27',
+                                color: '#FFFFFF',
+                                '&:hover': {
+                                    bgcolor: '#5C3D1F'
+                                },
+                                '&.Mui-disabled': {
+                                    bgcolor: '#d3d3d3',
+                                    color: '#808080'
+                                }
+                            }}>
+                            Save
+                        </Button>
                     </Box>
-
-                    {/* Order Table */}
-                    <TableContainer component={Paper} sx={{
-                        mt: 2,
-                        maxHeight: '400px',
-                        overflow: 'auto',
-                        boxShadow: 'none',
-                        border: '1px solid #e0e0e0',
-                        borderRadius: '8px'
-                    }}>
-                        <Table stickyHeader>
-                            <TableHead>
-                                <TableRow sx={{ bgcolor: '#f5f5f5' }}>
-                                    <TableCell>No.</TableCell>
-                                    <TableCell>Image</TableCell>
-                                    <TableCell>Product</TableCell>
-                                    <TableCell>Expiry Date</TableCell>
-                                    <TableCell>Quantity</TableCell>
-                                    <TableCell>Unit</TableCell>
-                                    <TableCell>Unit Price</TableCell>
-                                    <TableCell>Total</TableCell>
-                                    <TableCell>Actions</TableCell>
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {products.length === 0 ? (
-                                    <TableRow>
-                                        <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
-                                            <Typography color="text.secondary">
-                                                No products selected. Click on products to add them to your adjustment.
-                                            </Typography>
-                                        </TableCell>
-                                    </TableRow>
-                                ) : (
-                                    products.map((product, index) => (
-                                        <TableRow key={product.product_code}>
-                                            <TableCell>{index + 1}</TableCell>
-                                            <TableCell>
-                                                <Box sx={{
-                                                    width: 50,
-                                                    height: 50,
-                                                    overflow: 'hidden',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    borderRadius: '4px'
-                                                }}>
-                                                    {renderProductImage(product, 'table')}
-                                                </Box>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Typography variant="body2" fontWeight="bold">
-                                                    {product.product_name}
-                                                </Typography>
-                                                <Typography variant="caption" color="text.secondary">
-                                                    {product.product_code}
-                                                </Typography>
-                                            </TableCell>
-                                            <TableCell>
-                                                <DatePicker
-                                                    selected={expiryDates[product.product_code]}
-                                                    onChange={(date) => handleExpiryDateChange(product.product_code, date)}
-                                                    dateFormat="MM/dd/yyyy"
-                                                    customInput={<CustomInput />}
-                                                />
-                                            </TableCell>
-                                            <TableCell>
-                                                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                                    <IconButton
-                                                        onClick={() => handleQuantityChange(product.product_code, -1)}
-                                                        size="small"
-                                                    >
-                                                        <RemoveIcon />
-                                                    </IconButton>
-                                                    <TextField
-                                                        type="number"
-                                                        value={quantities[product.product_code] || 1}
-                                                        onChange={(e) => handleQuantityInput(product.product_code, e.target.value)}
-                                                        size="small"
-                                                        inputProps={{ min: 1, style: { textAlign: 'center' } }}
-                                                        sx={{ width: 60, mx: 1 }}
-                                                    />
-                                                    <IconButton
-                                                        onClick={() => handleQuantityChange(product.product_code, 1)}
-                                                        size="small"
-                                                    >
-                                                        <AddIcon />
-                                                    </IconButton>
-                                                </Box>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Select
-                                                    value={units[product.product_code]}
-                                                    onChange={(e) => handleUnitChange(product.product_code, e.target.value)}
-                                                    size="small"
-                                                    sx={{ minWidth: 80 }}
-                                                >
-                                                    <MenuItem value={product.productUnit1?.unit_code}>
-                                                        {product.productUnit1?.unit_name}
-                                                    </MenuItem>
-                                                    <MenuItem value={product.productUnit2?.unit_code}>
-                                                        {product.productUnit2?.unit_name}
-                                                    </MenuItem>
-                                                </Select>
-                                            </TableCell>
-                                            <TableCell>
-                                                ${unitPrices[product.product_code]?.toFixed(2) || '0.00'}
-                                            </TableCell>
-                                            <TableCell>
-                                                ${totals[product.product_code]?.toFixed(2) || '0.00'}
-                                            </TableCell>
-                                            <TableCell>
-                                                <IconButton
-                                                    onClick={() => toggleSelectProduct(product)}
-                                                    color="error"
-                                                    size="small"
-                                                >
-                                                    <DeleteIcon />
-                                                </IconButton>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))
-                                )}
-                            </TableBody>
-                        </Table>
-                    </TableContainer>
-
-                    {/* Order Summary */}
-                    <Box sx={{
-                        bgcolor: '#EAB86C',
-                        borderRadius: '10px',
-                        p: 2,
-                        mt: 2,
-                        color: 'white'
-                    }}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                            <Typography>Total Items</Typography>
-                            <Typography>{products.length}</Typography>
-                        </Box>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                            <Typography>Total Quantity</Typography>
-                            <Typography>
-                                {Object.values(quantities).reduce((sum, qty) => sum + qty, 0)}
-                            </Typography>
-                        </Box>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
-                            <Typography variant="h6">Total</Typography>
-                            <Typography variant="h6">${total.toFixed(2)}</Typography>
-                        </Box>
-                    </Box>
-
-                    {/* Save Button */}
-                    <Button
-                        variant="contained"
-                        fullWidth
-                        onClick={handleSave}
-                        disabled={isLoading || !lastRefNo || !saveKitchen || products.length === 0}
-                        sx={{
-                            mt: 2,
-                            bgcolor: '#754C27',
-                            color: '#FFFFFF',
-                            height: '48px',
-                            '&:hover': {
-                                bgcolor: '#5c3c1f',
-                            }
-                        }}
-                    >
-                        {isLoading ? 'Saving...' : 'Save'}
-                    </Button>
                 </Box>
             </Box>
         </Box>

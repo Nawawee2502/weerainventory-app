@@ -1,19 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import {
     Box, Button, TextField, Typography, IconButton, Divider, InputAdornment,
-    CircularProgress, Grid
+    CircularProgress, Grid, Select, MenuItem, FormControl
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SearchIcon from '@mui/icons-material/Search';
 import CancelIcon from '@mui/icons-material/Cancel';
+import DeleteIcon from '@mui/icons-material/Delete';
+import AddIcon from '@mui/icons-material/Add';
+import RemoveIcon from '@mui/icons-material/Remove';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { useDispatch } from "react-redux";
 import { searchProductName } from '../../../api/productrecordApi';
 import { kitchenAll } from '../../../api/kitchenApi';
-import { getKtPowByRefno, updateKt_pow } from '../../../api/kitchen/kt_powApi';
-import { Kt_powdtAlljoindt } from '../../../api/kitchen/kt_powdtApi';
+import { getKtPrfByRefno, updateKt_prf } from '../../../api/kitchen/kt_prfApi';
+import { Kt_prfdtAlljoindt } from '../../../api/kitchen/kt_prfdtApi';
 import Swal from 'sweetalert2';
 import { format } from 'date-fns';
 
@@ -49,7 +52,7 @@ const CustomDateInput = React.forwardRef(({ value, onClick, placeholder }, ref) 
     </Box>
 ));
 
-export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
+export default function EditProductReceipt({ onBack, editRefno }) {
     const dispatch = useDispatch();
 
     // Form state
@@ -75,6 +78,8 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
     const [allProducts, setAllProducts] = useState([]);
 
     // Additional product details
+    const [expiryDates, setExpiryDates] = useState({});
+    const [temperatures, setTemperatures] = useState({});
     const [imageErrors, setImageErrors] = useState({});
 
     // Get user data
@@ -104,30 +109,30 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
                     console.log('Loaded all products:', productsResponse.data.length);
                 }
 
-                // Fetch purchase order data using getKtPowByRefno
+                // Fetch receipt data using getKtPrfByRefno
                 if (editRefno) {
-                    console.log('Looking up with getKtPowByRefno for ref:', editRefno);
+                    console.log('Looking up with getKtPrfByRefno for ref:', editRefno);
                     // Pass refno directly as a string, not as an object
                     const refno = typeof editRefno === 'object' ? editRefno.refno : editRefno;
-                    const orderResponse = await dispatch(getKtPowByRefno(refno)).unwrap();
-                    console.log('Response from getKtPowByRefno:', orderResponse);
+                    const receiptResponse = await dispatch(getKtPrfByRefno(refno)).unwrap();
+                    console.log('Response from getKtPrfByRefno:', receiptResponse);
 
-                    if (orderResponse.result && orderResponse.data) {
+                    if (receiptResponse.result && receiptResponse.data) {
                         // Set header info
-                        const orderData = orderResponse.data;
-                        console.log('Header data found:', orderData);
-                        setDebugInfo({ headerData: orderData });
+                        const receiptData = receiptResponse.data;
+                        console.log('Header data found:', receiptData);
+                        setDebugInfo({ headerData: receiptData });
 
                         // Parse and set date
-                        if (orderData.trdate && orderData.trdate.length === 8) {
-                            const year = parseInt(orderData.trdate.substring(0, 4));
-                            const month = parseInt(orderData.trdate.substring(4, 6)) - 1;
-                            const day = parseInt(orderData.trdate.substring(6, 8));
+                        if (receiptData.trdate && receiptData.trdate.length === 8) {
+                            const year = parseInt(receiptData.trdate.substring(0, 4));
+                            const month = parseInt(receiptData.trdate.substring(4, 6)) - 1;
+                            const day = parseInt(receiptData.trdate.substring(6, 8));
                             setStartDate(new Date(year, month, day));
-                        } else if (orderData.rdate) {
+                        } else if (receiptData.rdate) {
                             // Try to parse the date safely
                             try {
-                                const dateParts = orderData.rdate.split('/');
+                                const dateParts = receiptData.rdate.split('/');
                                 if (dateParts.length === 3) {
                                     const month = parseInt(dateParts[0]) - 1;
                                     const day = parseInt(dateParts[1]);
@@ -142,13 +147,13 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
                             }
                         }
 
-                        setSaveKitchen(orderData.kitchen_code || '');
-                        setTotal(parseFloat(orderData.total) || 0);
+                        setSaveKitchen(receiptData.kitchen_code || '');
+                        setTotal(parseFloat(receiptData.total) || 0);
 
                         // Fetch detail data
                         const refno = typeof editRefno === 'object' ? editRefno.refno : editRefno;
-                        const detailResponse = await dispatch(Kt_powdtAlljoindt({ refno: refno })).unwrap();
-                        console.log('Detail response from Kt_powdtAlljoindt:', detailResponse);
+                        const detailResponse = await dispatch(Kt_prfdtAlljoindt(refno)).unwrap();
+                        console.log('Detail response from Kt_prfdtAlljoindt:', detailResponse);
 
                         if (detailResponse.result && detailResponse.data && detailResponse.data.length > 0) {
                             const detailData = detailResponse.data;
@@ -158,12 +163,12 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
                             // Process detail data
                             await processDetailData(detailData);
                         } else {
-                            console.warn('No detail data found in Kt_powdtAlljoindt');
-                            setDebugInfo(prev => ({ ...prev, detailError: 'No detail data found in Kt_powdtAlljoindt' }));
+                            console.warn('No detail data found in Kt_prfdtAlljoindt');
+                            setDebugInfo(prev => ({ ...prev, detailError: 'No detail data found in Kt_prfdtAlljoindt' }));
                         }
                     } else {
-                        console.warn('No data found in getKtPowByRefno');
-                        setDebugInfo(prev => ({ ...prev, error: 'No data found in getKtPowByRefno' }));
+                        console.warn('No data found in getKtPrfByRefno');
+                        setDebugInfo(prev => ({ ...prev, error: 'No data found in getKtPrfByRefno' }));
                     }
                 } else {
                     console.warn('No editRefno provided');
@@ -175,7 +180,7 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
                 Swal.fire({
                     icon: 'error',
                     title: 'Error',
-                    text: 'Failed to load purchase order data: ' + error.message
+                    text: 'Failed to load receipt data: ' + error.message
                 });
             } finally {
                 setIsLoading(false);
@@ -208,6 +213,8 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
             const newUnits = {};
             const newUnitPrices = {};
             const newTotals = {};
+            const newExpiryDates = {};
+            const newTemperatures = {};
 
             detailData.forEach((item) => {
                 const productCode = item.product_code;
@@ -215,6 +222,37 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
                 newUnits[productCode] = item.unit_code || item.tbl_product?.productUnit1?.unit_code || '';
                 newUnitPrices[productCode] = parseFloat(item.uprice) || 0;
                 newTotals[productCode] = parseFloat(item.amt) || 0;
+                newTemperatures[productCode] = item.temperature1 || '0';
+
+                // Parse expiry date
+                if (item.texpire_date && item.texpire_date.length === 8) {
+                    try {
+                        const year = parseInt(item.texpire_date.substring(0, 4));
+                        const month = parseInt(item.texpire_date.substring(4, 6)) - 1;
+                        const day = parseInt(item.texpire_date.substring(6, 8));
+                        newExpiryDates[productCode] = new Date(year, month, day);
+                    } catch (e) {
+                        console.error("Error parsing texpire_date:", e);
+                        newExpiryDates[productCode] = new Date();
+                    }
+                } else if (item.expire_date) {
+                    try {
+                        const dateParts = item.expire_date.split('/');
+                        if (dateParts.length === 3) {
+                            const month = parseInt(dateParts[0]) - 1;
+                            const day = parseInt(dateParts[1]);
+                            const year = parseInt(dateParts[2]);
+                            newExpiryDates[productCode] = new Date(year, month, day);
+                        } else {
+                            newExpiryDates[productCode] = new Date();
+                        }
+                    } catch (e) {
+                        console.error("Expiry date parsing error:", e);
+                        newExpiryDates[productCode] = new Date();
+                    }
+                } else {
+                    newExpiryDates[productCode] = new Date();
+                }
             });
 
             // Update all states
@@ -222,6 +260,8 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
             setUnits(newUnits);
             setUnitPrices(newUnitPrices);
             setTotals(newTotals);
+            setExpiryDates(newExpiryDates);
+            setTemperatures(newTemperatures);
 
             // Calculate and set total
             const totalSum = Object.values(newTotals).reduce((sum, value) => sum + value, 0);
@@ -290,7 +330,7 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
             Swal.fire({
                 icon: 'warning',
                 title: 'Duplicate Product',
-                text: `${product.product_name} is already in your purchase order. Please adjust the quantity instead.`,
+                text: `${product.product_name} is already in your receipt. Please adjust the quantity instead.`,
                 confirmButtonColor: '#754C27'
             });
             setSearchTerm('');
@@ -306,6 +346,8 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
         setQuantities(prev => ({ ...prev, [product.product_code]: 1 }));
         setUnits(prev => ({ ...prev, [product.product_code]: product.productUnit1?.unit_code || '' }));
         setUnitPrices(prev => ({ ...prev, [product.product_code]: product.bulk_unit_price || 0 }));
+        setExpiryDates(prev => ({ ...prev, [product.product_code]: new Date() }));
+        setTemperatures(prev => ({ ...prev, [product.product_code]: "38" }));
 
         // Reset search and calculate totals
         setSearchTerm('');
@@ -371,6 +413,22 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
             setSearchResults([]);
             setShowDropdown(false);
         }
+    };
+
+    // Handle expiry date change
+    const handleExpiryDateChange = (productCode, date) => {
+        setExpiryDates(prev => ({
+            ...prev,
+            [productCode]: date
+        }));
+    };
+
+    // Handle temperature change
+    const handleTemperatureChange = (productCode, value) => {
+        setTemperatures(prev => ({
+            ...prev,
+            [productCode]: value || "0"
+        }));
     };
 
     // Handle unit change
@@ -444,11 +502,15 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
         const { [productCode]: __, ...newUnits } = units;
         const { [productCode]: ___, ...newPrices } = unitPrices;
         const { [productCode]: ____, ...newTotals } = totals;
+        const { [productCode]: _____, ...newExpiryDates } = expiryDates;
+        const { [productCode]: ______, ...newTemperatures } = temperatures;
 
         setQuantities(newQuantities);
         setUnits(newUnits);
         setUnitPrices(newPrices);
         setTotals(newTotals);
+        setExpiryDates(newExpiryDates);
+        setTemperatures(newTemperatures);
 
         calculateOrderTotals(products.filter(p => p.product_code !== productCode));
     };
@@ -470,13 +532,13 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
     // Reset form
     const resetForm = () => {
         Swal.fire({
-            title: 'Reset Changes',
-            text: "Are you sure you want to reset all changes?",
+            title: 'Are you sure?',
+            text: "This will reset all your changes!",
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#3085d6',
             cancelButtonColor: '#d33',
-            confirmButtonText: 'Yes, reset!'
+            confirmButtonText: 'Yes, reset it!'
         }).then((result) => {
             if (result.isConfirmed) {
                 onBack();
@@ -495,6 +557,7 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
             quantities,
             units,
             unitPrices,
+            temperatures,
             error: debugInfo.error
         });
 
@@ -534,7 +597,7 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
 
         try {
             Swal.fire({
-                title: 'Updating purchase order...',
+                title: 'Updating receipt...',
                 allowOutsideClick: false,
                 didOpen: () => Swal.showLoading()
             });
@@ -553,6 +616,8 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
                 }
             });
 
+            const saleTax = taxableAmount * 0.07;
+
             const headerData = {
                 refno: editRefno,
                 rdate: format(startDate, 'MM/dd/yyyy'),
@@ -562,57 +627,54 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
                 myear: startDate.getFullYear(),
                 taxable: taxableAmount.toString(),
                 nontaxable: nontaxableAmount.toString(),
-                user_code: userData2.user_code || '',
-                total: total.toString()
+                user_code: userData2?.user_code || '',
+                total: total.toString(),
+                sale_tax: saleTax.toString(),
+                total_due: (total + saleTax).toString()
             };
 
             const productArrayData = products.map(product => ({
-                refno: headerData.refno,
+                refno: editRefno,
                 product_code: product.product_code,
                 qty: (quantities[product.product_code] || 1).toString(),
                 unit_code: units[product.product_code] || product.productUnit1?.unit_code || '',
                 uprice: (unitPrices[product.product_code] || 0).toString(),
-                amt: (totals[product.product_code] || 0).toString()
+                amt: (totals[product.product_code] || 0).toString(),
+                expire_date: format(expiryDates[product.product_code] || new Date(), 'MM/dd/yyyy'),
+                texpire_date: format(expiryDates[product.product_code] || new Date(), 'yyyyMMdd'),
+                tax1: product.tax1 || 'N',
+                temperature1: temperatures[product.product_code] || "0"
             }));
 
-            const payload = {
-                headerData: headerData,
-                productArrayData: productArrayData,
+            await dispatch(updateKt_prf({
+                // Send as both direct properties and nested objects to maintain compatibility
+                ...headerData,
+                headerData,
+                productArrayData,
                 footerData: {
-                    total: total.toString()
+                    taxable: taxableAmount.toString(),
+                    nontaxable: nontaxableAmount.toString(),
+                    total: total.toString(),
+                    sale_tax: saleTax.toString(),
+                    total_due: (total + saleTax).toString()
                 }
-            };
+            })).unwrap();
 
-            console.log("Sending update with payload:", payload);
+            await Swal.fire({
+                icon: 'success',
+                title: 'Updated receipt successfully',
+                text: `Reference No: ${editRefno}`,
+                showConfirmButton: false,
+                timer: 1500
+            });
 
-            try {
-                const response = await dispatch(updateKt_pow(payload)).unwrap();
-                console.log("Update response:", response);
-
-                await Swal.fire({
-                    icon: 'success',
-                    title: 'Updated purchase order successfully',
-                    text: `Reference No: ${editRefno}`,
-                    showConfirmButton: false,
-                    timer: 1500
-                });
-
-                onBack();
-            } catch (apiError) {
-                console.error('Update API Error:', apiError);
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error',
-                    text: apiError.message || 'Error updating purchase order',
-                    confirmButtonText: 'OK'
-                });
-            }
+            onBack();
         } catch (error) {
             console.error('Update error:', error);
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
-                text: error.message || 'Error updating purchase order',
+                text: error.message || 'Error updating receipt',
                 confirmButtonText: 'OK'
             });
         }
@@ -623,7 +685,7 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
         return (
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
                 <CircularProgress sx={{ color: '#754C27' }} />
-                <Typography sx={{ ml: 2 }}>Loading purchase order data...</Typography>
+                <Typography sx={{ ml: 2 }}>Loading receipt data...</Typography>
             </Box>
         );
     }
@@ -635,7 +697,7 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
                     onClick={onBack}
                     startIcon={<ArrowBackIcon />}
                 >
-                    Back to Purchase Order
+                    Back to Product Receipts
                 </Button>
                 <Button
                     variant="outlined"
@@ -646,6 +708,7 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
                     Debug Info
                 </Button>
             </Box>
+
             <Box sx={{ width: '100%', mt: '10px', flexDirection: 'column' }}>
                 <Box sx={{
                     display: 'flex',
@@ -694,66 +757,52 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
                                     customInput={<CustomDateInput />}
                                 />
                             </Grid>
-                            {/* Kitchen Section */}
                             <Grid item xs={12} md={6}>
                                 <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
-                                    Commissary Kitchen
+                                    Kitchen
                                 </Typography>
-                                <Box
-                                    component="select"
-                                    value={saveKitchen}
-                                    onChange={(e) => setSaveKitchen(e.target.value)}
-                                    sx={{
-                                        mt: '8px',
-                                        width: '100%',
-                                        height: '40px',
-                                        borderRadius: '10px',
-                                        padding: '0 14px',
-                                        border: '1px solid rgba(0, 0, 0, 0.23)',
-                                        fontSize: '16px',
-                                        '&:focus': {
-                                            outline: 'none',
-                                            borderColor: '#754C27',
-                                        },
-                                        '& option': {
-                                            fontSize: '16px',
-                                        },
-                                    }}
-                                >
-                                    <option value="">Select a Commissary Kitchen</option>
-                                    {kitchens.map((kitchen) => (
-                                        <option key={kitchen.kitchen_code} value={kitchen.kitchen_code}>
-                                            {kitchen.kitchen_name}
-                                        </option>
-                                    ))}
-                                </Box>
+                                <FormControl fullWidth sx={{ mt: '8px' }}>
+                                    <Select
+                                        value={saveKitchen}
+                                        onChange={(e) => setSaveKitchen(e.target.value)}
+                                        size="small"
+                                        displayEmpty
+                                        sx={{
+                                            borderRadius: '10px',
+                                            height: '38px'
+                                        }}
+                                    >
+                                        <MenuItem value="" disabled>
+                                            <em>Select Kitchen</em>
+                                        </MenuItem>
+                                        {kitchens.map((kitchen) => (
+                                            <MenuItem key={kitchen.kitchen_code} value={kitchen.kitchen_code}>
+                                                {kitchen.kitchen_name}
+                                            </MenuItem>
+                                        ))}
+                                    </Select>
+                                </FormControl>
                             </Grid>
                         </Grid>
 
-                        <Divider sx={{ mt: '24px' }} />
-
-                        <Box sx={{ display: 'flex', flexDirection: 'row', width: '100%', p: '24px 0px' }}>
-                            <Typography sx={{ fontSize: '20px', fontWeight: '600' }}>
-                                Current Purchase Order
+                        {/* Search product section */}
+                        <Box sx={{ mt: '24px' }}>
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
+                                Search Products
                             </Typography>
-                            <Typography sx={{ ml: 'auto' }}>
-                                Product Search
-                            </Typography>
-                            <Box sx={{ position: 'relative', width: '50%', ml: '12px' }}>
+                            <Box sx={{ position: 'relative', mt: '8px' }}>
                                 <TextField
                                     value={searchTerm}
                                     onChange={handleSearchChange}
                                     onKeyDown={handleSearchChange}
-                                    placeholder="Search by product name or code"
+                                    placeholder="Search by name or code"
+                                    fullWidth
+                                    size="small"
+                                    autoComplete="off"
                                     sx={{
-                                        '& .MuiInputBase-root': {
-                                            height: '30px',
-                                            width: '100%'
-                                        },
-                                        '& .MuiOutlinedInput-input': {
-                                            padding: '8.5px 14px',
-                                        },
-                                        width: '100%'
+                                        '& .MuiOutlinedInput-root': {
+                                            borderRadius: '10px',
+                                        }
                                     }}
                                     InputProps={{
                                         startAdornment: (
@@ -761,44 +810,58 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
                                                 <SearchIcon sx={{ color: '#5A607F' }} />
                                             </InputAdornment>
                                         ),
+                                        endAdornment: searchTerm && (
+                                            <InputAdornment position="end">
+                                                <IconButton
+                                                    size="small"
+                                                    onClick={() => {
+                                                        setSearchTerm('');
+                                                        setShowDropdown(false);
+                                                    }}
+                                                >
+                                                    <CancelIcon fontSize="small" />
+                                                </IconButton>
+                                            </InputAdornment>
+                                        )
                                     }}
                                 />
+
+                                {/* Search dropdown */}
                                 {showDropdown && searchResults.length > 0 && (
                                     <Box sx={{
                                         position: 'absolute',
                                         top: '100%',
                                         left: 0,
-                                        right: 0,
-                                        backgroundColor: 'white',
-                                        boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-                                        borderRadius: '4px',
-                                        zIndex: 1000,
-                                        maxHeight: '200px',
-                                        overflowY: 'auto',
-                                        mt: '4px'
+                                        width: '100%',
+                                        bgcolor: 'white',
+                                        boxShadow: '0px 4px 10px rgba(0, 0, 0, 0.2)',
+                                        borderRadius: '0 0 10px 10px',
+                                        zIndex: 10,
+                                        maxHeight: '300px',
+                                        overflow: 'auto'
                                     }}>
                                         {searchResults.map((product) => (
                                             <Box
                                                 key={product.product_code}
-                                                onClick={() => handleProductSelect(product)}
                                                 sx={{
-                                                    p: 1.5,
+                                                    p: '8px 16px',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    borderBottom: '1px solid #eee',
                                                     cursor: 'pointer',
                                                     '&:hover': {
-                                                        backgroundColor: '#f5f5f5'
-                                                    },
-                                                    borderBottom: '1px solid #eee',
-                                                    display: 'flex',
-                                                    alignItems: 'center'
+                                                        bgcolor: '#f5f5f5'
+                                                    }
                                                 }}
+                                                onClick={() => handleProductSelect(product)}
                                             >
                                                 {renderProductImage(product)}
                                                 <Box>
-                                                    <Typography sx={{ fontSize: '14px', fontWeight: '600' }}>
+                                                    <Typography sx={{ fontWeight: '500' }}>
                                                         {product.product_name}
                                                     </Typography>
-                                                    <Typography sx={{ fontSize: '12px', color: 'text.secondary' }}>
-                                                        {product.product_code}
+                                                    <Typography variant="caption" color="text.secondary">
+                                                        {product.product_code} - ${product.bulk_unit_price}
                                                     </Typography>
                                                 </Box>
                                             </Box>
@@ -806,191 +869,255 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
                                     </Box>
                                 )}
                             </Box>
+                        </Box>
+
+                        {/* Selected products table */}
+                        <Box sx={{ mt: '24px' }}>
+                            <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mb: '16px' }}>
+                                Selected Products ({products.length})
+                            </Typography>
+
+                            {products.length === 0 ? (
+                                <Box sx={{
+                                    border: '1px dashed #ccc',
+                                    p: '24px',
+                                    borderRadius: '10px',
+                                    textAlign: 'center'
+                                }}>
+                                    <Typography color="text.secondary">
+                                        No products selected. Search and select products above.
+                                    </Typography>
+                                </Box>
+                            ) : (
+                                <Box sx={{ overflowX: 'auto' }}>
+                                    <Box sx={{
+                                        minWidth: '900px',
+                                        display: 'table',
+                                        width: '100%',
+                                        borderCollapse: 'collapse'
+                                    }}>
+                                        {/* Table Header */}
+                                        <Box sx={{
+                                            display: 'table-header-group',
+                                            bgcolor: '#F8F8F8',
+                                            fontWeight: '500',
+                                            fontSize: '14px'
+                                        }}>
+                                            <Box sx={{ display: 'table-row' }}>
+                                                <Box sx={{ display: 'table-cell', p: '10px', borderBottom: '1px solid #E4E4E4' }}>No.</Box>
+                                                <Box sx={{ display: 'table-cell', p: '10px', borderBottom: '1px solid #E4E4E4' }}>Product</Box>
+                                                <Box sx={{ display: 'table-cell', p: '10px', borderBottom: '1px solid #E4E4E4' }}>Expiry Date</Box>
+                                                <Box sx={{ display: 'table-cell', p: '10px', borderBottom: '1px solid #E4E4E4' }}>Temperature</Box>
+                                                <Box sx={{ display: 'table-cell', p: '10px', borderBottom: '1px solid #E4E4E4' }}>Quantity</Box>
+                                                <Box sx={{ display: 'table-cell', p: '10px', borderBottom: '1px solid #E4E4E4' }}>Unit</Box>
+                                                <Box sx={{ display: 'table-cell', p: '10px', borderBottom: '1px solid #E4E4E4' }}>Unit Price</Box>
+                                                <Box sx={{ display: 'table-cell', p: '10px', borderBottom: '1px solid #E4E4E4' }}>Total</Box>
+                                                <Box sx={{ display: 'table-cell', p: '10px', borderBottom: '1px solid #E4E4E4' }}>Action</Box>
+                                            </Box>
+                                        </Box>
+
+                                        {/* Table Body */}
+                                        <Box sx={{ display: 'table-row-group' }}>
+                                            {products.map((product, index) => (
+                                                <Box key={product.product_code} sx={{ display: 'table-row' }}>
+                                                    <Box sx={{ display: 'table-cell', p: '10px', borderBottom: '1px solid #E4E4E4', verticalAlign: 'middle' }}>
+                                                        {index + 1}
+                                                    </Box>
+                                                    <Box sx={{ display: 'table-cell', p: '10px', borderBottom: '1px solid #E4E4E4', verticalAlign: 'middle' }}>
+                                                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                                            {renderProductImage(product)}
+                                                            <Box>
+                                                                <Typography sx={{ fontWeight: '500', fontSize: '14px' }}>
+                                                                    {product.product_name}
+                                                                </Typography>
+                                                                <Typography sx={{ color: '#5A607F', fontSize: '12px' }}>
+                                                                    {product.product_code}
+                                                                </Typography>
+                                                            </Box>
+                                                        </Box>
+                                                    </Box>
+                                                    <Box sx={{ display: 'table-cell', p: '10px', borderBottom: '1px solid #E4E4E4', verticalAlign: 'middle' }}>
+                                                        <DatePicker
+                                                            selected={expiryDates[product.product_code] || new Date()}
+                                                            onChange={(date) => handleExpiryDateChange(product.product_code, date)}
+                                                            dateFormat="MM/dd/yyyy"
+                                                            customInput={<CustomDateInput />}
+                                                        />
+                                                    </Box>
+                                                    <Box sx={{ display: 'table-cell', p: '10px', borderBottom: '1px solid #E4E4E4', verticalAlign: 'middle' }}>
+                                                        <TextField
+                                                            value={temperatures[product.product_code] || "0"}
+                                                            onChange={(e) => handleTemperatureChange(product.product_code, e.target.value)}
+                                                            size="small"
+                                                            InputProps={{
+                                                                endAdornment: <InputAdornment position="end">°C</InputAdornment>,
+                                                            }}
+                                                            sx={{
+                                                                width: '90px',
+                                                                '& .MuiOutlinedInput-root': {
+                                                                    borderRadius: '10px',
+                                                                }
+                                                            }}
+                                                        />
+                                                    </Box>
+                                                    <Box sx={{ display: 'table-cell', p: '10px', borderBottom: '1px solid #E4E4E4', verticalAlign: 'middle' }}>
+                                                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                                            <IconButton
+                                                                size="small"
+                                                                onClick={() => handleQuantityDecrease(product.product_code)}
+                                                                sx={{ bgcolor: '#F8F8F8', borderRadius: '5px', mr: '5px' }}
+                                                            >
+                                                                <RemoveIcon fontSize="small" />
+                                                            </IconButton>
+                                                            <TextField
+                                                                value={quantities[product.product_code] || 1}
+                                                                onChange={(e) => handleQuantityChange(product.product_code, e.target.value)}
+                                                                type="number"
+                                                                size="small"
+                                                                sx={{
+                                                                    width: '60px',
+                                                                    '& .MuiOutlinedInput-root': {
+                                                                        borderRadius: '5px',
+                                                                    },
+                                                                    '& input': {
+                                                                        textAlign: 'center',
+                                                                        p: '4px'
+                                                                    }
+                                                                }}
+                                                                inputProps={{ min: 1 }}
+                                                            />
+                                                            <IconButton
+                                                                size="small"
+                                                                onClick={() => handleQuantityIncrease(product.product_code)}
+                                                                sx={{ bgcolor: '#F8F8F8', borderRadius: '5px', ml: '5px' }}
+                                                            >
+                                                                <AddIcon fontSize="small" />
+                                                            </IconButton>
+                                                        </Box>
+                                                    </Box>
+                                                    <Box sx={{ display: 'table-cell', p: '10px', borderBottom: '1px solid #E4E4E4', verticalAlign: 'middle' }}>
+                                                        <Select
+                                                            value={units[product.product_code] || ''}
+                                                            onChange={(e) => handleUnitChange(product.product_code, e.target.value)}
+                                                            size="small"
+                                                            sx={{
+                                                                minWidth: '80px',
+                                                                '& .MuiOutlinedInput-root': {
+                                                                    borderRadius: '5px',
+                                                                }
+                                                            }}
+                                                        >
+                                                            {product.productUnit1 && (
+                                                                <MenuItem value={product.productUnit1.unit_code}>
+                                                                    {product.productUnit1.unit_name}
+                                                                </MenuItem>
+                                                            )}
+                                                            {product.productUnit2 && (
+                                                                <MenuItem value={product.productUnit2.unit_code}>
+                                                                    {product.productUnit2.unit_name}
+                                                                </MenuItem>
+                                                            )}
+                                                        </Select>
+                                                    </Box>
+                                                    <Box sx={{ display: 'table-cell', p: '10px', borderBottom: '1px solid #E4E4E4', verticalAlign: 'middle' }}>
+                                                        <TextField
+                                                            value={unitPrices[product.product_code] || 0}
+                                                            onChange={(e) => handleUnitPriceChange(product.product_code, e.target.value)}
+                                                            type="number"
+                                                            size="small"
+                                                            sx={{
+                                                                width: '100px',
+                                                                '& .MuiOutlinedInput-root': {
+                                                                    borderRadius: '5px',
+                                                                }
+                                                            }}
+                                                            InputProps={{
+                                                                startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                                                            }}
+                                                            inputProps={{ step: "0.01", min: 0 }}
+                                                        />
+                                                    </Box>
+                                                    <Box sx={{ display: 'table-cell', p: '10px', borderBottom: '1px solid #E4E4E4', verticalAlign: 'middle', fontWeight: '500' }}>
+                                                        ${totals[product.product_code]?.toFixed(2) || '0.00'}
+                                                    </Box>
+                                                    <Box sx={{ display: 'table-cell', p: '10px', borderBottom: '1px solid #E4E4E4', verticalAlign: 'middle' }}>
+                                                        <IconButton
+                                                            size="small"
+                                                            onClick={() => handleDeleteProduct(product.product_code)}
+                                                            sx={{ color: '#FF5252' }}
+                                                        >
+                                                            <DeleteIcon />
+                                                        </IconButton>
+                                                    </Box>
+                                                </Box>
+                                            ))}
+                                        </Box>
+                                    </Box>
+                                </Box>
+                            )}
+                        </Box>
+
+                        {/* Total Summary */}
+                        {products.length > 0 && (
+                            <Box sx={{ width: '100%', height: 'auto', bgcolor: '#EAB86C', borderRadius: '10px', p: '18px' }}>
+                                <Box sx={{ display: 'flex', flexDirection: 'column', color: 'white' }}>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                                        <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>Subtotal</Typography>
+                                        <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>${total.toFixed(2)}</Typography>
+                                    </Box>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                                        <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>Tax (7%)</Typography>
+                                        <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>${calculateTax().toFixed(2)}</Typography>
+                                    </Box>
+                                    <Divider sx={{ my: 1, bgcolor: 'rgba(255, 255, 255, 0.3)' }} />
+                                    <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', mt: '8px' }}>
+                                        <Typography sx={{ color: '#FFFFFF', fontSize: '30px', fontWeight: '600' }}>
+                                            Total
+                                        </Typography>
+                                        <Typography sx={{ color: '#FFFFFF', ml: 'auto', fontSize: '30px', fontWeight: '600' }}>
+                                            ${(total + calculateTax()).toFixed(2)}
+                                        </Typography>
+                                    </Box>
+                                </Box>
+                            </Box>
+                        )}
+
+                        {/* Action Buttons */}
+                        <Box sx={{ mt: '24px', display: 'flex', justifyContent: 'space-between' }}>
                             <Button
+                                variant="outlined"
                                 onClick={resetForm}
                                 sx={{
-                                    ml: 'auto',
-                                    bgcolor: '#E2EDFB',
-                                    borderRadius: '6px',
-                                    width: '105px',
+                                    borderRadius: '5px',
+                                    height: '48px',
+                                    px: '24px',
+                                    borderColor: '#E4E4E4',
+                                    color: '#5A607F'
+                                }}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                variant="contained"
+                                onClick={handleUpdate}
+                                disabled={products.length === 0 || !saveKitchen}
+                                sx={{
+                                    borderRadius: '5px',
+                                    height: '48px',
+                                    px: '24px',
+                                    bgcolor: '#754C27',
                                     '&:hover': {
-                                        bgcolor: '#d0e0f7'
+                                        bgcolor: '#5A3B1E'
+                                    },
+                                    '&.Mui-disabled': {
+                                        bgcolor: '#E4E4E4',
+                                        color: '#A0A0A0'
                                     }
                                 }}
                             >
-                                Reset
+                                Update Receipt
                             </Button>
                         </Box>
-
-                        <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', mb: '12px' }}>
-                            <table style={{ width: '100%', marginTop: '24px' }}>
-                                <thead>
-                                    <tr>
-                                        <th style={{ padding: '4px', fontSize: '14px', width: '1%', color: '#754C27', fontWeight: '800' }}>No.</th>
-                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '15%', color: '#754C27', fontWeight: '800' }}>Product code</th>
-                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '25%', color: '#754C27', fontWeight: '800' }}>Product name</th>
-                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Quantity</th>
-                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '10%', color: '#754C27', fontWeight: '800' }}>Unit</th>
-                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Unit Price</th>
-                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Total</th>
-                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '1%', color: '#754C27', fontWeight: '800' }}></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {products.length === 0 ? (
-                                        <tr>
-                                            <td colSpan={8} style={{ textAlign: 'center', padding: '16px', color: '#666' }}>
-                                                No products added yet. Search and select products above.
-                                            </td>
-                                        </tr>
-                                    ) : (
-                                        products.map((product, index) => {
-                                            const productCode = product.product_code;
-                                            const currentUnit = units[productCode] || product.productUnit1?.unit_code;
-                                            const currentQuantity = quantities[productCode] || 1;
-                                            const currentUnitPrice = unitPrices[productCode] !== undefined ?
-                                                unitPrices[productCode] :
-                                                (currentUnit === product.productUnit1?.unit_code
-                                                    ? product.bulk_unit_price
-                                                    : product.retail_unit_price);
-                                            const currentTotal = totals[productCode]?.toFixed(2) || '0.00';
-
-                                            return (
-                                                <tr key={productCode}>
-                                                    <td style={{ padding: '4px', fontSize: '12px', fontWeight: '800' }}>{index + 1}</td>
-                                                    <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>{productCode}</td>
-                                                    <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
-                                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                            {renderProductImage(product)}
-                                                            {product.product_name}
-                                                        </Box>
-                                                    </td>
-                                                    <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
-                                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                            <IconButton
-                                                                onClick={() => handleQuantityDecrease(productCode)}
-                                                                size="small"
-                                                                sx={{ fontSize: '14px', padding: '2px' }}
-                                                            >
-                                                                -
-                                                            </IconButton>
-                                                            <input
-                                                                type="number"
-                                                                min="1"
-                                                                value={currentQuantity}
-                                                                onChange={(e) => handleQuantityChange(productCode, e.target.value)}
-                                                                style={{
-                                                                    width: '50px',
-                                                                    textAlign: 'center',
-                                                                    fontWeight: '600',
-                                                                    padding: '4px'
-                                                                }}
-                                                            />
-                                                            <IconButton
-                                                                onClick={() => handleQuantityIncrease(productCode)}
-                                                                size="small"
-                                                                sx={{ fontSize: '14px', padding: '2px' }}
-                                                            >
-                                                                +
-                                                            </IconButton>
-                                                        </Box>
-                                                    </td>
-                                                    <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
-                                                        <select
-                                                            value={currentUnit}
-                                                            onChange={(e) => handleUnitChange(productCode, e.target.value)}
-                                                            style={{
-                                                                padding: '4px',
-                                                                borderRadius: '4px'
-                                                            }}
-                                                        >
-                                                            {product.productUnit1?.unit_code && (
-                                                                <option value={product.productUnit1.unit_code}>
-                                                                    {product.productUnit1.unit_name}
-                                                                </option>
-                                                            )}
-                                                            {product.productUnit2?.unit_code && (
-                                                                <option value={product.productUnit2.unit_code}>
-                                                                    {product.productUnit2.unit_name}
-                                                                </option>
-                                                            )}
-                                                        </select>
-                                                    </td>
-                                                    <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
-                                                        <input
-                                                            type="number"
-                                                            min="0"
-                                                            step="0.01"
-                                                            value={currentUnitPrice}
-                                                            onChange={(e) => handleUnitPriceChange(productCode, e.target.value)}
-                                                            style={{
-                                                                width: '80px',
-                                                                textAlign: 'right',
-                                                                fontWeight: '600',
-                                                                padding: '4px'
-                                                            }}
-                                                        />
-                                                    </td>
-                                                    <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
-                                                        {currentTotal}
-                                                    </td>
-                                                    <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
-                                                        <IconButton
-                                                            onClick={() => handleDeleteProduct(productCode)}
-                                                            size="small"
-                                                        >
-                                                            <CancelIcon />
-                                                        </IconButton>
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })
-                                    )}
-                                </tbody>
-                            </table>
-                        </Box>
-
-                        <Box sx={{ width: '100%', height: 'auto', bgcolor: '#EAB86C', borderRadius: '10px', p: '18px' }}>
-                            <Box sx={{ display: 'flex', flexDirection: 'column', color: 'white' }}>
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                                    <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>Subtotal</Typography>
-                                    <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>${total.toFixed(2)}</Typography>
-                                </Box>
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                                    <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>Tax (7%)</Typography>
-                                    <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>${calculateTax().toFixed(2)}</Typography>
-                                </Box>
-                                <Divider sx={{ my: 1, bgcolor: 'rgba(255, 255, 255, 0.3)' }} />
-                                <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', mt: '8px' }}>
-                                    <Typography sx={{ color: '#FFFFFF', fontSize: '30px', fontWeight: '600' }}>
-                                        Total
-                                    </Typography>
-                                    <Typography sx={{ color: '#FFFFFF', ml: 'auto', fontSize: '30px', fontWeight: '600' }}>
-                                        ${(total + calculateTax()).toFixed(2)}
-                                    </Typography>
-                                </Box>
-                            </Box>
-                        </Box>
-
-                        <Button
-                            onClick={handleUpdate}
-                            disabled={!saveKitchen || products.length === 0}
-                            sx={{
-                                width: '100%',
-                                height: '48px',
-                                mt: '24px',
-                                bgcolor: '#754C27',
-                                color: '#FFFFFF',
-                                '&:hover': {
-                                    bgcolor: '#5C3D1F'
-                                },
-                                '&.Mui-disabled': {
-                                    bgcolor: '#d3d3d3',
-                                    color: '#808080'
-                                }
-                            }}>
-                            Update Purchase Order
-                        </Button>
                     </Box>
                 </Box>
             </Box>

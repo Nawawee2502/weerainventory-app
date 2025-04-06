@@ -88,97 +88,108 @@ function EditReceiptFromSupplier({ onBack, editRefno }) {
     const TAX_RATE = 0.07;
 
     useEffect(() => {
-        let offset = 0;
-        let limit = 100;
+        dispatch(Wh_rfsByRefno(editRefno))
+            .unwrap()
+            .then((res) => {
+                // แปลงวันที่
+                const [month, day, year] = res.data.rdate.split("/");
+                setEditDate(new Date(year, month - 1, day));
 
-        Promise.all([
-            dispatch(branchAll({ offset, limit })).unwrap(),
-            dispatch(supplierAll({ offset, limit })).unwrap(),
-            dispatch(Wh_rfsByRefno(editRefno)).unwrap()
-        ]).then(([branchRes, supplierRes, rfsRes]) => {
-            setBranch(branchRes.data);
-            setSupplier(supplierRes.data);
+                // เซ็ตข้อมูล supplier และ branch
+                setSaveSupplier(res.data.supplier_code);
+                setSaveBranch(res.data.branch_code);
 
-            const rfsData = rfsRes.data;
+                // ตรวจสอบว่า wh_rfsdts มีข้อมูลหรือไม่
+                console.log("Details data:", res.data.wh_rfsdts);
 
-            // แก้ไขการแปลงวันที่
-            if (rfsData.rdate) {
-                try {
-                    const [month, day, year] = rfsData.rdate.split('/');
-                    const parsedDate = new Date(+year, +month - 1, +day);
-                    if (!isNaN(parsedDate.getTime())) {
-                        setEditDate(parsedDate);
-                    }
-                } catch (error) {
-                    console.error("Error parsing date:", error);
-                    setEditDate(new Date());
-                }
-            }
+                const initialProducts = res.data.wh_rfsdts.map(item => {
+                    // ถ้า tbl_product ไม่มีข้อมูล productUnit1 หรือ productUnit2 ให้กำหนดค่าเริ่มต้น
+                    const defaultUnit = { unit_code: item.unit_code, unit_name: item.tbl_unit?.unit_name || 'EA' };
 
-            setSaveSupplier(rfsData.supplier_code);
-            setSaveBranch(rfsData.branch_code);
+                    return {
+                        product_code: item.product_code,
+                        product_name: item.tbl_product?.product_name || '',
+                        bulk_unit_price: item.tbl_product?.bulk_unit_price || item.uprice,
+                        retail_unit_price: item.tbl_product?.retail_unit_price || item.uprice,
+                        tax1: item.tax1 || 'N',
+                        productUnit1: item.tbl_product?.productUnit1 || defaultUnit,
+                        productUnit2: item.tbl_product?.productUnit2 || defaultUnit,
+                        amount: item.qty,
+                        unit_code: item.unit_code,
+                        expire_date: item.expire_date,
+                        temperature1: item.temperature1 || '',
+                        uprice: item.uprice,
+                        instant_saving1: item.instant_saving1 || 0,
+                        isNewProduct: false
+                    };
+                });
 
-            const initialProducts = rfsData.wh_rfsdts.map(item => ({
-                ...item.tbl_product,
-                amount: item.qty,
-                unit_code: item.unit_code,
-                instant_saving1: item.instant_saving1,
-                temperature1: item.temperature1,
-                isNewProduct: false
-            }));
+                setProducts(initialProducts);
+                setOriginalProducts(initialProducts);
 
-            setProducts(initialProducts);
-            setOriginalProducts(initialProducts);
+                // ตั้งค่าเริ่มต้นสำหรับแต่ละผลิตภัณฑ์
+                const initialQuantities = {};
+                const initialUnits = {};
+                const initialExpiryDates = {};
+                const initialTemperatures = {};
 
-            // Initialize states for each product
-            const initialQuantities = {};
-            const initialUnits = {};
-            const initialExpiryDates = {};
-            const initialTemperatures = {};
+                initialProducts.forEach(product => {
+                    const productCode = product.product_code;
+                    initialQuantities[productCode] = parseInt(product.amount);
+                    initialUnits[productCode] = product.unit_code;
+                    initialTemperatures[productCode] = product.temperature1;
 
-            initialProducts.forEach(product => {
-                const productCode = product.product_code;
-                initialQuantities[productCode] = parseInt(product.amount);
-                initialUnits[productCode] = product.unit_code;
-                initialTemperatures[productCode] = product.temperature1;
-
-                // แก้ไขการแปลงวันที่หมดอายุ
-                try {
-                    if (product.expire_date) {
-                        const [month, day, year] = product.expire_date.split('/');
-                        const expiryDate = new Date(+year, +month - 1, +day);
-                        if (!isNaN(expiryDate.getTime())) {
-                            initialExpiryDates[productCode] = expiryDate;
+                    // แปลงวันที่หมดอายุ
+                    try {
+                        if (product.expire_date) {
+                            const [month, day, year] = product.expire_date.split('/');
+                            const expiryDate = new Date(year, month - 1, day);
+                            if (!isNaN(expiryDate.getTime())) {
+                                initialExpiryDates[productCode] = expiryDate;
+                            } else {
+                                initialExpiryDates[productCode] = new Date();
+                            }
                         } else {
                             initialExpiryDates[productCode] = new Date();
                         }
-                    } else {
+                    } catch (error) {
+                        console.error("Error parsing expiry date for product", productCode, error);
                         initialExpiryDates[productCode] = new Date();
                     }
-                } catch (error) {
-                    console.error("Error parsing expiry date for product", productCode, error);
-                    initialExpiryDates[productCode] = new Date();
-                }
+                });
+
+                setQuantities(initialQuantities);
+                setUnits(initialUnits);
+                setExpiryDates(initialExpiryDates);
+                setTemperatures(initialTemperatures);
+                setInstantSaving(parseFloat(res.data.instant_saving) || 0);
+                setDeliverySurcharge(parseFloat(res.data.delivery_surcharge) || 0);
+                setSaleTax(parseFloat(res.data.sale_tax) || 0);
+                setTotalDue(parseFloat(res.data.total_due) || 0);
+
+                calculateOrderTotals(initialProducts, initialQuantities, initialUnits);
+            })
+            .catch((err) => {
+                console.error("Error loading receipt data:", err);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error loading receipt data',
+                    text: err.message
+                });
             });
 
-            setQuantities(initialQuantities);
-            setUnits(initialUnits);
-            setExpiryDates(initialExpiryDates);
-            setTemperatures(initialTemperatures);
-            setInstantSaving(parseFloat(rfsData.instant_saving) || 0);
-            setDeliverySurcharge(parseFloat(rfsData.delivery_surcharge) || 0);
-            setSaleTax(parseFloat(rfsData.sale_tax) || 0);
-            setTotalDue(parseFloat(rfsData.total_due) || 0);
-
-            calculateOrderTotals(initialProducts, initialQuantities, initialUnits);
-        }).catch(err => {
-            console.error("Error loading data:", err);
-            Swal.fire({
-                icon: 'error',
-                title: 'Error loading data',
-                text: err.message
+        // โหลด suppliers และ branches สำหรับ dropdown
+        Promise.all([
+            dispatch(branchAll({ offset: 0, limit: 9999 })).unwrap(),
+            dispatch(supplierAll({ offset: 0, limit: 9999 })).unwrap()
+        ])
+            .then(([branchRes, supplierRes]) => {
+                setBranch(branchRes.data);
+                setSupplier(supplierRes.data);
+            })
+            .catch((err) => {
+                console.error("Error loading reference data:", err);
             });
-        });
     }, [dispatch, editRefno]);
 
     const handleSearchChange = (e) => {
@@ -202,7 +213,7 @@ function EditReceiptFromSupplier({ onBack, editRefno }) {
     };
 
     const handleProductSelect = (product) => {
-        // Check if product already exists
+        // ตรวจสอบว่าสินค้ามีอยู่แล้วหรือไม่
         if (products.some(p => p.product_code === product.product_code)) {
             Swal.fire({
                 icon: 'warning',
@@ -213,21 +224,27 @@ function EditReceiptFromSupplier({ onBack, editRefno }) {
             return;
         }
 
+        // สร้างค่าเริ่มต้นสำหรับ unit ในกรณีที่ไม่มีข้อมูล
+        const defaultUnit = { unit_code: 'EA', unit_name: 'Each' };
+
         const newProduct = {
             ...product,
+            productUnit1: product.productUnit1 || defaultUnit,
+            productUnit2: product.productUnit2 || defaultUnit,
             amount: 1,
+            instant_saving1: 0,
+            temperature1: '38',
             isNewProduct: true
         };
 
         setProducts(prev => [...prev, newProduct]);
         setQuantities(prev => ({ ...prev, [product.product_code]: 1 }));
-        setUnits(prev => ({ ...prev, [product.product_code]: product.productUnit1.unit_code }));
+        setUnits(prev => ({ ...prev, [product.product_code]: newProduct.productUnit1.unit_code }));
         setExpiryDates(prev => ({ ...prev, [product.product_code]: new Date() }));
         setTemperatures(prev => ({ ...prev, [product.product_code]: '38' }));
 
-        calculateOrderTotals([...products, newProduct], quantities, units);
+        calculateOrderTotals();
         setSearchTerm('');
-        setShowDropdown(false);
     };
 
     const calculateOrderTotals = (currentProducts = products, currentQuantities = quantities, currentUnits = units) => {
@@ -340,17 +357,15 @@ function EditReceiptFromSupplier({ onBack, editRefno }) {
                 const productData = {
                     refno: editRefno,
                     product_code: product.product_code,
-                    qty: product.amount.toString(),
-                    unit_code: units[product.product_code] || product.productUnit1.unit_code,
-                    uprice: (units[product.product_code] === product.productUnit1.unit_code ?
-                        product.bulk_unit_price : product.retail_unit_price).toString(),
-                    tax1: product.tax1,
-                    expire_date: formatDate(expiryDates[product.product_code]),
-                    texpire_date: expiryDates[product.product_code].toISOString().slice(0, 10).replace(/-/g, ''),
+                    qty: quantities[product.product_code]?.toString() || '1',
+                    unit_code: units[product.product_code] || product.productUnit1?.unit_code || 'EA',
+                    uprice: product.uprice?.toString() || '0',
+                    tax1: product.tax1 || 'N',
+                    expire_date: formatDate(expiryDates[product.product_code] || new Date()),
+                    texpire_date: (expiryDates[product.product_code] || new Date()).toISOString().slice(0, 10).replace(/-/g, ''),
                     instant_saving1: (product.instant_saving1 || 0).toString(),
                     temperature1: temperatures[product.product_code] || '',
-                    amt: (product.amount * (units[product.product_code] === product.productUnit1.unit_code ?
-                        product.bulk_unit_price : product.retail_unit_price)).toString()
+                    amt: (quantities[product.product_code] * product.uprice).toString() || '0'
                 };
 
                 if (product.isNewProduct) {
@@ -368,7 +383,6 @@ function EditReceiptFromSupplier({ onBack, editRefno }) {
             }).then(() => {
                 onBack();
             });
-
         } catch (error) {
             console.error("Update error:", error);
             Swal.fire({
@@ -603,11 +617,10 @@ function EditReceiptFromSupplier({ onBack, editRefno }) {
                                 <tbody>
                                     {products.map((product, index) => {
                                         const productCode = product.product_code;
-                                        const unit = units[productCode] || product.productUnit1.unit_code;
-                                        const price = unit === product.productUnit1.unit_code ?
-                                            product.bulk_unit_price : product.retail_unit_price;
-                                        const amount = product.amount || 0;
-                                        const total = amount * price;
+                                        const currentUnit = units[productCode] || product.unit_code;
+                                        const quantity = quantities[productCode] || 1;
+                                        const price = product.uprice;
+                                        const total = quantity * price;
 
                                         return (
                                             <tr key={productCode}>
@@ -660,9 +673,13 @@ function EditReceiptFromSupplier({ onBack, editRefno }) {
                                                     <TextField
                                                         type="number"
                                                         size="small"
-                                                        value={amount}
+                                                        value={quantity}
                                                         onChange={(e) => {
                                                             const newAmount = Number(e.target.value);
+                                                            setQuantities(prev => ({
+                                                                ...prev,
+                                                                [productCode]: newAmount
+                                                            }));
                                                             product.amount = newAmount;
                                                             calculateOrderTotals();
                                                         }}
@@ -671,7 +688,7 @@ function EditReceiptFromSupplier({ onBack, editRefno }) {
                                                 </td>
                                                 <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
                                                     <select
-                                                        value={unit}
+                                                        value={currentUnit}
                                                         onChange={(e) => {
                                                             setUnits(prev => ({
                                                                 ...prev,
@@ -681,8 +698,17 @@ function EditReceiptFromSupplier({ onBack, editRefno }) {
                                                         }}
                                                         style={{ padding: '4px', borderRadius: '4px' }}
                                                     >
-                                                        <option value={product.productUnit1.unit_code}>{product.productUnit1.unit_name}</option>
-                                                        <option value={product.productUnit2.unit_code}>{product.productUnit2.unit_name}</option>
+                                                        {/* ต้องมีการตรวจสอบว่ามีข้อมูลหรือไม่ก่อนแสดง option */}
+                                                        {product.productUnit1 && (
+                                                            <option value={product.productUnit1.unit_code}>{product.productUnit1.unit_name}</option>
+                                                        )}
+                                                        {product.productUnit2 && (
+                                                            <option value={product.productUnit2.unit_code}>{product.productUnit2.unit_name}</option>
+                                                        )}
+                                                        {/* ถ้าไม่มีข้อมูล unit ให้แสดงค่าเริ่มต้น */}
+                                                        {(!product.productUnit1 && !product.productUnit2) && (
+                                                            <option value={product.unit_code}>{product.unit_code}</option>
+                                                        )}
                                                     </select>
                                                 </td>
                                                 <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>

@@ -614,7 +614,7 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
       })
       .catch((err) => err.message);
 
-    dispatch(branchAll({ offset, limit }))
+    dispatch(branchAll({ offset: 0, limit: 9999 }))
       .unwrap()
       .then((res) => {
         console.log("Branch data", res.data);
@@ -623,7 +623,7 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
       })
       .catch((err) => console.log(err.message));
 
-    dispatch(supplierAll({ offset, limit }))
+      dispatch(supplierAll({ offset: 0, limit: 9999 }))
       .unwrap()
       .then((res) => {
         console.log("Supplier data", res.data);

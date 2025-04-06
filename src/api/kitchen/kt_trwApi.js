@@ -86,9 +86,14 @@ export const Kt_trwByRefno = createAsyncThunk(
     "kt_trw/readByRefno",
     async (refno, { dispatch }) => {
         try {
-            const res = await axios.post(BASE_URL + "/api/Kt_trwByRefno", { refno });
+            // แปลง refno ให้อยู่ในรูปแบบที่ถูกต้อง
+            const payload = typeof refno === 'object' ? refno : { refno };
+            console.log('Sending payload to Kt_trwByRefno:', payload);
+            
+            const res = await axios.post(BASE_URL + "/api/Kt_trwByRefno", payload);
             return res.data;
         } catch (error) {
+            console.error('Error in Kt_trwByRefno:', error);
             throw error;
         }
     }
@@ -160,3 +165,4 @@ export const getKtTrwByRefno = createAsyncThunk(
         }
     }
 );
+

@@ -32,7 +32,7 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { useDispatch } from "react-redux";
 import { searchProductName } from '../../../../api/productrecordApi';
-import { Br_powAlljoindt, updateBr_pow, getPowByRefno } from '../../../../api/restaurant/br_powApi';
+import { Br_powAlljoindt, updateBr_pow, getPowByRefno, checkPOUsedInDispatch } from '../../../../api/restaurant/br_powApi';
 import { Br_powdtAlljoindt } from '../../../../api/restaurant/br_powdtApi';
 import { branchAll } from '../../../../api/branchApi';
 import Swal from 'sweetalert2';
@@ -87,6 +87,10 @@ export default function EditPurchaseOrderToWarehouse({ onBack, editRefno }) {
     const [expiryDates, setExpiryDates] = useState({});
     const [imageErrors, setImageErrors] = useState({});
     const [branches, setBranches] = useState([]);
+
+    // เพิ่มสถานะใหม่สำหรับตรวจสอบว่าสามารถแก้ไขได้หรือไม่
+    const [canEdit, setCanEdit] = useState(true);
+    const [isUsedInDispatch, setIsUsedInDispatch] = useState(false);
 
     // Pagination state
     const [page, setPage] = useState(1);
@@ -156,14 +160,39 @@ export default function EditPurchaseOrderToWarehouse({ onBack, editRefno }) {
         return new Date();
     };
 
-    // ในส่วน useEffect
     useEffect(() => {
         const fetchData = async () => {
             try {
                 setIsLoading(true);
                 console.log('Fetching data for refno:', editRefno);
 
-                // Load branches (เพิ่มส่วนนี้)
+                // เรียกใช้ API ใหม่เพื่อตรวจสอบการใช้ใน dispatch
+                if (editRefno) {
+                    try {
+                        const usageCheck = await dispatch(checkPOUsedInDispatch(editRefno)).unwrap();
+                        console.log('PO usage check result:', usageCheck);
+
+                        if (!usageCheck.canEdit) {
+                            setCanEdit(false);
+                            setIsUsedInDispatch(true);
+
+                            // แสดง popup แจ้งเตือนว่าไม่สามารถแก้ไขได้ แต่ไม่ redirect กลับ
+                            Swal.fire({
+                                icon: 'warning',
+                                title: 'This Purchase Order Cannot Be Updated',
+                                text: 'This purchase order has already been used in a dispatch. You can view the details but cannot update it.',
+                                confirmButtonColor: '#754C27'
+                            });
+
+                            // ไม่ต้อง return เพื่อให้โหลดข้อมูลต่อไป
+                        }
+                    } catch (error) {
+                        console.error('Error checking PO usage:', error);
+                        // ถ้าเกิดข้อผิดพลาด ยังคงให้แก้ไขได้ แต่บันทึก log ไว้
+                    }
+                }
+
+                // โหลดข้อมูลอื่นๆ เหมือนเดิม
                 const branchResponse = await dispatch(branchAll({ offset: 0, limit: 100 })).unwrap();
                 if (branchResponse && branchResponse.data) {
                     setBranches(branchResponse.data);
@@ -392,6 +421,16 @@ export default function EditPurchaseOrderToWarehouse({ onBack, editRefno }) {
     };
 
     const handleUpdate = async () => {
+        if (!canEdit) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Cannot Update',
+                text: 'This purchase order has been used in a dispatch and cannot be edited.',
+                confirmButtonColor: '#754C27'
+            });
+            return;
+        }
+
         if (products.length === 0) {
             Swal.fire({
                 icon: 'warning',
@@ -403,6 +442,22 @@ export default function EditPurchaseOrderToWarehouse({ onBack, editRefno }) {
         }
 
         try {
+            // ตรวจสอบอีกครั้งก่อนบันทึก (double check)
+            const usageCheck = await dispatch(checkPOUsedInDispatch(editRefno)).unwrap();
+
+            if (!usageCheck.canEdit) {
+                setCanEdit(false);
+                setIsUsedInDispatch(true);
+
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Cannot Update',
+                    text: 'This purchase order has been used in a dispatch and cannot be edited.',
+                    confirmButtonColor: '#754C27'
+                });
+                return;
+            }
+
             Swal.fire({
                 title: 'Updating purchase order...',
                 allowOutsideClick: false,
@@ -485,7 +540,6 @@ export default function EditPurchaseOrderToWarehouse({ onBack, editRefno }) {
             });
         }
     };
-
     const calculateTax = () => {
         let taxableAmount = 0;
         products.forEach(product => {
@@ -609,11 +663,28 @@ export default function EditPurchaseOrderToWarehouse({ onBack, editRefno }) {
             </Box>
 
             {/* Status Information */}
-            <Box sx={{ mb: 2, p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
-                <Typography variant="subtitle2">
-                    <strong>Status:</strong> Editing ref #{editRefno} |
+            <Box sx={{ mb: 2, p: 2, bgcolor: isUsedInDispatch ? '#fff3cd' : '#f5f5f5', borderRadius: 1, border: isUsedInDispatch ? '1px solid #ffeeba' : 'none' }}>
+                <Typography variant="subtitle2" sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <strong>Status:</strong>&nbsp;Editing ref #{editRefno} |
                     Restaurant: {saveBranch} |
                     Products selected: {selectedProducts.length}
+
+                    {isUsedInDispatch && (
+                        <Box component="span" sx={{
+                            ml: 2,
+                            color: 'error.main',
+                            fontWeight: 'bold',
+                            bgcolor: 'error.light',
+                            px: 1,
+                            py: 0.5,
+                            borderRadius: 1,
+                            display: 'inline-flex',
+                            alignItems: 'center'
+                        }}>
+                            <Box component="span" sx={{ display: 'inline-block', width: 10, height: 10, borderRadius: '50%', bgcolor: 'error.main', mr: 1 }}></Box>
+                            LOCKED - USED IN DISPATCH
+                        </Box>
+                    )}
                 </Typography>
             </Box>
 
@@ -966,23 +1037,35 @@ export default function EditPurchaseOrderToWarehouse({ onBack, editRefno }) {
                         </Box>
                     </Box>
 
-                    {/* Update Button */}
+
+
                     <Button
                         variant="contained"
                         fullWidth
                         onClick={handleUpdate}
+                        disabled={!canEdit || products.length === 0}
                         sx={{
                             mt: 2,
-                            bgcolor: '#754C27',
+                            bgcolor: !canEdit ? '#cccccc' : '#754C27',
                             color: '#FFFFFF',
                             height: '48px',
                             '&:hover': {
-                                bgcolor: '#5c3c1f',
+                                bgcolor: !canEdit ? '#cccccc' : '#5c3c1f',
                             }
                         }}
                     >
-                        Update
+                        {!canEdit ? 'Cannot Update - Used In Dispatch' : 'Update'}
                     </Button>
+
+                    {/* ข้อความเตือนด้านล่างปุ่ม */}
+                    {!canEdit && (
+                        <Box sx={{ mt: 2, p: 2, bgcolor: 'error.light', borderRadius: 2 }}>
+                            <Typography variant="body2" color="error.dark">
+                                This purchase order has been used in a dispatch and cannot be edited.
+                                You can view the details but cannot make changes to it.
+                            </Typography>
+                        </Box>
+                    )}
                 </Box>
             </Box>
         </Box>

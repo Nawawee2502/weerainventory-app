@@ -106,3 +106,17 @@ export const getWhDpbByRefno = createAsyncThunk(
         }
     }
 );
+
+export const Wh_dpbUsedRefnos = createAsyncThunk(
+    "wh_dpb/usedRefnos",
+    async (_, thunkAPI) => {
+        try {
+            const response = await axios.post(BASE_URL + "/api/wh-dpb-used-refnos");
+            return response.data;
+        } catch (error) {
+            return thunkAPI.rejectWithValue(
+                error.response ? error.response.data : error.message
+            );
+        }
+    }
+);

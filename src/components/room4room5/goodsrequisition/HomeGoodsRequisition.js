@@ -6,7 +6,7 @@ import { useTheme } from '@mui/material/styles';
 import Paper from '@mui/material/Paper';
 import GoodsRequisition from './GoodsRequisition';
 import CreateGoodsRequisition from './CreateGoodsRequisition';
-// import EditPurchaseOrderToSupplier from './EditPruchaseordertosupplier';
+import EditGoodsRequisition from './EditGoodsRequisition';
 
 
 const NAVIGATION = [
@@ -40,10 +40,9 @@ export default function HomeGoodsRequisition() {
       case 'create':
         return <CreateGoodsRequisition onBack={handleBack} />;
       case 'edit':
-        // return <EditPurchaseOrderToSupplier onBack={handleBack} editRefno={editRefno} />;
-        // return <EditPurchaseOrderToSupplier onBack={handleBack} editRefno={editRefno} />
+        return <EditGoodsRequisition onBack={handleBack} editRefno={editRefno} />;
       default:
-        return <GoodsRequisition  onCreate={handleCreate} onEdit={handleEdit} />;
+        return <GoodsRequisition onCreate={handleCreate} onEdit={handleEdit} />;
     }
   };
 

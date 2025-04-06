@@ -14,6 +14,8 @@ import "react-datepicker/dist/react-datepicker.css";
 import { useDispatch } from "react-redux";
 import Swal from 'sweetalert2';
 import { wh_rfsAlljoindt, deleteWh_rfs, countwh_rfs, Wh_rfsByRefno } from '../../../api/warehouse/wh_rfsApi';
+import { generateRFSPDF } from './ReceiptFromSupplierPDF.js';
+import { pdf } from '@react-pdf/renderer';
 
 const formatDate = (date) => {
     if (!date) return "";
@@ -231,6 +233,50 @@ export default function ReceiptFromSupplier({ onCreate, onEdit }) {
         setSelected(newSelected);
     };
 
+    const PrintReceiptFromSupplierPDF = async (refno) => {
+        try {
+            Swal.fire({
+                title: 'กำลังโหลดข้อมูล...',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            // 1. ดึงข้อมูล receipt
+            const orderResponse = await dispatch(Wh_rfsByRefno(refno)).unwrap();
+            console.log("API Response for RFS:", orderResponse);
+
+            console.log("wh_rfsdts details:", orderResponse.data.wh_rfsdts);
+            console.log("Number of products:", orderResponse.data.wh_rfsdts?.length || 0);
+
+
+            if (orderResponse.result && orderResponse.data) {
+                // 2. สร้าง PDF
+                const pdfContent = await generateRFSPDF(refno, orderResponse.data);
+
+                if (pdfContent) {
+                    Swal.close();
+                    const asBlob = await pdf(pdfContent).toBlob();
+                    const url = URL.createObjectURL(asBlob);
+                    window.open(url, '_blank');
+                } else {
+                    throw new Error("Failed to generate PDF content");
+                }
+            } else {
+                throw new Error("Receipt data not found or invalid");
+            }
+        } catch (error) {
+            console.error('Error generating PDF:', error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error generating PDF',
+                text: error.message || 'Please try again later',
+                confirmButtonText: 'OK'
+            });
+        }
+    };
+
     return (
         <Box sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <Button
@@ -257,24 +303,6 @@ export default function ReceiptFromSupplier({ onCreate, onEdit }) {
             </Button>
 
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mt: '48px', width: '90%', gap: '20px' }}>
-                <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>Search</Typography>
-                <TextField
-                    value={searchTerm}
-                    onChange={handleSearchChange}
-                    placeholder="Search"
-                    sx={{
-                        '& .MuiInputBase-root': { height: '38px', width: '100%' },
-                        '& .MuiOutlinedInput-input': { padding: '8.5px 14px' },
-                        width: '35%'
-                    }}
-                    InputProps={{
-                        startAdornment: (
-                            <InputAdornment position="start">
-                                <SearchIcon sx={{ color: '#5A607F' }} />
-                            </InputAdornment>
-                        ),
-                    }}
-                />
                 <Box sx={{ width: '200px' }}>
                     <DatePicker
                         selected={filterDate}
@@ -381,7 +409,7 @@ export default function ReceiptFromSupplier({ onCreate, onEdit }) {
                                 </StyledTableCell>
                                 <StyledTableCell align="center">
                                     <IconButton
-                                        onClick={() => {/* Add print functionality */ }}
+                                        onClick={() => PrintReceiptFromSupplierPDF(row.refno)}
                                         sx={{ border: '1px solid #5686E1', borderRadius: '7px' }}
                                     >
                                         <PrintIcon sx={{ color: '#5686E1' }} />

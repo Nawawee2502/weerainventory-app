@@ -602,8 +602,14 @@ export default function ReportMonthlyStockBalance() {
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td colSpan="3" style={{ textAlign: 'right', padding: '12px 16px', fontWeight: 'bold', color: '#754C27' }}>
+                                        <td style={{ padding: '12px 16px', fontWeight: 'bold', color: '#754C27' }}>
+                                            {/* No number in total row */}
+                                        </td>
+                                        <td colSpan={2} style={{ padding: '12px 16px', textAlign: 'left', fontWeight: 'bold', color: '#754C27' }}>
                                             Total:
+                                        </td>
+                                        <td style={{ padding: '12px 16px', textAlign: 'left', fontWeight: 'bold', color: '#754C27' }}>
+                                            {/* Unit column - no total */}
                                         </td>
                                         <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>
                                             {formatNumber(stockBalanceData.reduce((sum, item) => sum + (item.beg1 || 0), 0))}

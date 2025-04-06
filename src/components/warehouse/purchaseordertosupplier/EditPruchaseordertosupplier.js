@@ -202,7 +202,7 @@ function EditPurchaseOrderToSupplier({ onBack, editRefno }) {
     const offset = 0;
     const limit = 100;
 
-    dispatch(branchAll({ offset, limit }))
+    dispatch(branchAll({ offset: 0, limit: 9999 }))
       .unwrap()
       .then((res) => setBranch(res.data))
       .catch((err) => {
@@ -215,7 +215,7 @@ function EditPurchaseOrderToSupplier({ onBack, editRefno }) {
         });
       });
 
-    dispatch(supplierAll({ offset, limit }))
+    dispatch(supplierAll({ offset: 0, limit: 9999 }))
       .unwrap()
       .then((res) => setSupplier(res.data))
       .catch((err) => {

@@ -6,8 +6,7 @@ import { useTheme } from '@mui/material/styles';
 import Paper from '@mui/material/Paper';
 import ProductionReceipt from './ProductionReceipt';
 import CreateProductionReceipt from './CreateProductionReceipt';
-// import EditPurchaseOrderToSupplier from './EditPruchaseordertosupplier';
-
+import EditProductionReceipt from './EditProductionReceipt';
 
 const NAVIGATION = [
   { segment: '', title: '' },
@@ -40,10 +39,9 @@ export default function HomeProductionReceipt() {
       case 'create':
         return <CreateProductionReceipt onBack={handleBack} />;
       case 'edit':
-        // return <EditPurchaseOrderToSupplier onBack={handleBack} editRefno={editRefno} />;
-        // return <EditPurchaseOrderToSupplier onBack={handleBack} editRefno={editRefno} />
+        return <EditProductionReceipt onBack={handleBack} editRefno={editRefno} />;
       default:
-        return <ProductionReceipt  onCreate={handleCreate} onEdit={handleEdit} />;
+        return <ProductionReceipt onCreate={handleCreate} onEdit={handleEdit} />;
     }
   };
 

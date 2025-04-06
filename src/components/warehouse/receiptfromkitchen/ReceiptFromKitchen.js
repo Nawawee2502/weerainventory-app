@@ -13,8 +13,12 @@ import "react-datepicker/dist/react-datepicker.css";
 import Stack from '@mui/material/Stack';
 import Pagination from '@mui/material/Pagination';
 import { useDispatch } from 'react-redux';
-import { wh_rfkAlljoindt, deleteWh_rfk } from '../../../api/warehouse/wh_rfkApi';
+import { wh_rfkAlljoindt, deleteWh_rfk, Wh_rfkByRefno } from '../../../api/warehouse/wh_rfkApi';
 import Swal from 'sweetalert2';
+import { pdf } from '@react-pdf/renderer';
+import { generateKitchenReceiptPDF } from './Wh_rfkPDF';
+import Switch from '@mui/material/Switch';
+import FormControlLabel from '@mui/material/FormControlLabel';
 
 const formatDate = (date) => {
     if (!date) return "";
@@ -73,6 +77,7 @@ const StyledTableRow = styled(TableRow)(({ theme }) => ({
         border: 0,
     },
 }));
+
 export default function ReceiptFromKitchen({ onCreate, onEdit }) {
     const dispatch = useDispatch();
     const [searchTerm, setSearchTerm] = useState("");
@@ -82,6 +87,7 @@ export default function ReceiptFromKitchen({ onCreate, onEdit }) {
     const [count, setCount] = useState(1);
     const [data, setData] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [excludePrice, setExcludePrice] = useState(false);
     const limit = 5;
 
     useEffect(() => {
@@ -232,15 +238,71 @@ export default function ReceiptFromKitchen({ onCreate, onEdit }) {
         setPage(1);
     };
 
-    // const handleEdit = (refno) => {
-    //     if (onEdit) onEdit(refno);
-    // };
+    // Handle Print PDF function
+    const handlePrintPDF = async (refno) => {
+        try {
+            Swal.fire({
+                title: 'กำลังโหลดข้อมูล...',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
 
+            const orderResponse = await dispatch(Wh_rfkByRefno({ refno })).unwrap();
 
+            console.log("API Response Data (Complete):", orderResponse);
+
+            if (orderResponse.result && orderResponse.data) {
+                const data = orderResponse.data;
+
+                console.log("Products data:", data.wh_rfkdts);
+
+                if (data.wh_rfkdts) {
+                    console.log("Number of products:",
+                        Array.isArray(data.wh_rfkdts) ?
+                            data.wh_rfkdts.length :
+                            (typeof data.wh_rfkdts === 'object' ?
+                                Object.keys(data.wh_rfkdts).length :
+                                'Not an array or object'));
+
+                    // Sample data
+                    if (Array.isArray(data.wh_rfkdts) && data.wh_rfkdts.length > 0) {
+                        console.log("First product:", data.wh_rfkdts[0]);
+                    } else if (typeof data.wh_rfkdts === 'object') {
+                        console.log("First product:", data.wh_rfkdts[Object.keys(data.wh_rfkdts)[0]]);
+                    }
+                } else {
+                    console.log("No products data found in API response");
+                }
+
+                // Pass the includePrices parameter (false when excludePrice is true)
+                const pdfContent = await generateKitchenReceiptPDF(refno, data, !excludePrice);
+
+                if (pdfContent) {
+                    Swal.close();
+                    const asBlob = await pdf(pdfContent).toBlob();
+                    const url = URL.createObjectURL(asBlob);
+                    window.open(url, '_blank');
+                } else {
+                    throw new Error("Failed to generate PDF content");
+                }
+            } else {
+                throw new Error("Order data not found or invalid");
+            }
+        } catch (error) {
+            console.error('Error generating PDF:', error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error generating PDF',
+                text: error.message || 'Please try again later',
+                confirmButtonText: 'OK'
+            });
+        }
+    };
 
     return (
         <Box sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            {/* ... (keep existing header JSX) ... */}
             <Button
                 onClick={onCreate}
                 sx={{
@@ -265,29 +327,11 @@ export default function ReceiptFromKitchen({ onCreate, onEdit }) {
             </Button>
 
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mt: '48px', width: '90%', gap: '20px' }}>
-                <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>Search</Typography>
-                <TextField
-                    value={searchTerm}
-                    onChange={handleSearchChange}
-                    placeholder="Search"
-                    sx={{
-                        '& .MuiInputBase-root': { height: '38px', width: '100%' },
-                        '& .MuiOutlinedInput-input': { padding: '8.5px 14px' },
-                        width: '35%'
-                    }}
-                    InputProps={{
-                        startAdornment: (
-                            <InputAdornment position="start">
-                                <SearchIcon sx={{ color: '#5A607F' }} />
-                            </InputAdornment>
-                        ),
-                    }}
-                />
                 <Box sx={{ width: '200px' }}>
                     <DatePicker
                         selected={filterDate}
                         onChange={handleDateChange}
-                        dateFormat="MM/dd/yyyy"  // Changed from dd/MM/yyyy
+                        dateFormat="MM/dd/yyyy"
                         placeholderText="MM/DD/YYYY"
                         customInput={<CustomInput />}
                         popperClassName="custom-popper"
@@ -309,6 +353,16 @@ export default function ReceiptFromKitchen({ onCreate, onEdit }) {
                 >
                     Clear
                 </Button>
+                <FormControlLabel
+                    control={
+                        <Switch
+                            checked={excludePrice}
+                            onChange={(e) => setExcludePrice(e.target.checked)}
+                        />
+                    }
+                    label="Exclude price in PDF"
+                    sx={{ color: '#7E84A3', '& .MuiFormControlLabel-label': { fontSize: '14px' } }}
+                />
             </Box>
 
             <Box sx={{ width: '100%', mt: '24px' }}>
@@ -390,7 +444,7 @@ export default function ReceiptFromKitchen({ onCreate, onEdit }) {
                                         </StyledTableCell>
                                         <StyledTableCell align="center">
                                             <IconButton
-                                                onClick={() => {/* Add print functionality later */ }}
+                                                onClick={() => handlePrintPDF(row.refno)}
                                                 sx={{ border: '1px solid #5686E1', borderRadius: '7px' }}
                                             >
                                                 <PrintIcon sx={{ color: '#5686E1' }} />

@@ -12,11 +12,13 @@ import "react-datepicker/dist/react-datepicker.css";
 import Stack from '@mui/material/Stack';
 import Pagination from '@mui/material/Pagination';
 import { useDispatch } from 'react-redux';
-import { Br_rfsAlljoindt, deleteBr_rfs } from '../../../../api/restaurant/br_rfsApi';
+import { Br_rfsAlljoindt, deleteBr_rfs, Br_rfsByRefno } from '../../../../api/restaurant/br_rfsApi';
 import { supplierAll } from '../../../../api/supplierApi';
 import { branchAll } from '../../../../api/branchApi'; // Import branch API
 import { searchProductName } from '../../../../api/productrecordApi';
 import Swal from 'sweetalert2';
+import { pdf } from '@react-pdf/renderer';
+import { generateGoodsReceiptSupplierPDF } from './Br_rfsPDF';
 
 const formatDate = (date) => {
   if (!date) return "";
@@ -112,7 +114,7 @@ export default function GoodsReceiptSupplier({ onCreate, onEdit }) {
         });
       }
     };
-    
+
     const loadBranches = async () => {
       try {
         const response = await dispatch(branchAll({ offset: 0, limit: 100 })).unwrap();
@@ -128,7 +130,7 @@ export default function GoodsReceiptSupplier({ onCreate, onEdit }) {
         });
       }
     };
-    
+
     loadSuppliers();
     loadBranches(); // Load branches when component mounts
   }, [dispatch]);
@@ -335,6 +337,68 @@ export default function GoodsReceiptSupplier({ onCreate, onEdit }) {
     setPage(1);
   };
 
+  const handlePrintPDF = async (refno) => {
+    try {
+      Swal.fire({
+        title: 'กำลังโหลดข้อมูล...',
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
+
+      const orderResponse = await dispatch(Br_rfsByRefno({ refno })).unwrap();
+
+      console.log("API Response Data (Complete):", orderResponse);
+
+      if (orderResponse.result && orderResponse.data) {
+        const data = orderResponse.data;
+
+        console.log("Products data:", data.br_rfsdts);
+
+        if (data.br_rfsdts) {
+          console.log("Number of products:",
+            Array.isArray(data.br_rfsdts) ?
+              data.br_rfsdts.length :
+              (typeof data.br_rfsdts === 'object' ?
+                Object.keys(data.br_rfsdts).length :
+                'Not an array or object'));
+
+          // Sample data
+          if (Array.isArray(data.br_rfsdts) && data.br_rfsdts.length > 0) {
+            console.log("First product:", data.br_rfsdts[0]);
+          } else if (typeof data.br_rfsdts === 'object') {
+            console.log("First product:", data.br_rfsdts[Object.keys(data.br_rfsdts)[0]]);
+          }
+        } else {
+          console.log("No products data found in API response");
+        }
+
+        // Pass the includePrices parameter (false when excludePrice is true)
+        const pdfContent = await generateGoodsReceiptSupplierPDF(refno, data, !excludePrice);
+
+        if (pdfContent) {
+          Swal.close();
+          const asBlob = await pdf(pdfContent).toBlob();
+          const url = URL.createObjectURL(asBlob);
+          window.open(url, '_blank');
+        } else {
+          throw new Error("Failed to generate PDF content");
+        }
+      } else {
+        throw new Error("Order data not found or invalid");
+      }
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error generating PDF',
+        text: error.message || 'Please try again later',
+        confirmButtonText: 'OK'
+      });
+    }
+  };
+
   return (
     <Box sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       <Button
@@ -509,7 +573,7 @@ export default function GoodsReceiptSupplier({ onCreate, onEdit }) {
                     </StyledTableCell>
                     <StyledTableCell align="center">
                       <IconButton
-                        onClick={() => {/* Add print functionality later */ }}
+                        onClick={() => handlePrintPDF(row.refno)}
                         sx={{ border: '1px solid #5686E1', borderRadius: '7px' }}
                       >
                         <PrintIcon sx={{ color: '#5686E1' }} />

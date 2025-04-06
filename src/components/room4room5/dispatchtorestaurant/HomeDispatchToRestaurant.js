@@ -6,8 +6,7 @@ import { useTheme } from '@mui/material/styles';
 import Paper from '@mui/material/Paper';
 import DispatchToRestaurant from './DispatchToRestaurant';
 import CreateDispatchToRestaurant from './CreateDispatchToRestaurant';
-// import EditPurchaseOrderToSupplier from './EditPruchaseordertosupplier';
-
+import EditDispatchToRestaurant from './EditDispatchToRestaurant';
 
 const NAVIGATION = [
   { segment: '', title: '' },
@@ -40,8 +39,7 @@ export default function HomeDispatchToRestaurant() {
       case 'create':
         return <CreateDispatchToRestaurant onBack={handleBack} />;
       case 'edit':
-        // return <EditPurchaseOrderToSupplier onBack={handleBack} editRefno={editRefno} />;
-        // return <EditPurchaseOrderToSupplier onBack={handleBack} editRefno={editRefno} />
+        return <EditDispatchToRestaurant onBack={handleBack} editRefno={editRefno} />;
       default:
         return <DispatchToRestaurant onCreate={handleCreate} onEdit={handleEdit} />;
     }

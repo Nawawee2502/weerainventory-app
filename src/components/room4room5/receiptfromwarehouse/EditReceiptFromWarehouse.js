@@ -12,8 +12,8 @@ import 'react-datepicker/dist/react-datepicker.css';
 import { useDispatch } from "react-redux";
 import { searchProductName } from '../../../api/productrecordApi';
 import { kitchenAll } from '../../../api/kitchenApi';
-import { getKtPowByRefno, updateKt_pow } from '../../../api/kitchen/kt_powApi';
-import { Kt_powdtAlljoindt } from '../../../api/kitchen/kt_powdtApi';
+import { getKtRfwByRefno, updateKt_rfw } from '../../../api/kitchen/kt_rfwApi';
+import { Kt_rfwdtAlljoindt } from '../../../api/kitchen/kt_rfwdtApi';
 import Swal from 'sweetalert2';
 import { format } from 'date-fns';
 
@@ -49,7 +49,7 @@ const CustomDateInput = React.forwardRef(({ value, onClick, placeholder }, ref) 
     </Box>
 ));
 
-export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
+export default function EditReceiptFromWarehouse({ onBack, editRefno }) {
     const dispatch = useDispatch();
 
     // Form state
@@ -75,6 +75,7 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
     const [allProducts, setAllProducts] = useState([]);
 
     // Additional product details
+    const [expiryDates, setExpiryDates] = useState({});
     const [imageErrors, setImageErrors] = useState({});
 
     // Get user data
@@ -88,46 +89,40 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
                 setIsLoading(true);
                 console.log('Fetching data for refno:', editRefno);
 
-                // Load kitchens and products in parallel
-                const [kitchenResponse, productsResponse] = await Promise.all([
+                // Load all products and kitchens
+                const [productsResponse, kitchenResponse] = await Promise.all([
+                    dispatch(searchProductName({ product_name: '' })).unwrap(),
                     dispatch(kitchenAll({ offset: 0, limit: 100 })).unwrap(),
-                    dispatch(searchProductName({ product_name: '' })).unwrap()
                 ]);
-
-                if (kitchenResponse?.data) {
-                    setKitchens(kitchenResponse.data);
-                    console.log('Loaded kitchens:', kitchenResponse.data.length);
-                }
 
                 if (productsResponse?.data) {
                     setAllProducts(productsResponse.data);
-                    console.log('Loaded all products:', productsResponse.data.length);
                 }
 
-                // Fetch purchase order data using getKtPowByRefno
+                if (kitchenResponse?.data) {
+                    setKitchens(kitchenResponse.data);
+                }
+
+                // Fetch receipt data using getKtRfwByRefno
                 if (editRefno) {
-                    console.log('Looking up with getKtPowByRefno for ref:', editRefno);
                     // Pass refno directly as a string, not as an object
                     const refno = typeof editRefno === 'object' ? editRefno.refno : editRefno;
-                    const orderResponse = await dispatch(getKtPowByRefno(refno)).unwrap();
-                    console.log('Response from getKtPowByRefno:', orderResponse);
+                    const receiptResponse = await dispatch(getKtRfwByRefno(refno)).unwrap();
 
-                    if (orderResponse.result && orderResponse.data) {
-                        // Set header info
-                        const orderData = orderResponse.data;
-                        console.log('Header data found:', orderData);
-                        setDebugInfo({ headerData: orderData });
+                    if (receiptResponse.result && receiptResponse.data) {
+                        const receiptData = receiptResponse.data;
+                        setDebugInfo({ headerData: receiptData });
 
-                        // Parse and set date
-                        if (orderData.trdate && orderData.trdate.length === 8) {
-                            const year = parseInt(orderData.trdate.substring(0, 4));
-                            const month = parseInt(orderData.trdate.substring(4, 6)) - 1;
-                            const day = parseInt(orderData.trdate.substring(6, 8));
+                        // Set header data
+                        if (receiptData.trdate && receiptData.trdate.length === 8) {
+                            const year = parseInt(receiptData.trdate.substring(0, 4));
+                            const month = parseInt(receiptData.trdate.substring(4, 6)) - 1;
+                            const day = parseInt(receiptData.trdate.substring(6, 8));
                             setStartDate(new Date(year, month, day));
-                        } else if (orderData.rdate) {
+                        } else if (receiptData.rdate) {
                             // Try to parse the date safely
                             try {
-                                const dateParts = orderData.rdate.split('/');
+                                const dateParts = receiptData.rdate.split('/');
                                 if (dateParts.length === 3) {
                                     const month = parseInt(dateParts[0]) - 1;
                                     const day = parseInt(dateParts[1]);
@@ -142,40 +137,26 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
                             }
                         }
 
-                        setSaveKitchen(orderData.kitchen_code || '');
-                        setTotal(parseFloat(orderData.total) || 0);
+                        setSaveKitchen(receiptData.kitchen_code || '');
+                        setTotal(parseFloat(receiptData.total) || 0);
 
                         // Fetch detail data
+                        // Make sure we're passing the refno correctly as a string
                         const refno = typeof editRefno === 'object' ? editRefno.refno : editRefno;
-                        const detailResponse = await dispatch(Kt_powdtAlljoindt({ refno: refno })).unwrap();
-                        console.log('Detail response from Kt_powdtAlljoindt:', detailResponse);
+                        const detailResponse = await dispatch(Kt_rfwdtAlljoindt(refno)).unwrap();
+                        setDebugInfo(prev => ({ ...prev, detailData: detailResponse.data }));
 
                         if (detailResponse.result && detailResponse.data && detailResponse.data.length > 0) {
-                            const detailData = detailResponse.data;
-                            console.log('Detail data found:', detailData.length, 'items');
-                            setDebugInfo(prev => ({ ...prev, detailData }));
-
-                            // Process detail data
-                            await processDetailData(detailData);
-                        } else {
-                            console.warn('No detail data found in Kt_powdtAlljoindt');
-                            setDebugInfo(prev => ({ ...prev, detailError: 'No detail data found in Kt_powdtAlljoindt' }));
+                            await processDetailData(detailResponse.data);
                         }
-                    } else {
-                        console.warn('No data found in getKtPowByRefno');
-                        setDebugInfo(prev => ({ ...prev, error: 'No data found in getKtPowByRefno' }));
                     }
-                } else {
-                    console.warn('No editRefno provided');
-                    setDebugInfo(prev => ({ ...prev, error: 'No editRefno provided' }));
                 }
             } catch (error) {
                 console.error('Error loading data:', error);
-                setDebugInfo(prev => ({ ...prev, error: error.toString() }));
                 Swal.fire({
                     icon: 'error',
                     title: 'Error',
-                    text: 'Failed to load purchase order data: ' + error.message
+                    text: 'Failed to load receipt data: ' + error.message
                 });
             } finally {
                 setIsLoading(false);
@@ -208,6 +189,7 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
             const newUnits = {};
             const newUnitPrices = {};
             const newTotals = {};
+            const newExpiryDates = {};
 
             detailData.forEach((item) => {
                 const productCode = item.product_code;
@@ -215,6 +197,36 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
                 newUnits[productCode] = item.unit_code || item.tbl_product?.productUnit1?.unit_code || '';
                 newUnitPrices[productCode] = parseFloat(item.uprice) || 0;
                 newTotals[productCode] = parseFloat(item.amt) || 0;
+
+                // Parse expiry date
+                if (item.texpire_date && item.texpire_date.length === 8) {
+                    try {
+                        const year = parseInt(item.texpire_date.substring(0, 4));
+                        const month = parseInt(item.texpire_date.substring(4, 6)) - 1;
+                        const day = parseInt(item.texpire_date.substring(6, 8));
+                        newExpiryDates[productCode] = new Date(year, month, day);
+                    } catch (e) {
+                        console.error("Error parsing texpire_date:", e);
+                        newExpiryDates[productCode] = new Date();
+                    }
+                } else if (item.expire_date) {
+                    try {
+                        const dateParts = item.expire_date.split('/');
+                        if (dateParts.length === 3) {
+                            const month = parseInt(dateParts[0]) - 1;
+                            const day = parseInt(dateParts[1]);
+                            const year = parseInt(dateParts[2]);
+                            newExpiryDates[productCode] = new Date(year, month, day);
+                        } else {
+                            newExpiryDates[productCode] = new Date();
+                        }
+                    } catch (e) {
+                        console.error("Expiry date parsing error:", e);
+                        newExpiryDates[productCode] = new Date();
+                    }
+                } else {
+                    newExpiryDates[productCode] = new Date();
+                }
             });
 
             // Update all states
@@ -222,6 +234,7 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
             setUnits(newUnits);
             setUnitPrices(newUnitPrices);
             setTotals(newTotals);
+            setExpiryDates(newExpiryDates);
 
             // Calculate and set total
             const totalSum = Object.values(newTotals).reduce((sum, value) => sum + value, 0);
@@ -229,7 +242,6 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
 
         } catch (error) {
             console.error('Error processing detail data:', error);
-            setDebugInfo(prev => ({ ...prev, processError: error.toString() }));
             throw error;
         }
     };
@@ -290,7 +302,7 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
             Swal.fire({
                 icon: 'warning',
                 title: 'Duplicate Product',
-                text: `${product.product_name} is already in your purchase order. Please adjust the quantity instead.`,
+                text: `${product.product_name} is already in your receipt. Please adjust the quantity instead.`,
                 confirmButtonColor: '#754C27'
             });
             setSearchTerm('');
@@ -306,6 +318,7 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
         setQuantities(prev => ({ ...prev, [product.product_code]: 1 }));
         setUnits(prev => ({ ...prev, [product.product_code]: product.productUnit1?.unit_code || '' }));
         setUnitPrices(prev => ({ ...prev, [product.product_code]: product.bulk_unit_price || 0 }));
+        setExpiryDates(prev => ({ ...prev, [product.product_code]: new Date() }));
 
         // Reset search and calculate totals
         setSearchTerm('');
@@ -371,6 +384,14 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
             setSearchResults([]);
             setShowDropdown(false);
         }
+    };
+
+    // Handle expiry date change
+    const handleExpiryDateChange = (productCode, date) => {
+        setExpiryDates(prev => ({
+            ...prev,
+            [productCode]: date
+        }));
     };
 
     // Handle unit change
@@ -444,11 +465,13 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
         const { [productCode]: __, ...newUnits } = units;
         const { [productCode]: ___, ...newPrices } = unitPrices;
         const { [productCode]: ____, ...newTotals } = totals;
+        const { [productCode]: _____, ...newExpiryDates } = expiryDates;
 
         setQuantities(newQuantities);
         setUnits(newUnits);
         setUnitPrices(newPrices);
         setTotals(newTotals);
+        setExpiryDates(newExpiryDates);
 
         calculateOrderTotals(products.filter(p => p.product_code !== productCode));
     };
@@ -484,42 +507,6 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
         });
     };
 
-    // Debug button to show current state
-    const showDebugInfo = () => {
-        console.log('Debug Info:', {
-            editRefno,
-            headerInfo: debugInfo.headerData,
-            detailInfo: debugInfo.detailData,
-            products,
-            selectedProducts,
-            quantities,
-            units,
-            unitPrices,
-            error: debugInfo.error
-        });
-
-        Swal.fire({
-            title: 'Debug Information',
-            html: `
-                <div style="text-align: left; max-height: 400px; overflow-y: auto;">
-                    <p><strong>Edit RefNo:</strong> ${editRefno}</p>
-                    <p><strong>Selected Products:</strong> ${selectedProducts.length}</p>
-                    <p><strong>Products Array:</strong> ${products.length}</p>
-                    <p><strong>Kitchen:</strong> ${saveKitchen}</p>
-                    <p><strong>Total:</strong> ${total}</p>
-                    <p><strong>Error:</strong> ${debugInfo.error || debugInfo.detailError || debugInfo.processError || 'None'}</p>
-                    <hr/>
-                    <p><strong>Header Data:</strong></p>
-                    <pre style="font-size: 11px;">${JSON.stringify(debugInfo.headerData, null, 2)}</pre>
-                    <hr/>
-                    <p><strong>Detail Data (${debugInfo.detailData?.length || 0} items):</strong></p>
-                    <pre style="font-size: 11px;">${JSON.stringify(debugInfo.detailData?.slice(0, 3), null, 2)}</pre>
-                </div>
-            `,
-            width: 800,
-        });
-    };
-
     // Handle form submission (update)
     const handleUpdate = async () => {
         if (!saveKitchen || products.length === 0) {
@@ -534,7 +521,7 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
 
         try {
             Swal.fire({
-                title: 'Updating purchase order...',
+                title: 'Updating receipt...',
                 allowOutsideClick: false,
                 didOpen: () => Swal.showLoading()
             });
@@ -563,7 +550,7 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
                 taxable: taxableAmount.toString(),
                 nontaxable: nontaxableAmount.toString(),
                 user_code: userData2.user_code || '',
-                total: total.toString()
+                total: total.toString(),
             };
 
             const productArrayData = products.map(product => ({
@@ -572,47 +559,36 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
                 qty: (quantities[product.product_code] || 1).toString(),
                 unit_code: units[product.product_code] || product.productUnit1?.unit_code || '',
                 uprice: (unitPrices[product.product_code] || 0).toString(),
-                amt: (totals[product.product_code] || 0).toString()
+                amt: (totals[product.product_code] || 0).toString(),
+                expire_date: format(expiryDates[product.product_code] || new Date(), 'MM/dd/yyyy'),
+                texpire_date: format(expiryDates[product.product_code] || new Date(), 'yyyyMMdd')
             }));
 
-            const payload = {
-                headerData: headerData,
-                productArrayData: productArrayData,
+            await dispatch(updateKt_rfw({
+                // Send as both direct properties and nested objects to maintain compatibility
+                ...headerData,
+                headerData,
+                productArrayData,
                 footerData: {
-                    total: total.toString()
+                    total: total.toString(),
                 }
-            };
+            })).unwrap();
 
-            console.log("Sending update with payload:", payload);
+            await Swal.fire({
+                icon: 'success',
+                title: 'Updated receipt successfully',
+                text: `Reference No: ${editRefno}`,
+                showConfirmButton: false,
+                timer: 1500
+            });
 
-            try {
-                const response = await dispatch(updateKt_pow(payload)).unwrap();
-                console.log("Update response:", response);
-
-                await Swal.fire({
-                    icon: 'success',
-                    title: 'Updated purchase order successfully',
-                    text: `Reference No: ${editRefno}`,
-                    showConfirmButton: false,
-                    timer: 1500
-                });
-
-                onBack();
-            } catch (apiError) {
-                console.error('Update API Error:', apiError);
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error',
-                    text: apiError.message || 'Error updating purchase order',
-                    confirmButtonText: 'OK'
-                });
-            }
+            onBack();
         } catch (error) {
             console.error('Update error:', error);
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
-                text: error.message || 'Error updating purchase order',
+                text: error.message || 'Error updating receipt',
                 confirmButtonText: 'OK'
             });
         }
@@ -623,29 +599,20 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
         return (
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
                 <CircularProgress sx={{ color: '#754C27' }} />
-                <Typography sx={{ ml: 2 }}>Loading purchase order data...</Typography>
+                <Typography sx={{ ml: 2 }}>Loading receipt data...</Typography>
             </Box>
         );
     }
 
     return (
         <Box sx={{ width: '100%' }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Button
-                    onClick={onBack}
-                    startIcon={<ArrowBackIcon />}
-                >
-                    Back to Purchase Order
-                </Button>
-                <Button
-                    variant="outlined"
-                    color="warning"
-                    onClick={showDebugInfo}
-                    size="small"
-                >
-                    Debug Info
-                </Button>
-            </Box>
+            <Button
+                onClick={onBack}
+                startIcon={<ArrowBackIcon />}
+                sx={{ mb: 2, mr: 'auto' }}
+            >
+                Back to Goods Receipt
+            </Button>
             <Box sx={{ width: '100%', mt: '10px', flexDirection: 'column' }}>
                 <Box sx={{
                     display: 'flex',
@@ -734,7 +701,7 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
 
                         <Box sx={{ display: 'flex', flexDirection: 'row', width: '100%', p: '24px 0px' }}>
                             <Typography sx={{ fontSize: '20px', fontWeight: '600' }}>
-                                Current Purchase Order
+                                Current Goods Receipt
                             </Typography>
                             <Typography sx={{ ml: 'auto' }}>
                                 Product Search
@@ -828,10 +795,12 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
                                     <tr>
                                         <th style={{ padding: '4px', fontSize: '14px', width: '1%', color: '#754C27', fontWeight: '800' }}>No.</th>
                                         <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '15%', color: '#754C27', fontWeight: '800' }}>Product code</th>
-                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '25%', color: '#754C27', fontWeight: '800' }}>Product name</th>
+                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '20%', color: '#754C27', fontWeight: '800' }}>Product name</th>
+                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Expiry Date</th>
                                         <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Quantity</th>
                                         <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '10%', color: '#754C27', fontWeight: '800' }}>Unit</th>
                                         <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Unit Price</th>
+                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Tax</th>
                                         <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Total</th>
                                         <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '1%', color: '#754C27', fontWeight: '800' }}></th>
                                     </tr>
@@ -839,7 +808,7 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
                                 <tbody>
                                     {products.length === 0 ? (
                                         <tr>
-                                            <td colSpan={8} style={{ textAlign: 'center', padding: '16px', color: '#666' }}>
+                                            <td colSpan={10} style={{ textAlign: 'center', padding: '16px', color: '#666' }}>
                                                 No products added yet. Search and select products above.
                                             </td>
                                         </tr>
@@ -864,6 +833,24 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
                                                             {renderProductImage(product)}
                                                             {product.product_name}
                                                         </Box>
+                                                    </td>
+                                                    <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                                                        <DatePicker
+                                                            selected={expiryDates[productCode] || null}
+                                                            onChange={(date) => handleExpiryDateChange(productCode, date)}
+                                                            dateFormat="MM/dd/yyyy"
+                                                            placeholderText="Select exp date"
+                                                            customInput={
+                                                                <input
+                                                                    style={{
+                                                                        width: '110px',
+                                                                        padding: '4px',
+                                                                        borderRadius: '4px',
+                                                                        textAlign: 'center'
+                                                                    }}
+                                                                />
+                                                            }
+                                                        />
                                                     </td>
                                                     <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
                                                         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -932,6 +919,9 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
                                                         />
                                                     </td>
                                                     <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                                                        {product.tax1 === 'Y' ? 'Yes' : 'No'}
+                                                    </td>
+                                                    <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
                                                         {currentTotal}
                                                     </td>
                                                     <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
@@ -989,7 +979,7 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
                                     color: '#808080'
                                 }
                             }}>
-                            Update Purchase Order
+                            Update Receipt
                         </Button>
                     </Box>
                 </Box>

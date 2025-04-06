@@ -31,11 +31,13 @@ import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
 import { useDispatch } from 'react-redux';
-import { Br_powAlljoindt, deleteBr_pow } from '../../../../api/restaurant/br_powApi';
+import { Br_powAlljoindt, deleteBr_pow, Br_powByRefno } from '../../../../api/restaurant/br_powApi';
 import { supplierAll } from '../../../../api/supplierApi';
 import { branchAll } from '../../../../api/branchApi'; // Import branch API
 import { searchProductName } from '../../../../api/productrecordApi';
 import Swal from 'sweetalert2';
+import { pdf } from '@react-pdf/renderer';
+import { generatePDF } from './Br_powPDF';
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
     [`&.${tableCellClasses.head}`]: {
@@ -289,6 +291,71 @@ export default function PurchaseOrderToWarehouse({ onCreate, onEdit }) {
         }
     };
 
+    const handlePrintPDF = async (refno) => {
+        try {
+            Swal.fire({
+                title: 'กำลังโหลดข้อมูล...',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            // ใช้ Br_powByRefno ที่มีอยู่แล้ว
+            const orderResponse = await dispatch(Br_powByRefno({ refno })).unwrap();
+
+            console.log("API Response Data (Complete):", orderResponse);
+
+            if (orderResponse.result && orderResponse.data) {
+                const data = orderResponse.data;
+
+                // ดูข้อมูลสินค้าในออบเจ็กต์ข้อมูล
+                console.log("Products data:", data.br_powdts);
+
+                // ตรวจสอบจำนวนสินค้า
+                if (data.br_powdts) {
+                    console.log("Number of products:",
+                        Array.isArray(data.br_powdts) ?
+                            data.br_powdts.length :
+                            (typeof data.br_powdts === 'object' ?
+                                Object.keys(data.br_powdts).length :
+                                'Not an array or object'));
+
+                    // แสดงข้อมูลสินค้าตัวแรก (ถ้ามี)
+                    if (Array.isArray(data.br_powdts) && data.br_powdts.length > 0) {
+                        console.log("First product:", data.br_powdts[0]);
+                    } else if (typeof data.br_powdts === 'object') {
+                        console.log("First product:", data.br_powdts[Object.keys(data.br_powdts)[0]]);
+                    }
+                } else {
+                    console.log("No products data found in API response");
+                }
+
+                // สร้าง PDF โดยใช้ข้อมูลจาก API
+                const pdfContent = await generatePDF(refno, data);
+
+                if (pdfContent) {
+                    Swal.close();
+                    const asBlob = await pdf(pdfContent).toBlob();
+                    const url = URL.createObjectURL(asBlob);
+                    window.open(url, '_blank');
+                } else {
+                    throw new Error("Failed to generate PDF content");
+                }
+            } else {
+                throw new Error("Order data not found or invalid");
+            }
+        } catch (error) {
+            console.error('Error generating PDF:', error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error generating PDF',
+                text: error.message || 'Please try again later',
+                confirmButtonText: 'OK'
+            });
+        }
+    };
+
     return (
         <Box sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <Button
@@ -436,7 +503,7 @@ export default function PurchaseOrderToWarehouse({ onCreate, onEdit }) {
                                                     <DeleteIcon sx={{ color: '#F62626' }} />
                                                 </IconButton>
                                                 <IconButton
-                                                    onClick={() => { /* Add print functionality */ }}
+                                                    onClick={() => handlePrintPDF(row.refno)}
                                                     sx={{ border: '1px solid #5686E1', borderRadius: '7px' }}
                                                 >
                                                     <PrintIcon sx={{ color: '#5686E1' }} />

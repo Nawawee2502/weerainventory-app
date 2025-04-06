@@ -651,8 +651,26 @@ export default function ProductRecord() {
 
     const handleExportPdf = async () => {
         try {
+            // Show loading message
+            Swal.fire({
+                title: 'Generating PDF',
+                text: 'Please wait while we prepare your document...',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            // Always fetch all data for PDF export, regardless of current pagination or filter
+            const response = await dispatch(productAlltypeproduct({
+                typeproduct_code: selectedTypeProduct || null,
+                product_name: searchTerm || null,
+                offset: 0,
+                limit: 99999 // A large number to get all records
+            })).unwrap();
+
             // Check if we have data to export
-            if (!productAllTypeproduct || productAllTypeproduct.length === 0) {
+            if (!response.data || response.data.length === 0) {
                 Swal.fire({
                     icon: 'warning',
                     title: 'No Data',
@@ -662,52 +680,17 @@ export default function ProductRecord() {
                 return;
             }
 
-            // If we're filtering by page, consider fetching all data before exporting
-            let dataToExport = productAllTypeproduct;
+            // Prepare data with IDs
+            const allProductsWithIds = response.data.map((item, index) => ({
+                ...item,
+                id: index + 1
+            }));
 
-            // If we want to export all data regardless of pagination
-            if (count > itemsPerPage) {
-                try {
-                    // Show loading message
-                    Swal.fire({
-                        title: 'Generating PDF',
-                        text: 'Please wait while we prepare your document...',
-                        allowOutsideClick: false,
-                        didOpen: () => {
-                            Swal.showLoading();
-                        }
-                    });
+            // Export the data to PDF
+            await exportToPdfProduct(allProductsWithIds, selectedTypeProduct);
 
-                    // Fetch all data
-                    const response = await dispatch(productAlltypeproduct({
-                        typeproduct_code: selectedTypeProduct || null,
-                        product_name: searchTerm || null,
-                        offset: 0,
-                        limit: 9999 // A large number to get all records
-                    })).unwrap();
-
-                    if (response.data) {
-                        const allProductsWithIds = response.data.map((item, index) => ({
-                            ...item,
-                            id: index + 1
-                        }));
-                        dataToExport = allProductsWithIds;
-                    }
-
-                    Swal.close();
-                } catch (error) {
-                    console.error("Error fetching all products for PDF:", error);
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Error',
-                        text: 'Failed to generate PDF with all data. Exporting current page only.',
-                        confirmButtonColor: '#754C27'
-                    });
-                }
-            }
-
-            // Export the data to PDF (the sorting will be handled in the exportToPdfProduct function)
-            await exportToPdfProduct(dataToExport, selectedTypeProduct);
+            // Close loading dialog on success
+            Swal.close();
 
         } catch (error) {
             console.error("Error exporting to PDF:", error);

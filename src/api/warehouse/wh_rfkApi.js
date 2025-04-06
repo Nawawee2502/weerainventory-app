@@ -161,3 +161,18 @@ export const getWhRfkByRefno = createAsyncThunk(
         }
     }
 );
+
+export const Wh_rfkUsedRefnos = createAsyncThunk(
+    "wh_rfk/usedRefnos",
+    async (_, thunkAPI) => {
+        try {
+            const response = await axios.post(BASE_URL + "/api/wh-rfk-used-refnos");
+            return response.data;
+        } catch (error) {
+            return thunkAPI.rejectWithValue(
+                error.response ? error.response.data : error.message
+            );
+        }
+    }
+);
+

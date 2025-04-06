@@ -81,9 +81,10 @@ function Room4Room5(props) {
         const userData = JSON.parse(localStorage.getItem('userData2'));
         const permissions = userData?.tbl_typeuserpermission || {};
 
+        // รายการเมนูที่เรียงตาม MKitchen และใช้ชื่อตาม MKitchen
         const menu = [];
 
-        // Beginning Inventory
+        // 1. Beginning Inventory
         if (permissions.menu_setkt_beginninginventory === 'Y') {
             menu.push({
                 segment: 'beginning-inventory',
@@ -92,52 +93,34 @@ function Room4Room5(props) {
             });
         }
 
-        // Purchase Order to Warehouse
+        // 2. Purchase Order to Warehouse
         if (permissions.menu_setkt_purchase_order_to_wh === 'Y') {
             menu.push({
                 segment: 'purchase-order-to-warehouse',
-                title: 'Purchase Order to Warehouse',
+                title: 'Request to Warehouse',
                 icon: <ListAltIcon />,
             });
         }
 
-        // Receipt From Supplier
-        if (permissions.menu_setkt_receipt_from_supplier === 'Y') {
-            menu.push({
-                segment: 'receipt-from-supplier',
-                title: 'Receipt From Supplier',
-                icon: <ReceiptOutlinedIcon />,
-            });
-        }
-
-        // Receipt From Warehouse
+        // 3. Receipt From Warehouse (เทียบเท่ากับ Goods Receipt Warehouse ใน M
         if (permissions.menu_setkt_receipt_from_wh === 'Y') {
             menu.push({
                 segment: 'receipt-from-warehouse',
-                title: 'Receipt From Warehouse',
+                title: 'Goods Receipt Warehouse',
                 icon: <MoveToInboxIcon />,
             });
         }
 
-        // Goods Requisition
-        if (permissions.menu_setkt_goods_requisition === 'Y') {
+        // 4. Receipt From Supplier (เทียบเท่ากับ Goods Receipt Supplier ใน M
+        if (permissions.menu_setkt_receipt_from_supplier === 'Y') {
             menu.push({
-                segment: 'goods-requisition',
-                title: 'Goods Requisition',
-                icon: <RequestQuoteIcon />,
+                segment: 'receipt-from-supplier',
+                title: 'Goods Receipt Supplier',
+                icon: <ReceiptOutlinedIcon />,
             });
         }
 
-        // Production Receipt
-        if (permissions.menu_setkt_product_receipt === 'Y') {
-            menu.push({
-                segment: 'production-receipt',
-                title: 'Production Receipt',
-                icon: <ReceiptLongOutlinedIcon />,
-            });
-        }
-
-        // Transfer to Warehouse
+        // 5. Transfer to Warehouse
         if (permissions.menu_setkt_transfer_to_wh === 'Y') {
             menu.push({
                 segment: 'transfer-to-warehouse',
@@ -146,16 +129,34 @@ function Room4Room5(props) {
             });
         }
 
-        // Dispatch to Restaurant
+        // 6. Dispatch to Restaurant
         if (permissions.menu_setkt_dispatch_to_branch === 'Y') {
             menu.push({
                 segment: 'dispatch-to-restaurant',
-                title: 'Dispatch to Restaurant',
+                title: 'Dispatch To Restaurant',
                 icon: <HouseSidingOutlinedIcon />,
             });
         }
 
-        // Stock Adjustment
+        // 7. Goods Requisition
+        if (permissions.menu_setkt_goods_requisition === 'Y') {
+            menu.push({
+                segment: 'goods-requisition',
+                title: 'Goods Requisition',
+                icon: <RequestQuoteIcon />,
+            });
+        }
+
+        // 8. Production Receipt
+        if (permissions.menu_setkt_product_receipt === 'Y') {
+            menu.push({
+                segment: 'production-receipt',
+                title: 'Production Receipt',
+                icon: <ReceiptLongOutlinedIcon />,
+            });
+        }
+
+        // 9. Stock Adjustment
         if (permissions.menu_setkt_stock_adjustment === 'Y') {
             menu.push({
                 segment: 'stock-adjustment',
@@ -164,16 +165,9 @@ function Room4Room5(props) {
             });
         }
 
-        // Daily Closing
-        if (permissions.menu_setkt_dailyclosing === 'Y') {
-            menu.push({
-                segment: 'daily-closing',
-                title: 'Daily Closing',
-                icon: <Inventory2OutlinedIcon />,
-            });
-        }
-
-        // Reports
+        // 10. Reports - Monthly Stock Card
+        // 11. Reports - Monthly Stock Balance
+        // 12. Daily Closing
         if (permissions.menu_setkt_report === 'Y') {
             menu.push({
                 segment: 'reports',
@@ -181,18 +175,28 @@ function Room4Room5(props) {
                 icon: <BarChartIcon />,
                 children: [
                     {
+                        segment: 'monthly-stock-card',
+                        title: 'Report Monthly Stockcard',
+                        icon: <CircleIcon fontSize='small' />,
+                    },
+                    {
+                        segment: 'monthly-stock-balance',
+                        title: 'Report Monthly Stockbalance',
+                        icon: <CircleIcon fontSize='small' />,
+                    },
+                    {
                         segment: 'purchase-order-to-warehouse',
-                        title: 'Purchase Order to Warehouse',
+                        title: 'Request to Warehouse',
                         icon: <CircleIcon fontSize='small' />,
                     },
                     {
                         segment: 'receipt-from-supplier',
-                        title: 'Receipt From Supplier',
+                        title: 'Goods Receipt Supplier',
                         icon: <CircleIcon fontSize='small' />,
                     },
                     {
                         segment: 'receipt-from-warehouse',
-                        title: 'Receipt From Warehouse',
+                        title: 'Goods Receipt Warehouse',
                         icon: <CircleIcon fontSize='small' />,
                     },
                     {
@@ -212,7 +216,7 @@ function Room4Room5(props) {
                     },
                     {
                         segment: 'dispatch-to-restaurant',
-                        title: 'Dispatch to Restaurant',
+                        title: 'Dispatch To Restaurant',
                         icon: <CircleIcon fontSize='small' />,
                     },
                     {
@@ -220,17 +224,16 @@ function Room4Room5(props) {
                         title: 'Stock Adjustment',
                         icon: <CircleIcon fontSize='small' />,
                     },
-                    {
-                        segment: 'monthly-stock-card',
-                        title: 'Monthly Stock Card',
-                        icon: <CircleIcon fontSize='small' />,
-                    },
-                    {
-                        segment: 'monthly-stock-balance',
-                        title: 'Monthly Stock Balance',
-                        icon: <CircleIcon fontSize='small' />,
-                    },
                 ],
+            });
+        }
+
+        // Daily Closing (เป็นเมนูที่แยกออกมาต่างหากใน MKitchen)
+        if (permissions.menu_setkt_dailyclosing === 'Y') {
+            menu.push({
+                segment: 'daily-closing',
+                title: 'Kitchen DailyClosing',
+                icon: <Inventory2OutlinedIcon />,
             });
         }
 

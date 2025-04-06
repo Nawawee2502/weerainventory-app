@@ -12,8 +12,8 @@ import 'react-datepicker/dist/react-datepicker.css';
 import { useDispatch } from "react-redux";
 import { searchProductName } from '../../../api/productrecordApi';
 import { kitchenAll } from '../../../api/kitchenApi';
-import { getKtPowByRefno, updateKt_pow } from '../../../api/kitchen/kt_powApi';
-import { Kt_powdtAlljoindt } from '../../../api/kitchen/kt_powdtApi';
+import { getKtSafByRefno, updateKt_saf } from '../../../api/kitchen/kt_safApi';
+import { Kt_safdtAlljoindt } from '../../../api/kitchen/kt_safdtApi';
 import Swal from 'sweetalert2';
 import { format } from 'date-fns';
 
@@ -49,15 +49,14 @@ const CustomDateInput = React.forwardRef(({ value, onClick, placeholder }, ref) 
     </Box>
 ));
 
-export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
+export default function EditStockAdjustment({ onBack, editRefno }) {
     const dispatch = useDispatch();
 
     // Form state
-    const [startDate, setStartDate] = useState(new Date());
+    const [adjustmentDate, setAdjustmentDate] = useState(new Date());
+    const [kitchenCode, setKitchenCode] = useState('');
     const [kitchens, setKitchens] = useState([]);
-    const [saveKitchen, setSaveKitchen] = useState('');
     const [isLoading, setIsLoading] = useState(true);
-    const [debugInfo, setDebugInfo] = useState({});
 
     // Product state
     const [products, setProducts] = useState([]);
@@ -75,11 +74,12 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
     const [allProducts, setAllProducts] = useState([]);
 
     // Additional product details
+    const [expiryDates, setExpiryDates] = useState({});
     const [imageErrors, setImageErrors] = useState({});
 
     // Get user data
     const userDataJson = localStorage.getItem("userData2");
-    const userData2 = JSON.parse(userDataJson || "{}");
+    const userData2 = userDataJson ? JSON.parse(userDataJson) : {};
 
     // Initial Data Loading
     useEffect(() => {
@@ -88,94 +88,67 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
                 setIsLoading(true);
                 console.log('Fetching data for refno:', editRefno);
 
-                // Load kitchens and products in parallel
-                const [kitchenResponse, productsResponse] = await Promise.all([
-                    dispatch(kitchenAll({ offset: 0, limit: 100 })).unwrap(),
-                    dispatch(searchProductName({ product_name: '' })).unwrap()
-                ]);
+                // Fetch kitchens
+                const kitchenResponse = await dispatch(kitchenAll({ offset: 0, limit: 100 })).unwrap();
+                setKitchens(kitchenResponse.data || []);
 
-                if (kitchenResponse?.data) {
-                    setKitchens(kitchenResponse.data);
-                    console.log('Loaded kitchens:', kitchenResponse.data.length);
-                }
-
-                if (productsResponse?.data) {
+                // Load all products for faster searching
+                const productsResponse = await dispatch(searchProductName({ product_name: '' })).unwrap();
+                if (productsResponse && productsResponse.data) {
                     setAllProducts(productsResponse.data);
-                    console.log('Loaded all products:', productsResponse.data.length);
                 }
 
-                // Fetch purchase order data using getKtPowByRefno
+                // Fetch stock adjustment data
                 if (editRefno) {
-                    console.log('Looking up with getKtPowByRefno for ref:', editRefno);
-                    // Pass refno directly as a string, not as an object
-                    const refno = typeof editRefno === 'object' ? editRefno.refno : editRefno;
-                    const orderResponse = await dispatch(getKtPowByRefno(refno)).unwrap();
-                    console.log('Response from getKtPowByRefno:', orderResponse);
+                    const adjustmentResponse = await dispatch(getKtSafByRefno(
+                        typeof editRefno === 'object' ? editRefno : { refno: editRefno }
+                    )).unwrap();
 
-                    if (orderResponse.result && orderResponse.data) {
-                        // Set header info
-                        const orderData = orderResponse.data;
-                        console.log('Header data found:', orderData);
-                        setDebugInfo({ headerData: orderData });
+                    if (adjustmentResponse.result && adjustmentResponse.data) {
+                        const adjustmentData = adjustmentResponse.data;
 
-                        // Parse and set date
-                        if (orderData.trdate && orderData.trdate.length === 8) {
-                            const year = parseInt(orderData.trdate.substring(0, 4));
-                            const month = parseInt(orderData.trdate.substring(4, 6)) - 1;
-                            const day = parseInt(orderData.trdate.substring(6, 8));
-                            setStartDate(new Date(year, month, day));
-                        } else if (orderData.rdate) {
+                        // Set header data
+                        if (adjustmentData.trdate && adjustmentData.trdate.length === 8) {
+                            const year = parseInt(adjustmentData.trdate.substring(0, 4));
+                            const month = parseInt(adjustmentData.trdate.substring(4, 6)) - 1;
+                            const day = parseInt(adjustmentData.trdate.substring(6, 8));
+                            setAdjustmentDate(new Date(year, month, day));
+                        } else if (adjustmentData.rdate) {
                             // Try to parse the date safely
                             try {
-                                const dateParts = orderData.rdate.split('/');
+                                const dateParts = adjustmentData.rdate.split('/');
                                 if (dateParts.length === 3) {
                                     const month = parseInt(dateParts[0]) - 1;
                                     const day = parseInt(dateParts[1]);
                                     const year = parseInt(dateParts[2]);
-                                    setStartDate(new Date(year, month, day));
+                                    setAdjustmentDate(new Date(year, month, day));
                                 } else {
-                                    setStartDate(new Date());
+                                    setAdjustmentDate(new Date());
                                 }
                             } catch (e) {
                                 console.error("Date parsing error:", e);
-                                setStartDate(new Date());
+                                setAdjustmentDate(new Date());
                             }
                         }
 
-                        setSaveKitchen(orderData.kitchen_code || '');
-                        setTotal(parseFloat(orderData.total) || 0);
+                        setKitchenCode(adjustmentData.kitchen_code || '');
+                        setTotal(parseFloat(adjustmentData.total) || 0);
 
                         // Fetch detail data
-                        const refno = typeof editRefno === 'object' ? editRefno.refno : editRefno;
-                        const detailResponse = await dispatch(Kt_powdtAlljoindt({ refno: refno })).unwrap();
-                        console.log('Detail response from Kt_powdtAlljoindt:', detailResponse);
+                        const refnoParam = typeof editRefno === 'object' ? editRefno : { refno: editRefno };
+                        const detailResponse = await dispatch(Kt_safdtAlljoindt(refnoParam)).unwrap();
 
                         if (detailResponse.result && detailResponse.data && detailResponse.data.length > 0) {
-                            const detailData = detailResponse.data;
-                            console.log('Detail data found:', detailData.length, 'items');
-                            setDebugInfo(prev => ({ ...prev, detailData }));
-
-                            // Process detail data
-                            await processDetailData(detailData);
-                        } else {
-                            console.warn('No detail data found in Kt_powdtAlljoindt');
-                            setDebugInfo(prev => ({ ...prev, detailError: 'No detail data found in Kt_powdtAlljoindt' }));
+                            await processDetailData(detailResponse.data);
                         }
-                    } else {
-                        console.warn('No data found in getKtPowByRefno');
-                        setDebugInfo(prev => ({ ...prev, error: 'No data found in getKtPowByRefno' }));
                     }
-                } else {
-                    console.warn('No editRefno provided');
-                    setDebugInfo(prev => ({ ...prev, error: 'No editRefno provided' }));
                 }
             } catch (error) {
-                console.error('Error loading data:', error);
-                setDebugInfo(prev => ({ ...prev, error: error.toString() }));
+                console.error('Error loading stock adjustment data:', error);
                 Swal.fire({
                     icon: 'error',
                     title: 'Error',
-                    text: 'Failed to load purchase order data: ' + error.message
+                    text: 'Failed to load stock adjustment data: ' + error.message
                 });
             } finally {
                 setIsLoading(false);
@@ -208,6 +181,7 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
             const newUnits = {};
             const newUnitPrices = {};
             const newTotals = {};
+            const newExpiryDates = {};
 
             detailData.forEach((item) => {
                 const productCode = item.product_code;
@@ -215,6 +189,36 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
                 newUnits[productCode] = item.unit_code || item.tbl_product?.productUnit1?.unit_code || '';
                 newUnitPrices[productCode] = parseFloat(item.uprice) || 0;
                 newTotals[productCode] = parseFloat(item.amt) || 0;
+
+                // Parse expiry date
+                if (item.texpire_date && item.texpire_date.length === 8) {
+                    try {
+                        const year = parseInt(item.texpire_date.substring(0, 4));
+                        const month = parseInt(item.texpire_date.substring(4, 6)) - 1;
+                        const day = parseInt(item.texpire_date.substring(6, 8));
+                        newExpiryDates[productCode] = new Date(year, month, day);
+                    } catch (e) {
+                        console.error("Error parsing texpire_date:", e);
+                        newExpiryDates[productCode] = new Date();
+                    }
+                } else if (item.expire_date) {
+                    try {
+                        const dateParts = item.expire_date.split('/');
+                        if (dateParts.length === 3) {
+                            const month = parseInt(dateParts[0]) - 1;
+                            const day = parseInt(dateParts[1]);
+                            const year = parseInt(dateParts[2]);
+                            newExpiryDates[productCode] = new Date(year, month, day);
+                        } else {
+                            newExpiryDates[productCode] = new Date();
+                        }
+                    } catch (e) {
+                        console.error("Expiry date parsing error:", e);
+                        newExpiryDates[productCode] = new Date();
+                    }
+                } else {
+                    newExpiryDates[productCode] = new Date();
+                }
             });
 
             // Update all states
@@ -222,6 +226,7 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
             setUnits(newUnits);
             setUnitPrices(newUnitPrices);
             setTotals(newTotals);
+            setExpiryDates(newExpiryDates);
 
             // Calculate and set total
             const totalSum = Object.values(newTotals).reduce((sum, value) => sum + value, 0);
@@ -229,7 +234,6 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
 
         } catch (error) {
             console.error('Error processing detail data:', error);
-            setDebugInfo(prev => ({ ...prev, processError: error.toString() }));
             throw error;
         }
     };
@@ -283,14 +287,14 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
         );
     };
 
-    // Toggle select product function for product search
+    // Handle product selection
     const handleProductSelect = (product) => {
         // Check if product is already in the list
         if (selectedProducts.includes(product.product_code)) {
             Swal.fire({
                 icon: 'warning',
                 title: 'Duplicate Product',
-                text: `${product.product_name} is already in your purchase order. Please adjust the quantity instead.`,
+                text: `${product.product_name} is already in your stock adjustment. Please adjust the quantity instead.`,
                 confirmButtonColor: '#754C27'
             });
             setSearchTerm('');
@@ -306,6 +310,7 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
         setQuantities(prev => ({ ...prev, [product.product_code]: 1 }));
         setUnits(prev => ({ ...prev, [product.product_code]: product.productUnit1?.unit_code || '' }));
         setUnitPrices(prev => ({ ...prev, [product.product_code]: product.bulk_unit_price || 0 }));
+        setExpiryDates(prev => ({ ...prev, [product.product_code]: new Date() }));
 
         // Reset search and calculate totals
         setSearchTerm('');
@@ -371,6 +376,14 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
             setSearchResults([]);
             setShowDropdown(false);
         }
+    };
+
+    // Handle expiry date change
+    const handleExpiryDateChange = (productCode, date) => {
+        setExpiryDates(prev => ({
+            ...prev,
+            [productCode]: date
+        }));
     };
 
     // Handle unit change
@@ -444,27 +457,15 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
         const { [productCode]: __, ...newUnits } = units;
         const { [productCode]: ___, ...newPrices } = unitPrices;
         const { [productCode]: ____, ...newTotals } = totals;
+        const { [productCode]: _____, ...newExpiryDates } = expiryDates;
 
         setQuantities(newQuantities);
         setUnits(newUnits);
         setUnitPrices(newPrices);
         setTotals(newTotals);
+        setExpiryDates(newExpiryDates);
 
         calculateOrderTotals(products.filter(p => p.product_code !== productCode));
-    };
-
-    // Calculate tax based on products with tax1='Y'
-    const calculateTax = () => {
-        let taxableAmount = 0;
-        products.forEach(product => {
-            if (product.tax1 === 'Y') {
-                const productCode = product.product_code;
-                const quantity = quantities[productCode] || 0;
-                const unitPrice = unitPrices[productCode] || 0;
-                taxableAmount += quantity * unitPrice;
-            }
-        });
-        return taxableAmount * 0.07;
     };
 
     // Reset form
@@ -484,49 +485,13 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
         });
     };
 
-    // Debug button to show current state
-    const showDebugInfo = () => {
-        console.log('Debug Info:', {
-            editRefno,
-            headerInfo: debugInfo.headerData,
-            detailInfo: debugInfo.detailData,
-            products,
-            selectedProducts,
-            quantities,
-            units,
-            unitPrices,
-            error: debugInfo.error
-        });
-
-        Swal.fire({
-            title: 'Debug Information',
-            html: `
-                <div style="text-align: left; max-height: 400px; overflow-y: auto;">
-                    <p><strong>Edit RefNo:</strong> ${editRefno}</p>
-                    <p><strong>Selected Products:</strong> ${selectedProducts.length}</p>
-                    <p><strong>Products Array:</strong> ${products.length}</p>
-                    <p><strong>Kitchen:</strong> ${saveKitchen}</p>
-                    <p><strong>Total:</strong> ${total}</p>
-                    <p><strong>Error:</strong> ${debugInfo.error || debugInfo.detailError || debugInfo.processError || 'None'}</p>
-                    <hr/>
-                    <p><strong>Header Data:</strong></p>
-                    <pre style="font-size: 11px;">${JSON.stringify(debugInfo.headerData, null, 2)}</pre>
-                    <hr/>
-                    <p><strong>Detail Data (${debugInfo.detailData?.length || 0} items):</strong></p>
-                    <pre style="font-size: 11px;">${JSON.stringify(debugInfo.detailData?.slice(0, 3), null, 2)}</pre>
-                </div>
-            `,
-            width: 800,
-        });
-    };
-
-    // Handle form submission (update)
+    // Handle update
     const handleUpdate = async () => {
-        if (!saveKitchen || products.length === 0) {
+        if (!kitchenCode || products.length === 0) {
             Swal.fire({
                 icon: 'warning',
                 title: 'Missing Information',
-                text: 'Please select a kitchen and add at least one product.',
+                text: 'Please select a kitchen and at least one product.',
                 timer: 1500
             });
             return;
@@ -534,86 +499,56 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
 
         try {
             Swal.fire({
-                title: 'Updating purchase order...',
+                title: 'Updating stock adjustment...',
                 allowOutsideClick: false,
                 didOpen: () => Swal.showLoading()
             });
 
-            // Calculate tax amounts
-            let taxableAmount = 0;
-            let nontaxableAmount = 0;
-
-            products.forEach(product => {
-                const productCode = product.product_code;
-                const amount = totals[productCode] || 0;
-                if (product.tax1 === 'Y') {
-                    taxableAmount += amount;
-                } else {
-                    nontaxableAmount += amount;
-                }
-            });
-
             const headerData = {
                 refno: editRefno,
-                rdate: format(startDate, 'MM/dd/yyyy'),
-                kitchen_code: saveKitchen,
-                trdate: format(startDate, 'yyyyMMdd'),
-                monthh: format(startDate, 'MM'),
-                myear: startDate.getFullYear(),
-                taxable: taxableAmount.toString(),
-                nontaxable: nontaxableAmount.toString(),
-                user_code: userData2.user_code || '',
+                rdate: format(adjustmentDate, 'MM/dd/yyyy'),
+                kitchen_code: kitchenCode,
+                trdate: format(adjustmentDate, 'yyyyMMdd'),
+                monthh: format(adjustmentDate, 'MM'),
+                myear: adjustmentDate.getFullYear(),
+                user_code: userData2?.user_code || '',
                 total: total.toString()
             };
 
             const productArrayData = products.map(product => ({
-                refno: headerData.refno,
+                refno: editRefno,
                 product_code: product.product_code,
-                qty: (quantities[product.product_code] || 1).toString(),
-                unit_code: units[product.product_code] || product.productUnit1?.unit_code || '',
-                uprice: (unitPrices[product.product_code] || 0).toString(),
-                amt: (totals[product.product_code] || 0).toString()
+                qty: quantities[product.product_code].toString(),
+                unit_code: units[product.product_code],
+                uprice: unitPrices[product.product_code].toString(),
+                amt: totals[product.product_code].toString(),
+                expire_date: format(expiryDates[product.product_code], 'MM/dd/yyyy'),
+                texpire_date: format(expiryDates[product.product_code], 'yyyyMMdd')
             }));
 
-            const payload = {
-                headerData: headerData,
-                productArrayData: productArrayData,
+            await dispatch(updateKt_saf({
+                ...headerData,
+                headerData,
+                productArrayData,
                 footerData: {
                     total: total.toString()
                 }
-            };
+            })).unwrap();
 
-            console.log("Sending update with payload:", payload);
+            await Swal.fire({
+                icon: 'success',
+                title: 'Success!',
+                text: 'Stock adjustment updated successfully',
+                timer: 1500
+            });
 
-            try {
-                const response = await dispatch(updateKt_pow(payload)).unwrap();
-                console.log("Update response:", response);
-
-                await Swal.fire({
-                    icon: 'success',
-                    title: 'Updated purchase order successfully',
-                    text: `Reference No: ${editRefno}`,
-                    showConfirmButton: false,
-                    timer: 1500
-                });
-
-                onBack();
-            } catch (apiError) {
-                console.error('Update API Error:', apiError);
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error',
-                    text: apiError.message || 'Error updating purchase order',
-                    confirmButtonText: 'OK'
-                });
-            }
+            onBack();
         } catch (error) {
-            console.error('Update error:', error);
+            console.error('Error updating data:', error);
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
-                text: error.message || 'Error updating purchase order',
-                confirmButtonText: 'OK'
+                text: error.message || 'Error updating stock adjustment'
             });
         }
     };
@@ -623,29 +558,20 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
         return (
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
                 <CircularProgress sx={{ color: '#754C27' }} />
-                <Typography sx={{ ml: 2 }}>Loading purchase order data...</Typography>
+                <Typography sx={{ ml: 2 }}>Loading stock adjustment data...</Typography>
             </Box>
         );
     }
 
     return (
         <Box sx={{ width: '100%' }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Button
-                    onClick={onBack}
-                    startIcon={<ArrowBackIcon />}
-                >
-                    Back to Purchase Order
-                </Button>
-                <Button
-                    variant="outlined"
-                    color="warning"
-                    onClick={showDebugInfo}
-                    size="small"
-                >
-                    Debug Info
-                </Button>
-            </Box>
+            <Button
+                onClick={onBack}
+                startIcon={<ArrowBackIcon />}
+                sx={{ mb: 2, mr: 'auto' }}
+            >
+                Back to Stock Adjustments
+            </Button>
             <Box sx={{ width: '100%', mt: '10px', flexDirection: 'column' }}>
                 <Box sx={{
                     display: 'flex',
@@ -688,8 +614,8 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
                                     Date
                                 </Typography>
                                 <DatePicker
-                                    selected={startDate}
-                                    onChange={(date) => setStartDate(date)}
+                                    selected={adjustmentDate}
+                                    onChange={(date) => setAdjustmentDate(date)}
                                     dateFormat="MM/dd/yyyy"
                                     customInput={<CustomDateInput />}
                                 />
@@ -701,8 +627,8 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
                                 </Typography>
                                 <Box
                                     component="select"
-                                    value={saveKitchen}
-                                    onChange={(e) => setSaveKitchen(e.target.value)}
+                                    value={kitchenCode}
+                                    onChange={(e) => setKitchenCode(e.target.value)}
                                     sx={{
                                         mt: '8px',
                                         width: '100%',
@@ -734,7 +660,7 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
 
                         <Box sx={{ display: 'flex', flexDirection: 'row', width: '100%', p: '24px 0px' }}>
                             <Typography sx={{ fontSize: '20px', fontWeight: '600' }}>
-                                Current Purchase Order
+                                Current Stock Adjustment
                             </Typography>
                             <Typography sx={{ ml: 'auto' }}>
                                 Product Search
@@ -828,7 +754,8 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
                                     <tr>
                                         <th style={{ padding: '4px', fontSize: '14px', width: '1%', color: '#754C27', fontWeight: '800' }}>No.</th>
                                         <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '15%', color: '#754C27', fontWeight: '800' }}>Product code</th>
-                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '25%', color: '#754C27', fontWeight: '800' }}>Product name</th>
+                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '15%', color: '#754C27', fontWeight: '800' }}>Product name</th>
+                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Expiry Date</th>
                                         <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Quantity</th>
                                         <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '10%', color: '#754C27', fontWeight: '800' }}>Unit</th>
                                         <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Unit Price</th>
@@ -839,7 +766,7 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
                                 <tbody>
                                     {products.length === 0 ? (
                                         <tr>
-                                            <td colSpan={8} style={{ textAlign: 'center', padding: '16px', color: '#666' }}>
+                                            <td colSpan={9} style={{ textAlign: 'center', padding: '16px', color: '#666' }}>
                                                 No products added yet. Search and select products above.
                                             </td>
                                         </tr>
@@ -864,6 +791,24 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
                                                             {renderProductImage(product)}
                                                             {product.product_name}
                                                         </Box>
+                                                    </td>
+                                                    <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
+                                                        <DatePicker
+                                                            selected={expiryDates[productCode] || null}
+                                                            onChange={(date) => handleExpiryDateChange(productCode, date)}
+                                                            dateFormat="MM/dd/yyyy"
+                                                            placeholderText="Select exp date"
+                                                            customInput={
+                                                                <input
+                                                                    style={{
+                                                                        width: '110px',
+                                                                        padding: '4px',
+                                                                        borderRadius: '4px',
+                                                                        textAlign: 'center'
+                                                                    }}
+                                                                />
+                                                            }
+                                                        />
                                                     </td>
                                                     <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
                                                         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -951,30 +896,19 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
                         </Box>
 
                         <Box sx={{ width: '100%', height: 'auto', bgcolor: '#EAB86C', borderRadius: '10px', p: '18px' }}>
-                            <Box sx={{ display: 'flex', flexDirection: 'column', color: 'white' }}>
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                                    <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>Subtotal</Typography>
-                                    <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>${total.toFixed(2)}</Typography>
-                                </Box>
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                                    <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>Tax (7%)</Typography>
-                                    <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>${calculateTax().toFixed(2)}</Typography>
-                                </Box>
-                                <Divider sx={{ my: 1, bgcolor: 'rgba(255, 255, 255, 0.3)' }} />
-                                <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', mt: '8px' }}>
-                                    <Typography sx={{ color: '#FFFFFF', fontSize: '30px', fontWeight: '600' }}>
-                                        Total
-                                    </Typography>
-                                    <Typography sx={{ color: '#FFFFFF', ml: 'auto', fontSize: '30px', fontWeight: '600' }}>
-                                        ${(total + calculateTax()).toFixed(2)}
-                                    </Typography>
-                                </Box>
+                            <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', mt: '8px' }}>
+                                <Typography sx={{ color: '#FFFFFF', fontSize: '30px', fontWeight: '600' }}>
+                                    Total
+                                </Typography>
+                                <Typography sx={{ color: '#FFFFFF', ml: 'auto', fontSize: '30px', fontWeight: '600' }}>
+                                    ${total.toFixed(2)}
+                                </Typography>
                             </Box>
                         </Box>
 
                         <Button
                             onClick={handleUpdate}
-                            disabled={!saveKitchen || products.length === 0}
+                            disabled={!kitchenCode || products.length === 0}
                             sx={{
                                 width: '100%',
                                 height: '48px',
@@ -989,7 +923,7 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
                                     color: '#808080'
                                 }
                             }}>
-                            Update Purchase Order
+                            Update Stock Adjustment
                         </Button>
                     </Box>
                 </Box>

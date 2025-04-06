@@ -488,56 +488,41 @@ export default function PurchaseOrderToSupplier({ onCreate, onEdit }) {
 
   const PrintPurchaseOrderPDF = async (refno) => {
     try {
-      dispatch(Wh_posByRefno(refno))
-        .unwrap()
-        .then(async (res) => {
-          const currentRow = whpos.find(row => row.refno === refno);
-          if (currentRow) {
-            // ใส่ข้อมูล relationship หลักจากตาราง
-            let mappedData = {
-              ...res.data,
-              tbl_supplier: currentRow.tbl_supplier,
-              tbl_branch: currentRow.tbl_branch,
-              user: currentRow.user,
-              // แก้ไขข้อมูล wh_posdts ให้มี unit_name
-              wh_posdts: currentRow.wh_posdts.map(item => ({
-                ...item,
-                tbl_unit: {
-                  unit_code: item.unit_code,
-                  unit_name: item.tbl_unit?.unit_name || item.unit_code
-                },
-                tbl_product: {
-                  product_code: item.product_code,
-                  product_name: item.tbl_product?.product_name || 'Product Description'
-                }
-              }))
-            };
+      Swal.fire({
+        title: 'กำลังโหลดข้อมูล...',
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
 
-            console.log("Mapped Data for PDF:", mappedData); // For debugging
+      // ดึงข้อมูล order จาก API ที่แก้ไขแล้ว
+      const orderResponse = await dispatch(Wh_posByRefno(refno)).unwrap();
 
-            const pdfContent = await generatePDF(refno, mappedData);
-            if (pdfContent) {
-              const asBlob = await pdf(pdfContent).toBlob();
-              const url = URL.createObjectURL(asBlob);
-              window.open(url, '_blank');
-            }
-          }
-        })
-        .catch((err) => {
-          console.log(err.message);
-          Swal.fire({
-            icon: 'error',
-            title: 'Error loading order data',
-            text: err.message,
-            confirmButtonText: 'OK'
-          });
-        });
+      // ตรวจสอบข้อมูลที่ได้จาก API
+      console.log("API Response Data:", orderResponse.data);
+
+      if (orderResponse.result && orderResponse.data) {
+        // สร้าง PDF โดยตรงจากข้อมูลที่ได้จาก API
+        const pdfContent = await generatePDF(refno, orderResponse.data);
+
+        if (pdfContent) {
+          Swal.close();
+          const asBlob = await pdf(pdfContent).toBlob();
+          const url = URL.createObjectURL(asBlob);
+          window.open(url, '_blank');
+        } else {
+          throw new Error("Failed to generate PDF content");
+        }
+      } else {
+        throw new Error("Order data not found or invalid");
+      }
     } catch (error) {
       console.error('Error generating PDF:', error);
       Swal.fire({
         icon: 'error',
         title: 'Error generating PDF',
-        text: 'Please try again later',
+        text: error.message || 'Please try again later',
         confirmButtonText: 'OK'
       });
     }
@@ -592,31 +577,6 @@ export default function PurchaseOrderToSupplier({ onCreate, onEdit }) {
             gap: '20px' // เพิ่มระยะห่างระหว่าง elements
           }}
         >
-          <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>
-            Search
-          </Typography>
-          <TextField
-            value={searchTerm}
-            onChange={handleSearchChange}
-            placeholder="Search"
-            sx={{
-              '& .MuiInputBase-root': {
-                height: '38px',
-                width: '100%'
-              },
-              '& .MuiOutlinedInput-input': {
-                padding: '8.5px 14px',
-              },
-              width: '35%' // ปรับความกว้างของช่อง search
-            }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon sx={{ color: '#5A607F' }} />
-                </InputAdornment>
-              ),
-            }}
-          />
           <Box sx={{ width: '200px' }}> {/* กำหนดความกว้างคงที่สำหรับ DatePicker */}
             <DatePicker
               selected={filterDate}

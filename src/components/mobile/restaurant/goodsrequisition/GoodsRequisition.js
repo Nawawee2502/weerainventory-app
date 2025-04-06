@@ -1,4 +1,4 @@
-import { Box, Button, InputAdornment, TextField, Typography, tableCellClasses, TableContainer, Table, TableHead, TableRow, TableCell, TableBody, Paper, Checkbox, IconButton, Switch } from '@mui/material';
+import { Box, Button, InputAdornment, TextField, Typography, tableCellClasses, TableContainer, Table, TableHead, TableRow, TableCell, TableBody, Paper, Checkbox, IconButton, Switch, FormControlLabel } from '@mui/material';
 import React, { useState, useEffect } from 'react';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
 import SearchIcon from '@mui/icons-material/Search';
@@ -12,13 +12,12 @@ import "react-datepicker/dist/react-datepicker.css";
 import Stack from '@mui/material/Stack';
 import Pagination from '@mui/material/Pagination';
 import { useDispatch } from 'react-redux';
-// import { Br_grfAlljoindt, deleteBr_grf } from '../../../../api/restaurant/br_grfApi';
-// import { branchAll } from '../../../api/branchApi';
-// import { searchProductName } from '../../../../api/productrecordApi';
-import { Br_grfAlljoindt, deleteBr_grf } from '../../../../api/restaurant/br_grfApi';
+import { Br_grfAlljoindt, deleteBr_grf, Br_grfByRefno } from '../../../../api/restaurant/br_grfApi';
 import { branchAll } from '../../../../api/branchApi';
 import { searchProductName } from '../../../../api/productrecordApi';
 import Swal from 'sweetalert2';
+import { pdf } from '@react-pdf/renderer';
+import { generateGoodsRequisitionPDF } from './Br_grfPDF';
 
 const formatDate = (date) => {
   if (!date) return "";
@@ -118,7 +117,6 @@ export default function GoodsRequisition({ onCreate, onEdit }) {
     fetchData();
   }, [page, searchBranch, searchProduct, filterDate]);
 
-  // แก้ไขฟังก์ชัน fetchData
   const fetchData = async () => {
     try {
       setIsLoading(true);
@@ -298,6 +296,69 @@ export default function GoodsRequisition({ onCreate, onEdit }) {
     setPage(1);
   };
 
+  // Handle Print PDF function
+  const handlePrintPDF = async (refno) => {
+    try {
+      Swal.fire({
+        title: 'กำลังโหลดข้อมูล...',
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
+
+      const orderResponse = await dispatch(Br_grfByRefno({ refno })).unwrap();
+
+      console.log("API Response Data (Complete):", orderResponse);
+
+      if (orderResponse.result && orderResponse.data) {
+        const data = orderResponse.data;
+
+        console.log("Products data:", data.br_grfdts);
+
+        if (data.br_grfdts) {
+          console.log("Number of products:",
+            Array.isArray(data.br_grfdts) ?
+              data.br_grfdts.length :
+              (typeof data.br_grfdts === 'object' ?
+                Object.keys(data.br_grfdts).length :
+                'Not an array or object'));
+
+          // Sample data
+          if (Array.isArray(data.br_grfdts) && data.br_grfdts.length > 0) {
+            console.log("First product:", data.br_grfdts[0]);
+          } else if (typeof data.br_grfdts === 'object') {
+            console.log("First product:", data.br_grfdts[Object.keys(data.br_grfdts)[0]]);
+          }
+        } else {
+          console.log("No products data found in API response");
+        }
+
+        // Pass the includePrices parameter (false when excludePrice is true)
+        const pdfContent = await generateGoodsRequisitionPDF(refno, data, !excludePrice);
+
+        if (pdfContent) {
+          Swal.close();
+          const asBlob = await pdf(pdfContent).toBlob();
+          const url = URL.createObjectURL(asBlob);
+          window.open(url, '_blank');
+        } else {
+          throw new Error("Failed to generate PDF content");
+        }
+      } else {
+        throw new Error("Order data not found or invalid");
+      }
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error generating PDF',
+        text: error.message || 'Please try again later',
+        confirmButtonText: 'OK'
+      });
+    }
+  };
+
   return (
     <Box sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       <Button
@@ -366,6 +427,22 @@ export default function GoodsRequisition({ onCreate, onEdit }) {
             </Typography>
           </Box>
         </Box>
+        <Button
+          onClick={clearFilters}
+          variant="outlined"
+          sx={{
+            height: '38px',
+            width: '120px',
+            borderColor: '#754C27',
+            color: '#754C27',
+            '&:hover': {
+              borderColor: '#5d3a1f',
+              backgroundColor: 'rgba(117, 76, 39, 0.04)'
+            }
+          }}
+        >
+          Clear
+        </Button>
       </Box>
 
       <Box sx={{ width: '100%', mt: '24px' }}>
@@ -447,7 +524,7 @@ export default function GoodsRequisition({ onCreate, onEdit }) {
                     </StyledTableCell>
                     <StyledTableCell align="center">
                       <IconButton
-                        onClick={() => {/* Add print functionality later */ }}
+                        onClick={() => handlePrintPDF(row.refno)}
                         sx={{ border: '1px solid #5686E1', borderRadius: '7px' }}
                       >
                         <PrintIcon sx={{ color: '#5686E1' }} />

@@ -104,7 +104,11 @@ const formatDate = (date) => {
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     const year = date.getFullYear();
-    return `${month}/${day}/${year}`;
+
+    // เพิ่ม console log เพื่อดูค่าวันที่ที่ส่งไป
+    const formattedDate = `${month}/${day}/${year}`;
+    console.log("Formatted date to search:", formattedDate);
+    return formattedDate;
 };
 
 export default function BeginningInventory() {
@@ -256,7 +260,6 @@ export default function BeginningInventory() {
     }, [dispatch]);
 
 
-    // Load data function for warehouse beginning inventory
     const loadData = async () => {
         try {
             setLoading(true);
@@ -267,29 +270,22 @@ export default function BeginningInventory() {
             if (filterDate) {
                 const formattedDate = formatDate(filterDate);
                 dateParams = { rdate: formattedDate };
+                console.log("Search date params:", dateParams);
             }
 
-            console.log("Query params:", {
+            const queryParams = {
                 offset,
                 limit: itemsPerPage,
                 ...dateParams,
-                product_name: tableSearchTerm
-                // No refno filter here
-            });
+                product_name: tableSearchTerm,
+                refno: 'BEG'
+            };
+
+            console.log("Full query params:", queryParams);
 
             const [stockcardsRes, countRes] = await Promise.all([
-                dispatch(queryWh_stockcard({
-                    offset,
-                    limit: itemsPerPage,
-                    ...dateParams,
-                    product_name: tableSearchTerm
-                    // No refno filter here
-                })).unwrap(),
-                dispatch(countWh_stockcard({
-                    ...dateParams,
-                    product_name: tableSearchTerm
-                    // No refno filter here
-                })).unwrap()
+                dispatch(queryWh_stockcard(queryParams)).unwrap(),
+                dispatch(countWh_stockcard(queryParams)).unwrap()
             ]);
 
             console.log("API Responses:", {
@@ -298,26 +294,12 @@ export default function BeginningInventory() {
             });
 
             if (stockcardsRes.result && Array.isArray(stockcardsRes.data)) {
-                // Filter results to only show BEG records in the table
-                const begRecords = stockcardsRes.data.filter(record => record.refno === 'BEG');
-
-                // Calculate pagination based on filtered results
-                const filteredCount = begRecords.length;
-                const totalOriginalRecords = countRes.data;
-
-                // Adjust total count based on proportion of BEG records
-                // This is an estimate - may need adjustment based on actual data distribution
-                const estimatedTotalBegRecords = Math.ceil(totalOriginalRecords * (filteredCount / stockcardsRes.data.length || 1));
-
-                // Make sure countRes.data is a valid number
-                const totalPages = Math.max(1, Math.ceil(estimatedTotalBegRecords / itemsPerPage));
-                console.log(`Filtered BEG records: ${filteredCount}, Estimated total BEG: ${estimatedTotalBegRecords}, Total pages: ${totalPages}`);
-
+                console.log("Got data:", stockcardsRes.data);
+                setStockcards(stockcardsRes.data);
+                const totalItems = countRes.data;
+                const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
                 setCount(totalPages);
-                setTotalItems(estimatedTotalBegRecords);
-
-                // Set only BEG records to display in table
-                setStockcards(begRecords);
+                setTotalItems(totalItems);
             } else {
                 console.error("Invalid response format:", stockcardsRes);
                 setStockcards([]);
@@ -750,7 +732,7 @@ export default function BeginningInventory() {
                                                 }}
                                             />
                                         </StyledTableCell>
-                                        <StyledTableCell>{row.id}</StyledTableCell>
+                                        <StyledTableCell>{row.display_id || (page - 1) * itemsPerPage + index + 1}</StyledTableCell>
                                         <StyledTableCell align="center">{row.product_code}</StyledTableCell>
                                         <StyledTableCell align="center">
                                             {row.tbl_product?.product_name || row.product_code}

@@ -151,3 +151,27 @@ export const getPowByRefno = createAsyncThunk(
         }
     }
 );
+
+export const checkPowStatusForEdit = createAsyncThunk(
+    "br_pow/checkStatusForEdit",
+    async (refno, { dispatch }) => {
+        try {
+            const res = await axios.post(BASE_URL + "/api/checkPowStatusForEdit", { refno });
+            return res.data;
+        } catch (error) {
+            throw error;
+        }
+    }
+);
+
+export const checkPOUsedInDispatch = createAsyncThunk(
+    "br_pow/checkUsedInDispatch",
+    async (refno, { dispatch }) => {
+        try {
+            const res = await axios.post(BASE_URL + "/api/checkPOUsedInDispatch", { refno });
+            return res.data;
+        } catch (error) {
+            throw error;
+        }
+    }
+);

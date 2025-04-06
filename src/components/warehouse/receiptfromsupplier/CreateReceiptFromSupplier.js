@@ -78,12 +78,12 @@ function CreateReceiptFromSupplier({ onBack }) {
     let offset = 0;
     let limit = 5;
 
-    dispatch(branchAll({ offset, limit }))
+    dispatch(branchAll({ offset: 0, limit: 9999 }))
       .unwrap()
       .then((res) => setBranch(res.data))
       .catch((err) => console.log(err.message));
 
-    dispatch(supplierAll({ offset, limit }))
+    dispatch(supplierAll({ offset: 0, limit: 9999 }))
       .unwrap()
       .then((res) => setSupplier(res.data))
       .catch((err) => console.log(err.message));
@@ -108,7 +108,7 @@ function CreateReceiptFromSupplier({ onBack }) {
     }
 
     // If not a duplicate, proceed with adding the product
-    product.amount = 0;
+    product.amount = 1;
     setProducts([...products, product]);
     setQuantities(prev => ({ ...prev, [product.product_code]: 1 }));
     setUnits(prev => ({ ...prev, [product.product_code]: product.productUnit1.unit_code }));
@@ -331,22 +331,30 @@ function CreateReceiptFromSupplier({ onBack }) {
       user_code: userData2.user_code
     };
 
-    const productArrayData = products.map(product => ({
-      refno: refNo,
-      product_code: product.product_code,
-      qty: Number(product.amount) || 0,
-      unit_code: units[product.product_code] || product.productUnit1.unit_code,
-      uprice: customPrices[product.product_code] ??
+    const productArrayData = products.map(product => {
+      // คำนวณปริมาณและราคา
+      const quantity = Number(product.amount) || 0;  // นี่คือ qty ที่แท้จริง
+      const unitPrice = customPrices[product.product_code] ??
         (units[product.product_code] === product.productUnit1.unit_code ?
           product.bulk_unit_price :
-          product.retail_unit_price),
-      tax1: product.tax1,
-      expire_date: expiryDates[product.product_code]?.toLocaleDateString('en-GB'),
-      texpire_date: expiryDates[product.product_code]?.toISOString().slice(0, 10).replace(/-/g, ''),
-      instant_saving1: Number(product.instant_saving1) || 0,
-      temperature1: temperatures[product.product_code] || '',
-      amt: Number(product.amount) || 0
-    }));
+          product.retail_unit_price);
+      // คำนวณยอดรวมแต่ละรายการ
+      const lineTotal = quantity * unitPrice;
+
+      return {
+        refno: refNo,
+        product_code: product.product_code,
+        qty: quantity,  // ส่ง quantity ลงใน qty อย่างชัดเจน
+        unit_code: units[product.product_code] || product.productUnit1.unit_code,
+        uprice: unitPrice,  // ส่งราคาต่อหน่วยที่คำนวณแล้ว
+        tax1: product.tax1,
+        expire_date: expiryDates[product.product_code]?.toLocaleDateString('en-GB'),
+        texpire_date: expiryDates[product.product_code]?.toISOString().slice(0, 10).replace(/-/g, ''),
+        instant_saving1: Number(product.instant_saving1) || 0,
+        temperature1: temperatures[product.product_code] || '',
+        amt: lineTotal  // amt เป็นยอดรวม = qty * uprice
+      };
+    });
 
     const footerData = {
       taxable: Number(taxableAmount) || 0,

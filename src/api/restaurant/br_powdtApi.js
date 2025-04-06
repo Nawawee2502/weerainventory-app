@@ -27,17 +27,26 @@ export const updateBr_powdt = createAsyncThunk(
     "br_powdt/update",
     async (productData, { dispatch }) => {
         try {
-            const res = await axios.post(BASE_URL + "/api/updateBr_powdt", {
+            // Create a payload with all provided fields
+            const payload = {
                 refno: productData.refno,
-                product_code: productData.product_code,
-                qty: productData.qty,
-                unit_code: productData.unit_code,
-                uprice: productData.uprice,
-                tax1: productData.tax1,
-                amt: productData.amt
-            });
+                product_code: productData.product_code
+            };
+            
+            // Only add fields that exist in productData
+            if (productData.qty !== undefined) payload.qty = productData.qty;
+            if (productData.unit_code !== undefined) payload.unit_code = productData.unit_code;
+            if (productData.uprice !== undefined) payload.uprice = productData.uprice;
+            if (productData.tax1 !== undefined) payload.tax1 = productData.tax1;
+            if (productData.amt !== undefined) payload.amt = productData.amt;
+            if (productData.qty_send !== undefined) payload.qty_send = productData.qty_send;
+            
+            console.log("Updating br_powdt with payload:", payload);
+            
+            const res = await axios.post(BASE_URL + "/api/updateBr_powdt", payload);
             return res.data;
         } catch (error) {
+            console.error("Error in updateBr_powdt:", error);
             throw error;
         }
     }
@@ -74,12 +83,18 @@ export const Br_powdtAllinnerjoin = createAsyncThunk(
 );
 
 export const Br_powdtAlljoindt = createAsyncThunk(
-    "br_powdt/readAll",
+    "br_pow/readDetails",
     async (refno, { dispatch }) => {
         try {
-            const res = await axios.post(BASE_URL + "/api/Br_powdtAlljoindt", { refno });
+            // Make sure refno is always sent as a simple string parameter
+            const payload = {
+                refno: typeof refno === 'object' ? refno.refno : refno
+            };
+
+            const res = await axios.post(BASE_URL + "/api/Br_powdtAlljoindt", payload);
             return res.data;
         } catch (error) {
+            console.error("Error in Br_powdtAlljoindt:", error);
             throw error;
         }
     }

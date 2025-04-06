@@ -1,4 +1,4 @@
-import { Box, Button, InputAdornment, TextField, Typography, IconButton, Grid2, Divider } from '@mui/material';
+import { Box, Button, InputAdornment, TextField, Typography, IconButton, Grid2, Divider, Autocomplete, CircularProgress } from '@mui/material';
 import React, { useState, useEffect } from 'react';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SearchIcon from '@mui/icons-material/Search';
@@ -8,13 +8,31 @@ import 'react-datepicker/dist/react-datepicker.css';
 import { useDispatch } from "react-redux";
 import { searchProductName } from '../../../api/productrecordApi';
 import { branchAll } from '../../../api/branchApi';
-import { addWh_dpb, wh_dpbrefno } from '../../../api/warehouse/wh_dpbApi';
+import { addWh_dpb, wh_dpbrefno, Wh_dpbUsedRefnos } from '../../../api/warehouse/wh_dpbApi';
+import { Br_powAlljoindt, Br_powByRefno, updateBr_pow } from '../../../api/restaurant/br_powApi';
+import { Br_powdtAlljoindt, updateBr_powdt } from '../../../api/restaurant/br_powdtApi';
 import Swal from 'sweetalert2';
-import { format } from 'date-fns';
+import { format, parse } from 'date-fns';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 
+const formatDate = (date) => {
+    if (!date) return null;
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${month}/${day}/${year}`;
+};
+
+const formatTRDate = (date) => {
+    if (!date) return null;
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}${month}${day}`;
+};
+
 const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
-    <Box sx={{ position: 'relative', display: 'inline-block', width: '100%' }}>
+    <Box sx={{ position: 'relative', display: 'inline-block', width: '100%', mt: '8px' }}>
         <TextField
             value={value}
             onClick={onClick}
@@ -23,13 +41,10 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
             size="small"
             sx={{
                 '& .MuiInputBase-root': {
-                    height: '38px',
+                    height: '40px',
                     width: '100%',
                     backgroundColor: '#fff',
-                },
-                '& .MuiOutlinedInput-input': {
-                    cursor: 'pointer',
-                    paddingRight: '40px',
+                    borderRadius: '10px'
                 }
             }}
             InputProps={{
@@ -61,22 +76,37 @@ export default function CreateDispatchToBranch({ onBack }) {
     const [showDropdown, setShowDropdown] = useState(false);
     const [taxableAmount, setTaxableAmount] = useState(0);
     const [nonTaxableAmount, setNonTaxableAmount] = useState(0);
-    const TAX_RATE = 0.07;
     const [lastMonth, setLastMonth] = useState('');
     const [lastYear, setLastYear] = useState('');
+    const [expiryDates, setExpiryDates] = useState({});
+    const [refNo, setRefNo] = useState('Please select purchase order');
+    const [isLoading, setIsLoading] = useState(false);
+    const [loadingPO, setLoadingPO] = useState(false);
+    const [poRefno, setPoRefno] = useState('');
+
+    // เพิ่ม state เหล่านี้ในส่วน state declarations
+    const [originalQty, setOriginalQty] = useState({});
+    const [remainingQty, setRemainingQty] = useState({});
+
+    // For purchase order selection
+    const [poRefnos, setPoRefnos] = useState([]);
+    const [selectedPoRefno, setSelectedPoRefno] = useState('');
+    const [poData, setPoData] = useState(null);
+
     const userDataJson = localStorage.getItem("userData2");
     const userData2 = JSON.parse(userDataJson);
-    const [expiryDates, setExpiryDates] = useState({});
-    const [totalDue, setTotalDue] = useState(0);
 
     useEffect(() => {
+        // ลบการเรียก handleGetLastRefNo ออก
+
+        // เก็บค่า current month และ year ไว้ใช้ (อาจจะไม่จำเป็นถ้าไม่ได้ใช้)
         const currentDate = new Date();
         const currentMonth = (currentDate.getMonth() + 1).toString().padStart(2, '0');
         const currentYear = currentDate.getFullYear().toString().slice(-2);
         setLastMonth(currentMonth);
         setLastYear(currentYear);
-        handleGetLastRefNo(currentDate);
 
+        // ดึงข้อมูลร้านอาหารทั้งหมด
         dispatch(branchAll({ offset: 0, limit: 100 }))
             .unwrap()
             .then((res) => {
@@ -125,253 +155,419 @@ export default function CreateDispatchToBranch({ onBack }) {
         }
     };
 
-    const handleProductSelect = (product) => {
-        if (products.some(p => p.product_code === product.product_code)) {
-            // More detailed warning message with consistent styling
-            Swal.fire({
-                icon: 'warning',
-                title: 'Duplicate Product',
-                text: `${product.product_name} is already in your dispatch. Please adjust the quantity instead.`,
-                confirmButtonColor: '#754C27'
-            });
-            setSearchTerm('');
-            setShowDropdown(false);
+    const fetchAvailablePurchaseOrders = async (branchCode = saveBranch) => {
+        if (!branchCode) {
+            setPoRefnos([]);
             return;
         }
 
-        setProducts(prev => [...prev, product]);
-        setQuantities(prev => ({ ...prev, [product.product_code]: 1 }));
-        setUnits(prev => ({ ...prev, [product.product_code]: product.productUnit1.unit_code }));
-        setExpiryDates(prev => ({ ...prev, [product.product_code]: new Date() }));
-        setUnitPrices(prev => ({ ...prev, [product.product_code]: product.bulk_unit_price }));
+        try {
+            setIsLoading(true);
 
-        setSearchTerm('');
-        setShowDropdown(false);
-        calculateOrderTotals([...products, product]);
+            // Get all purchase orders from the last 30 days
+            const today = new Date();
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(today.getDate() - 30);
+
+            const rdate1 = format(thirtyDaysAgo, 'yyyyMMdd');
+            const rdate2 = format(today, 'yyyyMMdd');
+
+            // Get all purchase orders from selected branch
+            const response = await dispatch(Br_powAlljoindt({
+                rdate1,
+                rdate2,
+                branch_code: branchCode,
+                offset: 0,
+                limit: 100
+            })).unwrap();
+
+            if (response.result && response.data) {
+                // Filter out POs with status 'end'
+                const filteredPOs = response.data.filter(item => item.status !== 'end');
+
+                // Transform data for Autocomplete
+                const poOptions = filteredPOs.map(item => ({
+                    refno: item.refno,
+                    branch: item.tbl_branch?.branch_name || 'Unknown',
+                    date: item.rdate || 'Unknown Date',
+                    formattedDate: item.rdate ?
+                        format(parse(item.rdate, 'MM/dd/yyyy', new Date()), 'MM/dd/yyyy') :
+                        'Unknown'
+                }));
+
+                setPoRefnos(poOptions);
+
+                // Only show the "no POs" alert if there are actually no unused POs
+                if (poOptions.length === 0) {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'No Available Purchase Orders',
+                        text: 'There are no available purchase orders from this restaurant.',
+                        confirmButtonColor: '#754C27'
+                    });
+                }
+            }
+        } catch (error) {
+            console.error("Error fetching available purchase orders:", error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Failed to fetch available purchase orders: ' + (error.message || 'Unknown error')
+            });
+        } finally {
+            setIsLoading(false);
+        }
     };
 
-    // Updated handleSearchChange with Enter key functionality
-    const handleSearchChange = (e) => {
+    const handlePOSelection = async (refno) => {
+        if (!refno) {
+            resetForm();
+            return;
+        }
+
+        try {
+            console.log('Starting PO selection for refno:', refno);
+            setLoadingPO(true);
+            setSelectedPoRefno(refno);
+            setPoRefno(refno);
+
+            // Fetch header data first to check status
+            console.log('Fetching header data for refno:', refno);
+            const headerResponse = await dispatch(Br_powByRefno({ refno })).unwrap();
+            console.log('Header data response:', headerResponse);
+
+            if (headerResponse.result && headerResponse.data) {
+                const poHeader = headerResponse.data;
+
+                // Check if the PO is already completed (status = 'end')
+                if (poHeader.status === 'end') {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'Purchase Order Already Completed',
+                        text: 'This purchase order has already been fully dispatched.',
+                        confirmButtonColor: '#754C27'
+                    });
+                    setLoadingPO(false);
+                    return;
+                }
+
+                setPoData(poHeader);
+
+                // Generate a new refno for dispatch
+                await handleGetLastRefNo(startDate);
+
+                // Display PO refno for reference
+                setRefNo(refno);
+
+                // Set branch from PO data
+                setSaveBranch(poHeader.branch_code || '');
+                console.log('Set branch_code to:', poHeader.branch_code);
+
+                // Fetch detail data
+                console.log('Fetching detail data...');
+                const detailResponse = await dispatch(Br_powdtAlljoindt({ refno })).unwrap();
+                console.log('Detail data response:', detailResponse);
+
+                if (detailResponse.result && detailResponse.data && detailResponse.data.length > 0) {
+                    console.log('Processing detail data...');
+                    await processPODetailData(detailResponse.data);
+                } else {
+                    console.log('No items found in purchase order');
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'No Items',
+                        text: 'This purchase order has no items.',
+                        confirmButtonColor: '#754C27'
+                    });
+                }
+            }
+        } catch (error) {
+            console.error("Error loading PO data:", error);
+            console.error("Error details:", JSON.stringify(error, null, 2));
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Failed to load purchase order data: ' + error.message
+            });
+        } finally {
+            setLoadingPO(false);
+        }
+    };
+
+    const processPODetailData = async (detailData) => {
+        try {
+            console.log('Processing PO detail data:', detailData);
+
+            // กรองเฉพาะสินค้าที่ยังมีจำนวนเหลือให้เบิกได้
+            const availableItems = detailData.filter(item => {
+                const total = parseFloat(item.qty) || 0;
+                const sent = parseFloat(item.qty_send) || 0;
+                return total > sent; // เฉพาะสินค้าที่ยังเบิกไม่หมด
+            });
+
+            if (availableItems.length === 0) {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'ไม่พบสินค้า',
+                    text: 'สินค้าในใบสั่งซื้อนี้ถูกเบิกหมดแล้ว',
+                    confirmButtonColor: '#754C27'
+                });
+                return;
+            }
+
+            // เก็บข้อมูลสินค้า
+            const productsData = availableItems.map(item => {
+                return {
+                    ...item.tbl_product,
+                    product_code: item.product_code,
+                    product_name: item.tbl_product?.product_name || '',
+                    tax1: item.tax1 || 'N',
+                    unit_code: item.unit_code,
+                    unit_name: item.tbl_unit?.unit_name || '',
+                    tbl_unit: item.tbl_unit,
+                    productUnit1: item.tbl_product?.productUnit1,
+                    productUnit2: item.tbl_product?.productUnit2,
+                    bulk_unit_price: item.tbl_product?.bulk_unit_price || 0,
+                    retail_unit_price: item.tbl_product?.retail_unit_price || 0,
+                    // เก็บค่าจำนวนสินค้าทั้งหมดและที่เบิกไปแล้ว
+                    original_qty: parseFloat(item.qty) || 0,
+                    qty_send: parseFloat(item.qty_send) || 0
+                };
+            });
+
+            setProducts(productsData);
+
+            // สร้าง state objects ใหม่
+            const newQuantities = {};
+            const newUnits = {};
+            const newUnitPrices = {};
+            const newTotals = {};
+            const newExpiryDates = {};
+            const newOriginalQty = {};
+            const newRemainingQty = {};
+
+            availableItems.forEach((item) => {
+                const productCode = item.product_code;
+                if (!productCode) return;
+
+                const totalQty = parseFloat(item.qty) || 0;
+                const sentQty = parseFloat(item.qty_send) || 0;
+                const remainingQty = totalQty - sentQty;
+
+                // เก็บค่าจำนวนต้นฉบับและจำนวนคงเหลือ
+                newOriginalQty[productCode] = totalQty;
+                newRemainingQty[productCode] = remainingQty;
+
+                // ตั้งค่าจำนวนที่จะเบิกเป็นจำนวนคงเหลือโดยอัตโนมัติ
+                newQuantities[productCode] = remainingQty;
+
+                // เก็บค่า unit_code
+                newUnits[productCode] = item.unit_code ||
+                    (item.tbl_product?.productUnit1?.unit_code || '');
+
+                newUnitPrices[productCode] = parseFloat(item.uprice) || 0;
+                newTotals[productCode] = remainingQty * parseFloat(item.uprice || 0);
+
+                // กำหนดวันหมดอายุ
+                if (item.expire_date) {
+                    try {
+                        newExpiryDates[productCode] = parse(item.expire_date, 'MM/dd/yyyy', new Date());
+                    } catch (e) {
+                        console.error("Expiry date parsing error:", e);
+                        const futureDate = new Date();
+                        futureDate.setDate(futureDate.getDate() + 30);
+                        newExpiryDates[productCode] = futureDate;
+                    }
+                } else {
+                    const futureDate = new Date();
+                    futureDate.setDate(futureDate.getDate() + 30);
+                    newExpiryDates[productCode] = futureDate;
+                }
+            });
+
+            // อัปเดต states
+            setQuantities(newQuantities);
+            setUnits(newUnits);
+            setUnitPrices(newUnitPrices);
+            setTotals(newTotals);
+            setExpiryDates(newExpiryDates);
+            setOriginalQty(newOriginalQty);
+            setRemainingQty(newRemainingQty);
+
+            // คำนวณยอดเงิน
+            let newTaxable = 0;
+            let newNonTaxable = 0;
+
+            availableItems.forEach(item => {
+                const productCode = item.product_code;
+                const amount = newTotals[productCode] || 0;
+                if (item.tax1 === 'Y') {
+                    newTaxable += amount;
+                } else {
+                    newNonTaxable += amount;
+                }
+            });
+
+            setTaxableAmount(newTaxable);
+            setNonTaxableAmount(newNonTaxable);
+            setTotal(Object.values(newTotals).reduce((sum, value) => sum + value, 0));
+
+        } catch (error) {
+            console.error('Error processing detail data:', error);
+            throw error;
+        }
+    };
+
+    // Handle branch selection
+    const handleBranchChange = (branchCode) => {
+        setSaveBranch(branchCode);
+
+        // Clear selected PO when branch changes
+        setSelectedPoRefno('');
+        setPoData(null);
+        setRefNo('Please select purchase order');
+
+        // Only fetch POs if a branch is selected
+        if (branchCode) {
+            fetchAvailablePurchaseOrders(branchCode);
+        } else {
+            // Clear PO options if no branch is selected
+            setPoRefnos([]);
+        }
+    };
+
+    const handleSearchChange = async (e) => {
         const value = e.target.value;
         setSearchTerm(value);
 
-        // Add Enter key functionality
-        if (e.key === 'Enter' && value.trim() !== '') {
-            // Search for exact match
-            dispatch(searchProductName({ product_name: value }))
-                .unwrap()
-                .then((res) => {
-                    if (res.data && res.data.length > 0) {
-                        // Find exact match or use the first result
-                        const exactMatch = res.data.find(
-                            product => product.product_name.toLowerCase() === value.toLowerCase()
-                        );
-                        const selectedProduct = exactMatch || res.data[0];
-
-                        // Check for duplicate
-                        if (products.some(p => p.product_code === selectedProduct.product_code)) {
-                            Swal.fire({
-                                icon: 'warning',
-                                title: 'Duplicate Product',
-                                text: `${selectedProduct.product_name} is already in your dispatch. Please adjust the quantity instead.`,
-                                confirmButtonColor: '#754C27'
-                            });
-                        } else {
-                            // Add product if not a duplicate
-                            setProducts(prev => [...prev, selectedProduct]);
-                            setQuantities(prev => ({ ...prev, [selectedProduct.product_code]: 1 }));
-                            setUnits(prev => ({ ...prev, [selectedProduct.product_code]: selectedProduct.productUnit1.unit_code }));
-                            setExpiryDates(prev => ({ ...prev, [selectedProduct.product_code]: new Date() }));
-                            setUnitPrices(prev => ({ ...prev, [selectedProduct.product_code]: selectedProduct.bulk_unit_price }));
-                            calculateOrderTotals([...products, selectedProduct]);
-                        }
-                        setSearchTerm('');
-                        setShowDropdown(false);
-                    }
-                })
-                .catch((err) => console.log(err.message));
-        } else if (value.length > 0) {
-            dispatch(searchProductName({ product_name: value }))
-                .unwrap()
-                .then((res) => {
-                    if (res.data) {
-                        setSearchResults(res.data);
-                        setShowDropdown(true);
-                    }
-                })
-                .catch((err) => console.log(err.message));
+        if (value.length > 0) {
+            try {
+                const response = await dispatch(searchProductName({ product_name: value })).unwrap();
+                if (response.data) {
+                    setSearchResults(response.data);
+                    setShowDropdown(true);
+                }
+            } catch (err) {
+                console.error('Error searching products:', err);
+            }
         } else {
             setSearchResults([]);
             setShowDropdown(false);
         }
     };
 
-    const calculateOrderTotals = (currentProducts = products) => {
-        let newTotals = {};
-        let newTotal = 0;
+    const handleProductSelect = (product) => {
+        if (products.some(p => p.product_code === product.product_code)) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Product Already Added',
+                text: 'This product is already in your list',
+                confirmButtonColor: '#754C27'
+            });
+            return;
+        }
 
-        // คำนวณ total แต่ละรายการและ total รวม
-        currentProducts.forEach(product => {
-            const productCode = product.product_code;
-            const quantity = quantities[productCode] || 1;
-            const price = unitPrices[productCode] || (
-                units[productCode] === product.productUnit1.unit_code
-                    ? product.bulk_unit_price
-                    : product.retail_unit_price
-            );
-            const lineTotal = quantity * price;
+        setSearchTerm('');
+        setShowDropdown(false);
 
-            newTotals[productCode] = lineTotal;
-            newTotal += lineTotal;
-        });
+        const newProducts = [...products, product];
+        setProducts(newProducts);
 
-        // แยกยอด taxable และ non-taxable หลังจากคำนวณ total
-        let newTaxable = 0;
-        let newNonTaxable = 0;
+        const initialQuantity = 1;
+        const initialUnitCode = product.productUnit1?.unit_code;
+        const initialUnitPrice = product.bulk_unit_price;
 
-        currentProducts.forEach(product => {
-            const productCode = product.product_code;
-            if (product.tax1 === 'Y') {
-                newTaxable += newTotals[productCode];
-            } else {
-                newNonTaxable += newTotals[productCode];
-            }
-        });
+        setQuantities(prev => ({
+            ...prev,
+            [product.product_code]: initialQuantity
+        }));
+        setUnits(prev => ({
+            ...prev,
+            [product.product_code]: initialUnitCode
+        }));
+        setUnitPrices(prev => ({
+            ...prev,
+            [product.product_code]: initialUnitPrice
+        }));
+        setExpiryDates(prev => ({
+            ...prev,
+            [product.product_code]: new Date()
+        }));
 
-        // อัพเดทค่าทั้งหมด
-        setTotals(newTotals);
-        setTaxableAmount(newTaxable);
-        setNonTaxableAmount(newNonTaxable);
-        setTotal(newTotal);
+        calculateProductTotal(product.product_code, initialQuantity, initialUnitPrice);
     };
 
-    // แก้ไขฟังก์ชัน handleQuantityChange
+    const calculateProductTotal = (productCode, quantity, unitPrice) => {
+        const amount = quantity * unitPrice;
+        setTotals(prev => {
+            const newTotals = { ...prev, [productCode]: amount };
+            let totalAmount = 0;
+            let newTaxable = 0;
+            let newNonTaxable = 0;
+
+            products.forEach(product => {
+                const currentAmount = product.product_code === productCode
+                    ? amount
+                    : (newTotals[product.product_code] || 0);
+
+                totalAmount += currentAmount;
+
+                if (product.tax1 === 'Y') {
+                    newTaxable += currentAmount;
+                } else {
+                    newNonTaxable += currentAmount;
+                }
+            });
+
+            setTaxableAmount(newTaxable);
+            setNonTaxableAmount(newNonTaxable);
+            setTotal(totalAmount);
+
+            return newTotals;
+        });
+    };
+
     const handleQuantityChange = (productCode, newQuantity) => {
+        // ตรวจสอบจำนวนสูงสุดที่อนุญาต
+        const maxQuantity = remainingQty[productCode] || 1;
+
+        // ตรวจสอบจำนวนไม่เกินที่เหลืออยู่
+        if (newQuantity > maxQuantity) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'จำนวนเกินขีดจำกัด',
+                text: `คุณสามารถเบิกได้สูงสุด ${maxQuantity} หน่วยสำหรับสินค้านี้`,
+                confirmButtonColor: '#754C27'
+            });
+            newQuantity = maxQuantity;
+        }
+
         if (newQuantity >= 1) {
             const product = products.find(p => p.product_code === productCode);
-            const unit = units[productCode] || product.productUnit1.unit_code;
-            const unitPrice = unitPrices[productCode] ??
-                (unit === product.productUnit1.unit_code
-                    ? product.bulk_unit_price
-                    : product.retail_unit_price);
+            const unit = units[productCode] || (product.productUnit1?.unit_code || '');
+            const unitPrice = unitPrices[productCode] || 0;
 
-            const lineTotal = newQuantity * unitPrice;
-
-            // Update all states at once
             setQuantities(prev => ({
                 ...prev,
                 [productCode]: newQuantity
             }));
 
-            setTotals(prev => {
-                const newTotals = {
-                    ...prev,
-                    [productCode]: lineTotal
-                };
-
-                // Calculate new totals immediately
-                let newTaxable = 0;
-                let newNonTaxable = 0;
-                let newTotal = 0;
-
-                products.forEach(p => {
-                    const pCode = p.product_code;
-                    const currentTotal = pCode === productCode ? lineTotal : newTotals[pCode];
-                    if (currentTotal) {
-                        if (p.tax1 === 'Y') {
-                            newTaxable += currentTotal;
-                        } else {
-                            newNonTaxable += currentTotal;
-                        }
-                        newTotal += currentTotal;
-                    }
-                });
-
-                // Update other states immediately
-                setTaxableAmount(newTaxable);
-                setNonTaxableAmount(newNonTaxable);
-                setTotal(newTotal);
-
-                return newTotals;
-            });
+            calculateProductTotal(productCode, newQuantity, unitPrice);
         }
     };
 
-    // แก้ไขฟังก์ชัน handleUnitPriceChange ในลักษณะเดียวกัน
     const handleUnitPriceChange = (productCode, value) => {
         const newPrice = parseFloat(value);
         if (!isNaN(newPrice) && newPrice >= 0) {
             const quantity = quantities[productCode] || 1;
-            const lineTotal = quantity * newPrice;
 
             setUnitPrices(prev => ({
                 ...prev,
                 [productCode]: newPrice
             }));
 
-            setTotals(prev => {
-                const newTotals = {
-                    ...prev,
-                    [productCode]: lineTotal
-                };
-
-                let newTaxable = 0;
-                let newNonTaxable = 0;
-                let newTotal = 0;
-
-                products.forEach(p => {
-                    const pCode = p.product_code;
-                    const currentTotal = pCode === productCode ? lineTotal : newTotals[pCode];
-                    if (currentTotal) {
-                        if (p.tax1 === 'Y') {
-                            newTaxable += currentTotal;
-                        } else {
-                            newNonTaxable += currentTotal;
-                        }
-                        newTotal += currentTotal;
-                    }
-                });
-
-                setTaxableAmount(newTaxable);
-                setNonTaxableAmount(newNonTaxable);
-                setTotal(newTotal);
-
-                return newTotals;
-            });
+            calculateProductTotal(productCode, quantity, newPrice);
         }
-    };
-
-    // แก้ไขฟังก์ชัน handleDeleteProduct
-    const handleDeleteProduct = (productCode) => {
-        const updatedProducts = products.filter(item => item.product_code !== productCode);
-        setProducts(updatedProducts);
-
-        setTotals(prev => {
-            const newTotals = { ...prev };
-            delete newTotals[productCode];
-
-            let newTaxable = 0;
-            let newNonTaxable = 0;
-            let newTotal = 0;
-
-            updatedProducts.forEach(p => {
-                const currentTotal = newTotals[p.product_code];
-                if (currentTotal) {
-                    if (p.tax1 === 'Y') {
-                        newTaxable += currentTotal;
-                    } else {
-                        newNonTaxable += currentTotal;
-                    }
-                    newTotal += currentTotal;
-                }
-            });
-
-            setTaxableAmount(newTaxable);
-            setNonTaxableAmount(newNonTaxable);
-            setTotal(newTotal);
-
-            return newTotals;
-        });
     };
 
     const handleUnitChange = (productCode, newUnitCode) => {
@@ -381,19 +577,69 @@ export default function CreateDispatchToBranch({ onBack }) {
         }));
 
         const product = products.find(p => p.product_code === productCode);
-        const defaultUnitPrice = newUnitCode === product.productUnit1.unit_code
-            ? product.bulk_unit_price
-            : product.retail_unit_price;
+        let newPrice = unitPrices[productCode] || 0;
+
+        // Update price based on unit if it's a product unit change
+        if (product.productUnit1 && newUnitCode === product.productUnit1.unit_code) {
+            newPrice = product.bulk_unit_price || 0;
+        } else if (product.productUnit2 && newUnitCode === product.productUnit2.unit_code) {
+            newPrice = product.retail_unit_price || 0;
+        }
 
         setUnitPrices(prev => ({
             ...prev,
-            [productCode]: defaultUnitPrice
+            [productCode]: newPrice
         }));
 
         const quantity = quantities[productCode] || 1;
-        const total = quantity * defaultUnitPrice;
-        setTotals(prev => ({ ...prev, [productCode]: total }));
-        calculateOrderTotals();
+        calculateProductTotal(productCode, quantity, newPrice);
+    };
+
+    const handleDeleteProduct = (productCode) => {
+        setProducts(prev => prev.filter(p => p.product_code !== productCode));
+
+        // Clear related state for the deleted product
+        setQuantities(prev => {
+            const { [productCode]: _, ...rest } = prev;
+            return rest;
+        });
+        setUnits(prev => {
+            const { [productCode]: _, ...rest } = prev;
+            return rest;
+        });
+        setUnitPrices(prev => {
+            const { [productCode]: _, ...rest } = prev;
+            return rest;
+        });
+        setTotals(prev => {
+            const { [productCode]: _, ...rest } = prev;
+            return rest;
+        });
+        setExpiryDates(prev => {
+            const { [productCode]: _, ...rest } = prev;
+            return rest;
+        });
+
+        // Recalculate order totals
+        const updatedProducts = products.filter(p => p.product_code !== productCode);
+        let newTaxable = 0;
+        let newNonTaxable = 0;
+        let newTotal = 0;
+
+        updatedProducts.forEach(product => {
+            const amount = totals[product.product_code] || 0;
+            newTotal += amount;
+
+            if (product.tax1 === 'Y') {
+                newTaxable += amount;
+            } else {
+                newNonTaxable += amount;
+            }
+        });
+
+        setTaxableAmount(newTaxable);
+        setNonTaxableAmount(newNonTaxable);
+        setTotal(newTotal);
     };
 
     const handleExpiryDateChange = (productCode, date) => {
@@ -408,87 +654,107 @@ export default function CreateDispatchToBranch({ onBack }) {
             Swal.fire({
                 icon: 'warning',
                 title: 'Missing Information',
-                text: 'Please fill in all required fields.',
-                timer: 1500
+                text: 'Please select a restaurant and ensure there is at least one product.',
+                confirmButtonColor: '#754C27'
             });
             return;
         }
 
         try {
             Swal.fire({
-                title: 'Saving dispatch...',
+                title: 'Saving...',
                 allowOutsideClick: false,
-                didOpen: () => {
-                    Swal.showLoading();
-                }
+                didOpen: () => Swal.showLoading()
             });
 
+            // Step 1: Prepare and save the dispatch data
             const headerData = {
                 refno: lastRefNo,
-                rdate: format(startDate, 'MM/dd/yyyy'),
+                po_refno: poRefno,
+                rdate: formatDate(startDate),
                 branch_code: saveBranch,
-                trdate: format(startDate, 'yyyyMMdd'),
-                monthh: format(startDate, 'MM'),
-                myear: startDate.getFullYear(),
-                user_code: userData2.user_code,
-                taxable: taxableAmount.toString(),
-                nontaxable: nonTaxableAmount.toString(),
-                total: total.toString()
+                trdate: formatTRDate(startDate),
+                monthh: String(startDate.getMonth() + 1).padStart(2, '0'),
+                myear: startDate.getFullYear().toString(),
+                user_code: userData2?.user_code,
+                po_refno: selectedPoRefno, // Make sure this is always sent, even if null
+                taxable: Number(taxableAmount),
+                nontaxable: Number(nonTaxableAmount)
             };
 
             const productArrayData = products.map(product => {
-                const expDate = expiryDates[product.product_code];
-                const monthYear = expDate ? {
-                    expire_date: format(expDate, 'MM/dd/yyyy'),
-                    texpire_date: format(expDate, 'yyyyMMdd')
-                } : {};
-
+                const productCode = product.product_code;
                 return {
-                    refno: headerData.refno,
-                    product_code: product.product_code,
-                    qty: quantities[product.product_code].toString(),
-                    unit_code: units[product.product_code],
-                    uprice: (unitPrices[product.product_code] || product.bulk_unit_price).toString(),
+                    refno: lastRefNo,
+                    product_code: productCode,
+                    qty: quantities[productCode] || 0,
+                    unit_code: units[productCode] || (product.productUnit1?.unit_code || ''),
+                    uprice: unitPrices[productCode] || 0,
                     tax1: product.tax1,
-                    amt: totals[product.product_code].toString(),
-                    ...monthYear
+                    amt: totals[productCode] || 0,
+                    expire_date: expiryDates[productCode] ? formatDate(expiryDates[productCode]) : null,
+                    texpire_date: expiryDates[productCode] ? formatTRDate(expiryDates[productCode]) : null
                 };
             });
 
-            const orderData = {
-                headerData,
-                productArrayData,
-                footerData: {
-                    taxable: taxableAmount.toString(),
-                    nontaxable: nonTaxableAmount.toString(),
-                    total: total.toString()
-                }
+            const footerData = {
+                taxable: Number(taxableAmount),
+                nontaxable: Number(nonTaxableAmount),
+                total: Number(total)
             };
 
-            await dispatch(addWh_dpb(orderData)).unwrap();
+            // Step 2: Save the dispatch - no need to update PO details here as it will be done automatically on the backend
+            const result = await dispatch(addWh_dpb({
+                headerData,
+                productArrayData,
+                footerData
+            })).unwrap();
 
-            await Swal.fire({
-                icon: 'success',
-                title: 'Created dispatch successfully',
-                text: `Reference No: ${lastRefNo}`,
-                showConfirmButton: false,
-                timer: 1500
-            });
-
-            resetForm();
-            onBack();
-
+            if (result.result) {
+                await Swal.fire({
+                    icon: 'success',
+                    title: 'Success!',
+                    text: 'Dispatch to restaurant created successfully',
+                    timer: 1500,
+                    confirmButtonColor: '#754C27'
+                });
+                resetForm();
+                onBack();
+            }
         } catch (error) {
-            let errorMessage = 'Error saving dispatch';
-            if (error.name === 'SequelizeUniqueConstraintError') {
-                errorMessage = 'A duplicate dispatch number was generated. Please try again.';
+            console.error('Error saving DPB:', error);
+
+            // Extract the detailed error message from the server response
+            let errorMessage = 'An error occurred while saving';
+
+            if (error.response) {
+                // The server responded with a status code outside the 2xx range
+                console.log('Server response error data:', error.response.data);
+
+                if (error.response.data && error.response.data.message) {
+                    errorMessage = error.response.data.message;
+                } else if (error.response.data && error.response.data.errorDetail) {
+                    errorMessage = error.response.data.errorDetail;
+                } else if (error.response.status === 500) {
+                    errorMessage = 'Internal Server Error (500): ' + (error.response.statusText || 'Unknown server error');
+                }
+            } else if (error.request) {
+                // The request was made but no response was received
+                errorMessage = 'No response received from server. Please check your connection.';
+            } else if (error.message) {
+                // Something happened in setting up the request that triggered an Error
+                errorMessage = error.message;
             }
 
+            // Show the error message in a SweetAlert
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
                 text: errorMessage,
-                confirmButtonText: 'OK'
+                confirmButtonColor: '#754C27',
+                // Add a footer with technical details for developers/admins
+                footer: process.env.NODE_ENV === 'development' ?
+                    `<span style="font-size: 12px; color: #666;">Technical details: ${error.stack ? error.stack.split('\n')[0] : 'No stack trace'}</span>` : ''
             });
         }
     };
@@ -499,15 +765,27 @@ export default function CreateDispatchToBranch({ onBack }) {
         setUnits({});
         setUnitPrices({});
         setTotals({});
+        setExpiryDates({});
+        setSaveBranch('');
         setTaxableAmount(0);
         setNonTaxableAmount(0);
         setTotal(0);
-        setTotalDue(0);
-        setSaveBranch('');
-        setSearchTerm('');
-        setExpiryDates({});
-        await handleGetLastRefNo(startDate);
+        setRefNo('Please select purchase order');
+        setSelectedPoRefno('');
+        setPoData(null);
+        setLastRefNo('');
+        setOriginalQty({});
+        setRemainingQty({});
     };
+
+    if (isLoading) {
+        return (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+                <CircularProgress sx={{ color: '#754C27' }} />
+                <Typography sx={{ ml: 2 }}>Loading data...</Typography>
+            </Box>
+        );
+    }
 
     return (
         <Box sx={{ width: '100%' }}>
@@ -519,338 +797,414 @@ export default function CreateDispatchToBranch({ onBack }) {
                 Back to Dispatch to Restaurant
             </Button>
 
-            <Box sx={{ width: '100%', mt: '10px', flexDirection: 'column' }}>
-                <Box sx={{
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    flexDirection: 'column',
-                    border: '1px solid #E4E4E4',
-                    borderRadius: '10px',
-                    bgcolor: '#FFFFFF',
-                    height: '100%',
-                    p: '16px',
-                    position: 'relative',
-                    zIndex: 2,
-                    mb: '50px'
-                }}>
-                    <Box sx={{ width: '90%', mt: '24px' }}>
-                        <Grid2 container spacing={2}>
-                            <Grid2 item size={{ xs: 12, md: 6 }}>
-                                <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
-                                    Ref.no
-                                </Typography>
-                                <TextField
-                                    value={lastRefNo}
-                                    disabled
-                                    size="small"
-                                    placeholder='Ref.no'
-                                    sx={{
-                                        mt: '8px',
-                                        width: '100%',
-                                        '& .MuiOutlinedInput-root': {
-                                            borderRadius: '10px',
-                                            fontWeight: '700'
-                                        },
-                                    }}
-                                />
-                            </Grid2>
-                            <Grid2 item size={{ xs: 12, md: 6 }}>
-                                <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
-                                    Date
-                                </Typography>
-                                <DatePicker
-                                    selected={startDate}
-                                    onChange={(date) => {
-                                        setStartDate(date);
-                                        handleGetLastRefNo(date);
-                                    }}
-                                    dateFormat="MM/dd/yyyy"
-                                    placeholderText="MM/DD/YYYY"
-                                    customInput={<CustomInput />}
-                                />
-                            </Grid2>
-                            <Grid2 item size={{ xs: 12, md: 6 }}>
-                                <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
-                                    Restaurant
-                                </Typography>
-                                <Box
-                                    component="select"
-                                    value={saveBranch}
-                                    onChange={(e) => setSaveBranch(e.target.value)}
-                                    sx={{
-                                        mt: '8px',
-                                        width: '100%',
-                                        height: '40px',
-                                        borderRadius: '10px',
-                                        padding: '0 14px',
-                                        border: '1px solid rgba(0, 0, 0, 0.23)',
-                                        fontSize: '16px',
-                                        '&:focus': {
-                                            outline: 'none',
-                                            borderColor: '#754C27',
-                                        },
-                                        '& option': {
-                                            fontSize: '16px',
-                                        },
-                                    }}
-                                >
-                                    <option value="">Select a Restaurant</option>
-                                    {branches.map((branch) => (
-                                        <option key={branch.branch_code} value={branch.branch_code}>
-                                            {branch.branch_name}
-                                        </option>
-                                    ))}
-                                </Box>
-                            </Grid2>
-                        </Grid2>
+            <Box sx={{
+                width: '100%',
+                bgcolor: '#FFFFFF',
+                borderRadius: '10px',
+                border: '1px solid #E4E4E4',
+                p: 3
+            }}>
+                <Grid2 container spacing={2}>
+                    <Grid2 item size={{ xs: 12, md: 6 }}>
+                        <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
+                            Restaurant (Select First)
+                        </Typography>
+                        <Box
+                            component="select"
+                            value={saveBranch}
+                            onChange={(e) => handleBranchChange(e.target.value)}
+                            sx={{
+                                mt: 1,
+                                width: '100%',
+                                height: '40px',
+                                borderRadius: '10px',
+                                padding: '0 14px',
+                                border: '1px solid rgba(0, 0, 0, 0.23)',
+                                '&:focus': {
+                                    outline: 'none',
+                                    borderColor: '#754C27'
+                                }
+                            }}
+                        >
+                            <option value="">Select Restaurant</option>
+                            {branches.map((branch) => (
+                                <option key={branch.branch_code} value={branch.branch_code}>
+                                    {branch.branch_name}
+                                </option>
+                            ))}
+                        </Box>
+                    </Grid2>
 
-                        <Divider sx={{ mt: '24px' }} />
-
-                        <Box sx={{ display: 'flex', flexDirection: 'row', width: '100%', p: '24px 0px' }}>
-                            <Typography sx={{ fontSize: '20px', fontWeight: '600' }}>
-                                Current Order
-                            </Typography>
-                            <Typography sx={{ ml: 'auto' }}>
-                                Product Search
-                            </Typography>
-                            <Box sx={{ position: 'relative', width: '50%', ml: '12px' }}>
-                                <TextField
-                                    value={searchTerm}
-                                    onChange={handleSearchChange}
-                                    onKeyDown={handleSearchChange}
-                                    placeholder="Search"
-                                    sx={{
-                                        '& .MuiInputBase-root': {
-                                            height: '30px',
-                                            width: '100%'
-                                        },
-                                        '& .MuiOutlinedInput-input': {
-                                            padding: '8.5px 14px',
-                                        },
-                                        width: '100%'
-                                    }}
-                                    InputProps={{
-                                        startAdornment: (
-                                            <InputAdornment position="start">
-                                                <SearchIcon sx={{ color: '#5A607F' }} />
-                                            </InputAdornment>
-                                        ),
-                                    }}
-                                />
-
-                                {showDropdown && searchResults.length > 0 && (
-                                    <Box sx={{
-                                        position: 'absolute',
-                                        top: '100%',
-                                        left: 0,
-                                        right: 0,
-                                        backgroundColor: 'white',
-                                        boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-                                        borderRadius: '4px',
-                                        zIndex: 1000,
-                                        maxHeight: '200px',
-                                        overflowY: 'auto',
-                                        mt: '4px'
-                                    }}>
-                                        {searchResults.map((product) => (
-                                            <Box
-                                                key={product.product_code}
-                                                onClick={() => handleProductSelect(product)}
-                                                sx={{
-                                                    p: 1.5,
-                                                    cursor: 'pointer',
-                                                    '&:hover': {
-                                                        backgroundColor: '#f5f5f5'
-                                                    },
-                                                    borderBottom: '1px solid #eee'
-                                                }}
-                                            >
-                                                <Typography sx={{ fontSize: '14px', fontWeight: '600' }}>
-                                                    {product.product_name}
-                                                </Typography>
-                                            </Box>
-                                        ))}
+                    <Grid2 item size={{ xs: 12, md: 6 }}>
+                        <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
+                            Select from Available Purchase Orders
+                        </Typography>
+                        <Box sx={{ opacity: saveBranch ? 1 : 0.5, mt: 1 }}>
+                            <Autocomplete
+                                options={poRefnos}
+                                getOptionLabel={(option) =>
+                                    typeof option === 'string'
+                                        ? option
+                                        : `${option.refno} - From: ${option.branch} (${option.formattedDate})`
+                                }
+                                onChange={(_, newValue) => handlePOSelection(newValue?.refno || '')}
+                                disabled={!saveBranch}
+                                noOptionsText={saveBranch ? "No available purchase orders found" : "Select a restaurant first"}
+                                isOptionEqualToValue={(option, value) =>
+                                    option.refno === (typeof value === 'string' ? value : value?.refno)
+                                }
+                                renderOption={(props, option) => (
+                                    <Box component="li" {...props}>
+                                        <Box>
+                                            <Typography variant="body1" fontWeight="bold">
+                                                {option.refno}
+                                            </Typography>
+                                            <Typography variant="body2" color="text.secondary">
+                                                From: {option.branch}
+                                            </Typography>
+                                            <Typography variant="caption" color="primary">
+                                                Date: {option.formattedDate}
+                                            </Typography>
+                                        </Box>
                                     </Box>
                                 )}
-                            </Box>
-                            <Button
-                                onClick={resetForm}
-                                sx={{
-                                    ml: 'auto',
-                                    bgcolor: '#E2EDFB',
-                                    borderRadius: '6px',
-                                    width: '105px',
-                                    '&:hover': {
-                                        bgcolor: '#d0e0f7'
+                                renderInput={(params) => (
+                                    <TextField
+                                        {...params}
+                                        placeholder={saveBranch ? "Select purchase order to create dispatch from" : "Select a restaurant first"}
+                                        variant="outlined"
+                                        size="small"
+                                        InputProps={{
+                                            ...params.InputProps,
+                                            endAdornment: (
+                                                <>
+                                                    {loadingPO ? <CircularProgress color="inherit" size={20} /> : null}
+                                                    {params.InputProps.endAdornment}
+                                                </>
+                                            ),
+                                        }}
+                                        sx={{
+                                            '& .MuiOutlinedInput-root': {
+                                                borderRadius: '10px'
+                                            }
+                                        }}
+                                    />
+                                )}
+                            />
+                        </Box>
+                    </Grid2>
+
+                    <Grid2 item size={{ xs: 12, md: 6 }}>
+                        <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
+                            Dispatch Ref.No
+                        </Typography>
+                        <TextField
+                            value={lastRefNo || "Will be generated automatically"}
+                            disabled
+                            size="small"
+                            placeholder='Dispatch Ref.No'
+                            sx={{
+                                mt: 1,
+                                width: '100%',
+                                '& .MuiOutlinedInput-root': {
+                                    borderRadius: '10px',
+                                    fontWeight: '700'
+                                }
+                            }}
+                        />
+                    </Grid2>
+
+                    <Grid2 item size={{ xs: 12, md: 6 }}>
+                        <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
+                            Original PO Ref.No
+                        </Typography>
+                        <TextField
+                            value={selectedPoRefno || refNo}
+                            disabled
+                            size="small"
+                            placeholder='PO Ref.No'
+                            sx={{
+                                mt: 1,
+                                width: '100%',
+                                '& .MuiOutlinedInput-root': {
+                                    borderRadius: '10px',
+                                    fontWeight: '700'
+                                },
+                                '& .Mui-disabled': {
+                                    WebkitTextFillColor: refNo === 'Please select purchase order'
+                                        ? '#d32f2f'
+                                        : 'rgba(0, 0, 0, 0.38)',
+                                }
+                            }}
+                        />
+                    </Grid2>
+
+                    <Grid2 item size={{ xs: 12, md: 6 }}>
+                        <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
+                            Date
+                        </Typography>
+                        <DatePicker
+                            selected={startDate}
+                            onChange={(date) => setStartDate(date)}
+                            dateFormat="MM/dd/yyyy"
+                            customInput={<CustomInput />}
+                        />
+                    </Grid2>
+                </Grid2>
+
+                <Divider sx={{ my: 3 }} />
+
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                    <Typography sx={{ fontSize: '20px', fontWeight: '600' }}>
+                        Current Order
+                    </Typography>
+                    <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', ml: 4 }}>
+                        <Typography sx={{ mr: 2 }}>
+                            Product Search
+                        </Typography>
+                        <Box sx={{ position: 'relative', flex: 1 }}>
+                            <TextField
+                                value={searchTerm}
+                                onChange={handleSearchChange}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && searchTerm.length > 0) {
+                                        dispatch(searchProductName({ product_name: searchTerm }))
+                                            .unwrap()
+                                            .then((res) => {
+                                                if (res.data && res.data.length > 0) {
+                                                    const exactMatch = res.data.find(
+                                                        product => product.product_name.toLowerCase() === searchTerm.toLowerCase()
+                                                    );
+                                                    const selectedProduct = exactMatch || res.data[0];
+                                                    handleProductSelect(selectedProduct);
+                                                }
+                                            })
+                                            .catch((err) => console.log(err.message));
                                     }
                                 }}
-                            >
-                                Clear All
-                            </Button>
-                        </Box>
-
-                        <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', mb: '12px' }}>
-                            <table style={{ width: '100%', marginTop: '24px' }}>
-                                <thead>
-                                    <tr>
-                                        <th style={{ padding: '4px', fontSize: '14px', width: '1%', color: '#754C27', fontWeight: '800' }}>No.</th>
-                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '15%', color: '#754C27', fontWeight: '800' }}>Product code</th>
-                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '15%', color: '#754C27', fontWeight: '800' }}>Product name</th>
-                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Expiry Date</th>
-                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Quantity</th>
-                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '10%', color: '#754C27', fontWeight: '800' }}>Unit</th>
-                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Unit Price</th>
-                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Tax</th>
-                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Total</th>
-                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '1%', color: '#754C27', fontWeight: '800' }}></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {products.map((product, index) => {
-                                        const productCode = product.product_code;
-                                        const currentUnit = units[productCode] || product.productUnit1.unit_code;
-                                        const currentQuantity = quantities[productCode] || 1;
-                                        const currentUnitPrice = unitPrices[productCode] ??
-                                            (currentUnit === product.productUnit1.unit_code
-                                                ? product.bulk_unit_price
-                                                : product.retail_unit_price);
-                                        const currentTotal = (currentQuantity * currentUnitPrice).toFixed(2);
-
-                                        return (
-                                            <tr key={productCode}>
-                                                <td style={{ padding: '4px', fontSize: '12px', fontWeight: '800' }}>{index + 1}</td>
-                                                <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>{productCode}</td>
-                                                <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>{product.product_name}</td>
-                                                <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
-                                                    <DatePicker
-                                                        selected={expiryDates[productCode] || null}
-                                                        onChange={(date) => handleExpiryDateChange(productCode, date)}
-                                                        dateFormat="MM/dd/yyyy"
-                                                        placeholderText="Select exp date"
-                                                        customInput={
-                                                            <input
-                                                                style={{
-                                                                    width: '110px',
-                                                                    padding: '4px',
-                                                                    borderRadius: '4px',
-                                                                    textAlign: 'center'
-                                                                }}
-                                                            />
-                                                        }
-                                                    />
-                                                </td>
-                                                <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
-                                                    <input
-                                                        type="number"
-                                                        min="1"
-                                                        value={currentQuantity}
-                                                        onChange={(e) => handleQuantityChange(productCode, parseInt(e.target.value))}
-                                                        style={{
-                                                            width: '50px',
-                                                            textAlign: 'center',
-                                                            fontWeight: '600',
-                                                            padding: '4px'
-                                                        }}
-                                                    />
-                                                </td>
-                                                <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
-                                                    <select
-                                                        value={currentUnit}
-                                                        onChange={(e) => handleUnitChange(productCode, e.target.value)}
-                                                        style={{
-                                                            padding: '4px',
-                                                            borderRadius: '4px'
-                                                        }}
-                                                    >
-                                                        <option value={product.productUnit1.unit_code}>{product.productUnit1.unit_name}</option>
-                                                        <option value={product.productUnit2.unit_code}>{product.productUnit2.unit_name}</option>
-                                                    </select>
-                                                </td>
-                                                <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
-                                                    <input
-                                                        type="number"
-                                                        min="0"
-                                                        step="0.01"
-                                                        value={currentUnitPrice}
-                                                        onChange={(e) => handleUnitPriceChange(productCode, e.target.value)}
-                                                        style={{
-                                                            width: '80px',
-                                                            textAlign: 'right',
-                                                            fontWeight: '600',
-                                                            padding: '4px'
-                                                        }}
-                                                    />
-                                                </td>
-                                                <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
-                                                    {product.tax1 === 'Y' ? 'Yes' : 'No'}
-                                                </td>
-                                                <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
-                                                    {currentTotal}
-                                                </td>
-                                                <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
-                                                    <IconButton
-                                                        onClick={() => handleDeleteProduct(productCode)}
-                                                        size="small"
-                                                    >
-                                                        <CancelIcon />
-                                                    </IconButton>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </Box>
-
-                        <Box sx={{ width: '100%', height: 'auto', bgcolor: '#EAB86C', borderRadius: '10px', p: '18px' }}>
-                            <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', height: '100%' }}>
+                                placeholder="Search products..."
+                                size="small"
+                                fullWidth
+                                InputProps={{
+                                    startAdornment: (
+                                        <InputAdornment position="start">
+                                            <SearchIcon sx={{ color: '#5A607F' }} />
+                                        </InputAdornment>
+                                    )
+                                }}
+                            />
+                            {showDropdown && searchResults.length > 0 && (
                                 <Box sx={{
-                                    display: 'flex',
-                                    flexDirection: 'row',
-                                    alignItems: 'center',
-                                    width: '100%',
-                                    justifyContent: 'space-between'
+                                    position: 'absolute',
+                                    top: '100%',
+                                    left: 0,
+                                    right: 0,
+                                    bgcolor: 'background.paper',
+                                    boxShadow: 3,
+                                    borderRadius: 1,
+                                    zIndex: 1000,
+                                    maxHeight: 200,
+                                    overflow: 'auto'
                                 }}>
-                                    <Box>
-                                        <Typography sx={{ color: '#FFFFFF' }}>Taxable</Typography>
-                                        <Typography sx={{ color: '#FFFFFF' }}>Non-Taxable</Typography>
-                                        <Typography sx={{ color: '#FFFFFF' }}>Total</Typography>
-                                    </Box>
-                                    <Box>
-                                        <Typography sx={{ color: '#FFFFFF' }}>${taxableAmount.toFixed(2)}</Typography>
-                                        <Typography sx={{ color: '#FFFFFF' }}>${nonTaxableAmount.toFixed(2)}</Typography>
-                                        <Typography sx={{ color: '#FFFFFF' }}>${total.toFixed(2)}</Typography>
-                                    </Box>
+                                    {searchResults.map((product) => (
+                                        <Box
+                                            key={product.product_code}
+                                            onClick={() => handleProductSelect(product)}
+                                            sx={{
+                                                p: 1.5,
+                                                cursor: 'pointer',
+                                                '&:hover': { bgcolor: 'action.hover' },
+                                                borderBottom: '1px solid',
+                                                borderColor: 'divider'
+                                            }}
+                                        >
+                                            <Typography variant="body2">{product.product_name}</Typography>
+                                        </Box>
+                                    ))}
                                 </Box>
-                            </Box>
-
-                            <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', mt: '8px' }}>
-                                <Typography sx={{ color: '#FFFFFF', fontSize: '30px', fontWeight: '600' }}>
-                                    Total due
-                                </Typography>
-                                <Typography sx={{ color: '#FFFFFF', ml: 'auto', fontSize: '30px', fontWeight: '600' }}>
-                                    ${total.toFixed(2)}
-                                </Typography>
-                            </Box>
+                            )}
                         </Box>
-
+                    </Box>
+                    {products.length > 0 && (
                         <Button
-                            onClick={handleSave}
+                            onClick={resetForm}
                             sx={{
-                                width: '100%',
-                                height: '48px',
-                                mt: '24px',
-                                bgcolor: '#754C27',
-                                color: '#FFFFFF',
-                                '&:hover': {
-                                    bgcolor: '#5C3D1F'
-                                }
-                            }}>
-                            Save
+                                ml: 2,
+                                bgcolor: '#E2EDFB',
+                                color: '#754C27',
+                                '&:hover': { bgcolor: '#d1e3f9' }
+                            }}
+                        >
+                            Clear All
                         </Button>
+                    )}
+                </Box>
+
+                <Box sx={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <thead>
+                            <tr>
+                                <th style={{ padding: '12px', textAlign: 'left', color: '#754C27', backgroundColor: '#f5f5f5' }}>No.</th>
+                                <th style={{ padding: '12px', textAlign: 'left', color: '#754C27', backgroundColor: '#f5f5f5' }}>Product Code</th>
+                                <th style={{ padding: '12px', textAlign: 'left', color: '#754C27', backgroundColor: '#f5f5f5' }}>Product Name</th>
+                                <th style={{ padding: '12px', textAlign: 'center', color: '#754C27', backgroundColor: '#f5f5f5' }}>Expiry Date</th>
+                                <th style={{ padding: '12px', textAlign: 'right', color: '#754C27', backgroundColor: '#f5f5f5' }}>Quantity</th>
+                                <th style={{ padding: '12px', textAlign: 'center', color: '#754C27', backgroundColor: '#f5f5f5' }}>Unit</th>
+                                <th style={{ padding: '12px', textAlign: 'right', color: '#754C27', backgroundColor: '#f5f5f5' }}>Unit Price</th>
+                                <th style={{ padding: '12px', textAlign: 'center', color: '#754C27', backgroundColor: '#f5f5f5' }}>Tax</th>
+                                <th style={{ padding: '12px', textAlign: 'right', color: '#754C27', backgroundColor: '#f5f5f5' }}>Total</th>
+                                <th style={{ padding: '12px', textAlign: 'center', color: '#754C27', backgroundColor: '#f5f5f5' }}></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {products.length === 0 ? (
+                                <tr>
+                                    <td colSpan={10} style={{ padding: '20px', textAlign: 'center' }}>
+                                        <Typography color="text.secondary">
+                                            No products selected. Select a purchase order from the dropdown or add products from the search.
+                                        </Typography>
+                                    </td>
+                                </tr>
+                            ) : (
+                                products.map((product, index) => {
+                                    const productCode = product.product_code;
+                                    return (
+                                        <tr key={productCode}>
+                                            <td style={{ padding: '12px' }}>{index + 1}</td>
+                                            <td style={{ padding: '12px' }}>{productCode}</td>
+                                            <td style={{ padding: '12px' }}>{product.product_name}</td>
+                                            <td style={{ padding: '12px', textAlign: 'center' }}>
+                                                <DatePicker
+                                                    selected={expiryDates[productCode] || new Date()}
+                                                    onChange={(date) => handleExpiryDateChange(productCode, date)}
+                                                    dateFormat="MM/dd/yyyy"
+                                                    customInput={<CustomInput />}
+                                                />
+                                            </td>
+                                            <td style={{ padding: '12px', textAlign: 'right' }}>
+                                                <TextField
+                                                    type="number"
+                                                    size="small"
+                                                    value={quantities[productCode] || 1}
+                                                    onChange={(e) => {
+                                                        const newValue = parseInt(e.target.value) || 1;
+                                                        handleQuantityChange(productCode, newValue);
+                                                    }}
+                                                    sx={{ width: '80px' }}
+                                                    inputProps={{ min: 1 }}
+                                                />
+                                            </td>
+                                            <td style={{ padding: '12px', textAlign: 'center' }}>
+                                                <Box
+                                                    component="select"
+                                                    value={units[productCode] || ''}
+                                                    onChange={(e) => handleUnitChange(productCode, e.target.value)}
+                                                    sx={{
+                                                        p: 1,
+                                                        borderRadius: '4px',
+                                                        border: '1px solid rgba(0, 0, 0, 0.23)',
+                                                        minWidth: '80px'
+                                                    }}
+                                                >
+                                                    {/* Main unit option from unit_code and tbl_unit */}
+                                                    {product.unit_code && (
+                                                        <option value={product.unit_code}>
+                                                            {product.unit_name || (product.tbl_unit ? product.tbl_unit.unit_name : 'Unit')}
+                                                        </option>
+                                                    )}
+
+                                                    {/* If productUnit1 exists and is not the same as the main unit_code */}
+                                                    {product.productUnit1 && product.productUnit1.unit_code &&
+                                                        product.productUnit1.unit_code !== product.unit_code && (
+                                                            <option value={product.productUnit1.unit_code}>
+                                                                {product.productUnit1.unit_name}
+                                                            </option>
+                                                        )}
+
+                                                    {/* If productUnit2 exists and is not a duplicate of other options */}
+                                                    {product.productUnit2 && product.productUnit2.unit_code &&
+                                                        product.productUnit2.unit_code !== product.unit_code &&
+                                                        (!product.productUnit1 || product.productUnit2.unit_code !== product.productUnit1.unit_code) && (
+                                                            <option value={product.productUnit2.unit_code}>
+                                                                {product.productUnit2.unit_name}
+                                                            </option>
+                                                        )}
+                                                </Box>
+                                            </td>
+                                            <td style={{ padding: '12px', textAlign: 'right' }}>
+                                                <TextField
+                                                    type="number"
+                                                    size="small"
+                                                    value={unitPrices[productCode] || 0}
+                                                    onChange={(e) => {
+                                                        handleUnitPriceChange(productCode, e.target.value);
+                                                    }}
+                                                    sx={{ width: '100px' }}
+                                                    inputProps={{ min: 0, step: "0.01" }}
+                                                />
+                                            </td>
+                                            <td style={{ padding: '12px', textAlign: 'center' }}>
+                                                {product.tax1 === 'Y' ? 'Yes' : 'No'}
+                                            </td>
+                                            <td style={{ padding: '12px', textAlign: 'right' }}>
+                                                {(totals[productCode] || 0).toFixed(2)}
+                                            </td>
+                                            <td style={{ padding: '12px', textAlign: 'center' }}>
+                                                <IconButton
+                                                    onClick={() => handleDeleteProduct(productCode)}
+                                                    color="error"
+                                                    size="small"
+                                                >
+                                                    <CancelIcon />
+                                                </IconButton>
+                                            </td>
+                                        </tr>
+                                    );
+                                })
+                            )}
+                        </tbody>
+                    </table>
+                </Box>
+
+                <Box sx={{
+                    mt: 3,
+                    p: 2,
+                    bgcolor: '#EAB86C',
+                    borderRadius: '10px',
+                    color: 'white'
+                }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                        <Typography>Taxable</Typography>
+                        <Typography>${taxableAmount.toFixed(2)}</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                        <Typography>Non-taxable</Typography>
+                        <Typography>${nonTaxableAmount.toFixed(2)}</Typography>
+                    </Box>
+                    <Divider sx={{ my: 1, borderColor: 'white' }} />
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
+                        <Typography variant="h5" fontWeight="bold">Total</Typography>
+                        <Typography variant="h5" fontWeight="bold">${total.toFixed(2)}</Typography>
                     </Box>
                 </Box>
+
+                <Button
+                    onClick={handleSave}
+                    variant="contained"
+                    fullWidth
+                    disabled={!saveBranch || products.length === 0}
+                    sx={{
+                        mt: 2,
+                        bgcolor: '#754C27',
+                        color: 'white',
+                        '&:hover': {
+                            bgcolor: '#5A3D1E'
+                        },
+                        height: '48px'
+                    }}
+                >
+                    Save
+                </Button>
             </Box>
         </Box>
     );

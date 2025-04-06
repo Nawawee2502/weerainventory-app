@@ -791,8 +791,12 @@ export default function ReportMonthlyStockCard() {
                                             <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>
                                                 {formatNumber(stockcardData.reduce((sum, item) => sum + (item.out1 || 0), 0))}
                                             </td>
-                                            <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>-</td>
-                                            <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>-</td>
+                                            <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>
+                                                {formatNumber(stockcardData.reduce((sum, item) => sum + Number(item.upd1 || 0), 0))}
+                                            </td>
+                                            <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>
+                                                {formatNumber(stockcardData.reduce((sum, item) => sum + Number(item.balance || 0), 0))}
+                                            </td>
                                         </tr>
                                     </tfoot>
                                 )}

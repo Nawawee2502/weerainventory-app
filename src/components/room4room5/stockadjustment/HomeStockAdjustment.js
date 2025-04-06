@@ -6,8 +6,7 @@ import { useTheme } from '@mui/material/styles';
 import Paper from '@mui/material/Paper';
 import StockAdjustment from './StockAdjustment';
 import CreateStockAdjustment from './CreateStockAdjustment';
-// import EditPurchaseOrderToSupplier from './EditPruchaseordertosupplier';
-
+import EditStockAdjustment from './EditStockAdjustment';
 
 const NAVIGATION = [
   { segment: '', title: '' },
@@ -36,12 +35,11 @@ export default function HomeStockAdjustment() {
   };
 
   const renderComponent = () => {
-    switch(currentView) {
+    switch (currentView) {
       case 'create':
         return <CreateStockAdjustment onBack={handleBack} />;
       case 'edit':
-        // return <EditPurchaseOrderToSupplier onBack={handleBack} editRefno={editRefno} />;
-        // return <EditPurchaseOrderToSupplier onBack={handleBack} editRefno={editRefno} />
+        return <EditStockAdjustment onBack={handleBack} editRefno={editRefno} />;
       default:
         return <StockAdjustment onCreate={handleCreate} onEdit={handleEdit} />;
     }

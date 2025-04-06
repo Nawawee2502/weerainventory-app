@@ -1,4 +1,4 @@
-import { Box, Button, InputAdornment, TextField, Typography, tableCellClasses, TableContainer, Table, TableHead, TableRow, TableCell, TableBody, Paper, Checkbox, IconButton, Switch } from '@mui/material';
+import { Box, Button, InputAdornment, TextField, Typography, tableCellClasses, TableContainer, Table, TableHead, TableRow, TableCell, TableBody, Paper, Checkbox, IconButton, Switch, FormControlLabel } from '@mui/material';
 import React, { useState, useEffect } from 'react';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
 import SearchIcon from '@mui/icons-material/Search';
@@ -15,8 +15,10 @@ import { useDispatch } from 'react-redux';
 import { kitchenAll } from '../../../../api/kitchenApi';
 import { branchAll } from '../../../../api/branchApi';
 import { searchProductName } from '../../../../api/productrecordApi';
-import { Br_rfkAlljoindt, deleteBr_rfk } from '../../../../api/restaurant/br_rfkApi';
+import { Br_rfkAlljoindt, deleteBr_rfk, Br_rfkByRefno } from '../../../../api/restaurant/br_rfkApi';
 import Swal from 'sweetalert2';
+import { pdf } from '@react-pdf/renderer';
+import { generateKitchenGoodsReceiptPDF } from './Br_rfkPDF';
 
 const formatDate = (date) => {
   if (!date) return "";
@@ -80,12 +82,12 @@ const StyledTableRow = styled(TableRow)(({ theme }) => ({
 export default function GoodsReceiptKitchen({ onCreate, onEdit }) {
   const dispatch = useDispatch();
   const [searchBranch, setSearchBranch] = useState("");
-  const [searchKitchen, setSearchKitchen] = useState(""); // New state for kitchen search
+  const [searchKitchen, setSearchKitchen] = useState("");
   const [searchProduct, setSearchProduct] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [branches, setBranches] = useState([]);
-  const [kitchens, setKitchens] = useState([]); // New state for kitchens
+  const [kitchens, setKitchens] = useState([]);
   const [filterDate, setFilterDate] = useState(new Date());
   const [selected, setSelected] = useState([]);
   const [page, setPage] = useState(1);
@@ -312,6 +314,69 @@ export default function GoodsReceiptKitchen({ onCreate, onEdit }) {
     setPage(1);
   };
 
+  // Handle Print PDF function
+  const handlePrintPDF = async (refno) => {
+    try {
+      Swal.fire({
+        title: 'กำลังโหลดข้อมูล...',
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
+
+      const orderResponse = await dispatch(Br_rfkByRefno({ refno })).unwrap();
+
+      console.log("API Response Data (Complete):", orderResponse);
+
+      if (orderResponse.result && orderResponse.data) {
+        const data = orderResponse.data;
+
+        console.log("Products data:", data.br_rfkdts);
+
+        if (data.br_rfkdts) {
+          console.log("Number of products:",
+            Array.isArray(data.br_rfkdts) ?
+              data.br_rfkdts.length :
+              (typeof data.br_rfkdts === 'object' ?
+                Object.keys(data.br_rfkdts).length :
+                'Not an array or object'));
+
+          // Sample data
+          if (Array.isArray(data.br_rfkdts) && data.br_rfkdts.length > 0) {
+            console.log("First product:", data.br_rfkdts[0]);
+          } else if (typeof data.br_rfkdts === 'object') {
+            console.log("First product:", data.br_rfkdts[Object.keys(data.br_rfkdts)[0]]);
+          }
+        } else {
+          console.log("No products data found in API response");
+        }
+
+        // Pass the includePrices parameter (false when excludePrice is true)
+        const pdfContent = await generateKitchenGoodsReceiptPDF(refno, data, !excludePrice);
+
+        if (pdfContent) {
+          Swal.close();
+          const asBlob = await pdf(pdfContent).toBlob();
+          const url = URL.createObjectURL(asBlob);
+          window.open(url, '_blank');
+        } else {
+          throw new Error("Failed to generate PDF content");
+        }
+      } else {
+        throw new Error("Order data not found or invalid");
+      }
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error generating PDF',
+        text: error.message || 'Please try again later',
+        confirmButtonText: 'OK'
+      });
+    }
+  };
+
   return (
     <Box sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       <Button
@@ -403,6 +468,22 @@ export default function GoodsReceiptKitchen({ onCreate, onEdit }) {
             </Typography>
           </Box>
         </Box>
+        <Button
+          onClick={clearFilters}
+          variant="outlined"
+          sx={{
+            height: '38px',
+            width: '120px',
+            borderColor: '#754C27',
+            color: '#754C27',
+            '&:hover': {
+              borderColor: '#5d3a1f',
+              backgroundColor: 'rgba(117, 76, 39, 0.04)'
+            }
+          }}
+        >
+          Clear
+        </Button>
       </Box>
 
       <Box sx={{ width: '100%', mt: '24px' }}>
@@ -431,7 +512,7 @@ export default function GoodsReceiptKitchen({ onCreate, onEdit }) {
               <StyledTableCell align="center">Ref.no</StyledTableCell>
               <StyledTableCell align="center">Date</StyledTableCell>
               <StyledTableCell align="center">Restaurant</StyledTableCell>
-              <StyledTableCell align="center">Kitchen</StyledTableCell> 
+              <StyledTableCell align="center">Kitchen</StyledTableCell>
               <StyledTableCell align="center">Total Amount</StyledTableCell>
               <StyledTableCell align="center">Username</StyledTableCell>
               <StyledTableCell width='1%' align="center"></StyledTableCell>
@@ -442,11 +523,11 @@ export default function GoodsReceiptKitchen({ onCreate, onEdit }) {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={11} align="center">Loading...</TableCell> {/* Updated colspan to include new column */}
+                <TableCell colSpan={11} align="center">Loading...</TableCell>
               </TableRow>
             ) : data.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={11} align="center">No data found</TableCell> {/* Updated colspan to include new column */}
+                <TableCell colSpan={11} align="center">No data found</TableCell>
               </TableRow>
             ) : (
               data.map((row, index) => {
@@ -465,7 +546,7 @@ export default function GoodsReceiptKitchen({ onCreate, onEdit }) {
                     <StyledTableCell align="center">{row.refno}</StyledTableCell>
                     <StyledTableCell align="center">{row.rdate}</StyledTableCell>
                     <StyledTableCell align="center">{row.tbl_branch?.branch_name}</StyledTableCell>
-                    <StyledTableCell align="center">{row.tbl_kitchen?.kitchen_name}</StyledTableCell> {/* Added Kitchen name */}
+                    <StyledTableCell align="center">{row.tbl_kitchen?.kitchen_name}</StyledTableCell>
                     <StyledTableCell align="center">{row.total.toFixed(2)}</StyledTableCell>
                     <StyledTableCell align="center">{row.user?.username}</StyledTableCell>
                     <StyledTableCell align="center">
@@ -486,6 +567,7 @@ export default function GoodsReceiptKitchen({ onCreate, onEdit }) {
                     </StyledTableCell>
                     <StyledTableCell align="center">
                       <IconButton
+                        onClick={() => handlePrintPDF(row.refno)}
                         sx={{ border: '1px solid #5686E1', borderRadius: '7px' }}
                       >
                         <PrintIcon sx={{ color: '#5686E1' }} />
