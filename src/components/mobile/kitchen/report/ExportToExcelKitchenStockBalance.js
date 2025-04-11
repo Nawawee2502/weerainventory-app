@@ -37,10 +37,6 @@ export const exportToExcelKitchenStockBalance = async (data, excludePrice = fals
         'Balance'
     ];
 
-    if (!excludePrice) {
-        headers.push('Total Amount');
-    }
-
     // Define column widths
     const columnWidths = {
         'No.': 8,
@@ -51,8 +47,7 @@ export const exportToExcelKitchenStockBalance = async (data, excludePrice = fals
         'In': 12,
         'Out': 12,
         'Update': 12,
-        'Balance': 12,
-        'Total Amount': 15
+        'Balance': 12
     };
 
     const formatDate = (date) => {
@@ -128,7 +123,6 @@ export const exportToExcelKitchenStockBalance = async (data, excludePrice = fals
     // Add data rows
     data.forEach((item, index) => {
         const balance = ((item.beg1 || 0) + (item.in1 || 0) - (item.out1 || 0)) + (item.upd1 || 0);
-        const balanceAmount = ((item.beg1_amt || 0) + (item.in1_amt || 0) - (item.out1_amt || 0)) + (item.upd1_amt || 0);
 
         const rowData = [
             index + 1,
@@ -142,17 +136,13 @@ export const exportToExcelKitchenStockBalance = async (data, excludePrice = fals
             balance
         ];
 
-        if (!excludePrice) {
-            rowData.push(balanceAmount);
-        }
-
         const row = worksheet.addRow(rowData);
         row.eachCell((cell, colNumber) => {
             const header = headers[colNumber - 1];
 
             // Format numbers
-            if (['Beg', 'In', 'Out', 'Update', 'Balance', 'Total Amount'].includes(header)) {
-                cell.numFmt = '#,##0.00';
+            if (['Beg', 'In', 'Out', 'Update', 'Balance'].includes(header)) {
+                cell.numFmt = '#,##0';
             }
 
             // Add borders
@@ -181,61 +171,6 @@ export const exportToExcelKitchenStockBalance = async (data, excludePrice = fals
             };
         });
     });
-
-    // Add total row
-    if (data.length > 0) {
-        const totals = {
-            beg: data.reduce((sum, item) => sum + (item.beg1 || 0), 0),
-            in: data.reduce((sum, item) => sum + (item.in1 || 0), 0),
-            out: data.reduce((sum, item) => sum + (item.out1 || 0), 0),
-            upd: data.reduce((sum, item) => sum + (item.upd1 || 0), 0),
-            balance: data.reduce((sum, item) => {
-                const balance = ((item.beg1 || 0) + (item.in1 || 0) - (item.out1 || 0)) + (item.upd1 || 0);
-                return sum + balance;
-            }, 0),
-            total: !excludePrice ? data.reduce((sum, item) => {
-                const balanceAmount = ((item.beg1_amt || 0) + (item.in1_amt || 0) - (item.out1_amt || 0)) + (item.upd1_amt || 0);
-                return sum + balanceAmount;
-            }, 0) : 0
-        };
-
-        const totalRowData = [
-            'Total',
-            '',
-            '',
-            '',
-            totals.beg,
-            totals.in,
-            totals.out,
-            totals.upd,
-            totals.balance
-        ];
-
-        if (!excludePrice) {
-            totalRowData.push(totals.total);
-        }
-
-        const totalRow = worksheet.addRow(totalRowData);
-
-        totalRow.eachCell((cell) => {
-            cell.border = {
-                top: { style: 'thin' },
-                left: { style: 'thin' },
-                bottom: { style: 'thin' },
-                right: { style: 'thin' }
-            };
-
-            if (cell.value !== '') {
-                cell.font = { bold: true };
-                if (typeof cell.value === 'number') {
-                    cell.numFmt = '#,##0.00';
-                    cell.alignment = { vertical: 'middle', horizontal: 'right' };
-                } else {
-                    cell.alignment = { vertical: 'middle', horizontal: 'left' };
-                }
-            }
-        });
-    }
 
     // Set column widths
     headers.forEach((header, index) => {

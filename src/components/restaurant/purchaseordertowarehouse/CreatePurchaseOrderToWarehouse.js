@@ -1,4 +1,4 @@
-import { Box, Button, InputAdornment, TextField, Typography, IconButton, Grid2, Divider } from '@mui/material';
+import { Box, Button, InputAdornment, TextField, Typography, IconButton, Divider } from '@mui/material';
 import React, { useState, useEffect } from 'react';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SearchIcon from '@mui/icons-material/Search';
@@ -9,9 +9,7 @@ import { useDispatch } from "react-redux";
 import { searchProductName } from '../../../api/productrecordApi';
 import {
     addBr_pow,
-    Br_powAlljoindt,
-    Br_powrefno,
-    countBr_pow
+    Br_powrefno
 } from '../../../api/restaurant/br_powApi';
 import { branchAll } from '../../../api/branchApi';
 import { supplierAll } from '../../../api/supplierApi';
@@ -71,15 +69,51 @@ export default function CreateBranchPurchaseOrder({ onBack }) {
     const [total, setTotal] = useState(0);
     const [expiryDates, setExpiryDates] = useState({});
     const [isLoading, setIsLoading] = useState(false);
+    // New state variables for catalog-style selection
+    const [allProducts, setAllProducts] = useState([]);
+    const [selectedProducts, setSelectedProducts] = useState([]);
+    const [imageErrors, setImageErrors] = useState({});
 
     const TAX_RATE = 0.07;
     const userDataJson = localStorage.getItem("userData2");
     const userData2 = JSON.parse(userDataJson);
 
     useEffect(() => {
-        loadBranches();
-        loadSuppliers();
+        loadInitialData();
     }, []);
+
+    const loadInitialData = async () => {
+        try {
+            setIsLoading(true);
+            await Promise.all([
+                loadBranches(),
+                loadSuppliers(),
+                loadAllProducts()
+            ]);
+        } catch (err) {
+            console.error('Error loading initial data:', err);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error Loading Data',
+                text: err.message || 'Failed to load initial data',
+                confirmButtonColor: '#754C27'
+            });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const loadAllProducts = async () => {
+        try {
+            const response = await dispatch(searchProductName({ product_name: '' })).unwrap();
+            if (response?.data) {
+                setAllProducts(response.data);
+            }
+        } catch (err) {
+            console.error('Error loading products:', err);
+            throw err;
+        }
+    };
 
     const loadBranches = async () => {
         try {
@@ -87,12 +121,7 @@ export default function CreateBranchPurchaseOrder({ onBack }) {
             setBranches(response.data || []);
         } catch (err) {
             console.error('Error loading branches:', err);
-            Swal.fire({
-                icon: 'error',
-                title: 'Error Loading Branches',
-                text: err.message || 'Failed to load branches',
-                confirmButtonColor: '#754C27'
-            });
+            throw err;
         }
     };
 
@@ -102,12 +131,7 @@ export default function CreateBranchPurchaseOrder({ onBack }) {
             setSuppliers(response.data || []);
         } catch (err) {
             console.error('Error loading suppliers:', err);
-            Swal.fire({
-                icon: 'error',
-                title: 'Error Loading Suppliers',
-                text: err.message || 'Failed to load suppliers',
-                confirmButtonColor: '#754C27'
-            });
+            throw err;
         }
     };
 
@@ -169,7 +193,6 @@ export default function CreateBranchPurchaseOrder({ onBack }) {
     const handleSupplierChange = (event) => {
         const newSupplierCode = event.target.value;
         setSaveSupplier(newSupplierCode);
-        // No longer calling handleGetLastRefNo here
     };
 
     // Update date change handler
@@ -196,9 +219,12 @@ export default function CreateBranchPurchaseOrder({ onBack }) {
             return;
         }
 
+        // Add to selected products array
+        setSelectedProducts(prev => [...prev, product.product_code]);
+
         const productCode = product.product_code;
         const initialQuantity = 1;
-        const initialUnitCode = product.productUnit1.unit_code;
+        const initialUnitCode = product.productUnit1?.unit_code;
         const initialUnitPrice = product.bulk_unit_price;
         const initialAmount = initialQuantity * initialUnitPrice;
         const isTaxable = product.tax1 === 'Y';
@@ -250,9 +276,11 @@ export default function CreateBranchPurchaseOrder({ onBack }) {
                         });
                     } else {
                         // Add product if not a duplicate
+                        setSelectedProducts(prev => [...prev, selectedProduct.product_code]);
+
                         const productCode = selectedProduct.product_code;
                         const initialQuantity = 1;
-                        const initialUnitCode = selectedProduct.productUnit1.unit_code;
+                        const initialUnitCode = selectedProduct.productUnit1?.unit_code;
                         const initialUnitPrice = selectedProduct.bulk_unit_price;
                         const initialAmount = initialQuantity * initialUnitPrice;
                         const isTaxable = selectedProduct.tax1 === 'Y';
@@ -282,10 +310,22 @@ export default function CreateBranchPurchaseOrder({ onBack }) {
             }
         } else if (value.length > 0) {
             try {
-                const response = await dispatch(searchProductName({ product_name: value })).unwrap();
-                if (response.data) {
-                    setSearchResults(response.data);
+                // Filter from already loaded products first for better performance
+                const filteredResults = allProducts.filter(product =>
+                    product.product_name?.toLowerCase().includes(value.toLowerCase()) ||
+                    product.product_code?.toLowerCase().includes(value.toLowerCase())
+                );
+
+                if (filteredResults.length > 0) {
+                    setSearchResults(filteredResults);
                     setShowDropdown(true);
+                } else {
+                    // If no local results, try API
+                    const response = await dispatch(searchProductName({ product_name: value })).unwrap();
+                    if (response.data) {
+                        setSearchResults(response.data);
+                        setShowDropdown(true);
+                    }
                 }
             } catch (err) {
                 console.error('Error searching products:', err);
@@ -324,22 +364,31 @@ export default function CreateBranchPurchaseOrder({ onBack }) {
         setTotal((newTaxable * (1 + TAX_RATE)) + newNonTaxable);
     };
 
-    const handleQuantityChange = (productCode, newQuantity) => {
-        if (newQuantity >= 1) {
-            setQuantities(prev => ({ ...prev, [productCode]: newQuantity }));
-            const product = products.find(p => p.product_code === productCode);
-            calculateProductTotal(
-                productCode,
-                newQuantity,
-                unitPrices[productCode],
-                product.tax1 === 'Y'
-            );
-        }
+    const handleQuantityChange = (productCode, value) => {
+        const newQuantity = parseInt(value);
+        if (isNaN(newQuantity) || newQuantity < 1) return;
+
+        setQuantities(prev => ({ ...prev, [productCode]: newQuantity }));
+        const product = products.find(p => p.product_code === productCode);
+        calculateProductTotal(
+            productCode,
+            newQuantity,
+            unitPrices[productCode],
+            product.tax1 === 'Y'
+        );
+    };
+
+    // New quantity adjustment function
+    const handleQuantityAdjust = (productCode, delta) => {
+        const currentQty = quantities[productCode] || 0;
+        const newQty = Math.max(1, currentQty + delta);
+
+        handleQuantityChange(productCode, newQty);
     };
 
     const handleUnitChange = (productCode, newUnitCode) => {
         const product = products.find(p => p.product_code === productCode);
-        const newPrice = newUnitCode === product.productUnit1.unit_code
+        const newPrice = newUnitCode === product.productUnit1?.unit_code
             ? product.bulk_unit_price
             : product.retail_unit_price;
 
@@ -376,6 +425,11 @@ export default function CreateBranchPurchaseOrder({ onBack }) {
 
     const handleDeleteProduct = (productCode) => {
         const product = products.find(p => p.product_code === productCode);
+        if (!product) return;
+
+        // Remove from selected products list
+        setSelectedProducts(prev => prev.filter(id => id !== productCode));
+
         const amount = totals[productCode] || 0;
 
         if (product.tax1 === 'Y') {
@@ -387,6 +441,8 @@ export default function CreateBranchPurchaseOrder({ onBack }) {
         }
 
         setProducts(prev => prev.filter(p => p.product_code !== productCode));
+
+        // Clean up associated state
         const newQuantities = { ...quantities };
         const newUnits = { ...units };
         const newUnitPrices = { ...unitPrices };
@@ -487,6 +543,7 @@ export default function CreateBranchPurchaseOrder({ onBack }) {
 
     const resetForm = () => {
         setProducts([]);
+        setSelectedProducts([]);
         setQuantities({});
         setUnits({});
         setUnitPrices({});
@@ -498,6 +555,7 @@ export default function CreateBranchPurchaseOrder({ onBack }) {
         setTotal(0);
         setExpiryDates({});
         setLastRefNo('');
+        setSearchTerm('');
     };
 
     return (
@@ -519,50 +577,45 @@ export default function CreateBranchPurchaseOrder({ onBack }) {
                 border: '1px solid #E4E4E4',
                 p: 3
             }}>
-                <Grid2 container spacing={2}>
-                    <Grid2 item size={{ xs: 12, md: 6 }}>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                    <Box sx={{ flexBasis: { xs: '100%', md: '48%' } }}>
                         <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
                             Ref.no
                         </Typography>
                         <TextField
                             value={lastRefNo}
-                            disabled={lastRefNo !== 'Please select dispatch to restaurant'}
+                            disabled
                             size="small"
                             sx={{
                                 mt: '8px',
-                                width: '95%',
+                                width: '100%',
                                 '& .MuiOutlinedInput-root': {
                                     borderRadius: '10px',
                                 },
                             }}
                         />
-                    </Grid2>
+                    </Box>
 
-                    <Grid2 item size={{ xs: 12, md: 6 }}>
+                    <Box sx={{ flexBasis: { xs: '100%', md: '48%' } }}>
                         <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
                             Date
                         </Typography>
                         <DatePicker
                             selected={startDate}
-                            onChange={(date) => {
-                                setStartDate(date);
-                                if (saveBranch) { // Only need branch now
-                                    handleGetLastRefNo(date, saveBranch);
-                                }
-                            }}
+                            onChange={handleDateChange}
                             dateFormat="MM/dd/yyyy"
                             customInput={<CustomInput />}
                         />
-                    </Grid2>
+                    </Box>
 
-                    <Grid2 item size={{ xs: 12, md: 6 }}>
+                    <Box sx={{ flexBasis: { xs: '100%', md: '48%' } }}>
                         <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
                             Restaurant
                         </Typography>
                         <Box
                             component="select"
                             value={saveBranch}
-                            onChange={(e) => handleBranchChange(e)}
+                            onChange={handleBranchChange}
                             sx={{
                                 mt: 1,
                                 width: '100%',
@@ -584,16 +637,16 @@ export default function CreateBranchPurchaseOrder({ onBack }) {
                                 </option>
                             ))}
                         </Box>
-                    </Grid2>
+                    </Box>
 
-                    <Grid2 item size={{ xs: 12, md: 6 }}>
+                    <Box sx={{ flexBasis: { xs: '100%', md: '48%' } }}>
                         <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
                             Supplier
                         </Typography>
                         <Box
                             component="select"
                             value={saveSupplier}
-                            onChange={(e) => handleSupplierChange(e)}
+                            onChange={handleSupplierChange}
                             sx={{
                                 mt: 1,
                                 width: '100%',
@@ -615,8 +668,8 @@ export default function CreateBranchPurchaseOrder({ onBack }) {
                                 </option>
                             ))}
                         </Box>
-                    </Grid2>
-                </Grid2>
+                    </Box>
+                </Box>
 
                 <Divider sx={{ my: 3 }} />
 
@@ -692,90 +745,104 @@ export default function CreateBranchPurchaseOrder({ onBack }) {
                             </tr>
                         </thead>
                         <tbody>
-                            {products.map((product, index) => (
-                                <tr key={product.product_code}>
-                                    <td style={{ padding: '12px' }}>{index + 1}</td>
-                                    <td style={{ padding: '12px' }}>{product.product_code}</td>
-                                    <td style={{ padding: '12px' }}>{product.product_name}</td>
-                                    <td style={{ padding: '12px', textAlign: 'center' }}>
-                                        <DatePicker
-                                            selected={expiryDates[product.product_code]}
-                                            onChange={(date) => handleExpiryDateChange(product.product_code, date)}
-                                            dateFormat="MM/dd/yyyy"
-                                            customInput={
-                                                <input
-                                                    style={{
-                                                        width: '110px',
-                                                        padding: '4px',
-                                                        textAlign: 'center',
-                                                        border: '1px solid #ddd',
-                                                        borderRadius: '4px'
-                                                    }}
-                                                />
-                                            }
-                                        />
-                                    </td>
-                                    <td style={{ padding: '12px' }}>
-                                        <input
-                                            type="number"
-                                            min="1"
-                                            value={quantities[product.product_code] || 1}
-                                            onChange={(e) => handleQuantityChange(product.product_code, parseInt(e.target.value))}
-                                            style={{
-                                                width: '60px',
-                                                padding: '4px',
-                                                textAlign: 'right'
-                                            }}
-                                        />
-                                    </td>
-                                    <td style={{ padding: '12px' }}>
-                                        <select
-                                            value={units[product.product_code] || product.productUnit1.unit_code}
-                                            onChange={(e) => handleUnitChange(product.product_code, e.target.value)}
-                                            style={{
-                                                padding: '4px',
-                                                width: '100px'
-                                            }}
-                                        >
-                                            <option value={product.productUnit1.unit_code}>
-                                                {product.productUnit1.unit_name}
-                                            </option>
-                                            <option value={product.productUnit2.unit_code}>
-                                                {product.productUnit2.unit_name}
-                                            </option>
-                                        </select>
-                                    </td>
-                                    <td style={{ padding: '12px' }}>
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            step="0.01"
-                                            value={unitPrices[product.product_code] || 0}
-                                            onChange={(e) => handleUnitPriceChange(product.product_code, e.target.value)}
-                                            style={{
-                                                width: '100px',
-                                                padding: '4px',
-                                                textAlign: 'right'
-                                            }}
-                                        />
-                                    </td>
-                                    <td style={{ padding: '12px', textAlign: 'center' }}>
-                                        {product.tax1 === 'Y' ? 'Yes' : 'No'}
-                                    </td>
-                                    <td style={{ padding: '12px', textAlign: 'right' }}>
-                                        {(totals[product.product_code] || 0).toFixed(2)}
-                                    </td>
-                                    <td style={{ padding: '12px', textAlign: 'center' }}>
-                                        <IconButton
-                                            onClick={() => handleDeleteProduct(product.product_code)}
-                                            size="small"
-                                            sx={{ color: 'error.main' }}
-                                        >
-                                            <CancelIcon />
-                                        </IconButton>
+                            {products.length === 0 ? (
+                                <tr>
+                                    <td colSpan={10} style={{ textAlign: 'center', padding: '20px' }}>
+                                        <Typography color="text.secondary">
+                                            No products added. Search and select products above.
+                                        </Typography>
                                     </td>
                                 </tr>
-                            ))}
+                            ) : (
+                                products.map((product, index) => (
+                                    <tr key={product.product_code}>
+                                        <td style={{ padding: '12px' }}>{index + 1}</td>
+                                        <td style={{ padding: '12px' }}>{product.product_code}</td>
+                                        <td style={{ padding: '12px' }}>{product.product_name}</td>
+                                        <td style={{ padding: '12px', textAlign: 'center' }}>
+                                            <DatePicker
+                                                selected={expiryDates[product.product_code]}
+                                                onChange={(date) => handleExpiryDateChange(product.product_code, date)}
+                                                dateFormat="MM/dd/yyyy"
+                                                customInput={
+                                                    <input
+                                                        style={{
+                                                            width: '110px',
+                                                            padding: '4px',
+                                                            textAlign: 'center',
+                                                            border: '1px solid #ddd',
+                                                            borderRadius: '4px'
+                                                        }}
+                                                    />
+                                                }
+                                            />
+                                        </td>
+                                        <td style={{ padding: '12px' }}>
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                value={quantities[product.product_code] || 1}
+                                                onChange={(e) => handleQuantityChange(product.product_code, e.target.value)}
+                                                style={{
+                                                    width: '60px',
+                                                    padding: '4px',
+                                                    textAlign: 'right'
+                                                }}
+                                            />
+                                        </td>
+                                        <td style={{ padding: '12px' }}>
+                                            <select
+                                                value={units[product.product_code] || product.productUnit1?.unit_code}
+                                                onChange={(e) => handleUnitChange(product.product_code, e.target.value)}
+                                                style={{
+                                                    padding: '4px',
+                                                    width: '100px'
+                                                }}
+                                            >
+                                                {product.productUnit1 && (
+                                                    <option value={product.productUnit1.unit_code}>
+                                                        {product.productUnit1.unit_name}
+                                                    </option>
+                                                )}
+                                                {product.productUnit2 && (
+                                                    <option value={product.productUnit2.unit_code}>
+                                                        {product.productUnit2.unit_name}
+                                                    </option>
+                                                )}
+                                            </select>
+                                        </td>
+                                        <td style={{ padding: '12px' }}>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                step="0.01"
+                                                value={unitPrices[product.product_code] || 0}
+                                                onChange={(e) => handleUnitPriceChange(product.product_code, e.target.value)}
+                                                style={{
+                                                    width: '100px',
+                                                    padding: '4px',
+                                                    textAlign: 'right'
+                                                }}
+                                            />
+                                        </td>
+                                        <td style={{ padding: '12px', textAlign: 'center' }}>
+                                            {product.tax1 === 'Y' ? 'Yes' : 'No'}
+                                        </td>
+                                        <td style={{ padding: '12px', textAlign: 'right' }}>
+                                            {(totals[product.product_code] || 0).toFixed(2)}
+                                        </td>
+                                        <td style={{ padding: '12px', textAlign: 'center' }}>
+                                            <IconButton
+                                                onClick={() => handleDeleteProduct(product.product_code)}
+                                                size="small"
+                                                sx={{ color: 'error.main' }}
+                                            >
+                                                <CancelIcon />
+                                            </IconButton>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
                         </tbody>
                     </table>
                 </Box>
@@ -805,7 +872,7 @@ export default function CreateBranchPurchaseOrder({ onBack }) {
                     onClick={handleSave}
                     variant="contained"
                     fullWidth
-                    disabled={isLoading || !lastRefNo}
+                    disabled={isLoading || !lastRefNo || products.length === 0}
                     sx={{
                         mt: 2,
                         bgcolor: '#754C27',

@@ -121,10 +121,11 @@ const styles = StyleSheet.create({
         fontSize: 8,
     },
     itemCell: { width: '5%', textAlign: 'center' },
-    codeCell: { width: '15%' },
-    descCell: { width: '35%' },
-    qtyCell: { width: '10%', textAlign: 'center' },
-    unitCell: { width: '10%', textAlign: 'center' },
+    codeCell: { width: '10%' },
+    descCell: { width: '30%' },
+    tempCell: { width: '10%', textAlign: 'center' }, // เพิ่ม temperature cell
+    qtyCell: { width: '8%', textAlign: 'center' },
+    unitCell: { width: '8%', textAlign: 'center' },
     priceCell: { width: '10%', textAlign: 'right' },
     amountCell: { width: '15%', textAlign: 'right' },
     // Barcode - simpler, industrial style
@@ -296,17 +297,17 @@ export const WarehouseDispatchPDF = ({ refno, date, branch, branchName, productA
                     </View>
                 </View>
 
-                {/* Items Table - Modified to conditionally show price columns */}
-                // Items Table with proper header alignment for both price modes
+                {/* Items Table with Temperature column */}
                 <View style={styles.tableContainer}>
-                    {/* Table Header with proper border handling */}
+                    {/* Table Header with Temperature column */}
                     <View style={styles.tableHeader}>
                         <Text style={[styles.tableHeaderCell, styles.itemCell]}>No.</Text>
                         <Text style={[styles.tableHeaderCell, styles.codeCell]}>Item Code</Text>
                         <Text style={[
                             styles.tableHeaderCell,
-                            includePrices ? styles.descCell : { width: '55%' }
+                            includePrices ? styles.descCell : { width: '44%' }
                         ]}>Description</Text>
+                        <Text style={[styles.tableHeaderCell, styles.tempCell]}>Temp (°C)</Text>
                         <Text style={[styles.tableHeaderCell, styles.qtyCell]}>Qty</Text>
                         <Text style={[
                             styles.tableHeaderCell,
@@ -321,7 +322,7 @@ export const WarehouseDispatchPDF = ({ refno, date, branch, branchName, productA
                         )}
                     </View>
 
-                    {/* Table Rows with matching column structure */}
+                    {/* Table Rows with Temperature column */}
                     {productArray && productArray.length > 0 ? (
                         productArray.map((item, index) => (
                             <React.Fragment key={index}>
@@ -330,9 +331,12 @@ export const WarehouseDispatchPDF = ({ refno, date, branch, branchName, productA
                                     <Text style={[styles.tableCell, styles.codeCell]}>{item.product_code}</Text>
                                     <Text style={[
                                         styles.tableCell,
-                                        includePrices ? styles.descCell : { width: '55%' }
+                                        includePrices ? styles.descCell : { width: '44%' }
                                     ]}>
                                         {item.tbl_product ? item.tbl_product.product_name : 'Product Description'}
+                                    </Text>
+                                    <Text style={[styles.tableCell, styles.tempCell]}>
+                                        {item.temperature1 || 38}°C
                                     </Text>
                                     <Text style={[styles.tableCell, styles.qtyCell]}>{formatNumber(item.qty || 0)}</Text>
                                     <Text style={[
@@ -388,6 +392,7 @@ export const WarehouseDispatchPDF = ({ refno, date, branch, branchName, productA
                     <Text style={styles.notesText}>1. Please check all items upon receipt.</Text>
                     <Text style={styles.notesText}>2. Report any discrepancies within 24 hours.</Text>
                     <Text style={styles.notesText}>3. Handle all food items according to proper storage guidelines.</Text>
+                    <Text style={styles.notesText}>4. Maintain temperature levels as indicated for each item.</Text>
                 </View>
 
                 {/* Signature Section */}
@@ -425,13 +430,13 @@ export const generatePDF = async (refno, data, includePrices = true) => {
     if (data.wh_dpbdts) {
         console.log("WH_DPBDTS type:", typeof data.wh_dpbdts);
         console.log("WH_DPBDTS is array:", Array.isArray(data.wh_dpbdts));
-        console.log("WH_DPBDTS length:", data.wh_dpbdts.length);
+        console.log("WH_DPBDTS length:", data.wh_dpbdts?.length);
 
         // If wh_dpbdts is an object but not an array, let's convert it to an array
         if (typeof data.wh_dpbdts === 'object' && !Array.isArray(data.wh_dpbdts)) {
             console.log("Converting wh_dpbdts object to array");
             data.wh_dpbdts = Object.values(data.wh_dpbdts);
-            console.log("After conversion, WH_DPBDTS length:", data.wh_dpbdts.length);
+            console.log("After conversion, WH_DPBDTS length:", data.wh_dpbdts?.length);
         }
     }
 
@@ -450,9 +455,13 @@ export const generatePDF = async (refno, data, includePrices = true) => {
                 const uprice = parseFloat(item.uprice || 0);
                 const amt = qty * uprice;
 
+                // Log temperature1 value for debugging
+                console.log(`Product ${item.product_code} temperature1:`, item.temperature1 || 38);
+
                 return {
                     ...item,
                     amt: amt,
+                    temperature1: item.temperature1 || 38,  // เพิ่ม default ถ้าไม่มีค่า
                     tbl_unit: item.tbl_unit || { unit_name: item.unit_code || '' },
                     tbl_product: item.tbl_product || { product_name: 'Product Description' }
                 };

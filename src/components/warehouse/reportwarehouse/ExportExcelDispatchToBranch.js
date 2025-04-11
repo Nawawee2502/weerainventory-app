@@ -48,6 +48,7 @@ export const exportToExcelWhDpb = async (data, excludePrice = false, startDate, 
         'Ref.no',
         'Branch',
         'Product Name',
+        'Temp (°C)', // Added temperature column
         'Quantity',
         'Unit',
     ];
@@ -62,7 +63,8 @@ export const exportToExcelWhDpb = async (data, excludePrice = false, startDate, 
         'Date': 15,
         'Ref.no': 15,
         'Branch': 25,
-        'Product Name': 30,
+        'Product Name': 25, // Reduced width to accommodate temperature column
+        'Temp (°C)': 10, // Added temperature column width
         'Quantity': 10,
         'Unit': 8,
         'Unit Price': 12,
@@ -127,6 +129,7 @@ export const exportToExcelWhDpb = async (data, excludePrice = false, startDate, 
             item.refno,
             item.branch_code,
             item.product_name,
+            item.temperature1 ? `${item.temperature1}°C` : '38°C', // Add temperature with default
             item.quantity,
             item.unit_code,
         ];
@@ -141,7 +144,7 @@ export const exportToExcelWhDpb = async (data, excludePrice = false, startDate, 
         const row = worksheet.addRow(rowData);
         row.eachCell((cell, colNumber) => {
             const header = headers[colNumber - 1];
-            
+
             // Format numbers
             if (['Unit Price', 'Total'].includes(header) && cell.value) {
                 cell.numFmt = '#,##0.00';
@@ -163,6 +166,7 @@ export const exportToExcelWhDpb = async (data, excludePrice = false, startDate, 
                         case 'No.':
                         case 'Date':
                         case 'Unit':
+                        case 'Temp (°C)': // Center temperature column
                             return 'center';
                         case 'Quantity':
                         case 'Unit Price':
@@ -197,7 +201,7 @@ export const exportToExcelWhDpb = async (data, excludePrice = false, startDate, 
     const summaryRow = worksheet.addRow(summaryRowData);
     summaryRow.eachCell((cell, colNumber) => {
         const header = headers[colNumber - 1];
-        
+
         if (header === 'Total') {
             cell.font = { bold: true };
             cell.numFmt = '#,##0.00';

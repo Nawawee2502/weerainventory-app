@@ -17,6 +17,9 @@ import { branchAll } from '../../../api/branchApi';
 import { supplierAll } from '../../../api/supplierApi';
 import { searchProductName } from '../../../api/productrecordApi';
 import Swal from 'sweetalert2';
+import { pdf } from '@react-pdf/renderer';
+import { generatePDF } from './Br_rfwPDF';
+import { Br_rfwByRefno } from '../../../api/restaurant/br_rfwApi';
 
 const formatDate = (date) => {
     if (!date) return "";
@@ -130,7 +133,10 @@ export default function ReceiptFromWarehouse({ onCreate, onEdit }) {
             setIsLoading(true);
             const offset = (page - 1) * limit;
 
-            const formattedDate = filterDate.toISOString().slice(0, 10).replace(/-/g, '');
+            const year = filterDate.getFullYear();
+            const month = String(filterDate.getMonth() + 1).padStart(2, '0');
+            const day = String(filterDate.getDate()).padStart(2, '0');
+            const formattedDate = `${year}${month}${day}`;
 
             const response = await dispatch(Br_rfwAlljoindt({
                 offset,
@@ -301,6 +307,46 @@ export default function ReceiptFromWarehouse({ onCreate, onEdit }) {
         setPage(1);
     };
 
+    const handlePrintPDF = async (refno) => {
+        try {
+            Swal.fire({
+                title: 'กำลังโหลดข้อมูล...',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            // ดึงข้อมูล receipt จาก API
+            const response = await dispatch(Br_rfwByRefno({ refno })).unwrap();
+
+            console.log("API Response Data:", response);
+
+            if (response.result && response.data) {
+                const pdfContent = await generatePDF(refno, response.data);
+
+                if (pdfContent) {
+                    Swal.close();
+                    const asBlob = await pdf(pdfContent).toBlob();
+                    const url = URL.createObjectURL(asBlob);
+                    window.open(url, '_blank');
+                } else {
+                    throw new Error("Failed to generate PDF content");
+                }
+            } else {
+                throw new Error("Receipt data not found or invalid");
+            }
+        } catch (error) {
+            console.error('Error generating PDF:', error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error generating PDF',
+                text: error.message || 'Please try again later',
+                confirmButtonText: 'OK'
+            });
+        }
+    };
+
     return (
         <Box sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <Button
@@ -349,28 +395,6 @@ export default function ReceiptFromWarehouse({ onCreate, onEdit }) {
                     ))}
                 </Box>
 
-                {/* Supplier Dropdown */}
-                <Box
-                    component="select"
-                    value={searchSupplier}
-                    onChange={handleSearchSupplierChange}
-                    sx={{
-                        height: '38px',
-                        width: '25%',
-                        borderRadius: '4px',
-                        border: '1px solid rgba(0, 0, 0, 0.23)',
-                        padding: '0 14px',
-                        backgroundColor: '#fff'
-                    }}
-                >
-                    <option value="">All Suppliers</option>
-                    {suppliers.map((supplier) => (
-                        <option key={supplier.supplier_code} value={supplier.supplier_code}>
-                            {supplier.supplier_name}
-                        </option>
-                    ))}
-                </Box>
-
                 <Box sx={{ width: '200px' }}>
                     <DatePicker
                         selected={filterDate}
@@ -380,17 +404,6 @@ export default function ReceiptFromWarehouse({ onCreate, onEdit }) {
                         customInput={<CustomInput />}
                         popperClassName="custom-popper"
                     />
-                </Box>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Switch
-                            checked={excludePrice}
-                            onChange={(e) => setExcludePrice(e.target.checked)}
-                        />
-                        <Typography sx={{ fontWeight: '500', color: '#7E84A3' }}>
-                            Exclude price in file
-                        </Typography>
-                    </Box>
                 </Box>
             </Box>
 
@@ -420,7 +433,6 @@ export default function ReceiptFromWarehouse({ onCreate, onEdit }) {
                             <StyledTableCell align="center">Ref.no</StyledTableCell>
                             <StyledTableCell align="center">Date</StyledTableCell>
                             <StyledTableCell align="center">Restaurant</StyledTableCell>
-                            <StyledTableCell align="center">Supplier</StyledTableCell>
                             <StyledTableCell align="center">Total Amount</StyledTableCell>
                             <StyledTableCell align="center">Username</StyledTableCell>
                             <StyledTableCell width='1%' align="center"></StyledTableCell>
@@ -457,7 +469,6 @@ export default function ReceiptFromWarehouse({ onCreate, onEdit }) {
                                         <StyledTableCell align="center">{row.refno}</StyledTableCell>
                                         <StyledTableCell align="center">{row.rdate}</StyledTableCell>
                                         <StyledTableCell align="center">{branchName}</StyledTableCell>
-                                        <StyledTableCell align="center">{supplierName}</StyledTableCell>
                                         <StyledTableCell align="center">{row.total.toFixed(2)}</StyledTableCell>
                                         <StyledTableCell align="center">{row.user?.username || '-'}</StyledTableCell>
                                         <StyledTableCell align="center">
@@ -478,7 +489,7 @@ export default function ReceiptFromWarehouse({ onCreate, onEdit }) {
                                         </StyledTableCell>
                                         <StyledTableCell align="center">
                                             <IconButton
-                                                onClick={() => {/* Add print functionality later */ }}
+                                                onClick={() => handlePrintPDF(row.refno)}
                                                 sx={{ border: '1px solid #5686E1', borderRadius: '7px' }}
                                             >
                                                 <PrintIcon sx={{ color: '#5686E1' }} />

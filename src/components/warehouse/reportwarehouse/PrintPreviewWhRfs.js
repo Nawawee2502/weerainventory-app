@@ -1,19 +1,19 @@
 import React from 'react';
 
 const groupDataByRefno = (data) => {
-    let lastRefno = null;
-    return data.map(item => {
-        const isFirstInGroup = item.refno !== lastRefno;
-        lastRefno = item.refno;
-        return {
-            ...item,
-            date: isFirstInGroup ? item.date : '',
-            refno: isFirstInGroup ? item.refno : '',
-            supplier_code: isFirstInGroup ? item.supplier_code : '',
-            branch_code: isFirstInGroup ? item.branch_code : '',
-            total: isFirstInGroup ? item.total : ''
-        };
-    });
+  let lastRefno = null;
+  return data.map(item => {
+    const isFirstInGroup = item.refno !== lastRefno;
+    lastRefno = item.refno;
+    return {
+      ...item,
+      date: isFirstInGroup ? item.date : '',
+      refno: isFirstInGroup ? item.refno : '',
+      supplier_code: isFirstInGroup ? item.supplier_code : '',
+      branch_code: isFirstInGroup ? item.branch_code : '',
+      total: isFirstInGroup ? item.total : ''
+    };
+  });
 };
 
 const PrintLayout = ({ data, excludePrice = false, startDate, endDate }) => {
@@ -88,14 +88,14 @@ const PrintLayout = ({ data, excludePrice = false, startDate, endDate }) => {
   // Calculate total
   const uniqueTotals = new Set();
   data.forEach(item => {
-      if (item.total) {
-          uniqueTotals.add(item.refno + '-' + item.total);
-      }
+    if (item.total) {
+      uniqueTotals.add(item.refno + '-' + item.total);
+    }
   });
 
   const totalSum = Array.from(uniqueTotals)
-      .map(item => Number(item.split('-')[1]))
-      .reduce((sum, total) => sum + total, 0);
+    .map(item => Number(item.split('-')[1]))
+    .reduce((sum, total) => sum + total, 0);
 
   return (
     <div style={styles.container}>
@@ -111,18 +111,19 @@ const PrintLayout = ({ data, excludePrice = false, startDate, endDate }) => {
       <table style={styles.table}>
         <thead>
           <tr>
-            <th style={{ ...styles.th, ...styles.centerText, width: '50px' }}>No.</th>
-            <th style={{ ...styles.th, ...styles.centerText, width: '100px' }}>Date</th>
-            <th style={{ ...styles.th, ...styles.leftText, width: '120px' }}>Ref.no</th>
-            <th style={{ ...styles.th, ...styles.leftText, width: '150px' }}>Supplier</th>
+            <th style={{ ...styles.th, ...styles.centerText, width: '40px' }}>No.</th>
+            <th style={{ ...styles.th, ...styles.centerText, width: '90px' }}>Date</th>
+            <th style={{ ...styles.th, ...styles.leftText, width: '110px' }}>Ref.no</th>
+            <th style={{ ...styles.th, ...styles.leftText, width: '120px' }}>Supplier</th>
             <th style={{ ...styles.th, ...styles.leftText, width: '120px' }}>Restaurant</th>
             <th style={{ ...styles.th, ...styles.leftText, width: '150px' }}>Product Name</th>
+            <th style={{ ...styles.th, ...styles.centerText, width: '80px' }}>Temp (°C)</th> {/* Added temperature column */}
             <th style={{ ...styles.th, ...styles.rightText, width: '80px' }}>Quantity</th>
-            <th style={{ ...styles.th, ...styles.centerText, width: '80px' }}>Unit</th>
+            <th style={{ ...styles.th, ...styles.centerText, width: '70px' }}>Unit</th>
             {!excludePrice && (
               <>
-                <th style={{ ...styles.th, ...styles.rightText, width: '100px' }}>Unit Price</th>
-                <th style={{ ...styles.th, ...styles.rightText, width: '100px' }}>Total</th>
+                <th style={{ ...styles.th, ...styles.rightText, width: '80px' }}>Unit Price</th>
+                <th style={{ ...styles.th, ...styles.rightText, width: '80px' }}>Total</th>
               </>
             )}
           </tr>
@@ -136,6 +137,7 @@ const PrintLayout = ({ data, excludePrice = false, startDate, endDate }) => {
               <td style={{ ...styles.td, ...styles.leftText }}>{row.supplier_code}</td>
               <td style={{ ...styles.td, ...styles.leftText }}>{row.branch_code}</td>
               <td style={{ ...styles.td, ...styles.leftText }}>{row.product_name}</td>
+              <td style={{ ...styles.td, ...styles.centerText }}>{row.temperature1 ? `${row.temperature1}°C` : '38°C'}</td> {/* Display temperature */}
               <td style={{ ...styles.td, ...styles.rightText }}>{row.quantity}</td>
               <td style={{ ...styles.td, ...styles.centerText }}>{row.unit_code}</td>
               {!excludePrice && (
@@ -159,6 +161,7 @@ const PrintLayout = ({ data, excludePrice = false, startDate, endDate }) => {
             <td style={{ ...styles.td, ...styles.leftText }}></td>
             <td style={{ ...styles.td, ...styles.leftText }}></td>
             <td style={{ ...styles.td, ...styles.leftText }}></td>
+            <td style={{ ...styles.td, ...styles.centerText }}></td> {/* Empty temperature cell in footer */}
             <td style={{ ...styles.td, ...styles.rightText }}></td>
             <td style={{ ...styles.td, ...styles.centerText }}></td>
             {!excludePrice && (

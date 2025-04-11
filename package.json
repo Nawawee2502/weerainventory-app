@@ -28,6 +28,7 @@
     "file-saver": "^2.0.5",
     "focus-formik-error": "^1.1.0",
     "formik": "^2.2.9",
+    "jsbarcode": "^3.11.6",
     "jsonwebtoken": "^9.0.2",
     "multer": "^1.4.5-lts.1",
     "nodemon": "^3.0.3",

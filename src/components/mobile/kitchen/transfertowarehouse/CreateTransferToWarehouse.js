@@ -814,14 +814,13 @@ export default function CreateTransferToWarehouse({ onBack }) {
                                             </TableCell>
                                             <TableCell>
                                                 <TextField
-                                                    value={temperatures[product.product_code] || ""}
+                                                    type="number"
+                                                    size="small"
+                                                    value={temperatures[product.product_code] || "38"}
                                                     onChange={(e) => handleTemperatureChange(product.product_code, e.target.value)}
                                                     placeholder="Temperature"
-                                                    size="small"
-                                                    sx={{ width: 100 }}
-                                                    InputProps={{
-                                                        endAdornment: <InputAdornment position="end">°C</InputAdornment>,
-                                                    }}
+                                                    sx={{ width: '80px' }}
+                                                    inputProps={{ min: 0, step: "1" }}
                                                 />
                                             </TableCell>
                                             <TableCell>

@@ -385,6 +385,7 @@ export default function DispatchToKitchen({ onCreate, onEdit }) {
                                 />
                             </StyledTableCell>
                             <StyledTableCell width='1%'>No.</StyledTableCell>
+                            <StyledTableCell align="center">From Ref.no</StyledTableCell>
                             <StyledTableCell align="center">Ref.no</StyledTableCell>
                             <StyledTableCell align="center">Date</StyledTableCell>
                             <StyledTableCell align="center">Kitchen</StyledTableCell>
@@ -398,11 +399,11 @@ export default function DispatchToKitchen({ onCreate, onEdit }) {
                     <TableBody>
                         {isLoading ? (
                             <TableRow>
-                                <TableCell colSpan={10} align="center">Loading...</TableCell>
+                                <TableCell colSpan={11} align="center">Loading...</TableCell>
                             </TableRow>
                         ) : data.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={10} align="center">No data found</TableCell>
+                                <TableCell colSpan={11} align="center">No data found</TableCell>
                             </TableRow>
                         ) : (
                             data.map((row, index) => {
@@ -418,6 +419,7 @@ export default function DispatchToKitchen({ onCreate, onEdit }) {
                                         <StyledTableCell component="th" scope="row">
                                             {((page - 1) * limit) + index + 1}
                                         </StyledTableCell>
+                                        <StyledTableCell align="center">{row.refno1}</StyledTableCell>
                                         <StyledTableCell align="center">{row.refno}</StyledTableCell>
                                         <StyledTableCell align="center">{row.rdate}</StyledTableCell>
                                         <StyledTableCell align="center">{row.tbl_kitchen?.kitchen_name}</StyledTableCell>

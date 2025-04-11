@@ -83,6 +83,7 @@ export default function CreateDispatchToBranch({ onBack }) {
     const [isLoading, setIsLoading] = useState(false);
     const [loadingPO, setLoadingPO] = useState(false);
     const [poRefno, setPoRefno] = useState('');
+    const [temperatures, setTemperatures] = useState({});
 
     // เพิ่ม state เหล่านี้ในส่วน state declarations
     const [originalQty, setOriginalQty] = useState({});
@@ -154,6 +155,17 @@ export default function CreateDispatchToBranch({ onBack }) {
             setLastRefNo(`WDPB${year}${month}001`);
         }
     };
+
+    useEffect(() => {
+        // ตั้งค่า default temperature เป็น 38 สำหรับสินค้าทุกชิ้น
+        if (products.length > 0) {
+            const defaultTemps = {};
+            products.forEach(product => {
+                defaultTemps[product.product_code] = temperatures[product.product_code] || 38;
+            });
+            setTemperatures(defaultTemps);
+        }
+    }, [products]);
 
     const fetchAvailablePurchaseOrders = async (branchCode = saveBranch) => {
         if (!branchCode) {
@@ -493,8 +505,22 @@ export default function CreateDispatchToBranch({ onBack }) {
             ...prev,
             [product.product_code]: new Date()
         }));
+        setTemperatures(prev => ({
+            ...prev,
+            [product.product_code]: 38 // ตั้งค่า default temperature เป็น 38
+        }));
 
         calculateProductTotal(product.product_code, initialQuantity, initialUnitPrice);
+    };
+
+    const handleTemperatureChange = (productCode, value) => {
+        const newTemp = parseFloat(value);
+        if (!isNaN(newTemp)) {
+            setTemperatures(prev => ({
+                ...prev,
+                [productCode]: newTemp
+            }));
+        }
     };
 
     const calculateProductTotal = (productCode, quantity, unitPrice) => {
@@ -619,6 +645,10 @@ export default function CreateDispatchToBranch({ onBack }) {
             const { [productCode]: _, ...rest } = prev;
             return rest;
         });
+        setTemperatures(prev => {
+            const { [productCode]: _, ...rest } = prev;
+            return rest;
+        });
 
         // Recalculate order totals
         const updatedProducts = products.filter(p => p.product_code !== productCode);
@@ -693,7 +723,8 @@ export default function CreateDispatchToBranch({ onBack }) {
                     tax1: product.tax1,
                     amt: totals[productCode] || 0,
                     expire_date: expiryDates[productCode] ? formatDate(expiryDates[productCode]) : null,
-                    texpire_date: expiryDates[productCode] ? formatTRDate(expiryDates[productCode]) : null
+                    texpire_date: expiryDates[productCode] ? formatTRDate(expiryDates[productCode]) : null,
+                    temperature1: temperatures[productCode] || 38
                 };
             });
 
@@ -1047,6 +1078,7 @@ export default function CreateDispatchToBranch({ onBack }) {
                                 <th style={{ padding: '12px', textAlign: 'left', color: '#754C27', backgroundColor: '#f5f5f5' }}>No.</th>
                                 <th style={{ padding: '12px', textAlign: 'left', color: '#754C27', backgroundColor: '#f5f5f5' }}>Product Code</th>
                                 <th style={{ padding: '12px', textAlign: 'left', color: '#754C27', backgroundColor: '#f5f5f5' }}>Product Name</th>
+                                <th style={{ padding: '12px', textAlign: 'center', color: '#754C27', backgroundColor: '#f5f5f5' }}>Temperature (°C)</th>
                                 <th style={{ padding: '12px', textAlign: 'center', color: '#754C27', backgroundColor: '#f5f5f5' }}>Expiry Date</th>
                                 <th style={{ padding: '12px', textAlign: 'right', color: '#754C27', backgroundColor: '#f5f5f5' }}>Quantity</th>
                                 <th style={{ padding: '12px', textAlign: 'center', color: '#754C27', backgroundColor: '#f5f5f5' }}>Unit</th>
@@ -1059,7 +1091,7 @@ export default function CreateDispatchToBranch({ onBack }) {
                         <tbody>
                             {products.length === 0 ? (
                                 <tr>
-                                    <td colSpan={10} style={{ padding: '20px', textAlign: 'center' }}>
+                                    <td colSpan={11} style={{ padding: '20px', textAlign: 'center' }}>
                                         <Typography color="text.secondary">
                                             No products selected. Select a purchase order from the dropdown or add products from the search.
                                         </Typography>
@@ -1073,6 +1105,18 @@ export default function CreateDispatchToBranch({ onBack }) {
                                             <td style={{ padding: '12px' }}>{index + 1}</td>
                                             <td style={{ padding: '12px' }}>{productCode}</td>
                                             <td style={{ padding: '12px' }}>{product.product_name}</td>
+                                            <td style={{ padding: '12px', textAlign: 'center' }}>
+                                                <TextField
+                                                    type="number"
+                                                    size="small"
+                                                    value={temperatures[productCode] || 38}
+                                                    onChange={(e) => {
+                                                        handleTemperatureChange(productCode, e.target.value);
+                                                    }}
+                                                    sx={{ width: '80px' }}
+                                                    inputProps={{ min: 0, step: "1" }}
+                                                />
+                                            </td>
                                             <td style={{ padding: '12px', textAlign: 'center' }}>
                                                 <DatePicker
                                                     selected={expiryDates[productCode] || new Date()}

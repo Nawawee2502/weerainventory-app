@@ -792,8 +792,6 @@ export default function EditTransferToWarehouse({ onBack, editRefno }) {
                                     <TableCell>Tax</TableCell>
                                     <TableCell>Quantity</TableCell>
                                     <TableCell>Unit</TableCell>
-                                    <TableCell>Price</TableCell>
-                                    <TableCell>Total</TableCell>
                                     <TableCell>Actions</TableCell>
                                 </TableRow>
                             </TableHead>
@@ -895,19 +893,6 @@ export default function EditTransferToWarehouse({ onBack, editRefno }) {
                                                         </MenuItem>
                                                     )}
                                                 </Select>
-                                            </TableCell>
-                                            <TableCell>
-                                                <TextField
-                                                    type="number"
-                                                    value={unitPrices[product.product_code] || 0}
-                                                    onChange={(e) => handlePriceChange(product.product_code, Number(e.target.value))}
-                                                    size="small"
-                                                    inputProps={{ min: 0, step: 0.01 }}
-                                                    sx={{ width: 80 }}
-                                                />
-                                            </TableCell>
-                                            <TableCell>
-                                                ${totals[product.product_code]?.toFixed(2) || '0.00'}
                                             </TableCell>
                                             <TableCell>
                                                 <IconButton

@@ -87,6 +87,7 @@ export default function EditGoodsReceiptWarehouse({ onBack, editRefno }) {
     const [expiryDates, setExpiryDates] = useState({});
     const [imageErrors, setImageErrors] = useState({});
     const [debugInfo, setDebugInfo] = useState({});
+    const [temperatures, setTemperatures] = useState({});
 
     // Pagination state
     const [page, setPage] = useState(1);
@@ -114,12 +115,12 @@ export default function EditGoodsReceiptWarehouse({ onBack, editRefno }) {
                     setAllProducts(productsResponse.data);
                     setFilteredProducts(productsResponse.data);
                 }
-                
+
                 if (kitchenResponse?.data) {
                     setKitchens(kitchenResponse.data);
                 }
 
-                                    // Fetch receipt data using getKtRfwByRefno
+                // Fetch receipt data using getKtRfwByRefno
                 if (editRefno) {
                     // Pass refno directly as a string, not as an object
                     const refno = typeof editRefno === 'object' ? editRefno.refno : editRefno;
@@ -205,6 +206,7 @@ export default function EditGoodsReceiptWarehouse({ onBack, editRefno }) {
             const newUnitPrices = {};
             const newTotals = {};
             const newExpiryDates = {};
+            const newTemperatures = {};
 
             detailData.forEach((item) => {
                 const productCode = item.product_code;
@@ -212,6 +214,8 @@ export default function EditGoodsReceiptWarehouse({ onBack, editRefno }) {
                 newUnits[productCode] = item.unit_code || item.tbl_product?.productUnit1?.unit_code || '';
                 newUnitPrices[productCode] = parseFloat(item.uprice) || 0;
                 newTotals[productCode] = parseFloat(item.amt) || 0;
+                newTemperatures[productCode] = item.temperature1 || '38';
+
 
                 // Parse expiry date
                 if (item.texpire_date && item.texpire_date.length === 8) {
@@ -250,6 +254,8 @@ export default function EditGoodsReceiptWarehouse({ onBack, editRefno }) {
             setUnitPrices(newUnitPrices);
             setTotals(newTotals);
             setExpiryDates(newExpiryDates);
+            setTemperatures(newTemperatures);
+
 
             // Calculate and set total
             const totalSum = Object.values(newTotals).reduce((sum, value) => sum + value, 0);
@@ -466,6 +472,10 @@ export default function EditGoodsReceiptWarehouse({ onBack, editRefno }) {
         return taxableAmount * 0.07;
     };
 
+    const handleTemperatureChange = (productCode, temp) => {
+        setTemperatures(prev => ({ ...prev, [productCode]: temp }));
+    };
+
     const handleUpdate = async () => {
         if (!saveKitchen || products.length === 0) {
             Swal.fire({
@@ -521,7 +531,8 @@ export default function EditGoodsReceiptWarehouse({ onBack, editRefno }) {
                 uprice: (unitPrices[product.product_code] || 0).toString(),
                 amt: (totals[product.product_code] || 0).toString(),
                 expire_date: format(expiryDates[product.product_code] || new Date(), 'MM/dd/yyyy'),
-                texpire_date: format(expiryDates[product.product_code] || new Date(), 'yyyyMMdd')
+                texpire_date: format(expiryDates[product.product_code] || new Date(), 'yyyyMMdd'),
+                temperature1: temperatures[product.product_code] || '38'
             }));
 
             await dispatch(updateKt_rfw({
@@ -639,7 +650,7 @@ export default function EditGoodsReceiptWarehouse({ onBack, editRefno }) {
                     <Box display="flex" flexWrap="wrap" gap={2} justifyContent="center" sx={{ flex: 1, overflow: 'auto' }}>
                         {paginatedProducts.map((product) => {
                             if (!product || !product.product_code) return null;
-                            
+
                             return (
                                 <Card
                                     key={product.product_code}
@@ -784,23 +795,22 @@ export default function EditGoodsReceiptWarehouse({ onBack, editRefno }) {
                                     <TableCell>Product Code</TableCell>
                                     <TableCell>Product Name</TableCell>
                                     <TableCell>Expiry Date</TableCell>
+                                    <TableCell>Temperature</TableCell>
                                     <TableCell>Quantity</TableCell>
                                     <TableCell>Unit</TableCell>
-                                    <TableCell>Unit Price</TableCell>
-                                    <TableCell>Total</TableCell>
                                     <TableCell>Actions</TableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>
                                 {isLoading ? (
                                     <TableRow>
-                                        <TableCell colSpan={10} align="center">
+                                        <TableCell colSpan={11} align="center">
                                             <CircularProgress />
                                         </TableCell>
                                     </TableRow>
                                 ) : (!products || products.length === 0) ? (
                                     <TableRow>
-                                        <TableCell colSpan={10} align="center">
+                                        <TableCell colSpan={11} align="center">
                                             <Typography color="text.secondary">
                                                 No products selected. Please select products from the left panel.
                                             </Typography>
@@ -831,6 +841,15 @@ export default function EditGoodsReceiptWarehouse({ onBack, editRefno }) {
                                                     onChange={(date) => handleExpiryDateChange(product.product_code, date)}
                                                     dateFormat="MM/dd/yyyy"
                                                     customInput={<CustomInput />}
+                                                />
+                                            </TableCell>
+                                            <TableCell>
+                                                <TextField
+                                                    value={temperatures[product.product_code] || ''}
+                                                    onChange={(e) => handleTemperatureChange(product.product_code, e.target.value)}
+                                                    size="small"
+                                                    type="number"
+                                                    sx={{ width: '80px' }}
                                                 />
                                             </TableCell>
                                             <TableCell>
@@ -870,19 +889,6 @@ export default function EditGoodsReceiptWarehouse({ onBack, editRefno }) {
                                                         </MenuItem>
                                                     )}
                                                 </Select>
-                                            </TableCell>
-                                            <TableCell>
-                                                <TextField
-                                                    type="number"
-                                                    value={unitPrices[product.product_code] || 0}
-                                                    onChange={(e) => handlePriceChange(product.product_code, Number(e.target.value))}
-                                                    size="small"
-                                                    inputProps={{ min: 0, step: 0.01 }}
-                                                    sx={{ width: 80 }}
-                                                />
-                                            </TableCell>
-                                            <TableCell>
-                                                ${totals[product.product_code]?.toFixed(2) || '0.00'}
                                             </TableCell>
                                             <TableCell>
                                                 <IconButton

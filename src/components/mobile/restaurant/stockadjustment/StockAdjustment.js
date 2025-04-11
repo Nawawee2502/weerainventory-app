@@ -325,17 +325,6 @@ export default function StockAdjustment({ onCreate, onEdit }) {
                         customInput={<CustomInput />}
                     />
                 </Box>
-
-                {/* Price Toggle */}
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Switch
-                        checked={excludePrice}
-                        onChange={(e) => setExcludePrice(e.target.checked)}
-                    />
-                    <Typography sx={{ fontWeight: '500', color: '#7E84A3' }}>
-                        Exclude price in file
-                    </Typography>
-                </Box>
             </Box>
 
             {/* Delete Selected Button */}

@@ -63,7 +63,7 @@ export const Br_rfkAllrdate = createAsyncThunk(
 
 export const Br_rfkAlljoindt = createAsyncThunk(
     "br_rfk/readAll",
-    async ({ offset = 0, limit = 5, rdate, rdate1, rdate2, kitchen_code, branch_code, product_code }, { dispatch }) => {
+    async ({ offset = 0, limit = 5, rdate, rdate1, rdate2, kitchen_code, branch_code }, { dispatch }) => {
         try {
             const payload = {
                 offset,
@@ -75,7 +75,6 @@ export const Br_rfkAlljoindt = createAsyncThunk(
             if (rdate2) payload.rdate2 = rdate2;
             if (kitchen_code) payload.kitchen_code = kitchen_code;
             if (branch_code) payload.branch_code = branch_code;
-            if (product_code) payload.product_code = product_code;
 
             const res = await axios.post(BASE_URL + "/api/Br_rfkAlljoindt", payload);
             return res.data;
@@ -84,6 +83,7 @@ export const Br_rfkAlljoindt = createAsyncThunk(
         }
     }
 );
+
 
 export const Br_rfkByRefno = createAsyncThunk(
     "br_rfk/readByRefno",

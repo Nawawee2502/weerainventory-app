@@ -124,7 +124,8 @@ const styles = StyleSheet.create({
     },
     itemCell: { width: '5%', textAlign: 'center' },
     codeCell: { width: '15%' },
-    descCell: { width: '35%' },
+    descCell: { width: '25%' }, // Reduced width to accommodate temperature
+    tempCell: { width: '10%', textAlign: 'center' }, // Temperature cell
     qtyCell: { width: '10%', textAlign: 'center' },
     unitCell: { width: '10%', textAlign: 'center' },
     priceCell: { width: '10%', textAlign: 'right' },
@@ -302,13 +303,14 @@ export const ReceiptFromSupplierPDF = ({ supplier, supplierName, refNo, date, br
                 </View>
             </View>
 
-            {/* Items Table */}
+            {/* Items Table with Temperature column */}
             <View style={styles.tableContainer}>
                 {/* Table Header */}
                 <View style={styles.tableHeader}>
                     <Text style={[styles.tableHeaderCell, styles.itemCell]}>No.</Text>
                     <Text style={[styles.tableHeaderCell, styles.codeCell]}>Item Code</Text>
                     <Text style={[styles.tableHeaderCell, styles.descCell]}>Description</Text>
+                    <Text style={[styles.tableHeaderCell, styles.tempCell]}>Temp (°C)</Text>
                     <Text style={[styles.tableHeaderCell, styles.qtyCell]}>Qty</Text>
                     <Text style={[styles.tableHeaderCell, styles.unitCell]}>Unit</Text>
                     <Text style={[styles.tableHeaderCell, styles.priceCell]}>Unit Price</Text>
@@ -322,15 +324,11 @@ export const ReceiptFromSupplierPDF = ({ supplier, supplierName, refNo, date, br
                             <Text style={[styles.tableCell, styles.itemCell]}>{index + 1}</Text>
                             <Text style={[styles.tableCell, styles.codeCell]}>{item.product_code}</Text>
                             <Text style={[styles.tableCell, styles.descCell]}>{item.tbl_product?.product_name || 'Product Description'}</Text>
+                            <Text style={[styles.tableCell, styles.tempCell]}>{item.temperature1 || '38'}°C</Text>
                             <Text style={[styles.tableCell, styles.qtyCell]}>{formatNumber(item.qty)}</Text>
                             <Text style={[styles.tableCell, styles.unitCell]}>{item.tbl_unit?.unit_name || item.unit_code}</Text>
                             <Text style={[styles.tableCell, styles.priceCell]}>{formatNumber(item.uprice)}</Text>
                             <Text style={[styles.tableCellLast, styles.amountCell]}>{formatNumber(item.amt)}</Text>
-                        </View>
-                        {/* Barcode row */}
-                        <View style={styles.barcodeSection}>
-                            <Text style={styles.barcode}>{encodeToCode128(item.product_code)}</Text>
-                            <Text style={styles.barcodeInfo}>ID: {item.product_code}</Text>
                         </View>
                     </React.Fragment>
                 ))}
@@ -362,12 +360,13 @@ export const ReceiptFromSupplierPDF = ({ supplier, supplierName, refNo, date, br
                 </View>
             </View>
 
-            {/* Notes Section */}
+            {/* Notes Section - Updated to include temperature requirements */}
             <View style={styles.notesSection}>
                 <Text style={styles.notesTitle}>Notes & Terms:</Text>
                 <Text style={styles.notesText}>1. Please mention our receipt number on all documents.</Text>
                 <Text style={styles.notesText}>2. Ensure all items have been checked for accuracy.</Text>
                 <Text style={styles.notesText}>3. All returns must be made within 3 days of receipt.</Text>
+                <Text style={styles.notesText}>4. Maintain temperature levels as indicated for each item.</Text>
             </View>
 
             {/* Signature Section */}
@@ -406,6 +405,16 @@ export const generateRFSPDF = async (refno, data) => {
         branchTel1: data.tbl_branch?.tel1
     });
 
+    // Process product items to ensure temperature data is included
+    const processedProducts = data.wh_rfsdts?.map(item => ({
+        ...item,
+        temperature1: item.temperature1 || '38', // Add default temperature if not present
+        tbl_unit: item.tbl_unit || { unit_name: item.unit_code },
+        tbl_product: item.tbl_product || { product_name: 'Product Description' }
+    })) || [];
+
+    console.log("Processed products with temperature data:", processedProducts);
+
     const pdfContent = (
         <ReceiptFromSupplierPDF
             supplier={data.supplier_code}
@@ -417,11 +426,7 @@ export const generateRFSPDF = async (refno, data) => {
             branchAddr1={data.tbl_branch?.addr1 || ''}
             branchAddr2={data.tbl_branch?.addr2 || ''}
             branchTel1={data.tbl_branch?.tel1 || ''}
-            productArray={data.wh_rfsdts?.map(item => ({
-                ...item,
-                tbl_unit: item.tbl_unit || { unit_name: item.unit_code },
-                tbl_product: item.tbl_product || { product_name: 'Product Description' }
-            })) || []}
+            productArray={processedProducts}
             total={data.total}
             total_due={data.total_due}
             instant_saving={data.instant_saving}

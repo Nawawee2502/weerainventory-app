@@ -20,6 +20,7 @@ import ListAltIcon from '@mui/icons-material/ListAlt';
 import MoveToInboxIcon from '@mui/icons-material/MoveToInbox';
 import InventoryIcon from '@mui/icons-material/Inventory';
 import EventNoteIcon from '@mui/icons-material/EventNote';
+import SettingsIcon from '@mui/icons-material/Settings';
 
 import HomeSetMinimumStock from '../components/restaurant/setminimumstock/HomeSetMinimumStock';
 import HomePurchaseOrdertoWarehouse from '../components/restaurant/purchaseordertowarehouse/HomePurchaseOrdertoWarehouse';
@@ -27,6 +28,7 @@ import HomeReceiptFromSupplier from '../components/restaurant/receiptfromsupplie
 import HomeReceiptFromWarehouse from '../components/restaurant/receiptfromwarehouse/HomeReceiptFromWarehouse';
 import HomeReceiptFromKitchen from '../components/restaurant/receiptfromkitchen/HomeReceiptFromKitchen';
 import HomeGoodsRequisition from '../components/restaurant/goodsrequisition/HomeGoodsRequisition';
+import HomeStockAdjustment from '../components/restaurant/stockadjustment/HomeStockAdjustMent';
 import ReportPurchaseOrderToWarehouse from '../components/restaurant/report/ReportPurchaseOrderToWarehouse';
 import ReportReceiptFromWarehouse from '../components/restaurant/report/ReportReceiptFromWarehouse';
 import ReportReceiptFromKitchen from '../components/restaurant/report/ReportReceiptFromKitchen';
@@ -94,38 +96,38 @@ function Restaurant(props) {
             });
         }
 
-        // Purchase Order to Warehouse
+        // Request to Warehouse
         if (permissions.menu_setbr_purchase_order_to_wh === 'Y') {
             menu.push({
                 segment: 'purchase-order-to-warehouse',
-                title: 'Purchase Order to Warehouse',
+                title: 'Request to Warehouse',
                 icon: <ListAltIcon />,
             });
         }
 
-        // Receipt From Warehouse
+        // Goods Receipt Warehouse
         if (permissions.menu_setbr_receipt_from_warehouse === 'Y') {
             menu.push({
                 segment: 'receipt-from-warehouse',
-                title: 'Receipt From Warehouse',
+                title: 'Goods Receipt Warehouse',
                 icon: <MoveToInboxIcon />,
             });
         }
 
-        // Receipt From Kitchen
+        // Goods Receipt Kitchen
         if (permissions.menu_setbr_receipt_from_kitchen === 'Y') {
             menu.push({
                 segment: 'receipt-from-kitchen',
-                title: 'Receipt From Kitchen',
+                title: 'Goods Receipt Kitchen',
                 icon: <LocalShippingOutlinedIcon />,
             });
         }
 
-        // Receipt From Supplier
+        // Goods Receipt Supplier
         if (permissions.menu_setbr_receipt_from_supplier === 'Y') {
             menu.push({
                 segment: 'receipt-from-supplier',
-                title: 'Receipt From Supplier',
+                title: 'Goods Receipt Supplier',
                 icon: <ReceiptOutlinedIcon />,
             });
         }
@@ -139,11 +141,20 @@ function Restaurant(props) {
             });
         }
 
-        // Daily Closing
+        // Stock Adjustment
+        if (permissions.menu_setbr_stock_adjustment === 'Y') {
+            menu.push({
+                segment: 'stock-adjustment',
+                title: 'Stock Adjustment',
+                icon: <SettingsIcon />,
+            });
+        }
+
+        // Dailyclosing
         if (permissions.menu_setbr_dailyclosing === 'Y') {
             menu.push({
                 segment: 'daily-closing',
-                title: 'Daily Closing',
+                title: 'Dailyclosing',
                 icon: <EventNoteIcon />,
             });
         }
@@ -157,22 +168,22 @@ function Restaurant(props) {
                 children: [
                     {
                         segment: 'purchase-order-to-warehouse',
-                        title: 'Purchase Order to Warehouse',
+                        title: 'Request to Warehouse',
                         icon: <CircleIcon fontSize='small' />,
                     },
                     {
                         segment: 'receipt-from-warehouse',
-                        title: 'Receipt From Warehouse',
+                        title: 'Goods Receipt Warehouse',
                         icon: <CircleIcon fontSize='small' />,
                     },
                     {
                         segment: 'receipt-from-kitchen',
-                        title: 'Receipt From Kitchen',
+                        title: 'Goods Receipt Kitchen',
                         icon: <CircleIcon fontSize='small' />,
                     },
                     {
                         segment: 'receipt-from-supplier',
-                        title: 'Receipt From Supplier',
+                        title: 'Goods Receipt Supplier',
                         icon: <CircleIcon fontSize='small' />,
                     },
                     {
@@ -182,12 +193,12 @@ function Restaurant(props) {
                     },
                     {
                         segment: 'monthly-stock-card',
-                        title: 'Monthly Stock Card',
+                        title: 'Report Stockcard',
                         icon: <CircleIcon fontSize='small' />,
                     },
                     {
                         segment: 'monthly-stock-balance',
-                        title: 'Monthly Stock Balance',
+                        title: 'Report Stockbalance',
                         icon: <CircleIcon fontSize='small' />,
                     },
                 ],
@@ -318,6 +329,8 @@ function Restaurant(props) {
                 return permissions.menu_setbr_receipt_from_supplier === 'Y' ? <HomeReceiptFromSupplier /> : null;
             case '/goods-requisition':
                 return permissions.menu_setbr_goods_requisition === 'Y' ? <HomeGoodsRequisition /> : null;
+            case '/stock-adjustment':
+                return permissions.menu_setbr_stock_adjustment === 'Y' ? <HomeStockAdjustment /> : null;
             case '/daily-closing':
                 return permissions.menu_setbr_dailyclosing === 'Y' ? <HomeDailyClosing /> : null;
             case '/reports/purchase-order-to-warehouse':

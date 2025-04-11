@@ -316,7 +316,7 @@ export default function ReportDispatchToBranch() {
                             {/* Branch Select */}
                             <Grid2 item size={{ xs: 12, md: 6 }}>
                                 <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
-                                    Branch
+                                    Restaurant
                                 </Typography>
                                 <Box
                                     component="select"
@@ -340,7 +340,7 @@ export default function ReportDispatchToBranch() {
                                         },
                                     }}
                                 >
-                                    <option value="">All Branches</option>
+                                    <option value="">All Restaurant</option>
                                     {branches.map(branch => (
                                         <option key={branch.branch_code} value={branch.branch_code}>
                                             {branch.branch_name}

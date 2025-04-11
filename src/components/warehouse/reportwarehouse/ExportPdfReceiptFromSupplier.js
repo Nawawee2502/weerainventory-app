@@ -52,52 +52,57 @@ const styles = StyleSheet.create({
         padding: 8,
     },
     cellNo: {
-        width: '5%',
+        width: '4%',
         textAlign: 'center',
         fontSize: 10,
     },
     cellDate: {
-        width: '10%',
+        width: '8%',
         textAlign: 'center',
         fontSize: 10,
     },
     cellRef: {
-        width: '16%',
+        width: '12%',
         textAlign: 'center',
         fontSize: 10,
     },
     cellSupplier: {
-        width: '22%',
+        width: '17%',
         textAlign: 'left',
         fontSize: 10,
     },
     cellBranch: {
-        width: '19%',
+        width: '17%',
         textAlign: 'left',
         fontSize: 10,
     },
     cellProduct: {
-        width: '10%',
+        width: '15%',
         textAlign: 'left',
         fontSize: 10,
     },
+    cellTemp: {
+        width: '7%',
+        textAlign: 'center',
+        fontSize: 10,
+    },
     cellQuantity: {
-        width: '8%',
+        width: '7%',
         textAlign: 'right',
         fontSize: 10,
     },
     cellUnit: {
-        width: '8%',
+        width: '6%',
         textAlign: 'center',
         fontSize: 10,
     },
     cellPrice: {
-        width: '8%',
+        width: '7%',
         textAlign: 'right',
         fontSize: 10,
     },
     cellTotal: {
-        width: '8%',
+        width: '7%',
         textAlign: 'right',
         fontSize: 10,
     }
@@ -142,6 +147,7 @@ const ReceiptFromSupplierPDF = ({ data, excludePrice = false, startDate, endDate
         { title: 'Supplier', style: styles.cellSupplier },
         { title: 'Restaurant', style: styles.cellBranch },
         { title: 'Product Name', style: styles.cellProduct },
+        { title: 'Temp (°C)', style: styles.cellTemp }, // Added temperature column
         { title: 'Quantity', style: styles.cellQuantity },
         { title: 'Unit', style: styles.cellUnit },
     ];
@@ -187,6 +193,7 @@ const ReceiptFromSupplierPDF = ({ data, excludePrice = false, startDate, endDate
                         <Text style={styles.cellSupplier}>{row.supplier_code}</Text>
                         <Text style={styles.cellBranch}>{row.branch_code}</Text>
                         <Text style={styles.cellProduct}>{row.product_name}</Text>
+                        <Text style={styles.cellTemp}>{row.temperature1 ? `${row.temperature1}°C` : '38°C'}</Text>
                         <Text style={styles.cellQuantity}>{row.quantity}</Text>
                         <Text style={styles.cellUnit}>{row.unit_code}</Text>
                         {!excludePrice && (
@@ -208,7 +215,8 @@ const ReceiptFromSupplierPDF = ({ data, excludePrice = false, startDate, endDate
                     <Text style={styles.cellRef}></Text>
                     <Text style={styles.cellSupplier}></Text>
                     <Text style={styles.cellBranch}></Text>
-                    <Text style={{ ...styles.cellProduct, fontWeight: 'bold' }}></Text>
+                    <Text style={styles.cellProduct}></Text>
+                    <Text style={styles.cellTemp}></Text>
                     <Text style={styles.cellQuantity}></Text>
                     <Text style={styles.cellUnit}></Text>
                     {!excludePrice && (

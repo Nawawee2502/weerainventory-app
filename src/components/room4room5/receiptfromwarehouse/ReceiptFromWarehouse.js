@@ -12,10 +12,12 @@ import "react-datepicker/dist/react-datepicker.css";
 import Stack from '@mui/material/Stack';
 import Pagination from '@mui/material/Pagination';
 import { useDispatch } from 'react-redux';
-import { Kt_rfwAlljoindt, deleteKt_rfw } from '../../../api/kitchen/kt_rfwApi';
+import { Kt_rfwAlljoindt, deleteKt_rfw, Kt_rfwByRefno } from '../../../api/kitchen/kt_rfwApi';
 import { kitchenAll } from '../../../api/kitchenApi';
 import { searchProductName } from '../../../api/productrecordApi';
 import Swal from 'sweetalert2';
+import { pdf } from '@react-pdf/renderer';
+import { generatePDF } from './Kt_rfwPDF';
 
 const formatDate = (date) => {
     if (!date) return "";
@@ -241,42 +243,6 @@ export default function ReceiptFromWarehouse({ onCreate, onEdit }) {
         }
     };
 
-    // const handleSearchBranchChange = (e) => {
-    //   setSearchBranch(e.target.value);
-    //   setPage(1);
-    // };
-
-    // const handleSearchSupplierChange = (e) => {
-    //   setSearchSupplier(e.target.value);
-    //   setPage(1);
-    // };
-
-    // const handleSearchProductChange = async (e) => {
-    //   const value = e.target.value;
-    //   setSearchProduct(value);
-    //   setPage(1);
-
-    //   if (value.length > 0) {
-    //     try {
-    //       const response = await dispatch(searchProductName({ product_name: value })).unwrap();
-    //       if (response.data) {
-    //         setSearchResults(response.data);
-    //         setShowDropdown(true);
-    //       }
-    //     } catch (error) {
-    //       console.error('Error searching products:', error);
-    //       Swal.fire({
-    //         icon: 'error',
-    //         title: 'Error',
-    //         text: 'Failed to search products'
-    //       });
-    //     }
-    //   } else {
-    //     setSearchResults([]);
-    //     setShowDropdown(false);
-    //   }
-    // };
-
     const handleDateChange = (date) => {
         setFilterDate(date);
         setPage(1);
@@ -291,6 +257,44 @@ export default function ReceiptFromWarehouse({ onCreate, onEdit }) {
         setSearchKitchen("");
         setFilterDate(new Date());
         setPage(1);
+    };
+
+    const handlePrintPDF = async (refno) => {
+        try {
+            Swal.fire({
+                title: 'กำลังโหลดข้อมูล...',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            // ดึงข้อมูลจาก API
+            const response = await dispatch(Kt_rfwByRefno({ refno })).unwrap();
+
+            if (response.result && response.data) {
+                const pdfContent = await generatePDF(refno, response.data);
+
+                if (pdfContent) {
+                    Swal.close();
+                    const asBlob = await pdf(pdfContent).toBlob();
+                    const url = URL.createObjectURL(asBlob);
+                    window.open(url, '_blank');
+                } else {
+                    throw new Error("Failed to generate PDF content");
+                }
+            } else {
+                throw new Error("Data not found or invalid");
+            }
+        } catch (error) {
+            console.error('Error generating PDF:', error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error generating PDF',
+                text: error.message || 'Please try again later',
+                confirmButtonText: 'OK'
+            });
+        }
     };
 
     return (
@@ -444,7 +448,7 @@ export default function ReceiptFromWarehouse({ onCreate, onEdit }) {
                                         </StyledTableCell>
                                         <StyledTableCell align="center">
                                             <IconButton
-                                                onClick={() => {/* Add print functionality later */ }}
+                                                onClick={() => handlePrintPDF(row.refno)}
                                                 sx={{ border: '1px solid #5686E1', borderRadius: '7px' }}
                                             >
                                                 <PrintIcon sx={{ color: '#5686E1' }} />

@@ -1191,9 +1191,6 @@ export default function CreateGoodsReceiptWarehouse({ onBack }) {
                                                     onChange={(e) => handleTemperatureChange(product.product_code, e.target.value)}
                                                     size="small"
                                                     type="number"
-                                                    InputProps={{
-                                                        endAdornment: <InputAdornment position="end">°C</InputAdornment>,
-                                                    }}
                                                     sx={{ width: '80px' }}
                                                 />
                                             </TableCell>

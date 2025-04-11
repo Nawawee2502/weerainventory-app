@@ -30,10 +30,12 @@ import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
 import { useDispatch } from 'react-redux';
-import { Kt_safAlljoindt, deleteKt_saf } from '../../../api/kitchen/kt_safApi';
+import { Kt_safAlljoindt, deleteKt_saf, Kt_safByRefno } from '../../../api/kitchen/kt_safApi';
 import { kitchenAll } from '../../../api/kitchenApi';
 import { searchProductName } from '../../../api/productrecordApi';
 import Swal from 'sweetalert2';
+import { pdf } from '@react-pdf/renderer';
+import { generatePDF } from './Kt_safPDF';
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
     [`&.${tableCellClasses.head}`]: {
@@ -267,6 +269,44 @@ export default function StockAdjustment({ onCreate, onEdit }) {
         }
     };
 
+    const handlePrintPDF = async (refno) => {
+        try {
+            Swal.fire({
+                title: 'กำลังโหลดข้อมูล...',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            // ดึงข้อมูลจาก API
+            const response = await dispatch(Kt_safByRefno({ refno })).unwrap();
+
+            if (response.result && response.data) {
+                const pdfContent = await generatePDF(refno, response.data);
+
+                if (pdfContent) {
+                    Swal.close();
+                    const asBlob = await pdf(pdfContent).toBlob();
+                    const url = URL.createObjectURL(asBlob);
+                    window.open(url, '_blank');
+                } else {
+                    throw new Error("Failed to generate PDF content");
+                }
+            } else {
+                throw new Error("Data not found or invalid");
+            }
+        } catch (error) {
+            console.error('Error generating PDF:', error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error generating PDF',
+                text: error.message || 'Please try again later',
+                confirmButtonText: 'OK'
+            });
+        }
+    };
+
     return (
         <Box sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <Button
@@ -414,8 +454,8 @@ export default function StockAdjustment({ onCreate, onEdit }) {
                                                     <DeleteIcon sx={{ color: '#F62626' }} />
                                                 </IconButton>
                                                 <IconButton
-                                                    onClick={() => { /* Add print functionality */ }}
-                                                    sx={{ border: '1px solid #5686E1', borderRadius: '7px' }}
+                                                onClick={() => handlePrintPDF(row.refno)}
+                                                sx={{ border: '1px solid #5686E1', borderRadius: '7px' }}
                                                 >
                                                     <PrintIcon sx={{ color: '#5686E1' }} />
                                                 </IconButton>

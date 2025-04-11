@@ -89,7 +89,6 @@ function CreateReceiptFromSupplier({ onBack }) {
       .catch((err) => console.log(err.message));
   }, [dispatch]);
 
-  // Updated handleProductSelect function with duplicate check
   const handleProductSelect = (product) => {
     // Check if product already exists in the list
     const productExists = products.some(p => p.product_code === product.product_code);
@@ -108,35 +107,78 @@ function CreateReceiptFromSupplier({ onBack }) {
     }
 
     // If not a duplicate, proceed with adding the product
-    product.amount = 1;
-    setProducts([...products, product]);
+    product.amount = 1; // กำหนดค่า amount เริ่มต้นเป็น 1
+    const updatedProducts = [...products, product];
+    setProducts(updatedProducts);
+
     setQuantities(prev => ({ ...prev, [product.product_code]: 1 }));
     setUnits(prev => ({ ...prev, [product.product_code]: product.productUnit1.unit_code }));
     setExpiryDates(prev => ({ ...prev, [product.product_code]: new Date() }));
     setTemperatures(prev => ({ ...prev, [product.product_code]: '38' }));
-    updateTotals();
+
+    // คำนวณค่าใหม่โดยตรงหลังเพิ่มสินค้า
+    calculateOrderTotalsWithProducts(updatedProducts);
+
     setSearchTerm('');
     setShowDropdown(false);
   };
 
-  // Updated handleSearchChange function with Enter key functionality
+  const calculateOrderTotalsWithProducts = (productList) => {
+    let newTaxable = 0;
+    let newNonTaxable = 0;
+    let newInstantSaving = 0;
+
+    productList.forEach(product => {
+      const quantity = product.amount || 1; // ใช้ค่า amount จาก product โดยตรง
+      const unit = units[product.product_code] || product.productUnit1.unit_code;
+      const price = customPrices[product.product_code] ??
+        (unit === product.productUnit1.unit_code ? product.bulk_unit_price : product.retail_unit_price);
+      const lineTotal = quantity * price;
+
+      if (product.tax1 === 'Y') {
+        newTaxable += lineTotal;
+      } else {
+        newNonTaxable += lineTotal;
+      }
+
+      newInstantSaving += Number(product.instant_saving1 || 0);
+    });
+
+    const newSaleTax = newTaxable * TAX_RATE;
+    const newTotal = newTaxable + newNonTaxable;
+    const newTotalDue = newTotal + newSaleTax + deliverySurcharge - newInstantSaving;
+
+    setTaxableAmount(newTaxable);
+    setNonTaxableAmount(newNonTaxable);
+    setInstantSaving(newInstantSaving);
+    setSaleTax(newSaleTax);
+    setTotal(newTotal);
+    setTotalDue(newTotalDue);
+  };
+
+
   const handleSearchChange = (e) => {
     const value = e.target.value;
     setSearchTerm(value);
 
     if (e.key === 'Enter' && value.trim() !== '') {
-      // Search for exact match when Enter is pressed
+      // ค้นหาเมื่อกด Enter (ไม่ต้องเปลี่ยน API)
       dispatch(searchProductName({ product_name: value }))
         .unwrap()
         .then((res) => {
           if (res.data && res.data.length > 0) {
-            // Find exact match or use the first result
-            const exactMatch = res.data.find(
+            // ตรวจสอบว่ามีการตรงกับทั้ง product_name หรือ product_code หรือไม่
+            const exactMatchByName = res.data.find(
               product => product.product_name.toLowerCase() === value.toLowerCase()
             );
-            const selectedProduct = exactMatch || res.data[0];
+            const exactMatchByCode = res.data.find(
+              product => product.product_code.toLowerCase() === value.toLowerCase()
+            );
 
-            // Check for duplicate before adding
+            // เลือกสินค้าที่ตรงกับทั้งหมดหรือใช้ผลลัพธ์แรก
+            const selectedProduct = exactMatchByName || exactMatchByCode || res.data[0];
+
+            // ตรวจสอบว่าสินค้าซ้ำกันหรือไม่ก่อนเพิ่ม
             const productExists = products.some(p => p.product_code === selectedProduct.product_code);
 
             if (productExists) {
@@ -147,14 +189,18 @@ function CreateReceiptFromSupplier({ onBack }) {
                 confirmButtonColor: '#754C27'
               });
             } else {
-              // Add product if not a duplicate
-              selectedProduct.amount = 0;
-              setProducts([...products, selectedProduct]);
+              // เพิ่มสินค้าถ้าไม่ซ้ำ
+              selectedProduct.amount = 1;
+              const updatedProducts = [...products, selectedProduct];
+              setProducts(updatedProducts);
+
               setQuantities(prev => ({ ...prev, [selectedProduct.product_code]: 1 }));
               setUnits(prev => ({ ...prev, [selectedProduct.product_code]: selectedProduct.productUnit1.unit_code }));
               setExpiryDates(prev => ({ ...prev, [selectedProduct.product_code]: new Date() }));
               setTemperatures(prev => ({ ...prev, [selectedProduct.product_code]: '38' }));
-              updateTotals();
+
+              // คำนวณยอดรวมใหม่ทันที
+              calculateOrderTotalsWithProducts(updatedProducts);
             }
             setSearchTerm('');
             setShowDropdown(false);
@@ -162,7 +208,7 @@ function CreateReceiptFromSupplier({ onBack }) {
         })
         .catch((err) => console.log(err.message));
     } else if (value.length > 0) {
-      // Regular search functionality for dropdown results
+      // แสดงผลลัพธ์ในดรอปดาวน์ (ใช้ API เดิม)
       dispatch(searchProductName({ product_name: value }))
         .unwrap()
         .then((res) => {
@@ -182,44 +228,25 @@ function CreateReceiptFromSupplier({ onBack }) {
     const updatedProducts = products.filter(p => p.product_code !== productCode);
     setProducts(updatedProducts);
 
-    let newTaxable = 0;
-    let newNonTaxable = 0;
-    let newInstantSaving = 0;
-    let grandTotal = 0;
-
-    updatedProducts.forEach(p => {
-      const unit = units[p.product_code] || p.productUnit1.unit_code;
-      const price = unit === p.productUnit1.unit_code ?
-        p.bulk_unit_price : p.retail_unit_price;
-      const lineTotal = Number(p.amount || 0) * price;
-
-      if (p.tax1 === 'Y') {
-        newTaxable += lineTotal;
-      } else {
-        newNonTaxable += lineTotal;
-      }
-
-      grandTotal += lineTotal;
-      newInstantSaving += Number(p.instant_saving1 || 0);
-    });
-
-    const newSaleTax = newTaxable * TAX_RATE;
-    const newTotalDue = grandTotal + newSaleTax + deliverySurcharge - newInstantSaving;
-
-    setTaxableAmount(newTaxable);
-    setNonTaxableAmount(newNonTaxable);
-    setInstantSaving(newInstantSaving);
-    setSaleTax(newSaleTax);
-    setTotal(grandTotal);
-    setTotalDue(newTotalDue);
+    // ใช้ฟังก์ชันคำนวณยอดรวมใหม่หลังลบสินค้า
+    calculateOrderTotalsWithProducts(updatedProducts);
   };
 
   const handleQuantityChange = (productCode, newQuantity) => {
     if (newQuantity >= 1) {
       setQuantities(prev => ({ ...prev, [productCode]: newQuantity }));
-      updateTotals();
+
+      // อัปเดตค่า amount ใน products โดยตรง
+      const updatedProducts = products.map(p =>
+        p.product_code === productCode ? { ...p, amount: newQuantity } : p
+      );
+      setProducts(updatedProducts);
+
+      // คำนวณยอดรวมใหม่
+      calculateOrderTotalsWithProducts(updatedProducts);
     }
   };
+
 
   const handleUnitChange = (productCode, newUnit) => {
     setUnits(prev => ({ ...prev, [productCode]: newUnit }));
@@ -282,40 +309,37 @@ function CreateReceiptFromSupplier({ onBack }) {
   };
 
   const updateTotals = () => {
-    let newTaxable = 0;
-    let newNonTaxable = 0;
-
-    products.forEach(product => {
-      const quantity = quantities[product.product_code] || 1;
-      const unit = units[product.product_code] || product.productUnit1.unit_code;
-      const price = unit === product.productUnit1.unit_code ? product.bulk_unit_price : product.retail_unit_price;
-      const amount = quantity * price;
-
-      if (product.tax1 === 'Y') {
-        newTaxable += amount;
-      } else {
-        newNonTaxable += amount;
-      }
-    });
-
-    const newSaleTax = newTaxable * TAX_RATE;
-    const newTotal = newTaxable + newNonTaxable;
-    const newTotalDue = newTotal + newSaleTax + deliverySurcharge - instantSaving;
-
-    setTaxableAmount(newTaxable);
-    setNonTaxableAmount(newNonTaxable);
-    setSaleTax(newSaleTax);
-    setTotal(newTotal);
-    setTotalDue(newTotalDue);
+    calculateOrderTotalsWithProducts(products);
   };
 
   const handleSave = () => {
-    if (!saveSupplier || !saveBranch || products.length === 0) {
+    // Create an array to collect all missing fields
+    const missingFields = [];
+
+    // Check each required field and add to missing fields if empty
+    if (!refNo) {
+      missingFields.push("Reference Number");
+    }
+
+    if (!saveSupplier) {
+      missingFields.push("Supplier");
+    }
+
+    if (!saveBranch) {
+      missingFields.push("Restaurant");
+    }
+
+    if (products.length === 0) {
+      missingFields.push("Products");
+    }
+
+    // If any fields are missing, show specific error message
+    if (missingFields.length > 0) {
       Swal.fire({
         icon: 'warning',
         title: 'Missing Information',
-        text: 'Please fill in all required fields.',
-        timer: 1500
+        text: `Please fill in the following required fields: ${missingFields.join(", ")}`,
+        confirmButtonColor: '#754C27'
       });
       return;
     }
@@ -418,39 +442,7 @@ function CreateReceiptFromSupplier({ onBack }) {
   };
 
   const calculateOrderTotals = () => {
-    let newTaxable = 0;
-    let newNonTaxable = 0;
-    let newInstantSaving = 0;
-    let newTotal = 0;
-
-    products.forEach(product => {
-      const unit = units[product.product_code] || product.productUnit1.unit_code;
-      const price = customPrices[product.product_code] ??
-        (unit === product.productUnit1.unit_code ?
-          product.bulk_unit_price :
-          product.retail_unit_price);
-      const amount = Number(product.amount || 0);
-      const lineTotal = amount * price;
-
-      if (product.tax1 === 'Y') {
-        newTaxable += lineTotal;
-      } else {
-        newNonTaxable += lineTotal;
-      }
-
-      newTotal += lineTotal;
-      newInstantSaving += Number(product.instant_saving1 || 0);
-    });
-
-    const newSaleTax = newTaxable * TAX_RATE;
-    const newTotalDue = newTotal + newSaleTax + deliverySurcharge - newInstantSaving;
-
-    setTaxableAmount(newTaxable);
-    setNonTaxableAmount(newNonTaxable);
-    setInstantSaving(newInstantSaving);
-    setSaleTax(newSaleTax);
-    setTotal(newTotal);
-    setTotalDue(newTotalDue);
+    calculateOrderTotalsWithProducts(products);
   };
 
 
@@ -724,7 +716,7 @@ function CreateReceiptFromSupplier({ onBack }) {
                         <DatePicker
                           selected={expiryDates[productCode]}
                           onChange={(date) => handleExpiryDateChange(productCode, date)}
-                          dateFormat="dd/MM/yyyy"
+                          dateFormat="MM/dd/yyyy"
                           customInput={<TextField size="small" sx={{ width: '120px' }} />}
                         />
                       </td>

@@ -4,56 +4,68 @@ import { AppProvider } from '@toolpad/core/AppProvider';
 import { useDemoRouter } from '@toolpad/core/internal';
 import { useTheme } from '@mui/material/styles';
 import Paper from '@mui/material/Paper';
+
 import ReceiptFromWarehouse from './ReceiptFromWarehouse';
 import CreateReceiptFromWarehouse from './CreateReceiptFromWarehouse';
-// import EditPurchaseOrderToSupplier from './EditPruchaseordertosupplier';
-
+import EditReceiptFromWarehouse from './EditReceiptFromWarehouse';
 
 const NAVIGATION = [
-  { segment: '', title: '' },
-  { segment: 'orders', title: 'Orders' },
+    { segment: '', title: '' },
+    { segment: 'warehouse', title: 'Warehouse' },
 ];
 
-export default function HomeReceiptFromWharehouse() {
-  const router = useDemoRouter('/');
-  const theme = useTheme();
+export default function HomeReceiptFromWarehouse() {
+    const router = useDemoRouter('/');
+    const theme = useTheme();
 
-  const [currentView, setCurrentView] = React.useState('list'); // 'list', 'create', or 'edit'
-  const [editRefno, setEditRefno] = React.useState(null);
+    // Initialize with 'list' view
+    const [currentView, setCurrentView] = React.useState('list');
+    const [editRefno, setEditRefno] = React.useState(null);
 
-  const handleCreate = () => {
-    setCurrentView('create');
-  };
+    const handleCreate = React.useCallback(() => {
+        console.log('Create button clicked');
+        setCurrentView('create');
+    }, []);
 
-  const handleEdit = (refno) => {
-    setEditRefno(refno);
-    setCurrentView('edit');
-  };
+    const handleEdit = React.useCallback((refno) => {
+        console.log(`Edit clicked for refno: ${refno}`);
+        setEditRefno(refno);
+        setCurrentView('edit');
+    }, []);
 
-  const handleBack = () => {
-    setCurrentView('list');
-    setEditRefno(null);
-  };
+    const handleBack = React.useCallback(() => {
+        console.log('Back button clicked');
+        setCurrentView('list');
+        setEditRefno(null);
+    }, []);
 
-  const renderComponent = () => {
-    switch(currentView) {
-      case 'create':
-        return <CreateReceiptFromWarehouse onBack={handleBack} />;
-      case 'edit':
-        // return <EditPurchaseOrderToSupplier onBack={handleBack} editRefno={editRefno} />;
-        // return <EditPurchaseOrderToSupplier onBack={handleBack} editRefno={editRefno} />
-      default:
-        return <ReceiptFromWarehouse onCreate={handleCreate} onEdit={handleEdit} />;
+    React.useEffect(() => {
+        if (currentView === 'create') {
+            console.log('We are in create view!');
+        }
+    }, [currentView]);
+    
+
+    const renderComponent = () => {
+        console.log('Rendering component for view:', currentView);
+        switch (currentView) {
+            case 'create':
+                return <CreateReceiptFromWarehouse onBack={handleBack} />;
+            case 'edit':
+                return <EditReceiptFromWarehouse onBack={handleBack} editRefno={editRefno} />;
+            case 'list':
+            default:
+                return <ReceiptFromWarehouse onCreate={handleCreate} onEdit={handleEdit} />;
+        }
     }
-  };
 
-  return (
-    <AppProvider navigation={NAVIGATION} router={router} theme={theme}>
-      <Paper sx={{ width: '100%' }}>
-        <PageContainer sx={{ width: '100%' }}>
-          {renderComponent()}
-        </PageContainer>
-      </Paper>
-    </AppProvider>
-  );
+    return (
+        <AppProvider navigation={NAVIGATION} router={router} theme={theme}>
+            <Paper sx={{ width: '100%' }}>
+                <PageContainer sx={{ width: '100%' }}>
+                    {renderComponent()}
+                </PageContainer>
+            </Paper>
+        </AppProvider>
+    );
 }

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Typography, Divider } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 import { format } from 'date-fns';
 
 const PrintPreviewMonthlyKitchenStockcard = ({ data, excludePrice, startDate, endDate, kitchen }) => {
@@ -28,147 +28,311 @@ const PrintPreviewMonthlyKitchenStockcard = ({ data, excludePrice, startDate, en
         beg: acc.beg + (item.beg1 || 0),
         in: acc.in + (item.in1 || 0),
         out: acc.out + (item.out1 || 0),
-        beg_amt: acc.beg_amt + (item.beg1_amt || 0),
-        in_amt: acc.in_amt + (item.in1_amt || 0),
-        out_amt: acc.out_amt + (item.out1_amt || 0),
-        upd_amt: acc.upd_amt + (item.upd1_amt || 0)
-    }), { beg: 0, in: 0, out: 0, beg_amt: 0, in_amt: 0, out_amt: 0, upd_amt: 0 });
+        upd: acc.upd + (item.upd1 || 0)
+    }), { beg: 0, in: 0, out: 0, upd: 0 });
+
+    const documentNumber = `KSCD-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}${String(new Date().getDate()).padStart(2, '0')}`;
 
     return (
-        <Box sx={{ p: 4, bgcolor: 'white' }}>
-            {/* Header Section */}
-            <Box sx={{ textAlign: 'center', mb: 4 }}>
-                <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 1 }}>
-                    Weera Group Inventory
-                </Typography>
-                <Typography variant="subtitle1" sx={{ color: 'text.secondary', mb: 1 }}>
-                    Print Date: {format(new Date(), 'MM/dd/yyyy')} Time: {new Date().toLocaleTimeString()}
-                </Typography>
-                <Typography variant="h6" sx={{ mb: 1 }}>
-                    Monthly Kitchen Stock Card Report
-                </Typography>
-                <Typography>
-                    Date: {formatDateForDisplay(startDate)} - {formatDateForDisplay(endDate)}
-                </Typography>
-                {kitchen && (
-                    <Typography>
-                        Kitchen: {kitchen}
-                    </Typography>
-                )}
-            </Box>
+        <Box sx={{ 
+            p: 4, 
+            bgcolor: 'white',
+            '@media print': {
+                padding: '20px',
+                margin: 0
+            }
+        }}>
+            {/* Page Layout */}
+            <style dangerouslySetInnerHTML={{__html: `
+                @media print {
+                    body, html { 
+                        margin: 0 !important; 
+                        padding: 0 !important;
+                        width: 100% !important;
+                        height: 100% !important;
+                    }
+                    @page { 
+                        size: landscape; 
+                        margin: 0.5cm;
+                    }
+                }
+                .report-container {
+                    font-family: Arial, sans-serif;
+                }
+                .header-section {
+                    display: flex;
+                    justify-content: space-between;
+                    margin-bottom: 20px;
+                }
+                .company-details {
+                    width: 60%;
+                }
+                .document-details {
+                    width: 35%;
+                    padding-left: 15px;
+                    border-left: 1px solid #000;
+                }
+                .company-name {
+                    font-size: 18px;
+                    font-weight: bold;
+                    margin-bottom: 5px;
+                }
+                .company-address {
+                    font-size: 12px;
+                    margin-bottom: 2px;
+                }
+                .doc-line {
+                    display: flex;
+                    justify-content: space-between;
+                    margin-bottom: 5px;
+                    font-size: 12px;
+                }
+                .doc-label {
+                    font-weight: bold;
+                }
+                .title {
+                    font-size: 16px;
+                    font-weight: bold;
+                    text-align: center;
+                    margin: 15px 0;
+                    text-transform: uppercase;
+                }
+                .info-section {
+                    display: flex;
+                    margin-bottom: 20px;
+                }
+                .info-column {
+                    width: 50%;
+                }
+                .info-line {
+                    display: flex;
+                    margin-bottom: 5px;
+                    font-size: 12px;
+                }
+                .info-label {
+                    width: 100px;
+                    font-weight: bold;
+                }
+                .stock-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin-bottom: 30px;
+                }
+                .stock-table th, .stock-table td {
+                    border: 1px solid #000;
+                    padding: 6px;
+                    font-size: 12px;
+                }
+                .stock-table th {
+                    background-color: #E4E4E4;
+                    font-weight: bold;
+                    text-align: center;
+                }
+                .stock-table tr:nth-child(even) {
+                    background-color: #F9F9F9;
+                }
+                .stock-table td.number-cell {
+                    text-align: right;
+                }
+                .stock-table td.text-cell {
+                    text-align: left;
+                }
+                .stock-table td.center-cell {
+                    text-align: center;
+                }
+                .stock-table tfoot {
+                    background-color: #E4E4E4;
+                    font-weight: bold;
+                }
+                .signatures {
+                    display: flex;
+                    justify-content: space-between;
+                    margin: 40px 0 30px;
+                }
+                .signature-box {
+                    width: 30%;
+                    text-align: center;
+                }
+                .signature-line {
+                    border-top: 1px solid #000;
+                    margin-bottom: 5px;
+                }
+                .signature-title {
+                    font-size: 12px;
+                }
+                .notes {
+                    margin-top: 20px;
+                    border-top: 1px solid #AAA;
+                    padding-top: 10px;
+                }
+                .notes-title {
+                    font-size: 12px;
+                    font-weight: bold;
+                    margin-bottom: 5px;
+                }
+                .note-item {
+                    font-size: 11px;
+                    margin-bottom: 3px;
+                }
+                .footer {
+                    margin-top: 20px;
+                    position: relative;
+                    height: 20px;
+                }
+                .footer-left {
+                    position: absolute;
+                    left: 0;
+                    bottom: 0;
+                    font-size: 11px;
+                    color: #555;
+                }
+                .footer-right {
+                    position: absolute;
+                    right: 0;
+                    bottom: 0;
+                    font-size: 11px;
+                    color: #555;
+                }
+            `}} />
 
-            {/* Table */}
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                    <tr>
-                        <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>No.</th>
-                        <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Ref No</th>
-                        <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Date</th>
-                        <th style={{ padding: '12px 16px', textAlign: 'right', color: '#754C27' }}>Beg</th>
-                        <th style={{ padding: '12px 16px', textAlign: 'right', color: '#754C27' }}>In</th>
-                        <th style={{ padding: '12px 16px', textAlign: 'right', color: '#754C27' }}>Out</th>
-                        <th style={{ padding: '12px 16px', textAlign: 'right', color: '#754C27' }}>Update</th>
-                        <th style={{ padding: '12px 16px', textAlign: 'right', color: '#754C27' }}>Balance</th>
-                        {!excludePrice && (
-                            <>
-                                <th style={{ padding: '12px 16px', textAlign: 'right', color: '#754C27' }}>Unit Price</th>
-                                <th style={{ padding: '12px 16px', textAlign: 'right', color: '#754C27' }}>Beg Amt</th>
-                                <th style={{ padding: '12px 16px', textAlign: 'right', color: '#754C27' }}>In Amt</th>
-                                <th style={{ padding: '12px 16px', textAlign: 'right', color: '#754C27' }}>Out Amt</th>
-                                <th style={{ padding: '12px 16px', textAlign: 'right', color: '#754C27' }}>Update Amt</th>
-                                <th style={{ padding: '12px 16px', textAlign: 'right', color: '#754C27' }}>Balance Amount</th>
-                            </>
-                        )}
-                    </tr>
-                    <tr>
-                        <td colSpan={excludePrice ? 8 : 14}>
-                            <Divider sx={{ width: '100%', color: '#754C27', border: '1px solid #754C27' }} />
-                        </td>
-                    </tr>
-                </thead>
-                <tbody>
-                    {data.map((item, index) => {
-                        const balance = ((item.beg1 || 0) + (item.in1 || 0) - (item.out1 || 0)) + (item.upd1 || 0);
-                        const balanceAmount = ((item.beg1_amt || 0) + (item.in1_amt || 0) - (item.out1_amt || 0)) + (item.upd1_amt || 0);
+            <div className="report-container">
+                {/* Header Section */}
+                <div className="header-section">
+                    <div className="company-details">
+                        <div className="company-name">WEERA GROUP INVENTORY</div>
+                        <div className="company-address">123 Business Road, Industrial District</div>
+                        <div className="company-address">Bangkok, Thailand 10110</div>
+                        <div className="company-address">Tel: +66-2-123-4567 | Email: contact@weeragroup.com</div>
+                    </div>
+                    <div className="document-details">
+                        <div className="doc-line">
+                            <span className="doc-label">Document No:</span>
+                            <span>{documentNumber}</span>
+                        </div>
+                        <div className="doc-line">
+                            <span className="doc-label">Print Date:</span>
+                            <span>{formatDateForDisplay(new Date())}</span>
+                        </div>
+                        <div className="doc-line">
+                            <span className="doc-label">Print Time:</span>
+                            <span>{new Date().toLocaleTimeString()}</span>
+                        </div>
+                        <div className="doc-line">
+                            <span className="doc-label">Page:</span>
+                            <span>1</span>
+                        </div>
+                    </div>
+                </div>
 
-                        return (
-                            <tr key={item.refno}>
-                                <td style={{ padding: '8px 16px', textAlign: 'center' }}>{index + 1}</td>
-                                <td style={{ padding: '8px 16px', textAlign: 'left' }}>{item.refno}</td>
-                                <td style={{ padding: '8px 16px' }}>{formatDateForDisplay(item.rdate)}</td>
-                                <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(item.beg1)}</td>
-                                <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(item.in1)}</td>
-                                <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(item.out1)}</td>
-                                <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(item.upd1)}</td>
-                                <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(balance)}</td>
-                                {!excludePrice && (
-                                    <>
-                                        <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(item.uprice)}</td>
-                                        <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(item.beg1_amt)}</td>
-                                        <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(item.in1_amt)}</td>
-                                        <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(item.out1_amt)}</td>
-                                        <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(item.upd1_amt)}</td>
-                                        <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(balanceAmount)}</td>
-                                    </>
-                                )}
-                            </tr>
-                        );
-                    })}
-                </tbody>
-                {data.length > 0 && (
+                <div className="title">Monthly Kitchen Stock Card Report</div>
+
+                {/* Info Section */}
+                <div className="info-section">
+                    <div className="info-column">
+                        <div className="info-line">
+                            <div className="info-label">Date Range:</div>
+                            <div>{formatDateForDisplay(startDate)} - {formatDateForDisplay(endDate)}</div>
+                        </div>
+                        <div className="info-line">
+                            <div className="info-label">User:</div>
+                            <div>Admin</div>
+                        </div>
+                    </div>
+                    <div className="info-column">
+                        <div className="info-line">
+                            <div className="info-label">Kitchen:</div>
+                            <div>{kitchen || 'All Kitchens'}</div>
+                        </div>
+                        <div className="info-line">
+                            <div className="info-label">Report Type:</div>
+                            <div>Monthly Summary</div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Table */}
+                <table className="stock-table">
+                    <thead>
+                        <tr>
+                            <th style={{width: '5%'}}>No.</th>
+                            <th style={{width: '20%'}}>Ref No</th>
+                            <th style={{width: '10%'}}>Date</th>
+                            <th style={{width: '13%'}}>Begin</th>
+                            <th style={{width: '13%'}}>In</th>
+                            <th style={{width: '13%'}}>Out</th>
+                            <th style={{width: '13%'}}>Update</th>
+                            <th style={{width: '13%'}}>Balance</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {(() => {
+                            // คำนวณยอดสะสม (cumulative balance)
+                            let cumulativeBalance = 0;
+                            
+                            return data.map((item, index) => {
+                                // คำนวณการเปลี่ยนแปลงของรายการนี้
+                                const currentItemChange = ((item.beg1 || 0) + (item.in1 || 0) - (item.out1 || 0)) + (item.upd1 || 0);
+                                
+                                // เพิ่มไปที่ยอดสะสม
+                                cumulativeBalance += currentItemChange;
+
+                                return (
+                                    <tr key={index}>
+                                        <td className="center-cell">{index + 1}</td>
+                                        <td className="text-cell">{item.refno}</td>
+                                        <td className="center-cell">{formatDateForDisplay(item.rdate)}</td>
+                                        <td className="number-cell">{formatNumber(item.beg1)}</td>
+                                        <td className="number-cell">{formatNumber(item.in1)}</td>
+                                        <td className="number-cell">{formatNumber(item.out1)}</td>
+                                        <td className="number-cell">{formatNumber(item.upd1)}</td>
+                                        <td className="number-cell">{formatNumber(cumulativeBalance)}</td>
+                                    </tr>
+                                );
+                            });
+                        })()}
+                    </tbody>
                     <tfoot>
                         <tr>
-                            <td colSpan={excludePrice ? 8 : 14}>
-                                <Divider sx={{ width: '100%', color: '#754C27', border: '1px solid #754C27' }} />
-                            </td>
-                        </tr>
-                        <tr>
-                            <td colSpan="3" style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>
-                                Total:
-                            </td>
-                            <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>
-                                {formatNumber(totals.beg)}
-                            </td>
-                            <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>
-                                {formatNumber(totals.in)}
-                            </td>
-                            <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>
-                                {formatNumber(totals.out)}
-                            </td>
-                            <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>-</td>
-                            <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>-</td>
-                            {!excludePrice && (
-                                <>
-                                    <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>-</td>
-                                    <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>
-                                        {formatNumber(totals.beg_amt)}
-                                    </td>
-                                    <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>
-                                        {formatNumber(totals.in_amt)}
-                                    </td>
-                                    <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>
-                                        {formatNumber(totals.out_amt)}
-                                    </td>
-                                    <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>
-                                        {formatNumber(totals.upd_amt)}
-                                    </td>
-                                    <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>
-                                        {formatNumber(
-                                            totals.beg_amt + totals.in_amt - totals.out_amt + totals.upd_amt
-                                        )}
-                                    </td>
-                                </>
-                            )}
+                            <td colSpan="3" style={{textAlign: 'right'}}>Total:</td>
+                            <td className="number-cell">{formatNumber(totals.beg)}</td>
+                            <td className="number-cell">{formatNumber(totals.in)}</td>
+                            <td className="number-cell">{formatNumber(totals.out)}</td>
+                            <td className="number-cell">-</td>
+                            <td className="number-cell">-</td>
                         </tr>
                     </tfoot>
-                )}
-            </table>
+                </table>
 
-            <Box sx={{ marginTop: '30px', fontSize: '12px', color: '#777' }}>
-                <Typography variant="caption">
-                    *This report was generated on {format(new Date(), 'MM/dd/yyyy HH:mm:ss')}
-                </Typography>
-            </Box>
+                {/* Signature Section */}
+                <div className="signatures">
+                    <div className="signature-box">
+                        <div className="signature-line"></div>
+                        <div className="signature-title">Prepared By</div>
+                    </div>
+                    <div className="signature-box">
+                        <div className="signature-line"></div>
+                        <div className="signature-title">Checked By</div>
+                    </div>
+                    <div className="signature-box">
+                        <div className="signature-line"></div>
+                        <div className="signature-title">Approved By</div>
+                    </div>
+                </div>
+
+                {/* Notes Section */}
+                <div className="notes">
+                    <div className="notes-title">Notes:</div>
+                    <div className="note-item">1. This report is computer generated and does not require a signature to be valid.</div>
+                    <div className="note-item">2. All quantities are shown in their respective units and are accurate as of the print date.</div>
+                    <div className="note-item">3. Please report any discrepancies to the inventory management department within 3 business days.</div>
+                </div>
+
+                {/* Footer */}
+                <div className="footer">
+                    <div className="footer-left">CONFIDENTIAL DOCUMENT - For internal use only</div>
+                    <div className="footer-right">Page 1 of 1</div>
+                </div>
+            </div>
         </Box>
     );
 };

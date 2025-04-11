@@ -697,38 +697,47 @@ export default function ReportMonthlyKitchenStockCard() {
                                             <td colSpan={8} style={{ textAlign: 'center', padding: '20px' }}>No data found</td>
                                         </tr>
                                     ) : (
-                                        stockcardData.map((item, index) => {
-                                            const balance = ((item.beg1 || 0) + (item.in1 || 0) - (item.out1 || 0)) + (item.upd1 || 0);
+                                        (() => {
+                                            // คำนวณยอดสะสม (cumulative balance)
+                                            let cumulativeBalance = 0;
 
-                                            return (
-                                                <tr key={item.refno}>
-                                                    <td style={{
-                                                        padding: '8px 16px',
-                                                        textAlign: 'center',
-                                                        backgroundColor: 'white',
-                                                        position: 'sticky',
-                                                        left: 0,
-                                                        zIndex: 2,
-                                                        boxShadow: '2px 0px 3px rgba(0,0,0,0.1)'
-                                                    }}>{index + 1}</td>
-                                                    <td style={{
-                                                        padding: '8px 16px',
-                                                        textAlign: 'left',
-                                                        backgroundColor: 'white',
-                                                        position: 'sticky',
-                                                        left: '60px',
-                                                        zIndex: 2,
-                                                        boxShadow: '2px 0px 3px rgba(0,0,0,0.1)'
-                                                    }}>{item.refno}</td>
-                                                    <td style={{ padding: '8px 16px' }}>{formatDateForDisplay(item.rdate)}</td>
-                                                    <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(item.beg1)}</td>
-                                                    <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(item.in1)}</td>
-                                                    <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(item.out1)}</td>
-                                                    <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(item.upd1)}</td>
-                                                    <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(item.balance)}</td>
-                                                </tr>
-                                            );
-                                        })
+                                            return stockcardData.map((item, index) => {
+                                                // คำนวณการเปลี่ยนแปลงของรายการนี้
+                                                const currentItemChange = ((item.beg1 || 0) + (item.in1 || 0) - (item.out1 || 0)) + (item.upd1 || 0);
+
+                                                // เพิ่มไปที่ยอดสะสม
+                                                cumulativeBalance += currentItemChange;
+
+                                                return (
+                                                    <tr key={item.refno}>
+                                                        <td style={{
+                                                            padding: '8px 16px',
+                                                            textAlign: 'center',
+                                                            backgroundColor: 'white',
+                                                            position: 'sticky',
+                                                            left: 0,
+                                                            zIndex: 2,
+                                                            boxShadow: '2px 0px 3px rgba(0,0,0,0.1)'
+                                                        }}>{index + 1}</td>
+                                                        <td style={{
+                                                            padding: '8px 16px',
+                                                            textAlign: 'left',
+                                                            backgroundColor: 'white',
+                                                            position: 'sticky',
+                                                            left: '60px',
+                                                            zIndex: 2,
+                                                            boxShadow: '2px 0px 3px rgba(0,0,0,0.1)'
+                                                        }}>{item.refno}</td>
+                                                        <td style={{ padding: '8px 16px' }}>{formatDateForDisplay(item.rdate)}</td>
+                                                        <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(item.beg1)}</td>
+                                                        <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(item.in1)}</td>
+                                                        <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(item.out1)}</td>
+                                                        <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(item.upd1)}</td>
+                                                        <td style={{ padding: '8px 16px', textAlign: 'right' }}>{formatNumber(cumulativeBalance)}</td>
+                                                    </tr>
+                                                );
+                                            });
+                                        })()
                                     )}
                                 </tbody>
                                 {stockcardData.length > 0 && (
@@ -771,7 +780,9 @@ export default function ReportMonthlyKitchenStockCard() {
                                             <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>
                                                 {formatNumber(stockcardData.reduce((sum, item) => sum + (item.out1 || 0), 0))}
                                             </td>
-                                            <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>-</td>
+                                            <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>
+                                                {formatNumber(stockcardData.reduce((sum, item) => sum + (item.upd1 || 0), 0))}
+                                            </td>
                                             <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>-</td>
                                         </tr>
                                     </tfoot>

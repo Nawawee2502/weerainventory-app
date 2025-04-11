@@ -327,11 +327,6 @@ export const PurchaseOrderPDF = ({ supplier, supplierName, refNo, date, branch, 
               <Text style={[styles.tableCell, styles.priceCell]}>{formatNumber(item.uprice)}</Text>
               <Text style={[styles.tableCellLast, styles.amountCell]}>{formatNumber(item.amt)}</Text>
             </View>
-            {/* Barcode row */}
-            <View style={styles.barcodeSection}>
-              <Text style={styles.barcode}>{encodeToCode128(item.product_code)}</Text>
-              <Text style={styles.barcodeInfo}>ID: {item.product_code}</Text>
-            </View>
           </React.Fragment>
         ))}
       </View>

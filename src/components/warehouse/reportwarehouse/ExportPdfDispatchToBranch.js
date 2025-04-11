@@ -57,23 +57,28 @@ const styles = StyleSheet.create({
         fontSize: 10,
     },
     cellDate: {
-        width: '12%',
+        width: '10%',
         textAlign: 'center',
         fontSize: 10,
     },
     cellRef: {
-        width: '15%',
+        width: '12%',
         textAlign: 'center',
         fontSize: 10,
     },
     cellBranch: {
-        width: '20%',
+        width: '15%',
         textAlign: 'left',
         fontSize: 10,
     },
     cellProduct: {
         width: '20%',
         textAlign: 'left',
+        fontSize: 10,
+    },
+    cellTemp: {
+        width: '8%',
+        textAlign: 'center',
         fontSize: 10,
     },
     cellQuantity: {
@@ -134,6 +139,7 @@ const DispatchToBranchPDF = ({ data, excludePrice = false, startDate, endDate })
         { title: 'Ref.no', style: styles.cellRef },
         { title: 'Branch', style: styles.cellBranch },
         { title: 'Product Name', style: styles.cellProduct },
+        { title: 'Temp (°C)', style: styles.cellTemp }, // Added temperature column
         { title: 'Quantity', style: styles.cellQuantity },
         { title: 'Unit', style: styles.cellUnit },
     ];
@@ -175,6 +181,7 @@ const DispatchToBranchPDF = ({ data, excludePrice = false, startDate, endDate })
                         <Text style={styles.cellRef}>{row.refno}</Text>
                         <Text style={styles.cellBranch}>{row.branch_code}</Text>
                         <Text style={styles.cellProduct}>{row.product_name}</Text>
+                        <Text style={styles.cellTemp}>{row.temperature1 ? `${row.temperature1}°C` : '38°C'}</Text>
                         <Text style={styles.cellQuantity}>{row.quantity}</Text>
                         <Text style={styles.cellUnit}>{row.unit_code}</Text>
                         {!excludePrice && (
@@ -196,6 +203,7 @@ const DispatchToBranchPDF = ({ data, excludePrice = false, startDate, endDate })
                     <Text style={styles.cellRef}></Text>
                     <Text style={styles.cellBranch}></Text>
                     <Text style={styles.cellProduct}></Text>
+                    <Text style={styles.cellTemp}></Text>
                     <Text style={styles.cellQuantity}></Text>
                     <Text style={styles.cellUnit}></Text>
                     {!excludePrice && (

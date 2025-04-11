@@ -264,8 +264,8 @@ export default function ReportKitchenStockBalance() {
 
     const formatNumber = (num) => {
         return Number(num || 0).toLocaleString(undefined, {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
         });
     };
 
@@ -645,49 +645,6 @@ export default function ReportKitchenStockBalance() {
                                         <tr>
                                             <td colSpan={9}>
                                                 <Divider sx={{ width: '100%', color: '#754C27', border: '1px solid #754C27' }} />
-                                            </td>
-                                        </tr>
-                                        <tr>
-                                            <td style={{
-                                                padding: '12px 16px',
-                                                backgroundColor: 'white',
-                                                position: 'sticky',
-                                                left: 0,
-                                                zIndex: 2,
-                                                boxShadow: '2px 0px 3px rgba(0,0,0,0.1)'
-                                            }}></td>
-                                            <td style={{
-                                                textAlign: 'right',
-                                                padding: '12px 16px',
-                                                fontWeight: 'bold',
-                                                color: '#754C27',
-                                                backgroundColor: 'white',
-                                                position: 'sticky',
-                                                left: '60px',
-                                                zIndex: 2,
-                                                boxShadow: '2px 0px 3px rgba(0,0,0,0.1)'
-                                            }}>
-                                                Total:
-                                            </td>
-                                            <td style={{ padding: '12px 16px' }}></td>
-                                            <td style={{ padding: '12px 16px' }}></td>
-                                            <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>
-                                                {formatNumber(stockBalanceData.reduce((sum, item) => sum + (item.beg1 || 0), 0))}
-                                            </td>
-                                            <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>
-                                                {formatNumber(stockBalanceData.reduce((sum, item) => sum + (item.in1 || 0), 0))}
-                                            </td>
-                                            <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>
-                                                {formatNumber(stockBalanceData.reduce((sum, item) => sum + (item.out1 || 0), 0))}
-                                            </td>
-                                            <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>
-                                                {formatNumber(stockBalanceData.reduce((sum, item) => sum + (item.upd1 || 0), 0))}
-                                            </td>
-                                            <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: '#754C27' }}>
-                                                {formatNumber(stockBalanceData.reduce((sum, item) => {
-                                                    const balance = ((item.beg1 || 0) + (item.in1 || 0) - (item.out1 || 0)) + (item.upd1 || 0);
-                                                    return sum + balance;
-                                                }, 0))}
                                             </td>
                                         </tr>
                                     </tfoot>

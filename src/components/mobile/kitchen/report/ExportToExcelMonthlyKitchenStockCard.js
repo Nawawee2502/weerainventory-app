@@ -36,17 +36,6 @@ export const exportToExcelMonthlyKitchenStockCard = async (data, excludePrice = 
         'Balance'
     ];
 
-    if (!excludePrice) {
-        headers.push(
-            'Unit Price',
-            'Beg Amt',
-            'In Amt',
-            'Out Amt',
-            'Update Amt',
-            'Balance Amount'
-        );
-    }
-
     // Define column widths
     const columnWidths = {
         'No.': 8,
@@ -56,13 +45,7 @@ export const exportToExcelMonthlyKitchenStockCard = async (data, excludePrice = 
         'In': 12,
         'Out': 12,
         'Update': 12,
-        'Balance': 12,
-        'Unit Price': 12,
-        'Beg Amt': 12,
-        'In Amt': 12,
-        'Out Amt': 12,
-        'Update Amt': 12,
-        'Balance Amount': 15
+        'Balance': 12
     };
 
     const formatDate = (date) => {
@@ -120,10 +103,16 @@ export const exportToExcelMonthlyKitchenStockCard = async (data, excludePrice = 
         cell.alignment = { horizontal: 'center', vertical: 'middle' };
     });
 
+    // คำนวณยอดสะสม (cumulative balance)
+    let cumulativeBalance = 0;
+
     // Add data rows
     data.forEach((item, index) => {
-        const balance = ((item.beg1 || 0) + (item.in1 || 0) - (item.out1 || 0)) + (item.upd1 || 0);
-        const balanceAmount = ((item.beg1_amt || 0) + (item.in1_amt || 0) - (item.out1_amt || 0)) + (item.upd1_amt || 0);
+        // คำนวณการเปลี่ยนแปลงของรายการนี้
+        const currentItemChange = ((item.beg1 || 0) + (item.in1 || 0) - (item.out1 || 0)) + (item.upd1 || 0);
+        
+        // เพิ่มไปที่ยอดสะสม
+        cumulativeBalance += currentItemChange;
 
         const rowData = [
             index + 1,
@@ -133,26 +122,15 @@ export const exportToExcelMonthlyKitchenStockCard = async (data, excludePrice = 
             item.in1 || 0,
             item.out1 || 0,
             item.upd1 || 0,
-            balance
+            cumulativeBalance // ใช้ยอดสะสม
         ];
-
-        if (!excludePrice) {
-            rowData.push(
-                item.uprice || 0,
-                item.beg1_amt || 0,
-                item.in1_amt || 0,
-                item.out1_amt || 0,
-                item.upd1_amt || 0,
-                balanceAmount
-            );
-        }
 
         const row = worksheet.addRow(rowData);
         row.eachCell((cell, colNumber) => {
             const header = headers[colNumber - 1];
 
             // Format numbers
-            if (['Beg', 'In', 'Out', 'Update', 'Balance', 'Unit Price', 'Beg Amt', 'In Amt', 'Out Amt', 'Update Amt', 'Balance Amount'].includes(header)) {
+            if (['Beg', 'In', 'Out', 'Update', 'Balance'].includes(header)) {
                 cell.numFmt = '#,##0.00';
             }
 
@@ -188,11 +166,7 @@ export const exportToExcelMonthlyKitchenStockCard = async (data, excludePrice = 
         const totals = {
             beg: data.reduce((sum, item) => sum + (item.beg1 || 0), 0),
             in: data.reduce((sum, item) => sum + (item.in1 || 0), 0),
-            out: data.reduce((sum, item) => sum + (item.out1 || 0), 0),
-            beg_amt: data.reduce((sum, item) => sum + (item.beg1_amt || 0), 0),
-            in_amt: data.reduce((sum, item) => sum + (item.in1_amt || 0), 0),
-            out_amt: data.reduce((sum, item) => sum + (item.out1_amt || 0), 0),
-            upd_amt: data.reduce((sum, item) => sum + (item.upd1_amt || 0), 0)
+            out: data.reduce((sum, item) => sum + (item.out1 || 0), 0)
         };
 
         const totalRowData = [
@@ -205,17 +179,6 @@ export const exportToExcelMonthlyKitchenStockCard = async (data, excludePrice = 
             '',
             ''
         ];
-
-        if (!excludePrice) {
-            totalRowData.push(
-                '',
-                totals.beg_amt,
-                totals.in_amt,
-                totals.out_amt,
-                totals.upd_amt,
-                totals.beg_amt + totals.in_amt - totals.out_amt + totals.upd_amt
-            );
-        }
 
         const totalRow = worksheet.addRow(totalRowData);
 

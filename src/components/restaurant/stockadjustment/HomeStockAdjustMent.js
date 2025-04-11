@@ -5,12 +5,12 @@ import { useDemoRouter } from '@toolpad/core/internal';
 import { useTheme } from '@mui/material/styles';
 import Paper from '@mui/material/Paper';
 import CreateStockAdjustment from './CreateStockAdjustment';
+import EditStockAdjustment from './EditStockAdjustment';
 import StockAdjustment from './StockAdjustMent';
-// import EditReceiptFromKitchen from './EditReceiptFromKitchen';
 
 const NAVIGATION = [
     { segment: '', title: '' },
-    { segment: 'receipts', title: 'Receipts' },
+    { segment: 'stock-adjustments', title: 'Stock Adjustments' },
 ];
 
 export default function HomeStockAdjustment() {
@@ -38,8 +38,8 @@ export default function HomeStockAdjustment() {
         switch (currentView) {
             case 'create':
                 return <CreateStockAdjustment onBack={handleBack} />;
-            //   case 'edit':
-            //     return <EditReceiptFromKitchen onBack={handleBack} editRefno={editRefno} />;
+            case 'edit':
+                return <EditStockAdjustment onBack={handleBack} editRefno={editRefno} />;
             default:
                 return <StockAdjustment onCreate={handleCreate} onEdit={handleEdit} />;
         }

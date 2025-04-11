@@ -800,8 +800,6 @@ export default function EditRequestToKitchen({ onBack, editRefno }) {
                                     <TableCell>Expiry Date</TableCell>
                                     <TableCell>Quantity</TableCell>
                                     <TableCell>Unit</TableCell>
-                                    <TableCell>Unit Price</TableCell>
-                                    <TableCell>Total</TableCell>
                                     <TableCell>Actions</TableCell>
                                 </TableRow>
                             </TableHead>
@@ -884,12 +882,6 @@ export default function EditRequestToKitchen({ onBack, editRefno }) {
                                                         </MenuItem>
                                                     )}
                                                 </Select>
-                                            </TableCell>
-                                            <TableCell>
-                                                ${(unitPrices[product.product_code] || 0).toFixed(2)}
-                                            </TableCell>
-                                            <TableCell>
-                                                ${(totals[product.product_code] || 0).toFixed(2)}
                                             </TableCell>
                                             <TableCell>
                                                 <IconButton

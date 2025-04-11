@@ -148,7 +148,7 @@ function Warehouse(props) {
                 children: [
                     {
                         segment: 'purchase-order-to-supplier',
-                        title: 'Purchase Order',
+                        title: 'Purchase Order To Warehouse',
                         icon: <CircleIcon fontSize='small' />,
                     },
                     {

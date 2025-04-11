@@ -669,8 +669,6 @@ export default function CreateStockAdjustment({ onBack }) {
                                     <TableCell>Expiry Date</TableCell>
                                     <TableCell>Quantity</TableCell>
                                     <TableCell>Unit</TableCell>
-                                    <TableCell>Unit Price</TableCell>
-                                    <TableCell>Total</TableCell>
                                     <TableCell>Actions</TableCell>
                                 </TableRow>
                             </TableHead>
@@ -747,12 +745,6 @@ export default function CreateStockAdjustment({ onBack }) {
                                                         {product.productUnit2?.unit_name}
                                                     </MenuItem>
                                                 </Select>
-                                            </TableCell>
-                                            <TableCell>
-                                                ${unitPrices[product.product_code]?.toFixed(2) || '0.00'}
-                                            </TableCell>
-                                            <TableCell>
-                                                ${totals[product.product_code]?.toFixed(2) || '0.00'}
                                             </TableCell>
                                             <TableCell>
                                                 <IconButton

@@ -44,7 +44,8 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
                     height: '38px',
                     width: '100%',
                     backgroundColor: '#fff',
-                    borderRadius: '10px'
+                    borderRadius: '10px',
+                    mt: '8px'
                 }
             }}
             InputProps={{
@@ -666,7 +667,7 @@ export default function CreateReceiptFromWarehouse({ onBack }) {
                 p: 3
             }}>
                 <Grid2 container spacing={2}>
-                    <Grid2 item xs={12} md={6}>
+                    <Grid2 item size={{ xs: 12, md: 6 }}>
                         <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
                             Kitchen (Select First)
                         </Typography>
@@ -696,7 +697,7 @@ export default function CreateReceiptFromWarehouse({ onBack }) {
                         </Box>
                     </Grid2>
 
-                    <Grid2 item xs={12} md={6}>
+                    <Grid2 item size={{ xs: 12, md: 6 }}>
                         <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
                             Select from Available Dispatches
                         </Typography>
@@ -755,7 +756,7 @@ export default function CreateReceiptFromWarehouse({ onBack }) {
                         </Box>
                     </Grid2>
 
-                    <Grid2 item xs={12} md={6}>
+                    <Grid2 item size={{ xs: 12, md: 6 }}>
                         <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
                             Ref.no
                         </Typography>
@@ -779,7 +780,7 @@ export default function CreateReceiptFromWarehouse({ onBack }) {
                         />
                     </Grid2>
 
-                    <Grid2 item xs={12} md={6}>
+                    <Grid2 item size={{ xs: 12, md: 6 }}>
                         <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
                             Date
                         </Typography>
@@ -915,9 +916,7 @@ export default function CreateReceiptFromWarehouse({ onBack }) {
                                                     }));
                                                 }}
                                                 type="number"
-                                                InputProps={{
-                                                    endAdornment: <InputAdornment position="end">°C</InputAdornment>,
-                                                }}
+
                                                 sx={{ width: '80px' }}
                                             />
                                         </td>

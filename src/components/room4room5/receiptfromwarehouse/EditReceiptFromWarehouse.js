@@ -73,6 +73,7 @@ export default function EditReceiptFromWarehouse({ onBack, editRefno }) {
     const [searchResults, setSearchResults] = useState([]);
     const [showDropdown, setShowDropdown] = useState(false);
     const [allProducts, setAllProducts] = useState([]);
+    const [temperatures, setTemperatures] = useState({});
 
     // Additional product details
     const [expiryDates, setExpiryDates] = useState({});
@@ -190,6 +191,7 @@ export default function EditReceiptFromWarehouse({ onBack, editRefno }) {
             const newUnitPrices = {};
             const newTotals = {};
             const newExpiryDates = {};
+            const newTemperatures = {};
 
             detailData.forEach((item) => {
                 const productCode = item.product_code;
@@ -197,6 +199,7 @@ export default function EditReceiptFromWarehouse({ onBack, editRefno }) {
                 newUnits[productCode] = item.unit_code || item.tbl_product?.productUnit1?.unit_code || '';
                 newUnitPrices[productCode] = parseFloat(item.uprice) || 0;
                 newTotals[productCode] = parseFloat(item.amt) || 0;
+                newTemperatures[productCode] = item.temperature1 || '38';
 
                 // Parse expiry date
                 if (item.texpire_date && item.texpire_date.length === 8) {
@@ -235,6 +238,7 @@ export default function EditReceiptFromWarehouse({ onBack, editRefno }) {
             setUnitPrices(newUnitPrices);
             setTotals(newTotals);
             setExpiryDates(newExpiryDates);
+            setTemperatures(newTemperatures);
 
             // Calculate and set total
             const totalSum = Object.values(newTotals).reduce((sum, value) => sum + value, 0);
@@ -427,6 +431,13 @@ export default function EditReceiptFromWarehouse({ onBack, editRefno }) {
         }));
 
         calculateOrderTotals();
+    };
+
+    const handleTemperatureChange = (productCode, temp) => {
+        setTemperatures(prev => ({
+            ...prev,
+            [productCode]: temp
+        }));
     };
 
     // Add +/- button handlers
@@ -798,6 +809,7 @@ export default function EditReceiptFromWarehouse({ onBack, editRefno }) {
                                         <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '20%', color: '#754C27', fontWeight: '800' }}>Product name</th>
                                         <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Expiry Date</th>
                                         <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Quantity</th>
+                                        <th style={{ padding: '12px', textAlign: 'center', color: '#754C27', backgroundColor: '#f5f5f5' }}>Temperature</th>
                                         <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '10%', color: '#754C27', fontWeight: '800' }}>Unit</th>
                                         <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Unit Price</th>
                                         <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Tax</th>
@@ -808,7 +820,7 @@ export default function EditReceiptFromWarehouse({ onBack, editRefno }) {
                                 <tbody>
                                     {products.length === 0 ? (
                                         <tr>
-                                            <td colSpan={10} style={{ textAlign: 'center', padding: '16px', color: '#666' }}>
+                                            <td colSpan={11} style={{ textAlign: 'center', padding: '16px', color: '#666' }}>
                                                 No products added yet. Search and select products above.
                                             </td>
                                         </tr>

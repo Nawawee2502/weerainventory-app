@@ -62,6 +62,14 @@ const formatDate = (date) => {
   return `${month}/${day}/${year}`;
 };
 
+// Format number as whole numbers (integers)
+const formatNumber = (num) => {
+  return Number(num || 0).toLocaleString(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  });
+};
+
 export default function KitchenDailyclosing() {
   const dispatch = useDispatch();
   const [selectedDate, setSelectedDate] = useState(convertToLasVegasTime(new Date()));
@@ -315,22 +323,22 @@ export default function KitchenDailyclosing() {
                     <td style={{ padding: '8px 16px' }}>{item.tbl_unit?.unit_name}</td>
                     <td style={{ padding: '8px 16px' }}>{item.tbl_kitchen?.kitchen_name}</td>
                     <td style={{ padding: '8px 16px', textAlign: 'right' }}>
-                      {Number(item.beg1).toLocaleString()}
+                      {formatNumber(item.beg1)}
                     </td>
                     <td style={{ padding: '8px 16px', textAlign: 'right' }}>
-                      {Number(item.in1).toLocaleString()}
+                      {formatNumber(item.in1)}
                     </td>
                     <td style={{ padding: '8px 16px', textAlign: 'right' }}>
-                      {Number(item.out1).toLocaleString()}
+                      {formatNumber(item.out1)}
                     </td>
                     <td style={{ padding: '8px 16px', textAlign: 'right' }}>
-                      {Number(item.upd1).toLocaleString()}
+                      {formatNumber(item.upd1)}
                     </td>
                     <td style={{ padding: '8px 16px', textAlign: 'right' }}>
-                      {Number(item.balance).toLocaleString()}
+                      {formatNumber(item.balance)}
                     </td>
                     <td style={{ padding: '8px 16px', textAlign: 'right' }}>
-                      {Number(item.balance_amount).toLocaleString()}
+                      {formatNumber(item.balance_amount)}
                     </td>
                   </tr>
                 ))
@@ -358,7 +366,9 @@ export default function KitchenDailyclosing() {
                     color: '#754C27',
                     textAlign: 'right'
                   }}>
-                    {stockBalanceData.reduce((sum, item) => sum + Number(item.balance || 0), 0).toLocaleString()}
+                    {formatNumber(
+                      stockBalanceData.reduce((sum, item) => sum + Number(item.balance || 0), 0)
+                    )}
                   </td>
                   <td style={{
                     padding: '12px 16px',
@@ -366,8 +376,9 @@ export default function KitchenDailyclosing() {
                     color: '#754C27',
                     textAlign: 'right'
                   }}>
-                    {stockBalanceData.reduce((sum, item) =>
-                      sum + Number(item.balance_amount || 0), 0).toLocaleString()}
+                    {formatNumber(
+                      stockBalanceData.reduce((sum, item) => sum + Number(item.balance_amount || 0), 0)
+                    )}
                   </td>
                 </tr>
               </tfoot>

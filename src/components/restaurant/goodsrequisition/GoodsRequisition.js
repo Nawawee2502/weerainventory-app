@@ -1,4 +1,4 @@
-import { Box, Button, InputAdornment, TextField, Typography, tableCellClasses, TableContainer, Table, TableHead, TableRow, TableCell, TableBody, Paper, Checkbox, IconButton, Switch } from '@mui/material';
+import { Box, Button, InputAdornment, TextField, Typography, tableCellClasses, TableContainer, Table, TableHead, TableRow, TableCell, TableBody, Paper, Checkbox, IconButton, Switch, FormControlLabel } from '@mui/material';
 import React, { useState, useEffect } from 'react';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
 import SearchIcon from '@mui/icons-material/Search';
@@ -12,11 +12,12 @@ import "react-datepicker/dist/react-datepicker.css";
 import Stack from '@mui/material/Stack';
 import Pagination from '@mui/material/Pagination';
 import { useDispatch } from 'react-redux';
-import { Br_rfsAlljoindt, deleteBr_rfs } from '../../../api/restaurant/br_rfsApi';
-import { supplierAll } from '../../../api/supplierApi';
-import { branchAll } from '../../../api/branchApi'; // Import branch API
+import { Br_grfAlljoindt, deleteBr_grf, Br_grfByRefno } from '../../../api/restaurant/br_grfApi';
+import { branchAll } from '../../../api/branchApi';
 import { searchProductName } from '../../../api/productrecordApi';
 import Swal from 'sweetalert2';
+import { pdf } from '@react-pdf/renderer';
+import { generateGoodsRequisitionPDF } from './Br_grfPDF';
 
 const formatDate = (date) => {
     if (!date) return "";
@@ -76,15 +77,13 @@ const StyledTableRow = styled(TableRow)(({ theme }) => ({
     },
 }));
 
-export default function GoodsReceiptSupplier({ onCreate, onEdit }) {
+export default function GoodsRequisition({ onCreate, onEdit }) {
     const dispatch = useDispatch();
-    const [searchSupplier, setSearchSupplier] = useState("");
-    const [searchBranch, setSearchBranch] = useState(""); // New state for branch search
+    const [searchBranch, setSearchBranch] = useState("");
     const [searchProduct, setSearchProduct] = useState("");
     const [searchResults, setSearchResults] = useState([]);
     const [showDropdown, setShowDropdown] = useState(false);
-    const [suppliers, setSuppliers] = useState([]);
-    const [branches, setBranches] = useState([]); // New state for branches
+    const [branches, setBranches] = useState([]);
     const [filterDate, setFilterDate] = useState(new Date());
     const [selected, setSelected] = useState([]);
     const [page, setPage] = useState(1);
@@ -92,27 +91,10 @@ export default function GoodsReceiptSupplier({ onCreate, onEdit }) {
     const [data, setData] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [excludePrice, setExcludePrice] = useState(false);
-    const [totalRecords, setTotalRecords] = useState(0);
     const limit = 5;
 
-    // Load suppliers and branches on component mount
+    // Load branches on component mount
     useEffect(() => {
-        const loadSuppliers = async () => {
-            try {
-                const response = await dispatch(supplierAll({ offset: 0, limit: 100 })).unwrap();
-                if (response.result && response.data) {
-                    setSuppliers(response.data);
-                }
-            } catch (error) {
-                console.error('Error loading suppliers:', error);
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error',
-                    text: 'Failed to load suppliers'
-                });
-            }
-        };
-
         const loadBranches = async () => {
             try {
                 const response = await dispatch(branchAll({ offset: 0, limit: 100 })).unwrap();
@@ -128,66 +110,51 @@ export default function GoodsReceiptSupplier({ onCreate, onEdit }) {
                 });
             }
         };
-
-        loadSuppliers();
-        loadBranches(); // Load branches when component mounts
+        loadBranches();
     }, [dispatch]);
 
     useEffect(() => {
         fetchData();
-    }, [page, searchSupplier, searchBranch, searchProduct, filterDate]); // Added searchBranch to dependency array
+    }, [page, searchBranch, searchProduct, filterDate]);
 
     const fetchData = async () => {
         try {
             setIsLoading(true);
             const offset = (page - 1) * limit;
 
-            // Format date as YYYYMMDD for backend
-            const year = filterDate.getFullYear();
-            const month = String(filterDate.getMonth() + 1).padStart(2, '0');
-            const day = String(filterDate.getDate()).padStart(2, '0');
+            // แก้ไขการจัดการวันที่เพื่อให้ทำงานได้ในทุก timezone
+            // 1. สร้างวันที่ในเวลาเที่ยงคืนของวันที่เลือกในโซนเวลาท้องถิ่น
+            const localDate = new Date(filterDate);
+            // 2. รีเซ็ตเวลาเป็น 00:00:00.000 ในโซนเวลาท้องถิ่น
+            localDate.setHours(0, 0, 0, 0);
+
+            // 3. สร้าง string format ที่เป็น YYYYMMDD โดยตรง
+            const year = localDate.getFullYear();
+            const month = String(localDate.getMonth() + 1).padStart(2, '0');
+            const day = String(localDate.getDate()).padStart(2, '0');
             const formattedDate = `${year}${month}${day}`;
 
-            console.log('Fetching data with date:', formattedDate);
-
-            const response = await dispatch(Br_rfsAlljoindt({
+            const response = await dispatch(Br_grfAlljoindt({
                 offset,
                 limit,
                 rdate1: formattedDate,
                 rdate2: formattedDate,
-                supplier_code: searchSupplier,
-                branch_code: searchBranch, // Added branch_code parameter
+                branch_code: searchBranch,
                 product_code: searchProduct
             })).unwrap();
 
-            if (response.result) {
-                setData(response.data || []);
-
-                // Use total count from backend for pagination
-                const totalCount = response.total || 0;
-                setTotalRecords(totalCount);
-
-                // Calculate total pages based on total count and limit
-                const totalPages = Math.ceil(totalCount / limit);
-                setCount(totalPages > 0 ? totalPages : 1);
-
-                console.log(`Retrieved ${response.data.length} records. Total: ${totalCount}, Pages: ${totalPages}`);
-            } else {
-                console.error('API returned result:false:', response);
-                setData([]);
-                setTotalRecords(0);
-                setCount(1);
+            if (response.result && response.data) {
+                setData(response.data);
+                // Calculate total pages from total count
+                const totalPages = Math.ceil(response.total / limit);
+                setCount(totalPages || 1);
             }
         } catch (error) {
             console.error('Error fetching data:', error);
-            setData([]);
-            setTotalRecords(0);
-            setCount(1);
-
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
-                text: 'Failed to fetch data: ' + (error.message || 'Unknown error')
+                text: 'Failed to fetch data'
             });
         } finally {
             setIsLoading(false);
@@ -206,7 +173,7 @@ export default function GoodsReceiptSupplier({ onCreate, onEdit }) {
                 confirmButtonText: 'Yes, delete it!'
             }).then(async (result) => {
                 if (result.isConfirmed) {
-                    await dispatch(deleteBr_rfs({ refno })).unwrap();
+                    await dispatch(deleteBr_grf({ refno })).unwrap();
                     Swal.fire(
                         'Deleted!',
                         'Record has been deleted.',
@@ -266,7 +233,7 @@ export default function GoodsReceiptSupplier({ onCreate, onEdit }) {
             }).then(async (result) => {
                 if (result.isConfirmed) {
                     await Promise.all(
-                        selected.map(refno => dispatch(deleteBr_rfs({ refno })).unwrap())
+                        selected.map(refno => dispatch(deleteBr_grf({ refno })).unwrap())
                     );
                     Swal.fire(
                         'Deleted!',
@@ -284,11 +251,6 @@ export default function GoodsReceiptSupplier({ onCreate, onEdit }) {
                 text: 'Failed to delete records'
             });
         }
-    };
-
-    const handleSearchSupplierChange = (e) => {
-        setSearchSupplier(e.target.value);
-        setPage(1);
     };
 
     const handleSearchBranchChange = (e) => {
@@ -328,11 +290,73 @@ export default function GoodsReceiptSupplier({ onCreate, onEdit }) {
     };
 
     const clearFilters = () => {
-        setSearchSupplier("");
         setSearchBranch("");
         setSearchProduct("");
         setFilterDate(new Date());
         setPage(1);
+    };
+
+    // Handle Print PDF function
+    const handlePrintPDF = async (refno) => {
+        try {
+            Swal.fire({
+                title: 'กำลังโหลดข้อมูล...',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            const orderResponse = await dispatch(Br_grfByRefno({ refno })).unwrap();
+
+            console.log("API Response Data (Complete):", orderResponse);
+
+            if (orderResponse.result && orderResponse.data) {
+                const data = orderResponse.data;
+
+                console.log("Products data:", data.br_grfdts);
+
+                if (data.br_grfdts) {
+                    console.log("Number of products:",
+                        Array.isArray(data.br_grfdts) ?
+                            data.br_grfdts.length :
+                            (typeof data.br_grfdts === 'object' ?
+                                Object.keys(data.br_grfdts).length :
+                                'Not an array or object'));
+
+                    // Sample data
+                    if (Array.isArray(data.br_grfdts) && data.br_grfdts.length > 0) {
+                        console.log("First product:", data.br_grfdts[0]);
+                    } else if (typeof data.br_grfdts === 'object') {
+                        console.log("First product:", data.br_grfdts[Object.keys(data.br_grfdts)[0]]);
+                    }
+                } else {
+                    console.log("No products data found in API response");
+                }
+
+                // Pass the includePrices parameter (false when excludePrice is true)
+                const pdfContent = await generateGoodsRequisitionPDF(refno, data, !excludePrice);
+
+                if (pdfContent) {
+                    Swal.close();
+                    const asBlob = await pdf(pdfContent).toBlob();
+                    const url = URL.createObjectURL(asBlob);
+                    window.open(url, '_blank');
+                } else {
+                    throw new Error("Failed to generate PDF content");
+                }
+            } else {
+                throw new Error("Order data not found or invalid");
+            }
+        } catch (error) {
+            console.error('Error generating PDF:', error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error generating PDF',
+                text: error.message || 'Please try again later',
+                confirmButtonText: 'OK'
+            });
+        }
     };
 
     return (
@@ -361,28 +385,6 @@ export default function GoodsReceiptSupplier({ onCreate, onEdit }) {
             </Button>
 
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mt: '48px', width: '90%', gap: '20px' }}>
-                {/* Supplier Dropdown */}
-                <Box
-                    component="select"
-                    value={searchSupplier}
-                    onChange={handleSearchSupplierChange}
-                    sx={{
-                        height: '38px',
-                        width: '20%',
-                        borderRadius: '4px',
-                        border: '1px solid rgba(0, 0, 0, 0.23)',
-                        padding: '0 14px',
-                        backgroundColor: '#fff'
-                    }}
-                >
-                    <option value="">All Suppliers</option>
-                    {suppliers.map((supplier) => (
-                        <option key={supplier.supplier_code} value={supplier.supplier_code}>
-                            {supplier.supplier_name}
-                        </option>
-                    ))}
-                </Box>
-
                 {/* Branch Dropdown */}
                 <Box
                     component="select"
@@ -390,7 +392,7 @@ export default function GoodsReceiptSupplier({ onCreate, onEdit }) {
                     onChange={handleSearchBranchChange}
                     sx={{
                         height: '38px',
-                        width: '20%',
+                        width: '25%',
                         borderRadius: '4px',
                         border: '1px solid rgba(0, 0, 0, 0.23)',
                         padding: '0 14px',
@@ -404,7 +406,6 @@ export default function GoodsReceiptSupplier({ onCreate, onEdit }) {
                         </option>
                     ))}
                 </Box>
-
                 <Box sx={{ width: '200px' }}>
                     <DatePicker
                         selected={filterDate}
@@ -415,17 +416,22 @@ export default function GoodsReceiptSupplier({ onCreate, onEdit }) {
                         popperClassName="custom-popper"
                     />
                 </Box>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Switch
-                            checked={excludePrice}
-                            onChange={(e) => setExcludePrice(e.target.checked)}
-                        />
-                        <Typography sx={{ fontWeight: '500', color: '#7E84A3' }}>
-                            Exclude price in file
-                        </Typography>
-                    </Box>
-                </Box>
+                <Button
+                    onClick={clearFilters}
+                    variant="outlined"
+                    sx={{
+                        height: '38px',
+                        width: '120px',
+                        borderColor: '#754C27',
+                        color: '#754C27',
+                        '&:hover': {
+                            borderColor: '#5d3a1f',
+                            backgroundColor: 'rgba(117, 76, 39, 0.04)'
+                        }
+                    }}
+                >
+                    Clear
+                </Button>
             </Box>
 
             <Box sx={{ width: '100%', mt: '24px' }}>
@@ -453,8 +459,7 @@ export default function GoodsReceiptSupplier({ onCreate, onEdit }) {
                             <StyledTableCell width='1%'>No.</StyledTableCell>
                             <StyledTableCell align="center">Ref.no</StyledTableCell>
                             <StyledTableCell align="center">Date</StyledTableCell>
-                            <StyledTableCell align="center">Supplier</StyledTableCell>
-                            <StyledTableCell align="center">Restaurant</StyledTableCell> {/* Added Branch column */}
+                            <StyledTableCell align="center">Restaurant</StyledTableCell>
                             <StyledTableCell align="center">Total Amount</StyledTableCell>
                             <StyledTableCell align="center">Username</StyledTableCell>
                             <StyledTableCell width='1%' align="center"></StyledTableCell>
@@ -465,11 +470,11 @@ export default function GoodsReceiptSupplier({ onCreate, onEdit }) {
                     <TableBody>
                         {isLoading ? (
                             <TableRow>
-                                <TableCell colSpan={11} align="center">Loading...</TableCell> {/* Updated colspan to include new column */}
+                                <TableCell colSpan={10} align="center">Loading...</TableCell>
                             </TableRow>
                         ) : data.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={11} align="center">No data found</TableCell> {/* Updated colspan to include new column */}
+                                <TableCell colSpan={10} align="center">No data found</TableCell>
                             </TableRow>
                         ) : (
                             data.map((row, index) => {
@@ -487,9 +492,8 @@ export default function GoodsReceiptSupplier({ onCreate, onEdit }) {
                                         </StyledTableCell>
                                         <StyledTableCell align="center">{row.refno}</StyledTableCell>
                                         <StyledTableCell align="center">{row.rdate}</StyledTableCell>
-                                        <StyledTableCell align="center">{row.tbl_supplier?.supplier_name}</StyledTableCell>
-                                        <StyledTableCell align="center">{row.tbl_branch?.branch_name}</StyledTableCell> {/* Added Branch name */}
-                                        <StyledTableCell align="center">{Number(row.total).toFixed(2)}</StyledTableCell>
+                                        <StyledTableCell align="center">{row.tbl_branch?.branch_name}</StyledTableCell>
+                                        <StyledTableCell align="center">{row.total.toFixed(2)}</StyledTableCell>
                                         <StyledTableCell align="center">{row.user?.username}</StyledTableCell>
                                         <StyledTableCell align="center">
                                             <IconButton
@@ -509,7 +513,7 @@ export default function GoodsReceiptSupplier({ onCreate, onEdit }) {
                                         </StyledTableCell>
                                         <StyledTableCell align="center">
                                             <IconButton
-                                                onClick={() => {/* Add print functionality later */ }}
+                                                onClick={() => handlePrintPDF(row.refno)}
                                                 sx={{ border: '1px solid #5686E1', borderRadius: '7px' }}
                                             >
                                                 <PrintIcon sx={{ color: '#5686E1' }} />

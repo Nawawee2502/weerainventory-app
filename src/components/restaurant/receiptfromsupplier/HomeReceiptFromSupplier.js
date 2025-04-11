@@ -4,21 +4,23 @@ import { AppProvider } from '@toolpad/core/AppProvider';
 import { useDemoRouter } from '@toolpad/core/internal';
 import { useTheme } from '@mui/material/styles';
 import Paper from '@mui/material/Paper';
+
 import ReceiptFromSupplier from './ReceiptFromSupplier';
+import EditReceiptFromSupplier from './EditReceiptFromSupplier';
 import CreateReceiptFromSupplier from './CreateReceiptFromSupplier';
-// import EditReceiptFromSupplier from './EditReceiptFromSupplier';
 
 const NAVIGATION = [
   { segment: '', title: '' },
-  { segment: 'receipts', title: 'Receipts' },
+  { segment: 'supplier', title: 'Supplier' },
 ];
 
 export default function HomeReceiptFromSupplier() {
   const router = useDemoRouter('/');
   const theme = useTheme();
 
-  const [currentView, setCurrentView] = React.useState('list');
+  const [currentView, setCurrentView] = React.useState('list'); // 'list', 'create', or 'edit'
   const [editRefno, setEditRefno] = React.useState(null);
+
 
   const handleCreate = () => {
     setCurrentView('create');
@@ -35,11 +37,11 @@ export default function HomeReceiptFromSupplier() {
   };
 
   const renderComponent = () => {
-    switch(currentView) {
+    switch (currentView) {
       case 'create':
         return <CreateReceiptFromSupplier onBack={handleBack} />;
-    //   case 'edit':
-    //     return <EditReceiptFromSupplier onBack={handleBack} editRefno={editRefno} />;
+      case 'edit':
+        return <EditReceiptFromSupplier onBack={handleBack} editRefno={editRefno} />;
       default:
         return <ReceiptFromSupplier onCreate={handleCreate} onEdit={handleEdit} />;
     }
@@ -54,4 +56,5 @@ export default function HomeReceiptFromSupplier() {
       </Paper>
     </AppProvider>
   );
+
 }

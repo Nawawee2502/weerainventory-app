@@ -12,10 +12,13 @@ import "react-datepicker/dist/react-datepicker.css";
 import Stack from '@mui/material/Stack';
 import Pagination from '@mui/material/Pagination';
 import { useDispatch } from 'react-redux';
-import { Kt_grfAlljoindt, deleteKt_grf } from '../../../../api/kitchen/kt_grfApi';
+import { Kt_grfAlljoindt, deleteKt_grf, Kt_grfByRefno } from '../../../../api/kitchen/kt_grfApi';
 import { kitchenAll } from '../../../../api/kitchenApi';
 import { searchProductName } from '../../../../api/productrecordApi';
 import Swal from 'sweetalert2';
+import { pdf } from '@react-pdf/renderer';
+import { generatePDF } from './Kt_grfPDF';
+
 
 const formatDate = (date) => {
     if (!date) return "";
@@ -121,10 +124,7 @@ export default function KitchenRequisition({ onCreate, onEdit }) {
             setIsLoading(true);
             const offset = (page - 1) * limit;
 
-            const year = filterDate.getFullYear();
-            const month = String(filterDate.getMonth() + 1).padStart(2, '0');
-            const day = String(filterDate.getDate()).padStart(2, '0');
-            const formattedDate = `${year}${month}${day}`;
+            const formattedDate = filterDate.toISOString().slice(0, 10).replace(/-/g, '');
 
             const response = await dispatch(Kt_grfAlljoindt({
                 offset,
@@ -288,6 +288,44 @@ export default function KitchenRequisition({ onCreate, onEdit }) {
         setPage(1);
     };
 
+    const handlePrintPDF = async (refno) => {
+        try {
+            Swal.fire({
+                title: 'กำลังโหลดข้อมูล...',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            // ดึงข้อมูลจาก API
+            const response = await dispatch(Kt_grfByRefno({ refno })).unwrap();
+
+            if (response.result && response.data) {
+                const pdfContent = await generatePDF(refno, response.data);
+
+                if (pdfContent) {
+                    Swal.close();
+                    const asBlob = await pdf(pdfContent).toBlob();
+                    const url = URL.createObjectURL(asBlob);
+                    window.open(url, '_blank');
+                } else {
+                    throw new Error("Failed to generate PDF content");
+                }
+            } else {
+                throw new Error("Data not found or invalid");
+            }
+        } catch (error) {
+            console.error('Error generating PDF:', error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error generating PDF',
+                text: error.message || 'Please try again later',
+                confirmButtonText: 'OK'
+            });
+        }
+    };
+
     return (
         <Box sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <Button
@@ -438,7 +476,7 @@ export default function KitchenRequisition({ onCreate, onEdit }) {
                                         </StyledTableCell>
                                         <StyledTableCell align="center">
                                             <IconButton
-                                                onClick={() => {/* Add print functionality later */ }}
+                                                onClick={() => handlePrintPDF(row.refno)}
                                                 sx={{ border: '1px solid #5686E1', borderRadius: '7px' }}
                                             >
                                                 <PrintIcon sx={{ color: '#5686E1' }} />

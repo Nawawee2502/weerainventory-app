@@ -122,11 +122,12 @@ const styles = StyleSheet.create({
     },
     itemCell: { width: '5%', textAlign: 'center' },
     codeCell: { width: '15%' },
-    descCell: { width: '35%' },
+    descCell: { width: '30%' }, // Reduced from 35% to accommodate temperature column
+    tempCell: { width: '10%', textAlign: 'center' }, // Added temperature cell
     qtyCell: { width: '10%', textAlign: 'center' },
     unitCell: { width: '10%', textAlign: 'center' },
     priceCell: { width: '10%', textAlign: 'right' },
-    amountCell: { width: '15%', textAlign: 'right' },
+    amountCell: { width: '10%', textAlign: 'right' }, // Reduced from 15% to balance the layout
     // Total section
     totalSection: {
         marginTop: 10,
@@ -271,8 +272,9 @@ export const KitchenReceiptPDF = ({ refno, date, kitchen, kitchenName, productAr
                         <Text style={[styles.tableHeaderCell, styles.codeCell]}>Item Code</Text>
                         <Text style={[
                             styles.tableHeaderCell,
-                            includePrices ? styles.descCell : { width: '55%' }
+                            includePrices ? styles.descCell : { width: '45%' }
                         ]}>Description</Text>
+                        <Text style={[styles.tableHeaderCell, styles.tempCell]}>Temp (°C)</Text>
                         <Text style={[styles.tableHeaderCell, styles.qtyCell]}>Qty</Text>
                         <Text style={[
                             styles.tableHeaderCell,
@@ -296,9 +298,12 @@ export const KitchenReceiptPDF = ({ refno, date, kitchen, kitchenName, productAr
                                     <Text style={[styles.tableCell, styles.codeCell]}>{item.product_code}</Text>
                                     <Text style={[
                                         styles.tableCell,
-                                        includePrices ? styles.descCell : { width: '55%' }
+                                        includePrices ? styles.descCell : { width: '45%' }
                                     ]}>
                                         {item.tbl_product ? item.tbl_product.product_name : 'Product Description'}
+                                    </Text>
+                                    <Text style={[styles.tableCell, styles.tempCell]}>
+                                        {item.temperature1 || '38'}°C
                                     </Text>
                                     <Text style={[styles.tableCell, styles.qtyCell]}>{formatNumber(item.qty || 0)}</Text>
                                     <Text style={[
@@ -348,12 +353,13 @@ export const KitchenReceiptPDF = ({ refno, date, kitchen, kitchenName, productAr
                     </View>
                 )}
 
-                {/* Notes Section */}
+                {/* Notes Section - Updated to include temperature checking */}
                 <View style={styles.notesSection}>
                     <Text style={styles.notesTitle}>Notes:</Text>
                     <Text style={styles.notesText}>1. All items have been verified upon receipt.</Text>
-                    <Text style={styles.notesText}>2. Items have been checked for quality and quantity.</Text>
+                    <Text style={styles.notesText}>2. Items have been checked for quality, quantity and temperature.</Text>
                     <Text style={styles.notesText}>3. Any defects or discrepancies have been noted on the receipt.</Text>
+                    <Text style={styles.notesText}>4. Maintain temperature levels as indicated for each item.</Text>
                 </View>
 
                 {/* Signature Section */}
@@ -417,9 +423,13 @@ export const generateKitchenReceiptPDF = async (refno, data, includePrices = tru
                 const uprice = parseFloat(item.uprice || 0);
                 const amt = qty * uprice;
 
+                // Log temperature1 value for debugging
+                console.log(`Product ${item.product_code} temperature1:`, item.temperature1 || 38);
+
                 return {
                     ...item,
                     amt: amt,
+                    temperature1: item.temperature1 || '38',  // Add default temperature if not present
                     tbl_unit: item.tbl_unit || { unit_name: item.unit_code || '' },
                     tbl_product: item.tbl_product || { product_name: 'Product Description' }
                 };
