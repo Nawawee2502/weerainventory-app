@@ -820,9 +820,6 @@ export default function CreateProductReceipt({ onBack }) {
                                                     placeholder="Temperature"
                                                     size="small"
                                                     sx={{ width: 100 }}
-                                                    InputProps={{
-                                                        endAdornment: <InputAdornment position="end">°C</InputAdornment>,
-                                                    }}
                                                 />
                                             </TableCell>
                                             <TableCell>

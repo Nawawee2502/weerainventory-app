@@ -1475,19 +1475,6 @@ export default function CreateDispatchToRestaurant({ onBack }) {
                                 {Object.values(quantities).reduce((sum, qty) => sum + qty, 0)}
                             </Typography>
                         </Box>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                            <Typography>Taxable</Typography>
-                            <Typography>${taxableAmount.toFixed(2)}</Typography>
-                        </Box>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                            <Typography>Non-taxable</Typography>
-                            <Typography>${nonTaxableAmount.toFixed(2)}</Typography>
-                        </Box>
-                        <Divider sx={{ my: 1, borderColor: 'white' }} />
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
-                            <Typography variant="h6" fontWeight="bold">Total</Typography>
-                            <Typography variant="h6" fontWeight="bold">${total.toFixed(2)}</Typography>
-                        </Box>
                     </Box>
 
                     {/* Save Button */}

@@ -5,7 +5,7 @@ const BASE_URL = `${process.env.REACT_APP_URL_API}`;
 
 export const addKt_safdt = createAsyncThunk(
     "kt_safdt/add",
-    async ({ refno, product_code, qty, unit_code, uprice, amt, expire_date, texpire_date }, { dispatch }) => {
+    async ({ refno, product_code, qty, unit_code, uprice, amt, expire_date, texpire_date, beg1, bal1 }, { dispatch }) => {
         try {
             const res = await axios.post(BASE_URL + "/api/addKt_safdt", {
                 refno,
@@ -15,7 +15,9 @@ export const addKt_safdt = createAsyncThunk(
                 uprice,
                 amt,
                 expire_date,
-                texpire_date
+                texpire_date,
+                beg1,
+                bal1
             });
             return res.data;
         } catch (error) {
@@ -36,7 +38,9 @@ export const updateKt_safdt = createAsyncThunk(
                 uprice: productData.uprice,
                 amt: productData.amt,
                 expire_date: productData.expire_date,
-                texpire_date: productData.texpire_date
+                texpire_date: productData.texpire_date,
+                beg1: productData.beg1,
+                bal1: productData.bal1
             });
             return res.data;
         } catch (error) {

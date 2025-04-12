@@ -24,6 +24,8 @@ import ReportMonthlyKitchenStockCard from "../../components/mobile/kitchen/repor
 import ReportStockbalance from "../../components/mobile/kitchen/report/ReportStockBalance";
 import Dailyclosing from "../../components/mobile/kitchen/dailyclosing/Dailyclosing";
 import HomeStockAdjustment from "../../components/mobile/kitchen/stockcadjustment/HomeStockAdjustment";
+import KitchenSetMinimumStock from "../../components/mobile/kitchen/setminimumstock/Setminimumstock";
+
 // import StockAdjustment from "../../components/mobile/kitchen/stockcadjustment/StockAdjustment";
 // import HomeBillOfLading from "../../components/mobile/kitchen/billoflading/HomeBillOfLading";
 // import HomeGoodsReceiptProduction from "../../components/mobile/kitchen/goodsreceiptproduction/HomeGoodsReceiptProduction";
@@ -49,6 +51,11 @@ const MKitchen = () => {
       label: "Kitchen Beginning Inventory",
       icon: <ListAltIcon style={{ color: "#fff" }} />,
       component: <KitchenBeginningInventory />
+    },
+    {
+      label: "Kitchen Set Minimum Stock",
+      icon: <ListAltIcon style={{ color: "#fff" }} />,
+      component: <KitchenSetMinimumStock />
     },
     {
       label: "Kitchen Request to Warehouse",

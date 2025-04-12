@@ -31,11 +31,13 @@ import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
 import { useDispatch } from 'react-redux';
-import { Br_rtkAlljoindt, deleteBr_rtk } from '../../../../api/restaurant/br_rtkApi';
+import { Br_rtkAlljoindt, deleteBr_rtk, Br_rtkByRefno } from '../../../../api/restaurant/br_rtkApi';
 import { kitchenAll } from '../../../../api/kitchenApi';
 import { branchAll } from '../../../../api/branchApi';
 import { searchProductName } from '../../../../api/productrecordApi';
 import Swal from 'sweetalert2';
+import { pdf } from '@react-pdf/renderer';
+import { generatePDF } from './Br_rtkPDF';
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
   [`&.${tableCellClasses.head}`]: {
@@ -289,6 +291,53 @@ export default function RequestToKitchen({ onCreate, onEdit }) {
     }
   };
 
+  const handlePrintPDF = async (refno) => {
+    try {
+      Swal.fire({
+        title: 'กำลังโหลดข้อมูล...',
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
+
+      // ดึงข้อมูลจาก API
+      // สร้างฟังก์ชัน Br_rtkByRefno ที่คล้ายกับ Br_powByRefno
+      const requestResponse = await dispatch(Br_rtkByRefno({ refno })).unwrap();
+
+      console.log("API Response Data (Complete):", requestResponse);
+
+      if (requestResponse.result && requestResponse.data) {
+        const data = requestResponse.data;
+
+        // ดูข้อมูลสินค้าในออบเจ็กต์ข้อมูล
+        console.log("Products data:", data.br_rtkdts);
+
+        // สร้าง PDF โดยใช้ข้อมูลจาก API
+        const pdfContent = await generatePDF(refno, data);
+
+        if (pdfContent) {
+          Swal.close();
+          const asBlob = await pdf(pdfContent).toBlob();
+          const url = URL.createObjectURL(asBlob);
+          window.open(url, '_blank');
+        } else {
+          throw new Error("Failed to generate PDF content");
+        }
+      } else {
+        throw new Error("Request data not found or invalid");
+      }
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error generating PDF',
+        text: error.message || 'Please try again later',
+        confirmButtonText: 'OK'
+      });
+    }
+  };
+
   return (
     <Box sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       <Button
@@ -449,7 +498,7 @@ export default function RequestToKitchen({ onCreate, onEdit }) {
                           <DeleteIcon sx={{ color: '#F62626' }} />
                         </IconButton>
                         <IconButton
-                          onClick={() => { /* Add print functionality */ }}
+                          onClick={() => handlePrintPDF(row.refno)}
                           sx={{ border: '1px solid #5686E1', borderRadius: '7px' }}
                         >
                           <PrintIcon sx={{ color: '#5686E1' }} />

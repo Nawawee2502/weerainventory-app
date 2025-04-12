@@ -122,59 +122,25 @@ const styles = StyleSheet.create({
         padding: 4,
         fontSize: 8,
     },
-    itemCell: { width: '5%', textAlign: 'center' },
-    codeCell: { width: '15%' },
-    descCell: { width: '35%' },
-    qtyCell: { width: '10%', textAlign: 'center' },
+    itemCell: { width: '10%', textAlign: 'center' },
+    codeCell: { width: '20%' },
+    descCell: { width: '45%' },
+    qtyCell: { width: '15%', textAlign: 'center' },
     unitCell: { width: '10%', textAlign: 'center' },
-    priceCell: { width: '10%', textAlign: 'right' },
-    amountCell: { width: '15%', textAlign: 'right' },
-    // Total section - right aligned
-    totalSection: {
+    // Notes section
+    notesSection: {
         marginTop: 10,
-        flexDirection: 'row',
-        justifyContent: 'flex-end',
-    },
-    totalTable: {
-        width: '30%',
         borderWidth: 1,
         borderColor: '#000000',
+        padding: 5,
     },
-    totalRow: {
-        flexDirection: 'row',
-        borderBottomWidth: 1,
-        borderBottomColor: '#000000',
-    },
-    totalLabelCell: {
-        width: '50%',
-        padding: 4,
-        fontWeight: 700,
+    notesTitle: {
         fontSize: 8,
-        borderRightWidth: 1,
-        borderRightColor: '#000000',
-    },
-    totalValueCell: {
-        width: '50%',
-        padding: 4,
-        fontSize: 8,
-        textAlign: 'right',
-    },
-    grandTotalLabel: {
-        width: '50%',
-        padding: 4,
         fontWeight: 700,
-        fontSize: 9,
-        borderRightWidth: 1,
-        borderRightColor: '#000000',
-        backgroundColor: '#f2f2f2',
+        marginBottom: 3,
     },
-    grandTotalValue: {
-        width: '50%',
-        padding: 4,
-        fontSize: 9,
-        fontWeight: 700,
-        textAlign: 'right',
-        backgroundColor: '#f2f2f2',
+    notesText: {
+        fontSize: 7,
     },
     // Signature section - standard format
     signatureSection: {
@@ -196,21 +162,6 @@ const styles = StyleSheet.create({
         fontSize: 8,
         textAlign: 'center',
     },
-    // Notes section
-    notesSection: {
-        marginTop: 10,
-        borderWidth: 1,
-        borderColor: '#000000',
-        padding: 5,
-    },
-    notesTitle: {
-        fontSize: 8,
-        fontWeight: 700,
-        marginBottom: 3,
-    },
-    notesText: {
-        fontSize: 7,
-    },
     // Footer
     footer: {
         position: 'absolute',
@@ -226,21 +177,13 @@ const styles = StyleSheet.create({
     },
 });
 
-// Format number to 2 decimal places with comma separators
-const formatNumber = (number) => {
-    return Number(number).toLocaleString('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-    });
-};
-
 // Function to encode text to Code128 format
 const encodeToCode128 = (text) => {
     return String.fromCharCode(104) + text + String.fromCharCode(106);
 };
 
 // Main PDF Component for Dispatch to Restaurant
-export const DispatchToRestaurantPDF = ({ refNo, date, kitchen, kitchenName, restaurant, restaurantName, productArray, total, username, data, kitchenAddr1, kitchenAddr2, kitchenTel1 }) => (
+export const DispatchToRestaurantPDF = ({ refNo, date, kitchen, kitchenName, restaurant, restaurantName, productArray, username, data, kitchenAddr1, kitchenAddr2, kitchenTel1 }) => (
     <Document>
         <Page style={styles.page} size="A4">
             {/* Header with kitchen info and reference number */}
@@ -293,9 +236,7 @@ export const DispatchToRestaurantPDF = ({ refNo, date, kitchen, kitchenName, res
                     <Text style={[styles.tableHeaderCell, styles.codeCell]}>Item Code</Text>
                     <Text style={[styles.tableHeaderCell, styles.descCell]}>Description</Text>
                     <Text style={[styles.tableHeaderCell, styles.qtyCell]}>Qty</Text>
-                    <Text style={[styles.tableHeaderCell, styles.unitCell]}>Unit</Text>
-                    <Text style={[styles.tableHeaderCell, styles.priceCell]}>Unit Price</Text>
-                    <Text style={[styles.tableHeaderCell, styles.amountCell, { borderRightWidth: 0 }]}>Amount</Text>
+                    <Text style={[styles.tableHeaderCell, styles.unitCell, { borderRightWidth: 0 }]}>Unit</Text>
                 </View>
 
                 {/* Table Rows */}
@@ -304,30 +245,10 @@ export const DispatchToRestaurantPDF = ({ refNo, date, kitchen, kitchenName, res
                         <Text style={[styles.tableCell, styles.itemCell]}>{index + 1}</Text>
                         <Text style={[styles.tableCell, styles.codeCell]}>{item.product_code}</Text>
                         <Text style={[styles.tableCell, styles.descCell]}>{item.tbl_product?.product_name || 'Product Description'}</Text>
-                        <Text style={[styles.tableCell, styles.qtyCell]}>{formatNumber(item.qty)}</Text>
-                        <Text style={[styles.tableCell, styles.unitCell]}>{item.tbl_unit?.unit_name || item.unit_code}</Text>
-                        <Text style={[styles.tableCell, styles.priceCell]}>{formatNumber(item.uprice)}</Text>
-                        <Text style={[styles.tableCellLast, styles.amountCell]}>{formatNumber(item.amt)}</Text>
+                        <Text style={[styles.tableCell, styles.qtyCell]}>{item.qty}</Text>
+                        <Text style={[styles.tableCellLast, styles.unitCell]}>{item.tbl_unit?.unit_name || item.unit_code}</Text>
                     </View>
                 ))}
-            </View>
-
-            {/* Totals Section */}
-            <View style={styles.totalSection}>
-                <View style={styles.totalTable}>
-                    <View style={styles.totalRow}>
-                        <Text style={styles.totalLabelCell}>Sub-Total:</Text>
-                        <Text style={styles.totalValueCell}>{formatNumber(total)}</Text>
-                    </View>
-                    <View style={styles.totalRow}>
-                        <Text style={styles.totalLabelCell}>Tax:</Text>
-                        <Text style={styles.totalValueCell}>0.00</Text>
-                    </View>
-                    <View style={[styles.totalRow, { borderBottomWidth: 0 }]}>
-                        <Text style={styles.grandTotalLabel}>GRAND TOTAL:</Text>
-                        <Text style={styles.grandTotalValue}>{formatNumber(total)}</Text>
-                    </View>
-                </View>
             </View>
 
             {/* Notes Section */}
@@ -365,17 +286,6 @@ export const DispatchToRestaurantPDF = ({ refNo, date, kitchen, kitchenName, res
 export const generatePDF = async (refno, data) => {
     if (!data) return null;
 
-    // Log data for debugging
-    console.log("Data for Dispatch to Restaurant PDF:", data);
-
-    // Check kitchen data specifically
-    console.log("Kitchen data in generatePDF:", {
-        kitchenName: data.tbl_kitchen?.kitchen_name || data.kitchen_code,
-        kitchenAddr1: data.tbl_kitchen?.addr1,
-        kitchenAddr2: data.tbl_kitchen?.addr2,
-        kitchenTel1: data.tbl_kitchen?.tel1
-    });
-
     // Create product array from kt_dpbdts
     const productArray = Array.isArray(data.kt_dpbdts)
         ? data.kt_dpbdts.map(item => ({
@@ -399,7 +309,6 @@ export const generatePDF = async (refno, data) => {
             kitchenAddr2={data.tbl_kitchen?.addr2 || ''}
             kitchenTel1={data.tbl_kitchen?.tel1 || ''}
             productArray={productArray}
-            total={data.total}
             username={data.user?.username || data.user_code}
             data={data}
         />

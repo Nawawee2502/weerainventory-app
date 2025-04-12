@@ -89,7 +89,8 @@ export default function CreateStockAdjustment({ onBack }) {
     const [totalPages, setTotalPages] = useState(1);
     const [paginatedProducts, setPaginatedProducts] = useState([]);
     const [imageErrors, setImageErrors] = useState({});
-
+    const [beginningQuantities, setBeginningQuantities] = useState({});
+    const [balanceQuantities, setBalanceQuantities] = useState({});
 
     const userDataJson = localStorage.getItem("userData2");
     const userData2 = JSON.parse(userDataJson);
@@ -217,12 +218,16 @@ export default function CreateStockAdjustment({ onBack }) {
             const { [product.product_code]: ___, ...newPrices } = unitPrices;
             const { [product.product_code]: ____, ...newTotals } = totals;
             const { [product.product_code]: _____, ...newExpiryDates } = expiryDates;
+            const { [product.product_code]: ______, ...newBeginningQuantities } = beginningQuantities;
+            const { [product.product_code]: _______, ...newBalanceQuantities } = balanceQuantities;
 
             setQuantities(newQuantities);
             setUnits(newUnits);
             setUnitPrices(newPrices);
             setTotals(newTotals);
             setExpiryDates(newExpiryDates);
+            setBeginningQuantities(newBeginningQuantities);
+            setBalanceQuantities(newBalanceQuantities);
 
             setTotal(Object.values(newTotals).reduce((sum, curr) => sum + curr, 0));
 
@@ -230,27 +235,48 @@ export default function CreateStockAdjustment({ onBack }) {
             setSelectedProducts(prev => [...prev, product.product_code]);
             setProducts(prev => [...prev, product]);
 
-            setQuantities(prev => ({ ...prev, [product.product_code]: 1 }));
+            // ค่าเริ่มต้น
+            const initialQty = 1;
+            const initialBeg = 0;
+            const initialBal = initialQty + initialBeg;
+
+            setQuantities(prev => ({ ...prev, [product.product_code]: initialQty }));
             setUnits(prev => ({ ...prev, [product.product_code]: product.productUnit1?.unit_code }));
             setUnitPrices(prev => ({ ...prev, [product.product_code]: product.bulk_unit_price }));
             setExpiryDates(prev => ({ ...prev, [product.product_code]: new Date() }));
+            setBeginningQuantities(prev => ({ ...prev, [product.product_code]: initialBeg }));
+            setBalanceQuantities(prev => ({ ...prev, [product.product_code]: initialBal }));
 
-            const initialTotal = product.bulk_unit_price * 1;
+            const initialTotal = product.bulk_unit_price * initialQty;
             setTotals(prev => ({ ...prev, [product.product_code]: initialTotal }));
             setTotal(prev => prev + initialTotal);
         }
     };
 
+
     const handleQuantityChange = (productCode, delta) => {
         const currentQty = quantities[productCode] || 0;
         const newQty = Math.max(1, currentQty + delta);
+        const currentBeg = beginningQuantities[productCode] || 0;
+        const newBal = newQty + currentBeg;
 
         setQuantities(prev => ({ ...prev, [productCode]: newQty }));
+        setBalanceQuantities(prev => ({ ...prev, [productCode]: newBal }));
 
         const price = unitPrices[productCode] || 0;
         const newTotal = newQty * price;
         setTotals(prev => ({ ...prev, [productCode]: newTotal }));
         setTotal(Object.values({ ...totals, [productCode]: newTotal }).reduce((a, b) => a + b, 0));
+    };
+
+    const handleBeginningChange = (productCode, delta) => {
+        const currentBeg = beginningQuantities[productCode] || 0;
+        const newBeg = Math.max(0, currentBeg + delta);
+        const currentQty = quantities[productCode] || 0;
+        const newBal = currentQty + newBeg;
+
+        setBeginningQuantities(prev => ({ ...prev, [productCode]: newBeg }));
+        setBalanceQuantities(prev => ({ ...prev, [productCode]: newBal }));
     };
 
     const handleUnitChange = (productCode, newUnit) => {
@@ -273,6 +299,12 @@ export default function CreateStockAdjustment({ onBack }) {
 
     const handleExpiryDateChange = (productCode, date) => {
         setExpiryDates(prev => ({ ...prev, [productCode]: date }));
+    };
+
+    const calculateBalance = (productCode) => {
+        const qty = quantities[productCode] || 0;
+        const beg = beginningQuantities[productCode] || 0;
+        return qty + beg;
     };
 
     const handleSave = async () => {
@@ -307,7 +339,9 @@ export default function CreateStockAdjustment({ onBack }) {
                 uprice: unitPrices[product.product_code].toString(),
                 amt: totals[product.product_code].toString(),
                 expire_date: format(expiryDates[product.product_code], 'MM/dd/yyyy'),
-                texpire_date: format(expiryDates[product.product_code], 'yyyyMMdd')
+                texpire_date: format(expiryDates[product.product_code], 'yyyyMMdd'),
+                beg1: beginningQuantities[product.product_code].toString(),
+                bal1: balanceQuantities[product.product_code].toString()
             }));
 
             const orderData = {
@@ -667,7 +701,9 @@ export default function CreateStockAdjustment({ onBack }) {
                                     <TableCell>Image</TableCell>
                                     <TableCell>Product</TableCell>
                                     <TableCell>Expiry Date</TableCell>
-                                    <TableCell>Quantity</TableCell>
+                                    <TableCell>Beginning (Beg1)</TableCell>
+                                    <TableCell>Adjustment (Qty)</TableCell>
+                                    <TableCell>Balance (Bal1)</TableCell>
                                     <TableCell>Unit</TableCell>
                                     <TableCell>Actions</TableCell>
                                 </TableRow>
@@ -717,6 +753,23 @@ export default function CreateStockAdjustment({ onBack }) {
                                             <TableCell>
                                                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
                                                     <IconButton
+                                                        onClick={() => handleBeginningChange(product.product_code, -1)}
+                                                        size="small"
+                                                    >
+                                                        <RemoveIcon />
+                                                    </IconButton>
+                                                    <Typography sx={{ mx: 1 }}>{beginningQuantities[product.product_code] || 0}</Typography>
+                                                    <IconButton
+                                                        onClick={() => handleBeginningChange(product.product_code, 1)}
+                                                        size="small"
+                                                    >
+                                                        <AddIcon />
+                                                    </IconButton>
+                                                </Box>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                                    <IconButton
                                                         onClick={() => handleQuantityChange(product.product_code, -1)}
                                                         size="small"
                                                     >
@@ -730,6 +783,11 @@ export default function CreateStockAdjustment({ onBack }) {
                                                         <AddIcon />
                                                     </IconButton>
                                                 </Box>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Typography sx={{ fontWeight: 'bold' }}>
+                                                    {balanceQuantities[product.product_code] || 0}
+                                                </Typography>
                                             </TableCell>
                                             <TableCell>
                                                 <Select
@@ -779,10 +837,6 @@ export default function CreateStockAdjustment({ onBack }) {
                             <Typography>
                                 {Object.values(quantities).reduce((sum, qty) => sum + qty, 0)}
                             </Typography>
-                        </Box>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
-                            <Typography variant="h6">Total</Typography>
-                            <Typography variant="h6">${total.toFixed(2)}</Typography>
                         </Box>
                     </Box>
 

@@ -948,16 +948,14 @@ export default function EditDispatchToRestaurant({ onBack, editRefno }) {
                         color: 'white'
                     }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                            <Typography>Subtotal</Typography>
-                            <Typography>${total.toFixed(2)}</Typography>
+                            <Typography>Total Items</Typography>
+                            <Typography>{products.length}</Typography>
                         </Box>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                            <Typography>Tax (7%)</Typography>
-                            <Typography>${calculateTax().toFixed(2)}</Typography>
-                        </Box>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
-                            <Typography variant="h5">Total</Typography>
-                            <Typography variant="h5">${(total + calculateTax()).toFixed(2)}</Typography>
+                            <Typography>Total Quantity</Typography>
+                            <Typography>
+                                {Object.values(quantities).reduce((sum, qty) => sum + qty, 0)}
+                            </Typography>
                         </Box>
                     </Box>
 

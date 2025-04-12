@@ -136,7 +136,13 @@ export default function DispatchToRestaurant({ onCreate, onEdit }) {
             setIsLoading(true);
             const offset = (page - 1) * limit;
 
-            const formattedDate = filterDate.toISOString().slice(0, 10).replace(/-/g, '');
+            const localDate = new Date(filterDate);
+            localDate.setHours(0, 0, 0, 0);
+
+            const year = localDate.getFullYear();
+            const month = String(localDate.getMonth() + 1).padStart(2, '0');
+            const day = String(localDate.getDate()).padStart(2, '0');
+            const formattedDate = `${year}${month}${day}`;
 
             const response = await dispatch(kt_dpbAlljoindt({
                 offset,

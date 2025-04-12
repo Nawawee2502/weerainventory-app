@@ -136,7 +136,13 @@ export default function DispatchToRestaurant({ onCreate, onEdit }) {
             setIsLoading(true);
             const offset = (page - 1) * limit;
 
-            const formattedDate = filterDate.toISOString().slice(0, 10).replace(/-/g, '');
+            const localDate = new Date(filterDate);
+            localDate.setHours(0, 0, 0, 0);
+
+            const year = localDate.getFullYear();
+            const month = String(localDate.getMonth() + 1).padStart(2, '0');
+            const day = String(localDate.getDate()).padStart(2, '0');
+            const formattedDate = `${year}${month}${day}`;
 
             const response = await dispatch(kt_dpbAlljoindt({
                 offset,
@@ -428,17 +434,6 @@ export default function DispatchToRestaurant({ onCreate, onEdit }) {
                         customInput={<CustomInput />}
                         popperClassName="custom-popper"
                     />
-                </Box>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Switch
-                            checked={excludePrice}
-                            onChange={(e) => setExcludePrice(e.target.checked)}
-                        />
-                        <Typography sx={{ fontWeight: '500', color: '#7E84A3' }}>
-                            Exclude price in file
-                        </Typography>
-                    </Box>
                 </Box>
             </Box>
 

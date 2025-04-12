@@ -122,60 +122,11 @@ const styles = StyleSheet.create({
         padding: 4,
         fontSize: 8,
     },
-    itemCell: { width: '5%', textAlign: 'center' },
-    codeCell: { width: '15%' },
-    descCell: { width: '35%' },
-    qtyCell: { width: '10%', textAlign: 'center' },
+    itemCell: { width: '10%', textAlign: 'center' },
+    codeCell: { width: '20%' },
+    descCell: { width: '45%' },
+    qtyCell: { width: '15%', textAlign: 'center' },
     unitCell: { width: '10%', textAlign: 'center' },
-    priceCell: { width: '10%', textAlign: 'right' },
-    amountCell: { width: '15%', textAlign: 'right' },
-    // Total section
-    totalSection: {
-        marginTop: 10,
-        flexDirection: 'row',
-        justifyContent: 'flex-end',
-    },
-    totalTable: {
-        width: '30%',
-        borderWidth: 1,
-        borderColor: '#000000',
-    },
-    totalRow: {
-        flexDirection: 'row',
-        borderBottomWidth: 1,
-        borderBottomColor: '#000000',
-    },
-    totalLabelCell: {
-        width: '50%',
-        padding: 4,
-        fontWeight: 700,
-        fontSize: 8,
-        borderRightWidth: 1,
-        borderRightColor: '#000000',
-    },
-    totalValueCell: {
-        width: '50%',
-        padding: 4,
-        fontSize: 8,
-        textAlign: 'right',
-    },
-    grandTotalLabel: {
-        width: '50%',
-        padding: 4,
-        fontWeight: 700,
-        fontSize: 9,
-        borderRightWidth: 1,
-        borderRightColor: '#000000',
-        backgroundColor: '#f2f2f2',
-    },
-    grandTotalValue: {
-        width: '50%',
-        padding: 4,
-        fontSize: 9,
-        fontWeight: 700,
-        textAlign: 'right',
-        backgroundColor: '#f2f2f2',
-    },
     // Signature section
     signatureSection: {
         flexDirection: 'row',
@@ -226,16 +177,8 @@ const styles = StyleSheet.create({
     },
 });
 
-// Format number to 2 decimal places with comma separators
-const formatNumber = (number) => {
-    return Number(number).toLocaleString('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-    });
-};
-
 // Main PDF Component for Goods Requisition Form
-export const GoodsRequisitionPDF = ({ refNo, date, kitchen, kitchenName, productArray, total, username, data, kitchenAddr1, kitchenAddr2, kitchenTel1 }) => (
+export const GoodsRequisitionPDF = ({ refNo, date, kitchen, kitchenName, productArray, username, data, kitchenAddr1, kitchenAddr2, kitchenTel1 }) => (
     <Document>
         <Page style={styles.page} size="A4">
             {/* Header with kitchen info and reference number */}
@@ -288,9 +231,7 @@ export const GoodsRequisitionPDF = ({ refNo, date, kitchen, kitchenName, product
                     <Text style={[styles.tableHeaderCell, styles.codeCell]}>Item Code</Text>
                     <Text style={[styles.tableHeaderCell, styles.descCell]}>Description</Text>
                     <Text style={[styles.tableHeaderCell, styles.qtyCell]}>Qty</Text>
-                    <Text style={[styles.tableHeaderCell, styles.unitCell]}>Unit</Text>
-                    <Text style={[styles.tableHeaderCell, styles.priceCell]}>Unit Price</Text>
-                    <Text style={[styles.tableHeaderCell, styles.amountCell, { borderRightWidth: 0 }]}>Amount</Text>
+                    <Text style={[styles.tableHeaderCell, styles.unitCell, { borderRightWidth: 0 }]}>Unit</Text>
                 </View>
 
                 {/* Table Rows */}
@@ -299,22 +240,10 @@ export const GoodsRequisitionPDF = ({ refNo, date, kitchen, kitchenName, product
                         <Text style={[styles.tableCell, styles.itemCell]}>{index + 1}</Text>
                         <Text style={[styles.tableCell, styles.codeCell]}>{item.product_code}</Text>
                         <Text style={[styles.tableCell, styles.descCell]}>{item.tbl_product?.product_name || 'Product Description'}</Text>
-                        <Text style={[styles.tableCell, styles.qtyCell]}>{formatNumber(item.qty)}</Text>
-                        <Text style={[styles.tableCell, styles.unitCell]}>{item.tbl_unit?.unit_name || item.unit_code}</Text>
-                        <Text style={[styles.tableCell, styles.priceCell]}>{formatNumber(item.uprice)}</Text>
-                        <Text style={[styles.tableCellLast, styles.amountCell]}>{formatNumber(item.amt)}</Text>
+                        <Text style={[styles.tableCell, styles.qtyCell]}>{item.qty}</Text>
+                        <Text style={[styles.tableCellLast, styles.unitCell]}>{item.tbl_unit?.unit_name || item.unit_code}</Text>
                     </View>
                 ))}
-            </View>
-
-            {/* Totals Section */}
-            <View style={styles.totalSection}>
-                <View style={styles.totalTable}>
-                    <View style={[styles.totalRow, { borderBottomWidth: 0 }]}>
-                        <Text style={styles.grandTotalLabel}>TOTAL AMOUNT:</Text>
-                        <Text style={styles.grandTotalValue}>{formatNumber(total)}</Text>
-                    </View>
-                </View>
             </View>
 
             {/* Notes Section */}
@@ -353,17 +282,6 @@ export const GoodsRequisitionPDF = ({ refNo, date, kitchen, kitchenName, product
 export const generatePDF = async (refno, data) => {
     if (!data) return null;
 
-    // Log data for debugging
-    console.log("Data for Goods Requisition PDF:", data);
-
-    // Check kitchen data specifically
-    console.log("Kitchen data in generatePDF:", {
-        kitchenName: data.tbl_kitchen?.kitchen_name || data.kitchen_code,
-        kitchenAddr1: data.tbl_kitchen?.addr1,
-        kitchenAddr2: data.tbl_kitchen?.addr2,
-        kitchenTel1: data.tbl_kitchen?.tel1
-    });
-
     // Create product array from kt_grfdts
     const productArray = Array.isArray(data.kt_grfdts)
         ? data.kt_grfdts.map(item => ({
@@ -385,7 +303,6 @@ export const generatePDF = async (refno, data) => {
             kitchenAddr2={data.tbl_kitchen?.addr2 || ''}
             kitchenTel1={data.tbl_kitchen?.tel1 || ''}
             productArray={productArray}
-            total={data.total}
             username={data.user?.username || data.user_code}
             data={data}
         />

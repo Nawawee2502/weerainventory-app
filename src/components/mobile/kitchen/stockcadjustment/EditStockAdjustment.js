@@ -71,6 +71,9 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
     const [filteredProducts, setFilteredProducts] = useState([]);
     const [selectedProducts, setSelectedProducts] = useState([]);
     const [debugInfo, setDebugInfo] = useState({});
+    const [beginningQuantities, setBeginningQuantities] = useState({});
+    const [balanceQuantities, setBalanceQuantities] = useState({});
+
 
     // Pagination state
     const [page, setPage] = useState(1);
@@ -160,7 +163,6 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
         fetchData();
     }, [dispatch, editRefno]);
 
-    // Process detail data
     const processDetailData = async (detailData) => {
         try {
             console.log('Processing detail data:', detailData);
@@ -184,6 +186,8 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
             const newUnitPrices = {};
             const newTotals = {};
             const newExpiryDates = {};
+            const newBeginningQuantities = {};
+            const newBalanceQuantities = {};
 
             detailData.forEach((item) => {
                 const productCode = item.product_code;
@@ -191,6 +195,9 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
                 newUnits[productCode] = item.unit_code || item.tbl_product?.productUnit1?.unit_code || '';
                 newUnitPrices[productCode] = parseFloat(item.uprice) || 0;
                 newTotals[productCode] = parseFloat(item.amt) || 0;
+                newBeginningQuantities[productCode] = parseFloat(item.beg1) || 0;
+                newBalanceQuantities[productCode] = parseFloat(item.bal1) ||
+                    (parseFloat(item.qty) + parseFloat(item.beg1)) || 0;
 
                 // Parse expiry date
                 if (item.texpire_date && item.texpire_date.length === 8) {
@@ -229,6 +236,8 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
             setUnitPrices(newUnitPrices);
             setTotals(newTotals);
             setExpiryDates(newExpiryDates);
+            setBeginningQuantities(newBeginningQuantities);
+            setBalanceQuantities(newBalanceQuantities);
 
             // Calculate and set total
             const totalSum = Object.values(newTotals).reduce((sum, value) => sum + value, 0);
@@ -239,7 +248,9 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
                 quantities: newQuantities,
                 units: newUnits,
                 prices: newUnitPrices,
-                totals: newTotals
+                totals: newTotals,
+                beginningQuantities: newBeginningQuantities,
+                balanceQuantities: newBalanceQuantities
             });
 
         } catch (error) {
@@ -276,7 +287,6 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
         setPaginatedProducts(filteredProducts.slice(startIndex, endIndex));
     }, [filteredProducts, page, productsPerPage]);
 
-    // Toggle select product (for grid view)
     const toggleSelectProduct = (product) => {
         const isSelected = selectedProducts.includes(product.product_code);
 
@@ -289,27 +299,44 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
             const { [product.product_code]: ___, ...newPrices } = unitPrices;
             const { [product.product_code]: ____, ...newTotals } = totals;
             const { [product.product_code]: _____, ...newExpiryDates } = expiryDates;
+            const { [product.product_code]: ______, ...newBeginningQuantities } = beginningQuantities;
+            const { [product.product_code]: _______, ...newBalanceQuantities } = balanceQuantities;
 
             setQuantities(newQuantities);
             setUnits(newUnits);
             setUnitPrices(newPrices);
             setTotals(newTotals);
             setExpiryDates(newExpiryDates);
+            setBeginningQuantities(newBeginningQuantities);
+            setBalanceQuantities(newBalanceQuantities);
 
             setTotal(Object.values(newTotals).reduce((sum, curr) => sum + curr, 0));
         } else {
             setSelectedProducts(prev => [...prev, product.product_code]);
             setProducts(prev => [...prev, product]);
 
-            setQuantities(prev => ({ ...prev, [product.product_code]: 1 }));
+            // ค่าเริ่มต้น
+            const initialQty = 1;
+            const initialBeg = 0;
+            const initialBal = initialQty + initialBeg;
+
+            setQuantities(prev => ({ ...prev, [product.product_code]: initialQty }));
             setUnits(prev => ({ ...prev, [product.product_code]: product.productUnit1?.unit_code || '' }));
             setUnitPrices(prev => ({ ...prev, [product.product_code]: product.bulk_unit_price || 0 }));
             setExpiryDates(prev => ({ ...prev, [product.product_code]: new Date() }));
+            setBeginningQuantities(prev => ({ ...prev, [product.product_code]: initialBeg }));
+            setBalanceQuantities(prev => ({ ...prev, [product.product_code]: initialBal }));
 
-            const initialTotal = (product.bulk_unit_price || 0) * 1;
+            const initialTotal = (product.bulk_unit_price || 0) * initialQty;
             setTotals(prev => ({ ...prev, [product.product_code]: initialTotal }));
             setTotal(prev => prev + initialTotal);
         }
+    };
+
+    const calculateBalance = (productCode) => {
+        const qty = quantities[productCode] || 0;
+        const beg = beginningQuantities[productCode] || 0;
+        return qty + beg;
     };
 
     // Function to render product image with error handling
@@ -381,12 +408,14 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
         );
     };
 
-    // Update quantity
     const handleQuantityChange = (productCode, delta) => {
         const currentQty = quantities[productCode] || 0;
         const newQty = Math.max(1, currentQty + delta);
+        const currentBeg = beginningQuantities[productCode] || 0;
+        const newBal = newQty + currentBeg;
 
         setQuantities(prev => ({ ...prev, [productCode]: newQty }));
+        setBalanceQuantities(prev => ({ ...prev, [productCode]: newBal }));
 
         // Update total
         const price = unitPrices[productCode] || 0;
@@ -394,6 +423,16 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
         const newTotal = newQty * price;
         setTotals(prev => ({ ...prev, [productCode]: newTotal }));
         setTotal(prev => prev - oldTotal + newTotal);
+    };
+
+    const handleBeginningChange = (productCode, delta) => {
+        const currentBeg = beginningQuantities[productCode] || 0;
+        const newBeg = Math.max(0, currentBeg + delta);
+        const currentQty = quantities[productCode] || 0;
+        const newBal = currentQty + newBeg;
+
+        setBeginningQuantities(prev => ({ ...prev, [productCode]: newBeg }));
+        setBalanceQuantities(prev => ({ ...prev, [productCode]: newBal }));
     };
 
     // Update unit (which affects price)
@@ -441,7 +480,6 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
         setTotal(prev => prev - oldTotal + newTotal);
     };
 
-    // Handle form submission (update)
     const handleUpdate = async () => {
         if (!kitchenCode || products.length === 0) {
             Swal.fire({
@@ -478,7 +516,9 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
                 uprice: unitPrices[product.product_code].toString(),
                 amt: totals[product.product_code].toString(),
                 expire_date: format(expiryDates[product.product_code], 'MM/dd/yyyy'),
-                texpire_date: format(expiryDates[product.product_code], 'yyyyMMdd')
+                texpire_date: format(expiryDates[product.product_code], 'yyyyMMdd'),
+                beg1: beginningQuantities[product.product_code].toString(),
+                bal1: balanceQuantities[product.product_code].toString()
             }));
 
             await dispatch(updateKt_saf({
@@ -762,7 +802,9 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
                                     <TableCell>Image</TableCell>
                                     <TableCell>Product</TableCell>
                                     <TableCell>Expiry Date</TableCell>
-                                    <TableCell>Quantity</TableCell>
+                                    <TableCell>Beginning (Beg1)</TableCell>
+                                    <TableCell>Adjustment (Qty)</TableCell>
+                                    <TableCell>Balance (Bal1)</TableCell>
                                     <TableCell>Unit</TableCell>
                                     <TableCell>Actions</TableCell>
                                 </TableRow>
@@ -818,6 +860,25 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
                                             <TableCell>
                                                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
                                                     <IconButton
+                                                        onClick={() => handleBeginningChange(product.product_code, -1)}
+                                                        size="small"
+                                                    >
+                                                        <RemoveIcon />
+                                                    </IconButton>
+                                                    <Typography sx={{ mx: 1 }}>
+                                                        {beginningQuantities[product.product_code] || 0}
+                                                    </Typography>
+                                                    <IconButton
+                                                        onClick={() => handleBeginningChange(product.product_code, 1)}
+                                                        size="small"
+                                                    >
+                                                        <AddIcon />
+                                                    </IconButton>
+                                                </Box>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                                    <IconButton
                                                         onClick={() => handleQuantityChange(product.product_code, -1)}
                                                         size="small"
                                                     >
@@ -833,6 +894,11 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
                                                         <AddIcon />
                                                     </IconButton>
                                                 </Box>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Typography sx={{ fontWeight: 'bold' }}>
+                                                    {balanceQuantities[product.product_code] || 0}
+                                                </Typography>
                                             </TableCell>
                                             <TableCell>
                                                 <Select
@@ -886,10 +952,6 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
                             <Typography>
                                 {Object.values(quantities).reduce((sum, qty) => sum + qty, 0)}
                             </Typography>
-                        </Box>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
-                            <Typography variant="h6">Total Value</Typography>
-                            <Typography variant="h6">${total.toFixed(2)}</Typography>
                         </Box>
                     </Box>
 
