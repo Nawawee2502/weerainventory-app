@@ -256,7 +256,8 @@ export default function CreateStockAdjustment({ onBack }) {
 
     const handleQuantityChange = (productCode, delta) => {
         const currentQty = quantities[productCode] || 0;
-        const newQty = Math.max(1, currentQty + delta);
+        // Remove the Math.max(1, ...) to allow negative values
+        const newQty = currentQty + delta;
         const currentBeg = beginningQuantities[productCode] || 0;
         const newBal = newQty + currentBeg;
 
@@ -547,12 +548,6 @@ export default function CreateStockAdjustment({ onBack }) {
                                         <Typography variant="body2" color="text.secondary" noWrap>
                                             {product.product_code}
                                         </Typography>
-                                        {/* Removed price display */}
-                                        {product.tax1 === 'Y' && (
-                                            <Typography variant="caption" color="success.main">
-                                                Taxable
-                                            </Typography>
-                                        )}
                                     </CardContent>
                                     {selectedProducts.includes(product.product_code) && (
                                         <CheckCircleIcon
@@ -752,19 +747,19 @@ export default function CreateStockAdjustment({ onBack }) {
                                             </TableCell>
                                             <TableCell>
                                                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                                    <IconButton
+                                                    {/* <IconButton
                                                         onClick={() => handleBeginningChange(product.product_code, -1)}
                                                         size="small"
                                                     >
                                                         <RemoveIcon />
-                                                    </IconButton>
-                                                    <Typography sx={{ mx: 1 }}>{beginningQuantities[product.product_code] || 0}</Typography>
-                                                    <IconButton
+                                                    </IconButton> */}
+                                                    <Typography sx={{ fontWeight: 'bold' }}>{beginningQuantities[product.product_code] || 0}</Typography>
+                                                    {/* <IconButton
                                                         onClick={() => handleBeginningChange(product.product_code, 1)}
                                                         size="small"
                                                     >
                                                         <AddIcon />
-                                                    </IconButton>
+                                                    </IconButton> */}
                                                 </Box>
                                             </TableCell>
                                             <TableCell>

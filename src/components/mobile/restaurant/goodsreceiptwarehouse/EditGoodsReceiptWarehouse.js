@@ -87,6 +87,7 @@ export default function EditGoodsReceiptWarehouse({ onBack, editRefno }) {
     const [selectedProducts, setSelectedProducts] = useState([]);
     const [expiryDates, setExpiryDates] = useState({});
     const [imageErrors, setImageErrors] = useState({});
+    const [temperatures, setTemperatures] = useState({});
 
     // Pagination state
     const [page, setPage] = useState(1);
@@ -213,6 +214,7 @@ export default function EditGoodsReceiptWarehouse({ onBack, editRefno }) {
             const newUnitPrices = {};
             const newTotals = {};
             const newExpiryDates = {};
+            const newTemperatures = {};
 
             detailData.forEach((item) => {
                 const productCode = item.product_code;
@@ -222,6 +224,7 @@ export default function EditGoodsReceiptWarehouse({ onBack, editRefno }) {
                 newUnits[productCode] = item.unit_code || item.tbl_product?.productUnit1?.unit_code || '';
                 newUnitPrices[productCode] = parseFloat(item.uprice) || 0;
                 newTotals[productCode] = parseFloat(item.amt) || 0;
+                newTemperatures[productCode] = item.temperature1 || '38';
 
                 // Better date parsing
                 if (item.texpire_date && item.texpire_date.length === 8) {
@@ -257,6 +260,7 @@ export default function EditGoodsReceiptWarehouse({ onBack, editRefno }) {
             setUnitPrices(newUnitPrices);
             setTotals(newTotals);
             setExpiryDates(newExpiryDates);
+            setTemperatures(newTemperatures);
 
             // Calculate and set total with better error handling
             const totalSum = Object.values(newTotals).reduce((sum, value) => sum + (isNaN(value) ? 0 : value), 0);
@@ -276,6 +280,10 @@ export default function EditGoodsReceiptWarehouse({ onBack, editRefno }) {
             console.error('Error processing detail data:', error);
             throw error;
         }
+    };
+
+    const handleTemperatureChange = (productCode, temp) => {
+        setTemperatures(prev => ({ ...prev, [productCode]: temp }));
     };
 
     // Handle filtering and pagination
@@ -657,9 +665,6 @@ export default function EditGoodsReceiptWarehouse({ onBack, editRefno }) {
                                         <Typography variant="body2" color="text.secondary" noWrap>
                                             {product.product_code}
                                         </Typography>
-                                        <Typography variant="h6" color="#D9A05B" mt={1}>
-                                            ${(product.bulk_unit_price || 0).toFixed(2)}
-                                        </Typography>
                                     </CardContent>
                                     {selectedProducts.includes(product.product_code) && (
                                         <CheckCircleIcon
@@ -780,6 +785,7 @@ export default function EditGoodsReceiptWarehouse({ onBack, editRefno }) {
                                     <TableCell>Product Name</TableCell>
                                     <TableCell>Expiry Date</TableCell>
                                     <TableCell>Quantity</TableCell>
+                                    <TableCell>Temperature</TableCell>
                                     <TableCell>Unit</TableCell>
                                     <TableCell>Actions</TableCell>
                                 </TableRow>
@@ -787,13 +793,13 @@ export default function EditGoodsReceiptWarehouse({ onBack, editRefno }) {
                             <TableBody>
                                 {isLoading ? (
                                     <TableRow>
-                                        <TableCell colSpan={10} align="center">
+                                        <TableCell colSpan={11} align="center">
                                             <CircularProgress />
                                         </TableCell>
                                     </TableRow>
                                 ) : (!products || products.length === 0) ? (
                                     <TableRow>
-                                        <TableCell colSpan={10} align="center">
+                                        <TableCell colSpan={11} align="center">
                                             <Typography color="text.secondary">
                                                 No products selected or failed to load product data
                                             </Typography>
@@ -846,6 +852,17 @@ export default function EditGoodsReceiptWarehouse({ onBack, editRefno }) {
                                                 </Box>
                                             </TableCell>
                                             <TableCell>
+                                                <TextField
+                                                    type="number"
+                                                    size="small"
+                                                    value={temperatures[product.product_code] || "38"}
+                                                    onChange={(e) => handleTemperatureChange(product.product_code, e.target.value)}
+                                                    placeholder="Temperature"
+                                                    sx={{ width: '80px' }}
+                                                    inputProps={{ min: 0, step: "1" }}
+                                                />
+                                            </TableCell>
+                                            <TableCell>
                                                 <Select
                                                     value={units[product.product_code] || ''}
                                                     onChange={(e) => handleUnitChange(product.product_code, e.target.value)}
@@ -889,16 +906,14 @@ export default function EditGoodsReceiptWarehouse({ onBack, editRefno }) {
                         color: 'white'
                     }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                            <Typography>Subtotal</Typography>
-                            <Typography>${total.toFixed(2)}</Typography>
+                            <Typography>Total Items</Typography>
+                            <Typography>{products.length}</Typography>
                         </Box>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                            <Typography>Tax (7%)</Typography>
-                            <Typography>${calculateTax().toFixed(2)}</Typography>
-                        </Box>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
-                            <Typography variant="h5">Total</Typography>
-                            <Typography variant="h5">${(total + calculateTax()).toFixed(2)}</Typography>
+                            <Typography>Total Quantity</Typography>
+                            <Typography>
+                                {Object.values(quantities).reduce((sum, qty) => sum + qty, 0)}
+                            </Typography>
                         </Box>
                     </Box>
 

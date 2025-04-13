@@ -12,7 +12,7 @@ import "react-datepicker/dist/react-datepicker.css";
 import Stack from '@mui/material/Stack';
 import Pagination from '@mui/material/Pagination';
 import { useDispatch } from 'react-redux';
-import { Kt_rfwAlljoindt, deleteKt_rfw, Kt_rfwByRefno } from '../../../api/kitchen/kt_rfwApi';
+import { Kt_rfwAlljoindt, deleteKt_rfw, Kt_rfwByRefno, Kt_rfwAllrdate } from '../../../api/kitchen/kt_rfwApi';
 import { kitchenAll } from '../../../api/kitchenApi';
 import { searchProductName } from '../../../api/productrecordApi';
 import Swal from 'sweetalert2';
@@ -93,7 +93,7 @@ export default function ReceiptFromWarehouse({ onCreate, onEdit }) {
     const [kitchens, setKitchens] = useState([]);
     const limit = 5;
 
-    // Load branches and suppliers on component mount
+    // Load kitchens on component mount
     useEffect(() => {
         const loadData = async () => {
             try {
@@ -117,10 +117,11 @@ export default function ReceiptFromWarehouse({ onCreate, onEdit }) {
         fetchData();
     }, [page, searchKitchen, searchProduct, filterDate]);
 
+    // ใน ReceiptFromWarehouse.js - ลองแก้ฟังก์ชัน fetchData ให้เป็นแบบนี้:
+
     const fetchData = async () => {
         try {
             setIsLoading(true);
-            const offset = (page - 1) * limit;
 
             const localDate = new Date(filterDate);
             localDate.setHours(0, 0, 0, 0);
@@ -130,20 +131,17 @@ export default function ReceiptFromWarehouse({ onCreate, onEdit }) {
             const day = String(localDate.getDate()).padStart(2, '0');
             const formattedDate = `${year}${month}${day}`;
 
-            const response = await dispatch(Kt_rfwAlljoindt({
-                offset,
-                limit,
+            // ไม่ส่ง offset และ limit เพื่อให้ดึงข้อมูลทั้งหมด
+            const response = await dispatch(Kt_rfwAllrdate({  // <-- เปลี่ยนมาใช้ Kt_rfwAllrdate แทน
                 rdate1: formattedDate,
                 rdate2: formattedDate,
-                kitchen_code: searchKitchen,
-                product_code: searchProduct
+                kitchen_name: searchKitchen ? kitchens.find(k => k.kitchen_code === searchKitchen)?.kitchen_name || '' : ''
             })).unwrap();
 
             if (response.result && response.data) {
+                // เซ็ตข้อมูลทั้งหมดโดยตรง
                 setData(response.data);
-                const totalPages = Math.ceil(response.data.length / limit);
-                setCount(totalPages || 1);
-                console.log(response.data);
+                setCount(1); // มีหน้าเดียวเพราะแสดงข้อมูลทั้งหมด
             }
         } catch (error) {
             console.error('Error fetching data:', error);
@@ -417,8 +415,8 @@ export default function ReceiptFromWarehouse({ onCreate, onEdit }) {
                         ) : (
                             data.map((row, index) => {
                                 const isSelected = selected.indexOf(row.refno) !== -1;
-                                const branchName = row.branch_name || row.branch?.branch_name || '-';
-                                const supplierName = row.supplier_name || row.supplier?.supplier_name || '-';
+                                // Handle kitchen name display from different possible sources
+                                const kitchenName = row.tbl_kitchen?.kitchen_name || row.kitchen_name || '-';
 
                                 return (
                                     <StyledTableRow key={row.refno}>
@@ -433,9 +431,9 @@ export default function ReceiptFromWarehouse({ onCreate, onEdit }) {
                                         </StyledTableCell>
                                         <StyledTableCell align="center">{row.refno}</StyledTableCell>
                                         <StyledTableCell align="center">{row.rdate}</StyledTableCell>
-                                        <StyledTableCell align="center">{row.kitchen_name}</StyledTableCell>
-                                        <StyledTableCell align="center">{row.total.toFixed(2)}</StyledTableCell>
-                                        <StyledTableCell align="center">{row.user?.username || '-'}</StyledTableCell>
+                                        <StyledTableCell align="center">{row.tbl_kitchen?.kitchen_name}</StyledTableCell>
+                                        <StyledTableCell align="center">{row.total?.toFixed(2) || '0.00'}</StyledTableCell>
+                                        <StyledTableCell align="center">{row.user?.username || row.username || '-'}</StyledTableCell>
                                         <StyledTableCell align="center">
                                             <IconButton
                                                 onClick={() => onEdit(row.refno)}

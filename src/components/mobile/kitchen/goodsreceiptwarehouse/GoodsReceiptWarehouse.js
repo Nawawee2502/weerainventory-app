@@ -422,7 +422,7 @@ export default function GoodsReceiptWarehouse({ onCreate, onEdit }) {
                                         </StyledTableCell>
                                         <StyledTableCell align="center">{row.refno}</StyledTableCell>
                                         <StyledTableCell align="center">{row.rdate}</StyledTableCell>
-                                        <StyledTableCell align="center">{row.kitchen_name}</StyledTableCell>
+                                        <StyledTableCell align="center">{row.tbl_kitchen?.kitchen_name}</StyledTableCell>
                                         <StyledTableCell align="center">{row.total.toFixed(2)}</StyledTableCell>
                                         <StyledTableCell align="center">{row.user?.username || '-'}</StyledTableCell>
                                         <StyledTableCell align="center">

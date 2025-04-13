@@ -662,14 +662,13 @@ export default function CreateKitchenRequisition({ onBack }) {
                                         </TableCell>
                                         <TableCell>
                                             <TextField
-                                                value={temperatures[product.product_code] || ""}
-                                                onChange={(e) => handleTemperatureChange(product.product_code, e.target.value)}
+                                                type="number"
                                                 size="small"
-                                                placeholder="°C"
-                                                inputProps={{
-                                                    inputMode: 'numeric',
-                                                    pattern: '[0-9]*'
-                                                }}
+                                                value={temperatures[product.product_code] || "38"}
+                                                onChange={(e) => handleTemperatureChange(product.product_code, e.target.value)}
+                                                placeholder="Temperature"
+                                                sx={{ width: '80px' }}
+                                                inputProps={{ min: 0, step: "1" }}
                                             />
                                         </TableCell>
                                         <TableCell>

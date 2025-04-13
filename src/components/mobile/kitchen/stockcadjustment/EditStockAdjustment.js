@@ -36,15 +36,13 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
                     width: '100%',
                     backgroundColor: '#fff',
                     borderRadius: '10px'
-                },
-                position: 'relative',
-                zIndex: 1200 // เพิ่มค่า z-index ให้สูงกว่า table header
+                }
             }}
             InputProps={{
                 readOnly: true,
                 endAdornment: (
                     <InputAdornment position="end">
-                        <CalendarTodayIcon sx={{ color: '#754C27', cursor: 'pointer' }} />
+                        <CalendarTodayIcon sx={{ color: '#2E7D32', cursor: 'pointer' }} />
                     </InputAdornment>
                 ),
             }}
@@ -73,7 +71,6 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
     const [debugInfo, setDebugInfo] = useState({});
     const [beginningQuantities, setBeginningQuantities] = useState({});
     const [balanceQuantities, setBalanceQuantities] = useState({});
-
 
     // Pagination state
     const [page, setPage] = useState(1);
@@ -315,8 +312,8 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
             setSelectedProducts(prev => [...prev, product.product_code]);
             setProducts(prev => [...prev, product]);
 
-            // ค่าเริ่มต้น
-            const initialQty = 1;
+            // Initial values
+            const initialQty = 1; // You could set this to 0 if you want a neutral starting point
             const initialBeg = 0;
             const initialBal = initialQty + initialBeg;
 
@@ -410,7 +407,8 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
 
     const handleQuantityChange = (productCode, delta) => {
         const currentQty = quantities[productCode] || 0;
-        const newQty = Math.max(1, currentQty + delta);
+        // Remove the Math.max(1, ...) to allow negative quantities
+        const newQty = currentQty + delta;
         const currentBeg = beginningQuantities[productCode] || 0;
         const newBal = newQty + currentBeg;
 
@@ -568,43 +566,38 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
     // Loading state
     if (isLoading) {
         return (
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-                <CircularProgress sx={{ color: '#754C27' }} />
-                <Typography sx={{ ml: 2 }}>Loading stock adjustment data...</Typography>
+            <Box sx={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                height: '100vh',
+                flexDirection: 'column',
+                gap: 2
+            }}>
+                <Typography variant="h6">Loading...</Typography>
+                <CircularProgress />
             </Box>
         );
     }
 
     return (
-        <Box sx={{ padding: "10px", paddingBottom: "300px", fontFamily: "Arial, sans-serif" }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Button
-                    startIcon={<ArrowBackIcon />}
-                    onClick={onBack}
-                >
-                    Back to Stock Adjustments
-                </Button>
-            </Box>
-
-            {/* Status Information */}
-            <Box sx={{ mb: 2, p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
-                <Typography variant="subtitle2">
-                    <strong>Status:</strong> Editing ref #{editRefno} |
-                    Products selected: {selectedProducts.length} |
-                    Products loaded: {products.length} |
-                    Kitchen: {kitchenCode || 'None'} |
-                    Total: ${total.toFixed(2)}
-                </Typography>
-            </Box>
+        <Box sx={{ padding: "20px", fontFamily: "Arial, sans-serif" }}>
+            <Button
+                startIcon={<ArrowBackIcon />}
+                onClick={onBack}
+                sx={{ marginBottom: "20px" }}
+            >
+                Back to Stock Adjustments
+            </Button>
 
             {/* Main content */}
-            <Box display="flex" p={2} bgcolor="#F9F9F9">
+            <Box display="flex" p={2} bgcolor="#F9F9F9" borderRadius="12px" boxShadow={1}>
                 {/* Left Panel - Product Selection */}
                 <Box flex={2} pr={2} display="flex" flexDirection="column">
                     {/* Search Section */}
                     <Box sx={{ marginBottom: "20px", paddingTop: '20px' }}>
                         <TextField
-                            placeholder="Search products..."
+                            placeholder="Search products by name or code..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             sx={{
@@ -625,56 +618,61 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
 
                     {/* Products Grid */}
                     <Box display="flex" flexWrap="wrap" gap={2} justifyContent="center" sx={{ flex: 1, overflow: 'auto' }}>
-                        {paginatedProducts.map((product) => {
-                            if (!product || !product.product_code) return null;
+                        {paginatedProducts.length === 0 ? (
+                            <Typography sx={{ my: 4, color: 'text.secondary' }}>
+                                No products found. Try a different search term.
+                            </Typography>
+                        ) : (
+                            paginatedProducts.map((product) => {
+                                if (!product || !product.product_code) return null;
 
-                            return (
-                                <Card
-                                    key={product.product_code}
-                                    sx={{
-                                        width: 160,
-                                        borderRadius: '16px',
-                                        boxShadow: 3,
-                                        position: 'relative',
-                                        cursor: 'pointer',
-                                        border: selectedProducts.includes(product.product_code) ? '2px solid #4caf50' : 'none',
-                                        bgcolor: selectedProducts.includes(product.product_code) ? '#f0fff0' : 'white',
-                                        transition: 'all 0.2s ease-in-out',
-                                        '&:hover': {
-                                            transform: 'translateY(-4px)',
-                                            boxShadow: 4
-                                        }
-                                    }}
-                                    onClick={() => toggleSelectProduct(product)}
-                                >
-                                    {renderProductImage(product, 'small')}
-                                    <CardContent>
-                                        <Typography variant="body1" fontWeight={500} noWrap>
-                                            {product.product_name}
-                                        </Typography>
-                                        <Typography variant="body2" color="text.secondary" noWrap>
-                                            {product.product_code}
-                                        </Typography>
-                                        <Typography variant="h6" color="#D9A05B" mt={1}>
-                                            ${(product.bulk_unit_price || 0).toFixed(2)}
-                                        </Typography>
-                                    </CardContent>
-                                    {selectedProducts.includes(product.product_code) && (
-                                        <CheckCircleIcon
-                                            sx={{
-                                                color: '#4caf50',
-                                                position: 'absolute',
-                                                top: 8,
-                                                right: 8,
-                                                fontSize: 30,
-                                                backgroundColor: 'rgba(255,255,255,0.7)',
-                                                borderRadius: '50%'
-                                            }}
-                                        />
-                                    )}
-                                </Card>
-                            );
-                        })}
+                                return (
+                                    <Card
+                                        key={product.product_code}
+                                        sx={{
+                                            width: 160,
+                                            borderRadius: '16px',
+                                            boxShadow: 3,
+                                            position: 'relative',
+                                            cursor: 'pointer',
+                                            border: selectedProducts.includes(product.product_code) ? '2px solid #4caf50' : 'none',
+                                            bgcolor: selectedProducts.includes(product.product_code) ? '#f0fff0' : 'white',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            transition: 'all 0.2s ease-in-out',
+                                            '&:hover': {
+                                                transform: 'translateY(-4px)',
+                                                boxShadow: 4
+                                            }
+                                        }}
+                                        onClick={() => toggleSelectProduct(product)}
+                                    >
+                                        {renderProductImage(product, 'small')}
+                                        <CardContent>
+                                            <Typography variant="body1" fontWeight={500} noWrap>
+                                                {product.product_name}
+                                            </Typography>
+                                            <Typography variant="body2" color="text.secondary" noWrap>
+                                                {product.product_code}
+                                            </Typography>
+                                        </CardContent>
+                                        {selectedProducts.includes(product.product_code) && (
+                                            <CheckCircleIcon
+                                                sx={{
+                                                    color: '#4caf50',
+                                                    position: 'absolute',
+                                                    top: 8,
+                                                    right: 8,
+                                                    fontSize: 30,
+                                                    backgroundColor: 'rgba(255,255,255,0.7)',
+                                                    borderRadius: '50%'
+                                                }}
+                                            />
+                                        )}
+                                    </Card>
+                                );
+                            })
+                        )}
                     </Box>
 
                     {/* Pagination */}
@@ -705,7 +703,7 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
                 {/* Right Panel - Adjustment Details */}
                 <Box flex={2} pl={2} bgcolor="#FFF" p={3} borderRadius="12px" boxShadow={3}>
                     <Grid container spacing={3}>
-                        <Grid item xs={12} md={6}>
+                        <Grid item xs={12}>
                             <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>
                                 Ref.no
                             </Typography>
@@ -735,7 +733,7 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
                             />
                         </Grid>
 
-                        <Grid item xs={12}>
+                        <Grid item xs={12} md={6}>
                             <Typography sx={{ fontSize: '16px', fontWeight: '600' }}>
                                 Kitchen
                             </Typography>
@@ -780,8 +778,9 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
                                     },
                                     ml: 1
                                 }}
+                                disabled={products.length === 0}
                             >
-                                Reset
+                                Clear All
                             </Button>
                         </Box>
                     </Box>
@@ -810,17 +809,11 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
                                 </TableRow>
                             </TableHead>
                             <TableBody>
-                                {isLoading ? (
+                                {products.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={9} align="center">
-                                            <CircularProgress />
-                                        </TableCell>
-                                    </TableRow>
-                                ) : (!products || products.length === 0) ? (
-                                    <TableRow>
-                                        <TableCell colSpan={9} align="center">
+                                        <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
                                             <Typography color="text.secondary">
-                                                No products selected. Please select products from the left panel.
+                                                No products selected. Click on products to add them to your adjustment.
                                             </Typography>
                                         </TableCell>
                                     </TableRow>
@@ -842,7 +835,7 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
                                                 </Box>
                                             </TableCell>
                                             <TableCell>
-                                                <Typography variant="body2" fontWeight="bold" noWrap sx={{ maxWidth: 150 }}>
+                                                <Typography variant="body2" fontWeight="bold">
                                                     {product.product_name}
                                                 </Typography>
                                                 <Typography variant="caption" color="text.secondary">
@@ -859,21 +852,9 @@ export default function EditStockAdjustment({ onBack, editRefno }) {
                                             </TableCell>
                                             <TableCell>
                                                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                                    <IconButton
-                                                        onClick={() => handleBeginningChange(product.product_code, -1)}
-                                                        size="small"
-                                                    >
-                                                        <RemoveIcon />
-                                                    </IconButton>
-                                                    <Typography sx={{ mx: 1 }}>
+                                                    <Typography sx={{ fontWeight: 'bold' }}>
                                                         {beginningQuantities[product.product_code] || 0}
                                                     </Typography>
-                                                    <IconButton
-                                                        onClick={() => handleBeginningChange(product.product_code, 1)}
-                                                        size="small"
-                                                    >
-                                                        <AddIcon />
-                                                    </IconButton>
                                                 </Box>
                                             </TableCell>
                                             <TableCell>

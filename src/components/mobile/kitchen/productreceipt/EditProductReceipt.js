@@ -757,9 +757,6 @@ export default function EditProductReceipt({ onBack, editRefno }) {
                                         <Typography variant="body2" color="text.secondary" noWrap>
                                             {product.product_code}
                                         </Typography>
-                                        <Typography variant="h6" color="#D9A05B" mt={1}>
-                                            ${(product.bulk_unit_price || 0).toFixed(2)}
-                                        </Typography>
                                     </CardContent>
                                     {selectedProducts.includes(product.product_code) && (
                                         <CheckCircleIcon
@@ -929,11 +926,13 @@ export default function EditProductReceipt({ onBack, editRefno }) {
                                             </TableCell>
                                             <TableCell>
                                                 <TextField
-                                                    value={temperatures[product.product_code] || "0"}
-                                                    onChange={(e) => handleTemperatureChange(product.product_code, e.target.value)}
-                                                    placeholder="°C"
+                                                    type="number"
                                                     size="small"
-                                                    sx={{ width: 70 }}
+                                                    value={temperatures[product.product_code] || "38"}
+                                                    onChange={(e) => handleTemperatureChange(product.product_code, e.target.value)}
+                                                    placeholder="Temperature"
+                                                    sx={{ width: '80px' }}
+                                                    inputProps={{ min: 0, step: "1" }}
                                                 />
                                             </TableCell>
                                             <TableCell>

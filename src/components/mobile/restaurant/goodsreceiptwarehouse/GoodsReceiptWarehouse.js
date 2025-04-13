@@ -17,6 +17,9 @@ import { branchAll } from '../../../../api/branchApi';
 import { supplierAll } from '../../../../api/supplierApi';
 import { searchProductName } from '../../../../api/productrecordApi';
 import Swal from 'sweetalert2';
+import { pdf } from '@react-pdf/renderer';
+import { generatePDF } from './Br_rfwPDF';
+import { Br_rfwByRefno } from '../../../../api/restaurant/br_rfwApi';
 
 const formatDate = (date) => {
     if (!date) return "";
@@ -130,7 +133,10 @@ export default function GoodsReceiptWarehouse({ onCreate, onEdit }) {
             setIsLoading(true);
             const offset = (page - 1) * limit;
 
-            const formattedDate = filterDate.toISOString().slice(0, 10).replace(/-/g, '');
+            const year = filterDate.getFullYear();
+            const month = String(filterDate.getMonth() + 1).padStart(2, '0');
+            const day = String(filterDate.getDate()).padStart(2, '0');
+            const formattedDate = `${year}${month}${day}`;
 
             const response = await dispatch(Br_rfwAlljoindt({
                 offset,
@@ -301,6 +307,46 @@ export default function GoodsReceiptWarehouse({ onCreate, onEdit }) {
         setPage(1);
     };
 
+    const handlePrintPDF = async (refno) => {
+        try {
+            Swal.fire({
+                title: 'กำลังโหลดข้อมูล...',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            // ดึงข้อมูล receipt จาก API
+            const response = await dispatch(Br_rfwByRefno({ refno })).unwrap();
+
+            console.log("API Response Data:", response);
+
+            if (response.result && response.data) {
+                const pdfContent = await generatePDF(refno, response.data);
+
+                if (pdfContent) {
+                    Swal.close();
+                    const asBlob = await pdf(pdfContent).toBlob();
+                    const url = URL.createObjectURL(asBlob);
+                    window.open(url, '_blank');
+                } else {
+                    throw new Error("Failed to generate PDF content");
+                }
+            } else {
+                throw new Error("Receipt data not found or invalid");
+            }
+        } catch (error) {
+            console.error('Error generating PDF:', error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error generating PDF',
+                text: error.message || 'Please try again later',
+                confirmButtonText: 'OK'
+            });
+        }
+    };
+
     return (
         <Box sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <Button
@@ -443,7 +489,7 @@ export default function GoodsReceiptWarehouse({ onCreate, onEdit }) {
                                         </StyledTableCell>
                                         <StyledTableCell align="center">
                                             <IconButton
-                                                onClick={() => {/* Add print functionality later */ }}
+                                                onClick={() => handlePrintPDF(row.refno)}
                                                 sx={{ border: '1px solid #5686E1', borderRadius: '7px' }}
                                             >
                                                 <PrintIcon sx={{ color: '#5686E1' }} />

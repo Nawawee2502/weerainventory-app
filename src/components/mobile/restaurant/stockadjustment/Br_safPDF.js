@@ -17,7 +17,7 @@ Font.register({
     ]
 });
 
-// Define styles for standard document format
+// Define styles for stock adjustment document format
 const styles = StyleSheet.create({
     page: {
         padding: 30,
@@ -50,7 +50,7 @@ const styles = StyleSheet.create({
         fontSize: 8,
         lineHeight: 1.4,
     },
-    documentTitle: {
+    poTitle: {
         fontSize: 14,
         fontWeight: 700,
         marginBottom: 10,
@@ -123,11 +123,12 @@ const styles = StyleSheet.create({
         fontSize: 8,
     },
     itemCell: { width: '10%', textAlign: 'center' },
-    codeCell: { width: '15%' },
-    descCell: { width: '35%' },
-    tempCell: { width: '10%', textAlign: 'center' }, // Temperature cell
+    codeCell: { width: '20%' },
+    descCell: { width: '40%' },
     qtyCell: { width: '15%', textAlign: 'center' },
-    unitCell: { width: '10%', textAlign: 'center' },
+    adjustmentCell: { width: '15%', textAlign: 'center' },
+    reasonCell: { width: '20%' },
+    unitCell: { width: '15%', textAlign: 'center' },
     // Signature section
     signatureSection: {
         flexDirection: 'row',
@@ -178,7 +179,7 @@ const styles = StyleSheet.create({
     },
 });
 
-// Format number helper
+// Format number to 2 decimal places with comma separators
 const formatNumber = (number) => {
     return Number(number).toLocaleString('en-US', {
         minimumFractionDigits: 2,
@@ -186,91 +187,92 @@ const formatNumber = (number) => {
     });
 };
 
-// Main PDF Component for Receipt From Warehouse
-export const ReceiptFromWarehousePDF = ({ refNo, date, kitchen, kitchenName, productArray, username, data, kitchenAddr1, kitchenAddr2, kitchenTel1 }) => (
+// Main PDF Component for Stock Adjustment Form
+export const StockAdjustmentPDF = ({ refNo, date, branch, branchName, productArray, total, username, data, branchAddr1, branchAddr2, branchTel1 }) => (
     <Document>
         <Page style={styles.page} size="A4">
-            {/* Header with kitchen info and receipt number */}
+            {/* Header with restaurant info and SAF number */}
             <View style={styles.header}>
                 <View style={styles.headerLeft}>
-                    <Text style={styles.companyName}>{kitchenName}</Text>
-                    <Text style={styles.companyInfo}>{kitchenAddr1}</Text>
-                    <Text style={styles.companyInfo}>{kitchenAddr2}</Text>
-                    <Text style={styles.companyInfo}>Tel: {kitchenTel1}</Text>
+                    <Text style={styles.companyName}>{branchName}</Text>
+                    <Text style={styles.companyInfo}>{branchAddr1}</Text>
+                    <Text style={styles.companyInfo}>{branchAddr2}</Text>
+                    <Text style={styles.companyInfo}>Tel: {branchTel1}</Text>
                 </View>
                 <View style={styles.headerRight}>
-                    <Text style={styles.companyInfo}>Receipt#: {refNo}</Text>
+                    <Text style={styles.companyInfo}>Adjustment#: {refNo}</Text>
                     <Text style={styles.companyInfo}>Date: {date}</Text>
                     <Text style={styles.companyInfo}>Created By: {username}</Text>
                 </View>
             </View>
 
             {/* Document Title */}
-            <Text style={styles.documentTitle}>RECEIPT FROM WAREHOUSE</Text>
+            <Text style={styles.poTitle}>STOCK ADJUSTMENT FORM</Text>
 
-            {/* Kitchen Info */}
+            {/* Restaurant Info */}
             <View style={styles.infoSection}>
                 <View style={styles.infoBox}>
                     <View style={styles.infoRow}>
-                        <Text style={styles.infoLabel}>Kitchen:</Text>
-                        <Text style={styles.infoValue}>{kitchenName}</Text>
+                        <Text style={styles.infoLabel}>Restaurant:</Text>
+                        <Text style={styles.infoValue}>{branchName}</Text>
                     </View>
                     <View style={styles.infoRow}>
-                        <Text style={styles.infoLabel}>Kitchen ID:</Text>
-                        <Text style={styles.infoValue}>{kitchen}</Text>
+                        <Text style={styles.infoLabel}>Restaurant ID:</Text>
+                        <Text style={styles.infoValue}>{branch}</Text>
                     </View>
                 </View>
                 <View style={styles.infoBoxRight}>
                     <View style={styles.infoRow}>
-                        <Text style={styles.infoLabel}>From:</Text>
-                        <Text style={styles.infoValue}>Main Warehouse</Text>
+                        <Text style={styles.infoLabel}>Address:</Text>
+                        <Text style={styles.infoValue}>{branchAddr1}</Text>
                     </View>
                     <View style={styles.infoRow}>
-                        <Text style={styles.infoLabel}>Receipt Type:</Text>
-                        <Text style={styles.infoValue}>Warehouse to Kitchen</Text>
+                        <Text style={styles.infoLabel}>Phone:</Text>
+                        <Text style={styles.infoValue}>{branchTel1}</Text>
                     </View>
                 </View>
             </View>
 
-            {/* Items Table with Temperature column */}
+            {/* Items Table */}
             <View style={styles.tableContainer}>
-                {/* Table Header with Temperature */}
+                {/* Table Header */}
                 <View style={styles.tableHeader}>
                     <Text style={[styles.tableHeaderCell, styles.itemCell]}>No.</Text>
                     <Text style={[styles.tableHeaderCell, styles.codeCell]}>Item Code</Text>
                     <Text style={[styles.tableHeaderCell, styles.descCell]}>Description</Text>
-                    <Text style={[styles.tableHeaderCell, styles.tempCell]}>Temp (°C)</Text>
-                    <Text style={[styles.tableHeaderCell, styles.qtyCell]}>Qty</Text>
+                    <Text style={[styles.tableHeaderCell, styles.qtyCell]}>Adj. Qty</Text>
+                    <Text style={[styles.tableHeaderCell, styles.adjustmentCell]}>Type</Text>
                     <Text style={[styles.tableHeaderCell, styles.unitCell, { borderRightWidth: 0 }]}>Unit</Text>
                 </View>
 
-                {/* Table Rows with Temperature */}
+                {/* Table Rows */}
                 {productArray.map((item, index) => (
                     <View style={styles.tableRow} key={index}>
                         <Text style={[styles.tableCell, styles.itemCell]}>{index + 1}</Text>
                         <Text style={[styles.tableCell, styles.codeCell]}>{item.product_code}</Text>
                         <Text style={[styles.tableCell, styles.descCell]}>{item.tbl_product?.product_name || 'Product Description'}</Text>
-                        <Text style={[styles.tableCell, styles.tempCell]}>{item.temperature || 'N/A'}</Text>
-                        <Text style={[styles.tableCell, styles.qtyCell]}>{formatNumber(item.qty || 0)}</Text>
-                        <Text style={[styles.tableCellLast, styles.unitCell]}>{item.tbl_unit?.unit_name || item.unit_code}</Text>
+                        <Text style={[styles.tableCell, styles.qtyCell]}>{formatNumber(Math.abs(item.qty))}</Text>
+                        <Text style={[styles.tableCell, styles.adjustmentCell]}>{item.qty > 0 ? 'Addition' : 'Reduction'}</Text>
+                        <Text style={[styles.tableCellLast, styles.unitCell]}>
+                            {item.tbl_unit ? item.tbl_unit.unit_name : item.unit_code || ''}
+                        </Text>
                     </View>
                 ))}
             </View>
 
             {/* Notes Section */}
             <View style={styles.notesSection}>
-                <Text style={styles.notesTitle}>Notes:</Text>
-                <Text style={styles.notesText}>1. This document confirms receipt of items from warehouse to kitchen.</Text>
-                <Text style={styles.notesText}>2. All items received have been inspected and verified for quality and temperature.</Text>
-                <Text style={styles.notesText}>3. Kitchen inventory has been updated accordingly.</Text>
-                <Text style={styles.notesText}>4. Temperature readings have been verified for food safety compliance.</Text>
+                <Text style={styles.notesTitle}>Notes & Remarks:</Text>
+                <Text style={styles.notesText}>1. This document authorizes stock adjustments as detailed above.</Text>
+                <Text style={styles.notesText}>2. All adjustments must be approved by authorized personnel.</Text>
+                <Text style={styles.notesText}>3. Inventory records have been updated to reflect these changes.</Text>
             </View>
 
             {/* Signature Section */}
             <View style={styles.signatureSection}>
                 <View style={styles.signatureBox}>
                     <Text style={styles.signatureLine}></Text>
-                    <Text style={styles.signatureText}>Received By</Text>
+                    <Text style={styles.signatureText}>Prepared By</Text>
                 </View>
                 <View style={styles.signatureBox}>
                     <Text style={styles.signatureLine}></Text>
@@ -284,7 +286,7 @@ export const ReceiptFromWarehousePDF = ({ refNo, date, kitchen, kitchenName, pro
 
             {/* Footer */}
             <View style={styles.footer}>
-                <Text>This is an official receipt document from {kitchenName}. Ref# {refNo}</Text>
+                <Text>This is an official stock adjustment document from Weera Thai Restaurant. Adjustment# {refNo}</Text>
             </View>
         </Page>
     </Document>
@@ -293,11 +295,21 @@ export const ReceiptFromWarehousePDF = ({ refNo, date, kitchen, kitchenName, pro
 export const generatePDF = async (refno, data) => {
     if (!data) return null;
 
-    // Create product array from kt_rfwdts
-    const productArray = Array.isArray(data.kt_rfwdts)
-        ? data.kt_rfwdts.map(item => ({
+    // Log data for debugging
+    console.log("Data for Stock Adjustment PDF:", data);
+
+    // Check branch data specifically
+    console.log("Branch data in generatePDF:", {
+        branchName: data.tbl_branch?.branch_name || data.branch_code,
+        branchAddr1: data.tbl_branch?.addr1,
+        branchAddr2: data.tbl_branch?.addr2,
+        branchTel1: data.tbl_branch?.tel1
+    });
+
+    // Create product array from br_safdts
+    const productArray = Array.isArray(data.br_safdts)
+        ? data.br_safdts.map(item => ({
             ...item,
-            temperature: item.temperature1 || 'N/A', // Add temperature field with default
             tbl_unit: item.tbl_unit || { unit_name: item.unit_code },
             tbl_product: item.tbl_product || { product_name: 'Product Description' }
         }))
@@ -306,15 +318,16 @@ export const generatePDF = async (refno, data) => {
     console.log("Product array length:", productArray.length);
 
     const pdfContent = (
-        <ReceiptFromWarehousePDF
+        <StockAdjustmentPDF
             refNo={data.refno}
             date={data.rdate}
-            kitchen={data.kitchen_code}
-            kitchenName={data.tbl_kitchen?.kitchen_name || data.kitchen_code}
-            kitchenAddr1={data.tbl_kitchen?.addr1 || ''}
-            kitchenAddr2={data.tbl_kitchen?.addr2 || ''}
-            kitchenTel1={data.tbl_kitchen?.tel1 || ''}
+            branch={data.branch_code}
+            branchName={data.tbl_branch?.branch_name || data.branch_code}
+            branchAddr1={data.tbl_branch?.addr1 || ''}
+            branchAddr2={data.tbl_branch?.addr2 || ''}
+            branchTel1={data.tbl_branch?.tel1 || ''}
             productArray={productArray}
+            total={data.total}
             username={data.user?.username || data.user_code}
             data={data}
         />

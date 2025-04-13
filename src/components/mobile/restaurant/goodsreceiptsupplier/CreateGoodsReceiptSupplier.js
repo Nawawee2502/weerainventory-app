@@ -542,13 +542,6 @@ export default function CreateGoodsReceiptSupplier({ onBack }) {
                                         <Typography variant="body2" color="text.secondary" noWrap>
                                             {product.product_code}
                                         </Typography>
-                                        {/* Removed price display */}
-                                        {/* Show if product is taxable from the tax1 field */}
-                                        {product.tax1 === 'Y' && (
-                                            <Typography variant="caption" color="success.main">
-                                                Taxable
-                                            </Typography>
-                                        )}
                                     </CardContent>
                                     {selectedProducts.includes(product.product_code) && (
                                         <CheckCircleIcon
@@ -786,14 +779,13 @@ export default function CreateGoodsReceiptSupplier({ onBack }) {
                                             </TableCell>
                                             <TableCell>
                                                 <TextField
-                                                    value={temperatures[product.product_code] || ''}
-                                                    onChange={(e) => handleTemperatureChange(product.product_code, e.target.value)}
-                                                    size="small"
                                                     type="number"
-                                                    InputProps={{
-                                                        endAdornment: <InputAdornment position="end">°C</InputAdornment>,
-                                                    }}
-                                                    sx={{ width: '100px' }}
+                                                    size="small"
+                                                    value={temperatures[product.product_code] || "38"}
+                                                    onChange={(e) => handleTemperatureChange(product.product_code, e.target.value)}
+                                                    placeholder="Temperature"
+                                                    sx={{ width: '80px' }}
+                                                    inputProps={{ min: 0, step: "1" }}
                                                 />
                                             </TableCell>
                                             <TableCell>
@@ -860,12 +852,6 @@ export default function CreateGoodsReceiptSupplier({ onBack }) {
                             <Typography>Total Quantity</Typography>
                             <Typography>
                                 {Object.values(quantities).reduce((sum, qty) => sum + qty, 0)}
-                            </Typography>
-                        </Box>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                            <Typography>Taxable Items</Typography>
-                            <Typography>
-                                {Object.values(tax1Values).filter(status => status === 'Y').length}
                             </Typography>
                         </Box>
                     </Box>

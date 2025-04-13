@@ -123,10 +123,11 @@ const styles = StyleSheet.create({
         fontSize: 8,
     },
     itemCell: { width: '5%', textAlign: 'center' },
-    codeCell: { width: '15%' },
-    descCell: { width: '35%' },
-    qtyCell: { width: '10%', textAlign: 'center' },
-    unitCell: { width: '10%', textAlign: 'center' },
+    codeCell: { width: '10%' },
+    descCell: { width: '30%' },
+    tempCell: { width: '10%', textAlign: 'center' }, // Temperature cell
+    qtyCell: { width: '8%', textAlign: 'center' },
+    unitCell: { width: '8%', textAlign: 'center' },
     priceCell: { width: '10%', textAlign: 'right' },
     amountCell: { width: '15%', textAlign: 'right' },
     // Total section
@@ -280,25 +281,27 @@ export const ReceiptFromWarehousePDF = ({ refNo, date, kitchen, kitchenName, pro
                 </View>
             </View>
 
-            {/* Items Table */}
+            {/* Items Table with Temperature column */}
             <View style={styles.tableContainer}>
-                {/* Table Header */}
+                {/* Table Header with Temperature */}
                 <View style={styles.tableHeader}>
                     <Text style={[styles.tableHeaderCell, styles.itemCell]}>No.</Text>
                     <Text style={[styles.tableHeaderCell, styles.codeCell]}>Item Code</Text>
                     <Text style={[styles.tableHeaderCell, styles.descCell]}>Description</Text>
+                    <Text style={[styles.tableHeaderCell, styles.tempCell]}>Temp (°C)</Text>
                     <Text style={[styles.tableHeaderCell, styles.qtyCell]}>Qty</Text>
                     <Text style={[styles.tableHeaderCell, styles.unitCell]}>Unit</Text>
                     <Text style={[styles.tableHeaderCell, styles.priceCell]}>Unit Price</Text>
                     <Text style={[styles.tableHeaderCell, styles.amountCell, { borderRightWidth: 0 }]}>Amount</Text>
                 </View>
 
-                {/* Table Rows */}
+                {/* Table Rows with Temperature */}
                 {productArray.map((item, index) => (
                     <View style={styles.tableRow} key={index}>
                         <Text style={[styles.tableCell, styles.itemCell]}>{index + 1}</Text>
                         <Text style={[styles.tableCell, styles.codeCell]}>{item.product_code}</Text>
                         <Text style={[styles.tableCell, styles.descCell]}>{item.tbl_product?.product_name || 'Product Description'}</Text>
+                        <Text style={[styles.tableCell, styles.tempCell]}>{item.temperature1 ? `${item.temperature1}°C` : 'N/A'}</Text>
                         <Text style={[styles.tableCell, styles.qtyCell]}>{formatNumber(item.qty)}</Text>
                         <Text style={[styles.tableCell, styles.unitCell]}>{item.tbl_unit?.unit_name || item.unit_code}</Text>
                         <Text style={[styles.tableCell, styles.priceCell]}>{formatNumber(item.uprice)}</Text>
@@ -329,8 +332,9 @@ export const ReceiptFromWarehousePDF = ({ refNo, date, kitchen, kitchenName, pro
             <View style={styles.notesSection}>
                 <Text style={styles.notesTitle}>Notes:</Text>
                 <Text style={styles.notesText}>1. This document confirms receipt of items from warehouse to kitchen.</Text>
-                <Text style={styles.notesText}>2. All items received have been inspected and verified.</Text>
+                <Text style={styles.notesText}>2. All items received have been inspected and verified for quality and temperature.</Text>
                 <Text style={styles.notesText}>3. Kitchen inventory has been updated accordingly.</Text>
+                <Text style={styles.notesText}>4. Temperature readings have been verified for food safety compliance.</Text>
             </View>
 
             {/* Signature Section */}
@@ -373,11 +377,20 @@ export const generatePDF = async (refno, data) => {
 
     // Create product array from kt_rfwdts
     const productArray = Array.isArray(data.kt_rfwdts)
-        ? data.kt_rfwdts.map(item => ({
-            ...item,
-            tbl_unit: item.tbl_unit || { unit_name: item.unit_code },
-            tbl_product: item.tbl_product || { product_name: 'Product Description' }
-        }))
+        ? data.kt_rfwdts.map(item => {
+            // Calculate amount from qty * uprice
+            const qty = parseFloat(item.qty || 0);
+            const uprice = parseFloat(item.uprice || 0);
+            const amt = qty * uprice;
+
+            return {
+                ...item,
+                amt: amt,
+                temperature1: item.temperature1 || null, // Use temperature1 field specifically
+                tbl_unit: item.tbl_unit || { unit_name: item.unit_code },
+                tbl_product: item.tbl_product || { product_name: 'Product Description' }
+            };
+        })
         : [];
 
     console.log("Product array length:", productArray.length);
@@ -392,7 +405,7 @@ export const generatePDF = async (refno, data) => {
             kitchenAddr2={data.tbl_kitchen?.addr2 || ''}
             kitchenTel1={data.tbl_kitchen?.tel1 || ''}
             productArray={productArray}
-            total={data.total}
+            total={data.total || 0}
             username={data.user?.username || data.user_code}
             data={data}
         />

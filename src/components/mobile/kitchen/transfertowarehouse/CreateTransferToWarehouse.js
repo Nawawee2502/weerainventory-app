@@ -894,10 +894,6 @@ export default function CreateTransferToWarehouse({ onBack }) {
                                 {Object.values(quantities).reduce((sum, qty) => sum + qty, 0)}
                             </Typography>
                         </Box>
-                        {/* <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
-                            <Typography variant="h5">Ready to Process</Typography>
-                            <Typography variant="h5">{products.length > 0 ? '✓' : '✗'}</Typography>
-                        </Box> */}
                     </Box>
 
                     {/* Save Button */}

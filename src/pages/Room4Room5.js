@@ -175,16 +175,6 @@ function Room4Room5(props) {
                 icon: <BarChartIcon />,
                 children: [
                     {
-                        segment: 'monthly-stock-card',
-                        title: 'Report Monthly Stockcard',
-                        icon: <CircleIcon fontSize='small' />,
-                    },
-                    {
-                        segment: 'monthly-stock-balance',
-                        title: 'Report Monthly Stockbalance',
-                        icon: <CircleIcon fontSize='small' />,
-                    },
-                    {
                         segment: 'purchase-order-to-warehouse',
                         title: 'Request to Warehouse',
                         icon: <CircleIcon fontSize='small' />,
@@ -222,6 +212,16 @@ function Room4Room5(props) {
                     {
                         segment: 'stock-adjustment',
                         title: 'Stock Adjustment',
+                        icon: <CircleIcon fontSize='small' />,
+                    },
+                    {
+                        segment: 'monthly-stock-card',
+                        title: 'Report Monthly Stockcard',
+                        icon: <CircleIcon fontSize='small' />,
+                    },
+                    {
+                        segment: 'monthly-stock-balance',
+                        title: 'Report Monthly Stockbalance',
                         icon: <CircleIcon fontSize='small' />,
                     },
                 ],

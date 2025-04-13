@@ -515,11 +515,6 @@ export default function CreateStockAdjustment({ onBack }) {
                                             {product.product_code}
                                         </Typography>
                                         {/* Removed price display */}
-                                        {product.tax1 === 'Y' && (
-                                            <Typography variant="caption" color="success.main">
-                                                Taxable
-                                            </Typography>
-                                        )}
                                     </CardContent>
                                     {selectedProducts.includes(product.product_code) && (
                                         <CheckCircleIcon

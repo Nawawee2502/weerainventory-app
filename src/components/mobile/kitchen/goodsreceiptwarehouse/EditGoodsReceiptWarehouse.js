@@ -673,9 +673,6 @@ export default function EditGoodsReceiptWarehouse({ onBack, editRefno }) {
                                         <Typography variant="body2" color="text.secondary" noWrap>
                                             {product.product_code}
                                         </Typography>
-                                        <Typography variant="h6" color="#D9A05B" mt={1}>
-                                            ${(product.bulk_unit_price || 0).toFixed(2)}
-                                        </Typography>
                                     </CardContent>
                                     {selectedProducts.includes(product.product_code) && (
                                         <CheckCircleIcon
@@ -845,11 +842,13 @@ export default function EditGoodsReceiptWarehouse({ onBack, editRefno }) {
                                             </TableCell>
                                             <TableCell>
                                                 <TextField
-                                                    value={temperatures[product.product_code] || ''}
-                                                    onChange={(e) => handleTemperatureChange(product.product_code, e.target.value)}
-                                                    size="small"
                                                     type="number"
+                                                    size="small"
+                                                    value={temperatures[product.product_code] || "38"}
+                                                    onChange={(e) => handleTemperatureChange(product.product_code, e.target.value)}
+                                                    placeholder="Temperature"
                                                     sx={{ width: '80px' }}
+                                                    inputProps={{ min: 0, step: "1" }}
                                                 />
                                             </TableCell>
                                             <TableCell>
@@ -915,16 +914,14 @@ export default function EditGoodsReceiptWarehouse({ onBack, editRefno }) {
                         color: 'white'
                     }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                            <Typography>Subtotal</Typography>
-                            <Typography>${total.toFixed(2)}</Typography>
+                            <Typography>Total Items</Typography>
+                            <Typography>{products.length}</Typography>
                         </Box>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                            <Typography>Tax (7%)</Typography>
-                            <Typography>${calculateTax().toFixed(2)}</Typography>
-                        </Box>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
-                            <Typography variant="h5">Total</Typography>
-                            <Typography variant="h5">${(total + calculateTax()).toFixed(2)}</Typography>
+                            <Typography>Total Quantity</Typography>
+                            <Typography>
+                                {Object.values(quantities).reduce((sum, qty) => sum + qty, 0)}
+                            </Typography>
                         </Box>
                     </Box>
 

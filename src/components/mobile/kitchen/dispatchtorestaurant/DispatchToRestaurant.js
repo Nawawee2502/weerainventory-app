@@ -464,7 +464,6 @@ export default function DispatchToRestaurant({ onCreate, onEdit }) {
                             <StyledTableCell align="center">Date</StyledTableCell>
                             <StyledTableCell align="center">Kitchen</StyledTableCell>
                             <StyledTableCell align="center">Restaurant</StyledTableCell>
-                            <StyledTableCell align="center">Total Amount</StyledTableCell>
                             <StyledTableCell align="center">Username</StyledTableCell>
                             <StyledTableCell width='1%' align="center"></StyledTableCell>
                             <StyledTableCell width='1%' align="center"></StyledTableCell>
@@ -474,11 +473,11 @@ export default function DispatchToRestaurant({ onCreate, onEdit }) {
                     <TableBody>
                         {isLoading ? (
                             <TableRow>
-                                <TableCell colSpan={11} align="center">Loading...</TableCell>
+                                <TableCell colSpan={10} align="center">Loading...</TableCell>
                             </TableRow>
                         ) : data.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={11} align="center">No data found</TableCell>
+                                <TableCell colSpan={10} align="center">No data found</TableCell>
                             </TableRow>
                         ) : (
                             data.map((row, index) => {
@@ -498,7 +497,6 @@ export default function DispatchToRestaurant({ onCreate, onEdit }) {
                                         <StyledTableCell align="center">{row.rdate}</StyledTableCell>
                                         <StyledTableCell align="center">{row.tbl_kitchen?.kitchen_name}</StyledTableCell>
                                         <StyledTableCell align="center">{row.tbl_branch?.branch_name}</StyledTableCell>
-                                        <StyledTableCell align="center">{row.total?.toFixed(2)}</StyledTableCell>
                                         <StyledTableCell align="center">{row.user?.username}</StyledTableCell>
                                         <StyledTableCell align="center">
                                             <IconButton

@@ -1,18 +1,50 @@
 import React from 'react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Box, Typography, TextField, Grid2, Button } from '@mui/material';
+import { Box, Typography, TextField, Grid2, Button, InputAdornment } from '@mui/material';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { Checkbox, Switch, Divider } from '@mui/material';
 import { useDispatch } from 'react-redux';
 import { Kt_rfsAlljoindt } from '../../../api/kitchen/kt_rfsApi';
 import { exportToExcelRfs } from './ExportExcelRFS';
-import { branchAll } from '../../../api/branchApi';
+import { kitchenAll } from '../../../api/kitchenApi';
 import { supplierAll } from '../../../api/supplierApi';
+import { searchProductName } from '../../../api/productrecordApi';
 import { exportToPdfRfs } from './ExportPdfRFS';
 import PrintLayout from './PrintPreviewRFS';
 import Swal from 'sweetalert2';
+import SearchIcon from '@mui/icons-material/Search';
+import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+
+// Custom Input component for DatePicker
+const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
+    <Box sx={{ position: 'relative', display: 'inline-block', width: '100%' }}>
+        <TextField
+            value={value}
+            onClick={onClick}
+            placeholder={placeholder || "MM/DD/YYYY"}
+            ref={ref}
+            size="small"
+            sx={{
+                '& .MuiInputBase-root': {
+                    height: '38px',
+                    width: '100%',
+                    backgroundColor: '#fff',
+                    borderRadius: '10px'
+                }
+            }}
+            InputProps={{
+                readOnly: true,
+                endAdornment: (
+                    <InputAdornment position="end">
+                        <CalendarTodayIcon sx={{ color: '#754C27', cursor: 'pointer' }} />
+                    </InputAdornment>
+                ),
+            }}
+        />
+    </Box>
+));
 
 export default function ReportReceiptFromSupplier() {
     const today = new Date();
@@ -20,13 +52,19 @@ export default function ReportReceiptFromSupplier() {
     const [excludePrice, setExcludePrice] = useState(false);
     const [startDate, setStartDate] = useState(today);
     const [endDate, setEndDate] = useState(today);
-    const [selectedBranch, setSelectedBranch] = useState('');
+    const [selectedKitchen, setSelectedKitchen] = useState('');
     const [selectedSupplier, setSelectedSupplier] = useState('');
-    const [selectedProduct, setSelectedProduct] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    const [branches, setBranches] = useState([]);
+    const [kitchens, setKitchens] = useState([]);
     const [suppliers, setSuppliers] = useState([]);
-    const [searchProduct, setSearchProduct] = useState('');
+
+    // Product search state
+    const [searchTerm, setSearchTerm] = useState('');
+    const [searchResults, setSearchResults] = useState([]);
+    const [showDropdown, setShowDropdown] = useState(false);
+    const [selectedProduct, setSelectedProduct] = useState(null);
+
+    const dropdownRef = useRef(null);
     const dispatch = useDispatch();
 
     const formatDisplayDate = (date) => {
@@ -37,9 +75,18 @@ export default function ReportReceiptFromSupplier() {
         return `${month}/${day}/${year}`;
     };
 
+    // Handle click outside search dropdown
     useEffect(() => {
-        handleSearch();
-    }, []);
+        function handleClickOutside(event) {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+                setShowDropdown(false);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, [dropdownRef]);
 
     const formatDate = (date) => {
         if (!date) return null;
@@ -49,94 +96,134 @@ export default function ReportReceiptFromSupplier() {
     // Fetch data function
     const fetchData = async (params) => {
         try {
+            setIsLoading(true);
             const response = await dispatch(Kt_rfsAlljoindt(params)).unwrap();
             console.log("API Response:", response);
 
-            if (response.data) {
-                const flattenedData = response.data.flatMap(order =>
-                    order.kt_rfsdts.map(detail => ({
-                        date: order.rdate,
-                        refno: order.refno,
-                        kitchen: order.tbl_branch?.branch_name,
-                        supplier: order.tbl_supplier?.supplier_name,
-                        product_id: detail.product_code,
-                        product_name: detail.tbl_product?.product_name,
-                        quantity: detail.qty,
-                        unit_price: detail.uprice,
-                        expireDate: detail.expiry_date,
-                        unit_code: detail.tbl_unit?.unit_name,
-                        amount: detail.amt,
-                        total: order.total,
-                        user_code: order.user?.username
-                    }))
-                );
+            if (response.data && Array.isArray(response.data)) {
+                // สร้างข้อมูลที่แบนราบจากรายการที่ซ้อนกัน
+                const flattenedData = [];
+
+                response.data.forEach(order => {
+                    if (order.kt_rfsdts && Array.isArray(order.kt_rfsdts)) {
+                        order.kt_rfsdts.forEach(detail => {
+                            flattenedData.push({
+                                date: order.rdate,
+                                refno: order.refno,
+                                kitchen: order.tbl_kitchen?.kitchen_name || 'Unknown',
+                                supplier: order.tbl_supplier?.supplier_name || 'Unknown',
+                                product_id: detail.product_code,
+                                product_name: detail.tbl_product?.product_name || 'Unknown',
+                                quantity: detail.qty,
+                                unit_price: detail.uprice,
+                                expireDate: detail.expire_date,
+                                unit_code: detail.tbl_unit?.unit_name || detail.unit_code,
+                                amount: detail.amt,
+                                total: order.total,
+                                user_code: order.user?.username || order.user_code
+                            });
+                        });
+                    }
+                });
+
                 setRfsData(flattenedData);
             } else {
+                console.warn("Response format unexpected:", response);
                 setRfsData([]);
             }
         } catch (error) {
             console.error("Error fetching data:", error);
             setRfsData([]);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Failed to fetch data: ' + (error.message || 'Unknown error'),
+                confirmButtonColor: '#754C27'
+            });
+        } finally {
+            setIsLoading(false);
         }
     };
 
     // Initial load effect
     useEffect(() => {
-        const params = {
-            offset: 0,
-            limit: 10000,
-            rdate1: formatDate(today),
-            rdate2: formatDate(today)
+        const initialLoad = async () => {
+            try {
+                // Load kitchens first
+                const kitchenResponse = await dispatch(kitchenAll({ offset: 0, limit: 1000 })).unwrap();
+                if (kitchenResponse?.data) {
+                    setKitchens(kitchenResponse.data);
+                }
+
+                // Load suppliers
+                const supplierResponse = await dispatch(supplierAll({ offset: 0, limit: 1000 })).unwrap();
+                if (supplierResponse?.data) {
+                    setSuppliers(supplierResponse.data);
+                }
+
+                // Default search parameters - load data after kitchens and suppliers are loaded
+                const params = {
+                    offset: 0,
+                    limit: 10000,
+                    rdate1: formatDate(today),
+                    rdate2: formatDate(today)
+                };
+
+                // Delay initial data fetch to avoid race conditions
+                setTimeout(() => {
+                    fetchData(params);
+                }, 100);
+            } catch (error) {
+                console.error("Error in initial load:", error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Failed to load initial data',
+                    confirmButtonColor: '#754C27'
+                });
+            }
         };
 
-        fetchData(params);
-
-        // Load branches
-        dispatch(branchAll({ offset: 0, limit: 1000 }))
-            .unwrap()
-            .then(res => {
-                setBranches(res.data);
-            })
-            .catch(err => console.error("Error fetching branches:", err));
-
-        // Load suppliers
-        dispatch(supplierAll({ offset: 0, limit: 1000 }))
-            .unwrap()
-            .then(res => {
-                setSuppliers(res.data);
-            })
-            .catch(err => console.error("Error fetching suppliers:", err));
-    }, []);
+        initialLoad();
+    }, [dispatch]);
 
     const handleDateChange = (type, date) => {
         if (type === 'start') {
             setStartDate(date);
-            if (date && endDate) {
-                const params = {
-                    offset: 0,
-                    limit: 10000,
-                    rdate1: formatDate(date),
-                    rdate2: formatDate(endDate)
-                };
-                console.log("Search with params:", params);
-                fetchData(params);
-            }
         } else {
             setEndDate(date);
-            if (startDate && date) {
-                const params = {
-                    offset: 0,
-                    limit: 10000,
-                    rdate1: formatDate(startDate),
-                    rdate2: formatDate(date)
-                };
-                console.log("Search with params:", params);
-                fetchData(params);
-            }
         }
     };
 
-    const handleSearch = (productSearch = searchProduct) => {
+    // Handle product search
+    const handleProductSearch = async (e) => {
+        const value = e.target.value;
+        setSearchTerm(value);
+
+        if (value.length > 2) { // Only search if at least 3 characters
+            try {
+                const result = await dispatch(searchProductName({ product_name: value })).unwrap();
+                if (result.data) {
+                    setSearchResults(result.data);
+                    setShowDropdown(true);
+                }
+            } catch (error) {
+                console.error("Product search error:", error);
+            }
+        } else {
+            setSearchResults([]);
+            setShowDropdown(false);
+        }
+    };
+
+    // Handle product selection from dropdown
+    const handleProductSelect = (product) => {
+        setSelectedProduct(product);
+        setSearchTerm(product.product_name);
+        setShowDropdown(false);
+    };
+
+    const handleSearch = () => {
         let params = {
             offset: 0,
             limit: 10000
@@ -147,12 +234,27 @@ export default function ReportReceiptFromSupplier() {
             params.rdate2 = formatDate(endDate);
         }
 
-        if (selectedBranch) params.branch_code = selectedBranch;
-        if (selectedSupplier) params.supplier_code = selectedSupplier;
-        if (selectedProduct) params.product_code = selectedProduct;
-        if (productSearch) params.product_code = productSearch;
+        if (selectedKitchen) {
+            params.kitchen_code = selectedKitchen;
+        }
 
+        if (selectedSupplier) {
+            params.supplier_code = selectedSupplier;
+        }
+
+        if (selectedProduct) {
+            params.product_code = selectedProduct.product_code;
+        }
+
+        console.log("Search params:", params);
         fetchData(params);
+    };
+
+    // Clear search
+    const clearSearch = () => {
+        setSelectedProduct(null);
+        setSearchTerm('');
+        handleSearch();
     };
 
     const handlePrint = () => {
@@ -253,7 +355,6 @@ export default function ReportReceiptFromSupplier() {
             width: '100%',
             display: 'flex',
             justifyContent: 'center',
-            bgcolor: 'white',
             flexDirection: 'column',
             alignItems: 'center',
             bgcolor: '#F8F8F8'
@@ -269,13 +370,12 @@ export default function ReportReceiptFromSupplier() {
                         justifyContent: 'center',
                         alignItems: 'center',
                         flexDirection: 'column',
-                        bgcolor: '#FFFFFF',
+                        bgcolor: '#F8F8F8',
                         height: '100%',
                         p: '16px',
                         position: 'relative',
                         zIndex: 2,
                         mb: '50px',
-                        bgcolor: '#F8F8F8'
                     }}
                 >
                     <Box sx={{ width: '90%', mt: '24px' }}>
@@ -291,23 +391,7 @@ export default function ReportReceiptFromSupplier() {
                                     startDate={startDate}
                                     endDate={endDate}
                                     dateFormat="MM/dd/yyyy"
-                                    customInput={
-                                        <TextField
-                                            size="small"
-                                            fullWidth
-                                            sx={{
-                                                mt: '8px',
-                                                width: '80%',
-                                                '& .MuiInputBase-root': {
-                                                    width: '100%',
-                                                },
-                                                '& .MuiOutlinedInput-root': {
-                                                    borderRadius: '10px',
-                                                    bgcolor: 'white'
-                                                },
-                                            }}
-                                        />
-                                    }
+                                    customInput={<CustomInput />}
                                 />
                             </Grid2>
                             <Grid2 item size={{ xs: 12, md: 6 }}>
@@ -322,23 +406,7 @@ export default function ReportReceiptFromSupplier() {
                                     endDate={endDate}
                                     minDate={startDate}
                                     dateFormat="MM/dd/yyyy"
-                                    customInput={
-                                        <TextField
-                                            size="small"
-                                            fullWidth
-                                            sx={{
-                                                mt: '8px',
-                                                width: '80%',
-                                                '& .MuiInputBase-root': {
-                                                    width: '100%',
-                                                },
-                                                '& .MuiOutlinedInput-root': {
-                                                    borderRadius: '10px',
-                                                    bgcolor: 'white'
-                                                },
-                                            }}
-                                        />
-                                    }
+                                    customInput={<CustomInput />}
                                 />
                             </Grid2>
                             <Grid2 item size={{ xs: 12, md: 6 }}>
@@ -347,11 +415,8 @@ export default function ReportReceiptFromSupplier() {
                                 </Typography>
                                 <Box
                                     component="select"
-                                    value={selectedBranch}
-                                    onChange={(e) => {
-                                        setSelectedBranch(e.target.value);
-                                        handleSearch();
-                                    }}
+                                    value={selectedKitchen}
+                                    onChange={(e) => setSelectedKitchen(e.target.value)}
                                     sx={{
                                         mt: '8px',
                                         width: '100%',
@@ -369,12 +434,12 @@ export default function ReportReceiptFromSupplier() {
                                             fontSize: '16px',
                                         },
                                     }}
-                                    id="Branch"
+                                    id="Kitchen"
                                 >
-                                    <option value="">Select a Commissary Kitchen</option>
-                                    {branches.map(branch => (
-                                        <option key={branch.branch_code} value={branch.branch_code}>
-                                            {branch.branch_name}
+                                    <option value="">All Kitchens</option>
+                                    {kitchens.map(kitchen => (
+                                        <option key={kitchen.kitchen_code} value={kitchen.kitchen_code}>
+                                            {kitchen.kitchen_name}
                                         </option>
                                     ))}
                                 </Box>
@@ -386,10 +451,7 @@ export default function ReportReceiptFromSupplier() {
                                 <Box
                                     component="select"
                                     value={selectedSupplier}
-                                    onChange={(e) => {
-                                        setSelectedSupplier(e.target.value);
-                                        handleSearch();
-                                    }}
+                                    onChange={(e) => setSelectedSupplier(e.target.value)}
                                     sx={{
                                         mt: '8px',
                                         width: '100%',
@@ -409,7 +471,7 @@ export default function ReportReceiptFromSupplier() {
                                     }}
                                     id="supplier"
                                 >
-                                    <option value="">Select a supplier</option>
+                                    <option value="">All Suppliers</option>
                                     {suppliers.map(supplier => (
                                         <option key={supplier.supplier_code} value={supplier.supplier_code}>
                                             {supplier.supplier_name}
@@ -422,22 +484,12 @@ export default function ReportReceiptFromSupplier() {
                                 <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
                                     Product
                                 </Typography>
-                                <Box sx={{ display: 'flex', gap: 2, mt: 1 }}>
+                                <Box sx={{ position: 'relative' }} ref={dropdownRef}>
                                     <TextField
                                         size="small"
                                         fullWidth
-                                        value={searchProduct}
-                                        onChange={(e) => {
-                                            setSearchProduct(e.target.value);
-                                            if (e.target.value === '') {
-                                                handleSearch('');
-                                            }
-                                        }}
-                                        onKeyPress={(e) => {
-                                            if (e.key === 'Enter') {
-                                                handleSearch(searchProduct);
-                                            }
-                                        }}
+                                        value={searchTerm}
+                                        onChange={handleProductSearch}
                                         placeholder="Search product name..."
                                         sx={{
                                             '& .MuiOutlinedInput-root': {
@@ -445,10 +497,56 @@ export default function ReportReceiptFromSupplier() {
                                                 bgcolor: 'white'
                                             },
                                         }}
+                                        InputProps={{
+                                            startAdornment: (
+                                                <InputAdornment position="start">
+                                                    <SearchIcon sx={{ color: '#5A607F' }} />
+                                                </InputAdornment>
+                                            ),
+                                        }}
                                     />
+                                    {showDropdown && searchResults.length > 0 && (
+                                        <Box sx={{
+                                            position: 'absolute',
+                                            top: '100%',
+                                            left: 0,
+                                            right: 0,
+                                            backgroundColor: 'white',
+                                            boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                                            borderRadius: '4px',
+                                            zIndex: 1000,
+                                            maxHeight: '200px',
+                                            overflowY: 'auto',
+                                            mt: '4px'
+                                        }}>
+                                            {searchResults.map((product) => (
+                                                <Box
+                                                    key={product.product_code}
+                                                    onClick={() => handleProductSelect(product)}
+                                                    sx={{
+                                                        p: 1.5,
+                                                        cursor: 'pointer',
+                                                        '&:hover': {
+                                                            backgroundColor: '#f5f5f5'
+                                                        },
+                                                        borderBottom: '1px solid #eee'
+                                                    }}
+                                                >
+                                                    <Typography sx={{ fontSize: '14px', fontWeight: '600' }}>
+                                                        {product.product_name}
+                                                    </Typography>
+                                                    <Typography sx={{ fontSize: '12px', color: 'gray' }}>
+                                                        {product.product_code}
+                                                    </Typography>
+                                                </Box>
+                                            ))}
+                                        </Box>
+                                    )}
+                                </Box>
+                                <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
                                     <Button
                                         variant="contained"
-                                        onClick={() => handleSearch(searchProduct)}
+                                        onClick={handleSearch}
                                         sx={{
                                             bgcolor: '#754C27',
                                             color: 'white',
@@ -456,11 +554,28 @@ export default function ReportReceiptFromSupplier() {
                                                 bgcolor: '#5c3c1f',
                                             },
                                             borderRadius: '10px',
-                                            minWidth: '100px'
+                                            flex: 3
                                         }}
                                     >
                                         Show
                                     </Button>
+                                    {selectedProduct && (
+                                        <Button
+                                            variant="outlined"
+                                            onClick={clearSearch}
+                                            sx={{
+                                                color: '#754C27',
+                                                borderColor: '#754C27',
+                                                '&:hover': {
+                                                    borderColor: '#5c3c1f',
+                                                },
+                                                borderRadius: '10px',
+                                                flex: 1
+                                            }}
+                                        >
+                                            Clear
+                                        </Button>
+                                    )}
                                 </Box>
                             </Grid2>
                         </Grid2>
@@ -503,11 +618,16 @@ export default function ReportReceiptFromSupplier() {
                                     Date
                                 </Typography>
                                 <Typography sx={{ fontWeight: '700', color: '#AD7A2C' }}>
-                                    Commissary Kitchen
+                                    Kitchen
                                 </Typography>
                                 <Typography sx={{ fontWeight: '700', color: '#AD7A2C' }}>
                                     Supplier
                                 </Typography>
+                                {selectedProduct && (
+                                    <Typography sx={{ fontWeight: '700', color: '#AD7A2C' }}>
+                                        Product
+                                    </Typography>
+                                )}
                             </Box>
                             <Box sx={{ ml: '8px' }}>
                                 <Typography>
@@ -516,11 +636,16 @@ export default function ReportReceiptFromSupplier() {
                                         : "Not specified"}
                                 </Typography>
                                 <Typography>
-                                    {branches.find(b => b.branch_code === selectedBranch)?.branch_name || "Not selected"}
+                                    {kitchens.find(k => k.kitchen_code === selectedKitchen)?.kitchen_name || "All Kitchens"}
                                 </Typography>
                                 <Typography>
-                                    {suppliers.find(s => s.supplier_code === selectedSupplier)?.supplier_name || "Not selected"}
+                                    {suppliers.find(s => s.supplier_code === selectedSupplier)?.supplier_name || "All Suppliers"}
                                 </Typography>
+                                {selectedProduct && (
+                                    <Typography>
+                                        {selectedProduct.product_name}
+                                    </Typography>
+                                )}
                             </Box>
                         </Box>
                         <Box sx={{ display: 'flex', gap: 2, flexDirection: 'column' }}>
@@ -579,51 +704,65 @@ export default function ReportReceiptFromSupplier() {
                         </Box>
                     </Box>
                     <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', mb: '12px' }}>
-                        <table style={{ width: '100%', marginTop: '24px' }}>
-                            <thead>
-                                <tr>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>No.</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Date</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Ref.no</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Kitchen</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Supplier</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Product ID</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Product Name</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Quantity</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Unit Price</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Expire Date</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Unit</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Amount</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Total</th>
-                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Username</th>
-                                </tr>
-                                <tr>
-                                    <td colSpan="15">
-                                        <Divider sx={{ width: '100%', color: '#754C27', border: '1px solid #754C27' }} />
-                                    </td>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {rfsData.map((row, index) => (
-                                    <tr key={`${row.refno}-${row.product_id}`}>
-                                        <td style={{ padding: '12px 16px' }}>{index + 1}</td>
-                                        <td style={{ padding: '12px 16px' }}>{row.date}</td>
-                                        <td style={{ padding: '12px 16px' }}>{row.refno}</td>
-                                        <td style={{ padding: '12px 16px' }}>{row.kitchen}</td>
-                                        <td style={{ padding: '12px 16px' }}>{row.supplier}</td>
-                                        <td style={{ padding: '12px 16px' }}>{row.product_id}</td>
-                                        <td style={{ padding: '12px 16px' }}>{row.product_name}</td>
-                                        <td style={{ padding: '12px 16px' }}>{row.quantity}</td>
-                                        <td style={{ padding: '12px 16px' }}>{Number(row.unit_price).toFixed(2)}</td>
-                                        <td style={{ padding: '12px 16px' }}>{row.expireDate}</td>
-                                        <td style={{ padding: '12px 16px' }}>{row.unit_code}</td>
-                                        <td style={{ padding: '12px 16px' }}>{Number(row.amount).toFixed(2)}</td>
-                                        <td style={{ padding: '12px 16px' }}>{Number(row.total).toFixed(2)}</td>
-                                        <td style={{ padding: '12px 16px' }}>{row.user_code}</td>
+                        {isLoading ? (
+                            <Box sx={{ textAlign: 'center', py: 4 }}>
+                                <Typography>Loading data...</Typography>
+                            </Box>
+                        ) : (
+                            <table style={{ width: '100%', marginTop: '24px' }}>
+                                <thead>
+                                    <tr>
+                                        <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>No.</th>
+                                        <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Date</th>
+                                        <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Ref.no</th>
+                                        <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Kitchen</th>
+                                        <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Supplier</th>
+                                        <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Product ID</th>
+                                        <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Product Name</th>
+                                        <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Quantity</th>
+                                        <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Unit Price</th>
+                                        <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Expire Date</th>
+                                        <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Unit</th>
+                                        <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Amount</th>
+                                        <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Total</th>
+                                        <th style={{ padding: '12px 16px', textAlign: 'left', color: '#754C27' }}>Username</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                    <tr>
+                                        <td colSpan="15">
+                                            <Divider sx={{ width: '100%', color: '#754C27', border: '1px solid #754C27' }} />
+                                        </td>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {rfsData.length === 0 ? (
+                                        <tr>
+                                            <td colSpan="15" style={{ textAlign: 'center', padding: '20px' }}>
+                                                No data found. Try different search criteria.
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        rfsData.map((row, index) => (
+                                            <tr key={`${row.refno}-${row.product_id}-${index}`}>
+                                                <td style={{ padding: '12px 16px' }}>{index + 1}</td>
+                                                <td style={{ padding: '12px 16px' }}>{row.date}</td>
+                                                <td style={{ padding: '12px 16px' }}>{row.refno}</td>
+                                                <td style={{ padding: '12px 16px' }}>{row.kitchen}</td>
+                                                <td style={{ padding: '12px 16px' }}>{row.supplier}</td>
+                                                <td style={{ padding: '12px 16px' }}>{row.product_id}</td>
+                                                <td style={{ padding: '12px 16px' }}>{row.product_name}</td>
+                                                <td style={{ padding: '12px 16px' }}>{row.quantity}</td>
+                                                <td style={{ padding: '12px 16px' }}>{!excludePrice ? Number(row.unit_price).toFixed(2) : '-'}</td>
+                                                <td style={{ padding: '12px 16px' }}>{row.expireDate}</td>
+                                                <td style={{ padding: '12px 16px' }}>{row.unit_code}</td>
+                                                <td style={{ padding: '12px 16px' }}>{!excludePrice ? Number(row.amount).toFixed(2) : '-'}</td>
+                                                <td style={{ padding: '12px 16px' }}>{!excludePrice ? Number(row.total).toFixed(2) : '-'}</td>
+                                                <td style={{ padding: '12px 16px' }}>{row.user_code}</td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        )}
                     </Box>
                 </Box>
             </Box>

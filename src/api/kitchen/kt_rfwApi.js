@@ -67,23 +67,25 @@ export const Kt_rfwAllrdate = createAsyncThunk(
     }
 );
 
+// เปลี่ยนให้เหมือนกับ Kt_grfAlljoindt โดยลบ rdate ออก
 export const Kt_rfwAlljoindt = createAsyncThunk(
     "kt_rfw/readAll",
-    async ({ offset = 0, limit = 5, rdate, rdate1, rdate2, kitchen_code, product_code }, { dispatch }) => {
+    async ({ offset = 0, limit = 5, rdate1, rdate2, kitchen_code, product_code }, { dispatch }) => {
         try {
             const payload = {
                 offset,
                 limit
             };
 
-            if (rdate) payload.rdate = rdate;
             if (rdate1) payload.rdate1 = rdate1;
             if (rdate2) payload.rdate2 = rdate2;
             if (kitchen_code) payload.kitchen_code = kitchen_code;
             if (product_code) payload.product_code = product_code;
-            // Removed supplier_code since it doesn't exist in the table
+
+            console.log("Sending request to Kt_rfwAlljoindt with payload:", payload);
 
             const res = await axios.post(BASE_URL + "/api/Kt_rfwAlljoindt", payload);
+            console.log("Response from Kt_rfwAlljoindt:", res.data);
             return res.data;
         } catch (error) {
             console.error('Get All KT RFW Join Error:', error.message);

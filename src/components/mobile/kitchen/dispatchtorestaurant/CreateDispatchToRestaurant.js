@@ -1394,15 +1394,16 @@ export default function CreateDispatchToRestaurant({ onBack }) {
                                                     />
                                                 </TableCell>
                                                 <TableCell>
-                                                    <Select
+                                                    <TextField
                                                         value={taxStatus[productCode] || 'N'}
                                                         onChange={(e) => handleTaxStatusChange(productCode, e.target.value)}
                                                         size="small"
                                                         sx={{ minWidth: 60 }}
+                                                        disabled
                                                     >
                                                         <MenuItem value="Y">Yes</MenuItem>
                                                         <MenuItem value="N">No</MenuItem>
-                                                    </Select>
+                                                    </TextField>
                                                 </TableCell>
                                                 <TableCell>
                                                     <Box sx={{ display: 'flex', alignItems: 'center' }}>

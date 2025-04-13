@@ -328,8 +328,8 @@ export default function CreateRequestToKitchen({ onBack }) {
                 monthh: format(startDate, 'MM'),
                 myear: startDate.getFullYear(),
                 user_code: userData2.user_code,
-                taxable: tax.toString(), 
-                nontaxable: (total - tax).toString() 
+                taxable: tax.toString(),
+                nontaxable: (total - tax).toString()
             };
 
             const productArrayData = products.map(product => ({
@@ -548,12 +548,6 @@ export default function CreateRequestToKitchen({ onBack }) {
                                         <Typography variant="body2" color="text.secondary" noWrap>
                                             {product.product_code}
                                         </Typography>
-                                        {/* Removed price display */}
-                                        {product.tax1 === 'Y' && (
-                                            <Typography variant="caption" color="success.main">
-                                                Taxable
-                                            </Typography>
-                                        )}
                                     </CardContent>
                                     {selectedProducts.includes(product.product_code) && (
                                         <CheckCircleIcon
@@ -839,12 +833,6 @@ export default function CreateRequestToKitchen({ onBack }) {
                             <Typography>Total Quantity</Typography>
                             <Typography>
                                 {Object.values(quantities).reduce((sum, qty) => sum + qty, 0)}
-                            </Typography>
-                        </Box>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                            <Typography>Taxable Items</Typography>
-                            <Typography>
-                                {products.filter(product => product.tax1 === 'Y').length}
                             </Typography>
                         </Box>
                     </Box>

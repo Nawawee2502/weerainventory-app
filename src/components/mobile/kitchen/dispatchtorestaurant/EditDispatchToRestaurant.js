@@ -674,9 +674,6 @@ export default function EditDispatchToRestaurant({ onBack, editRefno }) {
                                         <Typography variant="body2" color="text.secondary" noWrap>
                                             {product.product_code}
                                         </Typography>
-                                        <Typography variant="h6" color="#D9A05B" mt={1}>
-                                            ${(product.bulk_unit_price || 0).toFixed(2)}
-                                        </Typography>
                                     </CardContent>
                                     {selectedProducts.includes(product.product_code) && (
                                         <CheckCircleIcon
@@ -867,23 +864,26 @@ export default function EditDispatchToRestaurant({ onBack, editRefno }) {
                                             </TableCell>
                                             <TableCell>
                                                 <TextField
-                                                    value={temperatures[product.product_code] || ""}
-                                                    onChange={(e) => handleTemperatureChange(product.product_code, e.target.value)}
-                                                    placeholder="°C"
+                                                    type="number"
                                                     size="small"
-                                                    sx={{ width: 70 }}
+                                                    value={temperatures[product.product_code] || "38"}
+                                                    onChange={(e) => handleTemperatureChange(product.product_code, e.target.value)}
+                                                    placeholder="Temperature"
+                                                    sx={{ width: '80px' }}
+                                                    inputProps={{ min: 0, step: "1" }}
                                                 />
                                             </TableCell>
                                             <TableCell>
-                                                <Select
+                                                <TextField
                                                     value={taxStatus[product.product_code]}
                                                     onChange={(e) => handleTaxStatusChange(product.product_code, e.target.value)}
                                                     size="small"
                                                     sx={{ minWidth: 60 }}
+                                                    disabled
                                                 >
                                                     <MenuItem value="Y">Yes</MenuItem>
                                                     <MenuItem value="N">No</MenuItem>
-                                                </Select>
+                                                </TextField>
                                             </TableCell>
                                             <TableCell>
                                                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
