@@ -321,32 +321,36 @@ export const RequestToKitchenPDF = ({ kitchen, kitchenName, refNo, date, branch,
 export const generatePDF = async (refno, data) => {
     if (!data) return null;
 
-    console.log("PDF Generation - Data received:", data);
-    console.log("BR_RTKDTS data:", data.br_rtkdts);
-
-    if (data.br_rtkdts) {
-        console.log("BR_RTKDTS type:", typeof data.br_rtkdts);
-        console.log("BR_RTKDTS is array:", Array.isArray(data.br_rtkdts));
-        console.log("BR_RTKDTS length:", data.br_rtkdts.length);
-
-        // If br_rtkdts is an object but not an array, let's convert it to an array
-        if (typeof data.br_rtkdts === 'object' && !Array.isArray(data.br_rtkdts)) {
-            console.log("Converting br_rtkdts object to array");
-            data.br_rtkdts = Object.values(data.br_rtkdts);
-            console.log("After conversion, BR_RTKDTS length:", data.br_rtkdts.length);
-        }
-    }
+    console.log("PDF Generation - Complete data structure:", Object.keys(data));
 
     // Process the product array
     let productItems = [];
 
-    // Use enhanced logging and error handling for br_rtkdts
     try {
-        if (data.br_rtkdts && Array.isArray(data.br_rtkdts)) {
-            console.log("Processing br_rtkdts array with length:", data.br_rtkdts.length);
+        // First log details about br_rtkdts to diagnose the issue
+        console.log("BR_RTKDTS exists:", !!data.br_rtkdts);
 
-            productItems = data.br_rtkdts.map((item, index) => {
+        if (data.br_rtkdts) {
+            console.log("BR_RTKDTS type:", typeof data.br_rtkdts);
+            console.log("BR_RTKDTS is array:", Array.isArray(data.br_rtkdts));
+
+            // If it's an array, use it directly
+            if (Array.isArray(data.br_rtkdts)) {
+                console.log("BR_RTKDTS is already an array with length:", data.br_rtkdts.length);
+                productItems = data.br_rtkdts;
+            }
+            // If it's an object but not an array, convert it to an array
+            else if (typeof data.br_rtkdts === 'object' && data.br_rtkdts !== null) {
+                console.log("Converting BR_RTKDTS object to array");
+                productItems = Object.values(data.br_rtkdts);
+                console.log("After conversion, productItems length:", productItems.length);
+            }
+
+            // Additional processing on each product item
+            productItems = productItems.map((item, index) => {
                 console.log(`Processing product ${index + 1}:`, item.product_code);
+
+                // Make sure all required properties exist
                 return {
                     ...item,
                     tbl_unit: item.tbl_unit || { unit_name: item.unit_code || '' },
@@ -354,17 +358,23 @@ export const generatePDF = async (refno, data) => {
                 };
             });
 
-            console.log("Processed productItems length:", productItems.length);
+            console.log("Final productItems length:", productItems.length);
             if (productItems.length > 0) {
-                console.log("First productItem:", productItems[0]);
-                console.log("Last productItem:", productItems[productItems.length - 1]);
+                console.log("First product item:", productItems[0]);
+                console.log("Last product item:", productItems[productItems.length - 1]);
             }
         } else {
-            console.log("BR_RTKDTS is not available or not an array");
+            console.error("BR_RTKDTS is missing from the data");
         }
     } catch (error) {
-        console.error("Error processing br_rtkdts:", error);
+        console.error("Error processing product data:", error);
         productItems = [];
+    }
+
+    // Final fallback - if we still don't have products, log a critical error
+    if (productItems.length === 0) {
+        console.error("CRITICAL: Could not extract any products from the data");
+        console.log("Data structure:", JSON.stringify(data, null, 2));
     }
 
     const pdfContent = (

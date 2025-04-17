@@ -393,7 +393,6 @@ export default function StockAdjustment({ onCreate, onEdit }) {
                             <StyledTableCell align="center">Ref.no</StyledTableCell>
                             <StyledTableCell align="center">Date</StyledTableCell>
                             <StyledTableCell align="center">Kitchen</StyledTableCell>
-                            <StyledTableCell align="center">Total Amount</StyledTableCell>
                             <StyledTableCell align="center">Username</StyledTableCell>
                             <StyledTableCell align="center">Actions</StyledTableCell>
                         </TableRow>
@@ -401,13 +400,13 @@ export default function StockAdjustment({ onCreate, onEdit }) {
                     <TableBody>
                         {isLoading ? (
                             <TableRow>
-                                <TableCell colSpan={8} align="center">
+                                <TableCell colSpan={7} align="center">
                                     <CircularProgress />
                                 </TableCell>
                             </TableRow>
                         ) : data.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={8} align="center">
+                                <TableCell colSpan={7} align="center">
                                     No data found
                                 </TableCell>
                             </TableRow>
@@ -426,7 +425,6 @@ export default function StockAdjustment({ onCreate, onEdit }) {
                                         <TableCell align="center">{row.refno}</TableCell>
                                         <TableCell align="center">{row.rdate}</TableCell>
                                         <TableCell align="center">{row.tbl_kitchen?.kitchen_name}</TableCell>
-                                        <TableCell align="center">${Number(row.total).toFixed(2)}</TableCell>
                                         <TableCell align="center">{row.user?.username}</TableCell>
                                         <TableCell align="center">
                                             <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>

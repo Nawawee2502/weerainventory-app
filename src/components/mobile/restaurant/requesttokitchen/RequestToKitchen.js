@@ -32,6 +32,7 @@ import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
 import { useDispatch } from 'react-redux';
 import { Br_rtkAlljoindt, deleteBr_rtk, Br_rtkByRefno } from '../../../../api/restaurant/br_rtkApi';
+import { Br_rtkdtAlljoindt } from '../../../../api/restaurant/br_rtkdtApi';
 import { kitchenAll } from '../../../../api/kitchenApi';
 import { branchAll } from '../../../../api/branchApi';
 import { searchProductName } from '../../../../api/productrecordApi';
@@ -301,31 +302,77 @@ export default function RequestToKitchen({ onCreate, onEdit }) {
         }
       });
 
-      // ดึงข้อมูลจาก API
-      // สร้างฟังก์ชัน Br_rtkByRefno ที่คล้ายกับ Br_powByRefno
+      // Get the main RTK data
       const requestResponse = await dispatch(Br_rtkByRefno({ refno })).unwrap();
-
       console.log("API Response Data (Complete):", requestResponse);
 
-      if (requestResponse.result && requestResponse.data) {
-        const data = requestResponse.data;
+      if (!requestResponse.result || !requestResponse.data) {
+        throw new Error("Invalid API response format");
+      }
 
-        // ดูข้อมูลสินค้าในออบเจ็กต์ข้อมูล
-        console.log("Products data:", data.br_rtkdts);
+      const data = requestResponse.data;
+      console.log("RTK Data Structure:", Object.keys(data));
 
-        // สร้าง PDF โดยใช้ข้อมูลจาก API
-        const pdfContent = await generatePDF(refno, data);
+      // Check if we have product details in the main response
+      let hasDetailItems = false;
+      if (data.br_rtkdts) {
+        console.log("BR_RTKDTS found in response");
+        console.log("BR_RTKDTS type:", typeof data.br_rtkdts);
+        console.log("BR_RTKDTS is array:", Array.isArray(data.br_rtkdts));
 
-        if (pdfContent) {
-          Swal.close();
-          const asBlob = await pdf(pdfContent).toBlob();
-          const url = URL.createObjectURL(asBlob);
-          window.open(url, '_blank');
-        } else {
-          throw new Error("Failed to generate PDF content");
+        if (Array.isArray(data.br_rtkdts)) {
+          console.log("Number of products:", data.br_rtkdts.length);
+          hasDetailItems = data.br_rtkdts.length > 0;
+        } else if (typeof data.br_rtkdts === 'object') {
+          console.log("Number of products:", Object.keys(data.br_rtkdts).length);
+          hasDetailItems = Object.keys(data.br_rtkdts).length > 0;
+        }
+
+        // Log sample data
+        if (hasDetailItems) {
+          if (Array.isArray(data.br_rtkdts) && data.br_rtkdts.length > 0) {
+            console.log("First product:", data.br_rtkdts[0]);
+            console.log("Last product:", data.br_rtkdts[data.br_rtkdts.length - 1]);
+          } else if (typeof data.br_rtkdts === 'object') {
+            const keys = Object.keys(data.br_rtkdts);
+            console.log("First product:", data.br_rtkdts[keys[0]]);
+            console.log("Last product:", data.br_rtkdts[keys[keys.length - 1]]);
+          }
         }
       } else {
-        throw new Error("Request data not found or invalid");
+        console.log("No BR_RTKDTS found in main response");
+      }
+
+      // If no product details, fetch them separately
+      if (!hasDetailItems) {
+        console.log("Fetching product details separately...");
+        try {
+          const detailsResponse = await dispatch(Br_rtkdtAlljoindt({ refno })).unwrap();
+          console.log("Details API Response:", detailsResponse);
+
+          if (detailsResponse.result && detailsResponse.data && detailsResponse.data.length > 0) {
+            console.log(`Found ${detailsResponse.data.length} products in separate call`);
+            // Add the details to our data object
+            data.br_rtkdts = detailsResponse.data;
+            console.log("Data structure after adding details:", Object.keys(data));
+          } else {
+            console.warn("No products found in separate API call");
+          }
+        } catch (detailsError) {
+          console.error("Error fetching product details:", detailsError);
+        }
+      }
+
+      // Generate the PDF
+      const pdfContent = await generatePDF(refno, data);
+
+      if (pdfContent) {
+        Swal.close();
+        const asBlob = await pdf(pdfContent).toBlob();
+        const url = URL.createObjectURL(asBlob);
+        window.open(url, '_blank');
+      } else {
+        throw new Error("Failed to generate PDF content");
       }
     } catch (error) {
       console.error('Error generating PDF:', error);
@@ -447,7 +494,6 @@ export default function RequestToKitchen({ onCreate, onEdit }) {
               <StyledTableCell align="center">Date</StyledTableCell>
               <StyledTableCell align="center">Kitchen</StyledTableCell>
               <StyledTableCell align="center">Restaurant</StyledTableCell>
-              <StyledTableCell align="center">Total Amount</StyledTableCell>
               <StyledTableCell align="center">Username</StyledTableCell>
               <StyledTableCell align="center">Actions</StyledTableCell>
             </TableRow>
@@ -455,13 +501,13 @@ export default function RequestToKitchen({ onCreate, onEdit }) {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={9} align="center">
+                <TableCell colSpan={8} align="center">
                   <CircularProgress />
                 </TableCell>
               </TableRow>
             ) : data.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} align="center">
+                <TableCell colSpan={8} align="center">
                   No data found
                 </TableCell>
               </TableRow>
@@ -481,7 +527,6 @@ export default function RequestToKitchen({ onCreate, onEdit }) {
                     <TableCell align="center">{row.rdate}</TableCell>
                     <TableCell align="center">{row.tbl_kitchen?.kitchen_name}</TableCell>
                     <TableCell align="center">{row.tbl_branch?.branch_name}</TableCell>
-                    <TableCell align="center">${Number(row.total).toFixed(2)}</TableCell>
                     <TableCell align="center">{row.user?.username}</TableCell>
                     <TableCell align="center">
                       <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>

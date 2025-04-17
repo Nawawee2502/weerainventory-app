@@ -508,7 +508,6 @@ export default function GoodsReceiptSupplier({ onCreate, onEdit }) {
               <StyledTableCell align="center">Date</StyledTableCell>
               <StyledTableCell align="center">Supplier</StyledTableCell>
               <StyledTableCell align="center">Restaurant</StyledTableCell> {/* Added Branch column */}
-              <StyledTableCell align="center">Total Amount</StyledTableCell>
               <StyledTableCell align="center">Username</StyledTableCell>
               <StyledTableCell width='1%' align="center"></StyledTableCell>
               <StyledTableCell width='1%' align="center"></StyledTableCell>
@@ -518,11 +517,11 @@ export default function GoodsReceiptSupplier({ onCreate, onEdit }) {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={11} align="center">Loading...</TableCell> {/* Updated colspan to include new column */}
+                <TableCell colSpan={10} align="center">Loading...</TableCell> {/* Updated colspan to include new column */}
               </TableRow>
             ) : data.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={11} align="center">No data found</TableCell> {/* Updated colspan to include new column */}
+                <TableCell colSpan={10} align="center">No data found</TableCell> {/* Updated colspan to include new column */}
               </TableRow>
             ) : (
               data.map((row, index) => {
@@ -542,7 +541,6 @@ export default function GoodsReceiptSupplier({ onCreate, onEdit }) {
                     <StyledTableCell align="center">{row.rdate}</StyledTableCell>
                     <StyledTableCell align="center">{row.tbl_supplier?.supplier_name}</StyledTableCell>
                     <StyledTableCell align="center">{row.tbl_branch?.branch_name}</StyledTableCell> {/* Added Branch name */}
-                    <StyledTableCell align="center">{Number(row.total).toFixed(2)}</StyledTableCell>
                     <StyledTableCell align="center">{row.user?.username}</StyledTableCell>
                     <StyledTableCell align="center">
                       <IconButton

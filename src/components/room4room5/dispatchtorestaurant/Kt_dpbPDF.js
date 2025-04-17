@@ -299,17 +299,23 @@ export const DispatchToRestaurantPDF = ({ refNo, date, kitchen, kitchenName, res
                 </View>
 
                 {/* Table Rows */}
-                {productArray.map((item, index) => (
-                    <View style={styles.tableRow} key={index}>
-                        <Text style={[styles.tableCell, styles.itemCell]}>{index + 1}</Text>
-                        <Text style={[styles.tableCell, styles.codeCell]}>{item.product_code}</Text>
-                        <Text style={[styles.tableCell, styles.descCell]}>{item.tbl_product?.product_name || 'Product Description'}</Text>
-                        <Text style={[styles.tableCell, styles.qtyCell]}>{formatNumber(item.qty)}</Text>
-                        <Text style={[styles.tableCell, styles.unitCell]}>{item.tbl_unit?.unit_name || item.unit_code}</Text>
-                        <Text style={[styles.tableCell, styles.priceCell]}>{formatNumber(item.uprice)}</Text>
-                        <Text style={[styles.tableCellLast, styles.amountCell]}>{formatNumber(item.amt)}</Text>
+                {productArray && productArray.length > 0 ? (
+                    productArray.map((item, index) => (
+                        <View style={styles.tableRow} key={index}>
+                            <Text style={[styles.tableCell, styles.itemCell]}>{index + 1}</Text>
+                            <Text style={[styles.tableCell, styles.codeCell]}>{item.product_code}</Text>
+                            <Text style={[styles.tableCell, styles.descCell]}>{item.tbl_product?.product_name || 'Product Description'}</Text>
+                            <Text style={[styles.tableCell, styles.qtyCell]}>{formatNumber(item.qty || 0)}</Text>
+                            <Text style={[styles.tableCell, styles.unitCell]}>{item.tbl_unit?.unit_name || item.unit_code || ''}</Text>
+                            <Text style={[styles.tableCell, styles.priceCell]}>{formatNumber(item.uprice || 0)}</Text>
+                            <Text style={[styles.tableCellLast, styles.amountCell]}>{formatNumber(item.amt || (item.qty * item.uprice) || 0)}</Text>
+                        </View>
+                    ))
+                ) : (
+                    <View style={styles.tableRow}>
+                        <Text style={[styles.tableCell, { width: '100%', textAlign: 'center' }]}>No items found</Text>
                     </View>
-                ))}
+                )}
             </View>
 
             {/* Totals Section */}
@@ -317,7 +323,7 @@ export const DispatchToRestaurantPDF = ({ refNo, date, kitchen, kitchenName, res
                 <View style={styles.totalTable}>
                     <View style={styles.totalRow}>
                         <Text style={styles.totalLabelCell}>Sub-Total:</Text>
-                        <Text style={styles.totalValueCell}>{formatNumber(total)}</Text>
+                        <Text style={styles.totalValueCell}>{formatNumber(total || 0)}</Text>
                     </View>
                     <View style={styles.totalRow}>
                         <Text style={styles.totalLabelCell}>Tax:</Text>
@@ -325,7 +331,7 @@ export const DispatchToRestaurantPDF = ({ refNo, date, kitchen, kitchenName, res
                     </View>
                     <View style={[styles.totalRow, { borderBottomWidth: 0 }]}>
                         <Text style={styles.grandTotalLabel}>GRAND TOTAL:</Text>
-                        <Text style={styles.grandTotalValue}>{formatNumber(total)}</Text>
+                        <Text style={styles.grandTotalValue}>{formatNumber(total || 0)}</Text>
                     </View>
                 </View>
             </View>
@@ -365,42 +371,78 @@ export const DispatchToRestaurantPDF = ({ refNo, date, kitchen, kitchenName, res
 export const generatePDF = async (refno, data) => {
     if (!data) return null;
 
-    // Log data for debugging
-    console.log("Data for Dispatch to Restaurant PDF:", data);
+    console.log("PDF Generation - Complete data received:", data);
 
-    // Check kitchen data specifically
-    console.log("Kitchen data in generatePDF:", {
-        kitchenName: data.tbl_kitchen?.kitchen_name || data.kitchen_code,
-        kitchenAddr1: data.tbl_kitchen?.addr1,
-        kitchenAddr2: data.tbl_kitchen?.addr2,
-        kitchenTel1: data.tbl_kitchen?.tel1
-    });
+    // Process the product array
+    let productItems = [];
 
-    // Create product array from kt_dpbdts
-    const productArray = Array.isArray(data.kt_dpbdts)
-        ? data.kt_dpbdts.map(item => ({
-            ...item,
-            tbl_unit: item.tbl_unit || { unit_name: item.unit_code },
-            tbl_product: item.tbl_product || { product_name: 'Product Description' }
-        }))
-        : [];
+    try {
+        // First log details about kt_dpbdts to diagnose the issue
+        console.log("KT_DPBDTS data:", data.kt_dpbdts);
 
-    console.log("Product array length:", productArray.length);
+        if (data.kt_dpbdts) {
+            console.log("KT_DPBDTS type:", typeof data.kt_dpbdts);
+            console.log("KT_DPBDTS is array:", Array.isArray(data.kt_dpbdts));
+            console.log("KT_DPBDTS length:", data.kt_dpbdts?.length);
+
+            // If kt_dpbdts is an object but not an array, let's convert it to an array
+            if (typeof data.kt_dpbdts === 'object' && !Array.isArray(data.kt_dpbdts)) {
+                console.log("Converting kt_dpbdts object to array");
+                data.kt_dpbdts = Object.values(data.kt_dpbdts);
+                console.log("After conversion, KT_DPBDTS length:", data.kt_dpbdts?.length);
+            }
+        }
+
+        // Process the kt_dpbdts array
+        if (data.kt_dpbdts && Array.isArray(data.kt_dpbdts)) {
+            console.log("Processing kt_dpbdts array with length:", data.kt_dpbdts.length);
+
+            productItems = data.kt_dpbdts.map((item, index) => {
+                console.log(`Processing product ${index + 1}:`, item.product_code);
+
+                // Calculate amount from qty * uprice (if available)
+                const qty = parseFloat(item.qty || 0);
+                const uprice = parseFloat(item.uprice || 0);
+                const amt = qty * uprice;
+
+                // Make sure we have all required properties
+                return {
+                    ...item,
+                    amt: item.amt || amt,
+                    qty: item.qty || 0,
+                    uprice: item.uprice || 0,
+                    tbl_unit: item.tbl_unit || { unit_name: item.unit_code || '' },
+                    tbl_product: item.tbl_product || { product_name: 'Product Description' }
+                };
+            });
+
+            console.log("Processed productItems length:", productItems.length);
+            if (productItems.length > 0) {
+                console.log("First productItem:", productItems[0]);
+                console.log("Last productItem:", productItems[productItems.length - 1]);
+            }
+        } else {
+            console.log("KT_DPBDTS is not available or not an array");
+        }
+    } catch (error) {
+        console.error("Error processing kt_dpbdts:", error);
+        productItems = [];
+    }
 
     const pdfContent = (
         <DispatchToRestaurantPDF
-            refNo={data.refno}
-            date={data.rdate}
-            kitchen={data.kitchen_code}
-            kitchenName={data.tbl_kitchen?.kitchen_name || data.kitchen_code}
-            restaurant={data.branch_code}
-            restaurantName={data.tbl_branch?.branch_name || data.branch_code}
+            refNo={data.refno || ''}
+            date={data.rdate || ''}
+            kitchen={data.kitchen_code || ''}
+            kitchenName={data.tbl_kitchen?.kitchen_name || data.kitchen_code || ''}
+            restaurant={data.branch_code || ''}
+            restaurantName={data.tbl_branch?.branch_name || data.branch_code || ''}
             kitchenAddr1={data.tbl_kitchen?.addr1 || ''}
             kitchenAddr2={data.tbl_kitchen?.addr2 || ''}
             kitchenTel1={data.tbl_kitchen?.tel1 || ''}
-            productArray={productArray}
-            total={data.total}
-            username={data.user?.username || data.user_code}
+            productArray={productItems}
+            total={data.total || 0}
+            username={data.user?.username || data.user_code || ''}
             data={data}
         />
     );

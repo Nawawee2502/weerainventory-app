@@ -330,8 +330,50 @@ export default function DispatchToRestaurant({ onCreate, onEdit }) {
             // ดึงข้อมูลจาก API
             const response = await dispatch(Kt_dpbByRefno({ refno })).unwrap();
 
+            console.log("API Response Data (Complete):", response);
+
             if (response.result && response.data) {
-                const pdfContent = await generatePDF(refno, response.data);
+                const data = response.data;
+
+                console.log("Data structure:", Object.keys(data));
+                console.log("Products data:", data.kt_dpbdts);
+
+                // ตรวจสอบข้อมูลสินค้า
+                let hasDetailItems = false;
+
+                if (data.kt_dpbdts) {
+                    console.log("KT_DPBDTS type:", typeof data.kt_dpbdts);
+                    console.log("KT_DPBDTS is array:", Array.isArray(data.kt_dpbdts));
+
+                    if (Array.isArray(data.kt_dpbdts)) {
+                        console.log("Number of products:", data.kt_dpbdts.length);
+                        hasDetailItems = data.kt_dpbdts.length > 0;
+                    } else if (typeof data.kt_dpbdts === 'object') {
+                        console.log("Number of products:", Object.keys(data.kt_dpbdts).length);
+                        hasDetailItems = Object.keys(data.kt_dpbdts).length > 0;
+                    }
+
+                    // Log sample data
+                    if (hasDetailItems) {
+                        if (Array.isArray(data.kt_dpbdts) && data.kt_dpbdts.length > 0) {
+                            console.log("First product:", data.kt_dpbdts[0]);
+                            console.log("Last product:", data.kt_dpbdts[data.kt_dpbdts.length - 1]);
+                        } else if (typeof data.kt_dpbdts === 'object') {
+                            const keys = Object.keys(data.kt_dpbdts);
+                            console.log("First product:", data.kt_dpbdts[keys[0]]);
+                            console.log("Last product:", data.kt_dpbdts[keys[keys.length - 1]]);
+                        }
+                    }
+                } else {
+                    console.log("No KT_DPBDTS found in main response");
+                }
+
+                // ถ้าไม่มีข้อมูลสินค้า อาจต้องดึงเพิ่มเติม (เพิ่มโค้ดตรงนี้ถ้าต้องการ)
+                // if (!hasDetailItems) {
+                //     // โค้ดสำหรับดึงข้อมูลเพิ่มเติม
+                // }
+
+                const pdfContent = await generatePDF(refno, data);
 
                 if (pdfContent) {
                     Swal.close();

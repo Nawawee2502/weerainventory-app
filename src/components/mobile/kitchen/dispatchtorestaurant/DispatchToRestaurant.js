@@ -485,7 +485,7 @@ export default function DispatchToRestaurant({ onCreate, onEdit }) {
                                 return (
                                     <StyledTableRow key={row.refno}>
                                         <StyledTableCell padding="checkbox">
-                                            <Checkbox
+                                            <Checkbox 
                                                 checked={isSelected}
                                                 onChange={(event) => handleSelectOne(event, row.refno)}
                                             />
