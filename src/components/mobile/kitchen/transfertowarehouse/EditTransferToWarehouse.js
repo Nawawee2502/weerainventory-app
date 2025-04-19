@@ -35,7 +35,8 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
                     height: '38px',
                     width: '100%',
                     backgroundColor: '#fff',
-                    borderRadius: '10px'
+                    borderRadius: '10px',
+                    mt: '8px'
                 }
             }}
             InputProps={{
@@ -594,6 +595,13 @@ export default function EditTransferToWarehouse({ onBack, editRefno }) {
 
     return (
         <Box sx={{ padding: "10px", paddingBottom: "300px", fontFamily: "Arial, sans-serif" }}>
+            <style>
+                {`
+                .react-datepicker-popper {
+                    z-index: 9999 !important;
+                }
+            `}
+            </style>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                 <Button
                     startIcon={<ArrowBackIcon />}
@@ -858,21 +866,49 @@ export default function EditTransferToWarehouse({ onBack, editRefno }) {
                                             </TableCell>
                                             <TableCell>
                                                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                                    <IconButton
-                                                        onClick={() => handleQuantityChange(product.product_code, -1)}
+                                                    <TextField
+                                                        sx={{ width: '80px', mx: 1 }}
                                                         size="small"
-                                                    >
-                                                        <RemoveIcon />
-                                                    </IconButton>
-                                                    <Typography sx={{ mx: 1 }}>
-                                                        {quantities[product.product_code] || 0}
-                                                    </Typography>
-                                                    <IconButton
-                                                        onClick={() => handleQuantityChange(product.product_code, 1)}
-                                                        size="small"
-                                                    >
-                                                        <AddIcon />
-                                                    </IconButton>
+                                                        type="number"
+                                                        inputProps={{ min: 1, style: { textAlign: 'center' } }}
+                                                        value={quantities[product.product_code] || ''}
+                                                        onChange={(e) => {
+                                                            if (e.target.value === '') {
+                                                                setQuantities(prev => ({ ...prev, [product.product_code]: '' }));
+                                                                return;
+                                                            }
+
+                                                            const newValue = parseInt(e.target.value);
+                                                            // ถ้าเป็นตัวเลขที่ถูกต้อง
+                                                            if (!isNaN(newValue)) {
+                                                                // ถ้าน้อยกว่า 1 ให้ใช้ค่า 1
+                                                                const validValue = newValue < 1 ? 1 : newValue;
+                                                                const oldValue = quantities[product.product_code] || 0;
+                                                                setQuantities(prev => ({ ...prev, [product.product_code]: validValue }));
+
+                                                                // Update total
+                                                                const price = unitPrices[product.product_code] || 0;
+                                                                const oldTotal = totals[product.product_code] || 0;
+                                                                const newTotal = validValue * price;
+                                                                setTotals(prev => ({ ...prev, [product.product_code]: newTotal }));
+                                                                setTotal(prev => prev - oldTotal + newTotal);
+                                                            }
+                                                        }}
+                                                        // เมื่อสูญเสียโฟกัส ถ้าเป็นค่าว่างให้กำหนดเป็น 1
+                                                        onBlur={(e) => {
+                                                            if (e.target.value === '' || parseInt(e.target.value) < 1) {
+                                                                const oldValue = quantities[product.product_code] || 0;
+                                                                setQuantities(prev => ({ ...prev, [product.product_code]: 1 }));
+
+                                                                // Update total
+                                                                const price = unitPrices[product.product_code] || 0;
+                                                                const oldTotal = totals[product.product_code] || 0;
+                                                                const newTotal = 1 * price;
+                                                                setTotals(prev => ({ ...prev, [product.product_code]: newTotal }));
+                                                                setTotal(prev => prev - oldTotal + newTotal);
+                                                            }
+                                                        }}
+                                                    />
                                                 </Box>
                                             </TableCell>
                                             <TableCell>

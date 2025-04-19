@@ -273,8 +273,6 @@ export default function CreateReceiptFromWarehouse({ onBack }) {
                 };
             });
 
-            setProducts(productsData);
-
             // Prepare state objects
             const newQuantities = {};
             const newUnits = {};
@@ -283,22 +281,36 @@ export default function CreateReceiptFromWarehouse({ onBack }) {
             const newExpiryDates = {};
             const newTemperatures = {};
 
+            // Initialize totals directly
+            let totalTaxable = 0;
+            let totalNonTaxable = 0;
+            let grandTotal = 0;
+
+            // Process each item in the detail data
             detailData.forEach((item) => {
                 const productCode = item.product_code;
                 if (!productCode) return;
 
-                newQuantities[productCode] = parseFloat(item.qty) || 1;
+                // Parse numeric values with safety checks
+                const qty = parseFloat(item.qty) || 1;
+                const unitPrice = parseFloat(item.uprice) || 0;
+                const amt = parseFloat(item.amt) || 0;
 
-                // เก็บข้อมูล unit_code จากตารางรายละเอียด
-                newUnits[productCode] = item.unit_code ||
-                    (item.tbl_product?.productUnit1?.unit_code || '');
+                // Set the values in our state objects
+                newQuantities[productCode] = qty;
+                newUnits[productCode] = item.unit_code || (item.tbl_product?.productUnit1?.unit_code || '');
+                newUnitPrices[productCode] = unitPrice;
+                newTotals[productCode] = amt;
 
-                console.log(`Setting unit for ${productCode}: ${newUnits[productCode]}`);
+                // Add to running totals
+                if (item.tax1 === 'Y') {
+                    totalTaxable += amt;
+                } else {
+                    totalNonTaxable += amt;
+                }
+                grandTotal += amt;
 
-                newUnitPrices[productCode] = parseFloat(item.uprice) || 0;
-                newTotals[productCode] = parseFloat(item.amt) || 0;
-
-                // Parse expiry date or use current date + 30 days
+                // Handle expiry date
                 if (item.expire_date) {
                     try {
                         newExpiryDates[productCode] = parse(item.expire_date, 'MM/dd/yyyy', new Date());
@@ -317,7 +329,18 @@ export default function CreateReceiptFromWarehouse({ onBack }) {
                 newTemperatures[productCode] = item.temperature1 || '38';
             });
 
-            // Update all states
+            // Log calculated totals for debugging
+            console.log('Calculated totals:', {
+                totalTaxable,
+                totalNonTaxable,
+                grandTotal,
+                lineItems: Object.keys(newTotals).length
+            });
+
+            // First set the products data 
+            setProducts(productsData);
+
+            // Then set all the detailed state
             setQuantities(newQuantities);
             setUnits(newUnits);
             setUnitPrices(newUnitPrices);
@@ -325,31 +348,17 @@ export default function CreateReceiptFromWarehouse({ onBack }) {
             setExpiryDates(newExpiryDates);
             setTemperatures(newTemperatures);
 
-            // Calculate taxable and non-taxable amounts
-            let newTaxable = 0;
-            let newNonTaxable = 0;
-
-            detailData.forEach(item => {
-                const amount = parseFloat(item.amt) || 0;
-                if (item.tax1 === 'Y') {
-                    newTaxable += amount;
-                } else {
-                    newNonTaxable += amount;
-                }
-            });
-
-            setTaxableAmount(newTaxable);
-            setNonTaxableAmount(newNonTaxable);
-            setTotal(Object.values(newTotals).reduce((sum, value) => sum + value, 0));
+            // Finally set the calculated totals
+            setTaxableAmount(totalTaxable);
+            setNonTaxableAmount(totalNonTaxable);
+            setTotal(grandTotal);
 
             console.log('Detail processing complete', {
-                products: productsData,
-                quantities: newQuantities,
-                units: newUnits,
-                prices: newUnitPrices,
-                totals: newTotals,
-                taxable: newTaxable,
-                nonTaxable: newNonTaxable
+                products: productsData.length,
+                totals: Object.keys(newTotals).length,
+                taxable: totalTaxable,
+                nonTaxable: totalNonTaxable,
+                total: grandTotal
             });
 
         } catch (error) {
@@ -397,47 +406,84 @@ export default function CreateReceiptFromWarehouse({ onBack }) {
     };
 
     const handleProductSelect = (product) => {
+        // Check if product already exists in the list
         if (products.some(p => p.product_code === product.product_code)) {
+            // Show warning with better styling and more helpful message
             Swal.fire({
                 icon: 'warning',
-                title: 'Product Already Added',
-                text: 'This product is already in your list'
+                title: 'Duplicate Product',
+                text: `${product.product_name} is already in your purchase order. Please adjust the quantity instead.`,
+                confirmButtonColor: '#754C27'
             });
+            setSearchTerm('');
+            setShowDropdown(false);
             return;
         }
 
         setSearchTerm('');
         setShowDropdown(false);
 
+        // Add product to products array
         const newProducts = [...products, product];
         setProducts(newProducts);
 
+        // Set initial values
         const initialQuantity = 1;
-        const initialUnitCode = product.productUnit1.unit_code;
-        const initialUnitPrice = product.bulk_unit_price;
+        const initialUnitCode = product.productUnit1?.unit_code || '';
+        const initialUnitPrice = product.bulk_unit_price || 0;
 
-        setQuantities(prev => ({
-            ...prev,
+        // Calculate the initial amount for this product
+        const initialAmount = initialQuantity * initialUnitPrice;
+
+        console.log('Adding product with initial amount:', initialAmount);
+
+        // Update the quantity, unit, price and total
+        const newQuantities = {
+            ...quantities,
             [product.product_code]: initialQuantity
-        }));
-        setUnits(prev => ({
-            ...prev,
-            [product.product_code]: initialUnitCode
-        }));
-        setUnitPrices(prev => ({
-            ...prev,
-            [product.product_code]: initialUnitPrice
-        }));
-        setExpiryDates(prev => ({
-            ...prev,
-            [product.product_code]: new Date()
-        }));
-        setTemperatures(prev => ({
-            ...prev,
-            [product.product_code]: ''
-        }));
+        };
 
-        calculateProductTotal(product.product_code, initialQuantity, initialUnitPrice);
+        const newUnits = {
+            ...units,
+            [product.product_code]: initialUnitCode
+        };
+
+        const newUnitPrices = {
+            ...unitPrices,
+            [product.product_code]: initialUnitPrice
+        };
+
+        const newTotals = {
+            ...totals,
+            [product.product_code]: initialAmount
+        };
+
+        // Calculate new taxable and non-taxable totals
+        const newTaxable = product.tax1 === 'Y'
+            ? taxableAmount + initialAmount
+            : taxableAmount;
+
+        const newNonTaxable = product.tax1 === 'Y'
+            ? nonTaxableAmount
+            : nonTaxableAmount + initialAmount;
+
+        // Calculate new total
+        const newTotal = total + initialAmount;
+
+        // Update all state at once
+        setQuantities(newQuantities);
+        setUnits(newUnits);
+        setUnitPrices(newUnitPrices);
+        setTotals(newTotals);
+        setTaxableAmount(newTaxable);
+        setNonTaxableAmount(newNonTaxable);
+        setTotal(newTotal);
+
+        console.log('Updated totals:', {
+            taxable: newTaxable,
+            nonTaxable: newNonTaxable,
+            total: newTotal
+        });
     };
 
     const calculateProductTotal = (productCode, quantity, unitPrice) => {
@@ -567,33 +613,59 @@ export default function CreateReceiptFromWarehouse({ onBack }) {
     };
 
     const handleDeleteProduct = (productCode) => {
-        setProducts(prev => prev.filter(p => p.product_code !== productCode));
-        setQuantities(prev => {
-            const { [productCode]: _, ...rest } = prev;
-            return rest;
-        });
-        setUnits(prev => {
-            const { [productCode]: _, ...rest } = prev;
-            return rest;
-        });
-        setUnitPrices(prev => {
-            const { [productCode]: _, ...rest } = prev;
-            return rest;
-        });
-        setTotals(prev => {
-            const { [productCode]: _, ...rest } = prev;
-            return rest;
-        });
-        setExpiryDates(prev => {
-            const { [productCode]: _, ...rest } = prev;
-            return rest;
-        });
-        setTemperatures(prev => {
-            const { [productCode]: _, ...rest } = prev;
-            return rest;
-        });
+        // Remove product from products array
+        const updatedProducts = products.filter(p => p.product_code !== productCode);
+        setProducts(updatedProducts);
 
-        calculateOrderTotals();
+        // Get the current amount for this product
+        const productAmount = totals[productCode] || 0;
+        const product = products.find(p => p.product_code === productCode);
+
+        // Create new state objects without this product
+        const newQuantities = { ...quantities };
+        const newUnits = { ...units };
+        const newUnitPrices = { ...unitPrices };
+        const newTotals = { ...totals };
+        const newExpiryDates = { ...expiryDates };
+        const newTemperatures = { ...temperatures };
+
+        // Delete this product from all state objects
+        delete newQuantities[productCode];
+        delete newUnits[productCode];
+        delete newUnitPrices[productCode];
+        delete newTotals[productCode];
+        delete newExpiryDates[productCode];
+        delete newTemperatures[productCode];
+
+        // Update all the state objects
+        setQuantities(newQuantities);
+        setUnits(newUnits);
+        setUnitPrices(newUnitPrices);
+        setTotals(newTotals);
+        setExpiryDates(newExpiryDates);
+        setTemperatures(newTemperatures);
+
+        // Directly calculate new total values
+        const newTaxableAmount = product?.tax1 === 'Y'
+            ? taxableAmount - productAmount
+            : taxableAmount;
+
+        const newNonTaxableAmount = product?.tax1 === 'Y'
+            ? nonTaxableAmount
+            : nonTaxableAmount - productAmount;
+
+        const newTotal = total - productAmount;
+
+        // Set the new totals
+        setTaxableAmount(newTaxableAmount);
+        setNonTaxableAmount(newNonTaxableAmount);
+        setTotal(newTotal);
+
+        console.log('Product deleted, new totals:', {
+            taxable: newTaxableAmount,
+            nonTaxable: newNonTaxableAmount,
+            total: newTotal
+        });
     };
 
     const calculateOrderTotals = (customTotals = null) => {

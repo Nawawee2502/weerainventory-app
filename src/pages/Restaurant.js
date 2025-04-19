@@ -21,6 +21,7 @@ import MoveToInboxIcon from '@mui/icons-material/MoveToInbox';
 import InventoryIcon from '@mui/icons-material/Inventory';
 import EventNoteIcon from '@mui/icons-material/EventNote';
 import SettingsIcon from '@mui/icons-material/Settings';
+import KitchenIcon from '@mui/icons-material/Kitchen';
 
 import HomeSetMinimumStock from '../components/restaurant/setminimumstock/HomeSetMinimumStock';
 import HomePurchaseOrdertoWarehouse from '../components/restaurant/purchaseordertowarehouse/HomePurchaseOrdertoWarehouse';
@@ -29,6 +30,7 @@ import HomeReceiptFromWarehouse from '../components/restaurant/receiptfromwareho
 import HomeReceiptFromKitchen from '../components/restaurant/receiptfromkitchen/HomeReceiptFromKitchen';
 import HomeGoodsRequisition from '../components/restaurant/goodsrequisition/HomeGoodsRequisition';
 import HomeStockAdjustment from '../components/restaurant/stockadjustment/HomeStockAdjustMent';
+import HomeRequestToKitchen from '../components/restaurant/requesttokitchen/HomeRequestToKitchen';
 import ReportPurchaseOrderToWarehouse from '../components/restaurant/report/ReportPurchaseOrderToWarehouse';
 import ReportReceiptFromWarehouse from '../components/restaurant/report/ReportReceiptFromWarehouse';
 import ReportReceiptFromKitchen from '../components/restaurant/report/ReportReceiptFromKitchen';
@@ -105,6 +107,15 @@ function Restaurant(props) {
             });
         }
 
+        // Request to Kitchen
+        if (permissions.menu_setbr_request_to_kitchen === 'Y') {
+            menu.push({
+                segment: 'request-to-kitchen',
+                title: 'Request to Kitchen',
+                icon: <KitchenIcon />,
+            });
+        }
+
         // Goods Receipt Warehouse
         if (permissions.menu_setbr_receipt_from_warehouse === 'Y') {
             menu.push({
@@ -127,7 +138,7 @@ function Restaurant(props) {
         if (permissions.menu_setbr_receipt_from_supplier === 'Y') {
             menu.push({
                 segment: 'receipt-from-supplier',
-                title: 'Goods Receipt Supplier',
+                title: 'Goods Receipt From Supplier',
                 icon: <ReceiptOutlinedIcon />,
             });
         }
@@ -136,7 +147,7 @@ function Restaurant(props) {
         if (permissions.menu_setbr_goods_requisition === 'Y') {
             menu.push({
                 segment: 'goods-requisition',
-                title: 'Goods Requisition',
+                title: 'Internal Requisition',
                 icon: <RequestQuoteIcon />,
             });
         }
@@ -321,6 +332,8 @@ function Restaurant(props) {
                 return permissions.menu_setbr_minmum_stock === 'Y' ? <HomeSetMinimumStock /> : null;
             case '/purchase-order-to-warehouse':
                 return permissions.menu_setbr_purchase_order_to_wh === 'Y' ? <HomePurchaseOrdertoWarehouse /> : null;
+            case '/request-to-kitchen':
+                return permissions.menu_setbr_request_to_kitchen === 'Y' ? <HomeRequestToKitchen /> : null;
             case '/receipt-from-warehouse':
                 return permissions.menu_setbr_receipt_from_warehouse === 'Y' ? <HomeReceiptFromWarehouse /> : null;
             case '/receipt-from-kitchen':

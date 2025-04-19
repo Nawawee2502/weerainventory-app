@@ -12,7 +12,8 @@ export const addKtMinStock = createAsyncThunk(
                 product_code: data.product_code,
                 kitchen_code: data.kitchen_code,
                 unit_code: data.unit_code,
-                min_qty: data.min_qty
+                min_qty: data.min_qty,
+                max_qty: data.max_qty // Add max_qty field
             });
             return res.data;
         } catch (error) {
@@ -31,7 +32,8 @@ export const updateKtMinStock = createAsyncThunk(
                 product_code: data.product_code,
                 kitchen_code: data.kitchen_code,
                 unit_code: data.unit_code,
-                min_qty: data.min_qty
+                min_qty: data.min_qty,
+                max_qty: data.max_qty // Add max_qty field
             });
             return res.data;
         } catch (error) {

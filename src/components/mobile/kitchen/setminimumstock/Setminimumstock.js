@@ -78,6 +78,7 @@ export default function KitchenSetMinimumStock() {
             unit_code: '',
             kitchen_code: '',
             min_qty: '',
+            max_qty: '', // Add max_qty field with default empty value
         },
         validate: values => {
             const errors = {};
@@ -94,6 +95,13 @@ export default function KitchenSetMinimumStock() {
             if (!values.min_qty || values.min_qty <= 0) {
                 errors.min_qty = 'Minimum quantity must be greater than 0';
             }
+            // Add validation for max_qty
+            if (values.max_qty !== '' && values.max_qty <= 0) {
+                errors.max_qty = 'Maximum quantity must be greater than 0';
+            }
+            if (values.max_qty !== '' && values.min_qty !== '' && parseFloat(values.max_qty) <= parseFloat(values.min_qty)) {
+                errors.max_qty = 'Maximum quantity must be greater than minimum quantity';
+            }
 
             return errors;
         },
@@ -103,7 +111,8 @@ export default function KitchenSetMinimumStock() {
                     product_code: values.product_code,
                     kitchen_code: values.kitchen_code,
                     unit_code: values.unit_code,
-                    min_qty: values.min_qty
+                    min_qty: values.min_qty,
+                    max_qty: values.max_qty // Add max_qty field
                 };
 
                 // Check for duplicates only when adding new records
@@ -320,6 +329,7 @@ export default function KitchenSetMinimumStock() {
             unit_code: stock.unit_code,
             kitchen_code: stock.kitchen_code,
             min_qty: stock.min_qty,
+            max_qty: stock.max_qty || '', // Add max_qty field with fallback to empty string
             kitchen: kitchenName
         });
 
@@ -486,6 +496,7 @@ export default function KitchenSetMinimumStock() {
                                 <StyledTableCell align="center">Product Name</StyledTableCell>
                                 <StyledTableCell align="center">Unit</StyledTableCell>
                                 <StyledTableCell align="center">Minimum Quantity</StyledTableCell>
+                                <StyledTableCell align="center">Maximum Quantity</StyledTableCell>
                                 <StyledTableCell align="center">Kitchen</StyledTableCell>
                                 <StyledTableCell width='12%' align="center">Actions</StyledTableCell>
                             </TableRow>
@@ -493,7 +504,7 @@ export default function KitchenSetMinimumStock() {
                         <TableBody>
                             {minStocks.length === 0 ? (
                                 <StyledTableRow>
-                                    <StyledTableCell colSpan={8} align="center">No records found</StyledTableCell>
+                                    <StyledTableCell colSpan={9} align="center">No records found</StyledTableCell>
                                 </StyledTableRow>
                             ) : (
                                 minStocks.map((stock, index) => (
@@ -501,12 +512,13 @@ export default function KitchenSetMinimumStock() {
                                         <StyledTableCell padding="checkbox">
                                             <Checkbox />
                                         </StyledTableCell>
-                                        <StyledTableCell>{index + 1}</StyledTableCell>
-                                        <StyledTableCell>{stock.product_code}</StyledTableCell>
-                                        <StyledTableCell>{stock.tbl_product?.product_name}</StyledTableCell>
-                                        <StyledTableCell>{stock.tbl_unit?.unit_name}</StyledTableCell>
+                                        <StyledTableCell align="center">{index + 1}</StyledTableCell>
+                                        <StyledTableCell align="center">{stock.product_code}</StyledTableCell>
+                                        <StyledTableCell align="center">{stock.tbl_product?.product_name}</StyledTableCell>
+                                        <StyledTableCell align="center">{stock.tbl_unit?.unit_name}</StyledTableCell>
                                         <StyledTableCell align="center">{stock.min_qty}</StyledTableCell>
-                                        <StyledTableCell>{getKitchenName(stock.kitchen_code)}</StyledTableCell>
+                                        <StyledTableCell align="center">{stock.max_qty || '-'}</StyledTableCell>
+                                        <StyledTableCell align="center">{getKitchenName(stock.kitchen_code)}</StyledTableCell>
                                         <StyledTableCell align="center">
                                             <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
                                                 <IconButton
@@ -708,6 +720,29 @@ export default function KitchenSetMinimumStock() {
                                     placeholder="Enter minimum quantity"
                                     error={formik.touched.min_qty && Boolean(formik.errors.min_qty)}
                                     helperText={formik.touched.min_qty && formik.errors.min_qty}
+                                    sx={{
+                                        '& .MuiOutlinedInput-root': {
+                                            borderRadius: '10px',
+                                        },
+                                    }}
+                                />
+                            </Box>
+
+                            <Box sx={{ mb: 2 }}>
+                                <Typography sx={{ mb: 1, fontSize: '14px', fontWeight: '600', color: '#754C27' }}>
+                                    Maximum Quantity
+                                </Typography>
+                                <TextField
+                                    fullWidth
+                                    size="small"
+                                    type="number"
+                                    name="max_qty"
+                                    value={formik.values.max_qty}
+                                    onChange={formik.handleChange}
+                                    onBlur={formik.handleBlur}
+                                    placeholder="Enter maximum quantity"
+                                    error={formik.touched.max_qty && Boolean(formik.errors.max_qty)}
+                                    helperText={formik.touched.max_qty && formik.errors.max_qty}
                                     sx={{
                                         '& .MuiOutlinedInput-root': {
                                             borderRadius: '10px',

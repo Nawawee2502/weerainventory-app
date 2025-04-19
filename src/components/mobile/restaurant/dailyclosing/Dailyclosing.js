@@ -28,6 +28,7 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
                     height: '38px',
                     width: '100%',
                     backgroundColor: '#fff',
+                    mt: '8px'
                 },
                 '& .MuiOutlinedInput-input': {
                     cursor: 'pointer',
@@ -46,12 +47,15 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
     </Box>
 ));
 
-// Utility Functions
 const convertToLasVegasTime = (date) => {
     if (!date) return new Date();
+
+    // Create a new date object and set to midnight in local time
     const newDate = new Date(date);
     newDate.setHours(0, 0, 0, 0);
-    return new Date(newDate.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
+
+    // Return this date without timezone conversion
+    return newDate;
 };
 
 const formatDate = (date) => {
@@ -283,10 +287,9 @@ export default function Dailyclosing() {
                                 <th style={{ padding: '12px 16px', textAlign: 'right', color: '#754C27' }}>Out</th>
                                 <th style={{ padding: '12px 16px', textAlign: 'right', color: '#754C27' }}>Update</th>
                                 <th style={{ padding: '12px 16px', textAlign: 'right', color: '#754C27' }}>Balance</th>
-                                <th style={{ padding: '12px 16px', textAlign: 'right', color: '#754C27' }}>Total</th>
                             </tr>
                             <tr>
-                                <td colSpan="10">
+                                <td colSpan="9">
                                     <Divider sx={{ borderColor: '#754C27' }} />
                                 </td>
                             </tr>
@@ -294,13 +297,13 @@ export default function Dailyclosing() {
                         <tbody>
                             {loading ? (
                                 <tr>
-                                    <td colSpan="10" style={{ textAlign: 'center', padding: '20px' }}>
+                                    <td colSpan="9" style={{ textAlign: 'center', padding: '20px' }}>
                                         <CircularProgress />
                                     </td>
                                 </tr>
                             ) : stockBalanceData.length === 0 ? (
                                 <tr>
-                                    <td colSpan="10" style={{ textAlign: 'center', padding: '20px' }}>
+                                    <td colSpan="9" style={{ textAlign: 'center', padding: '20px' }}>
                                         No data found
                                     </td>
                                 </tr>
@@ -326,49 +329,10 @@ export default function Dailyclosing() {
                                         <td style={{ padding: '8px 16px', textAlign: 'right' }}>
                                             {Number(item.balance).toLocaleString()}
                                         </td>
-                                        <td style={{ padding: '8px 16px', textAlign: 'right' }}>
-                                            {Number(item.balance_amount).toLocaleString()}
-                                        </td>
                                     </tr>
                                 ))
                             )}
                         </tbody>
-                        {stockBalanceData.length > 0 && (
-                            <tfoot>
-                                <tr>
-                                    <td colSpan="10">
-                                        <Divider sx={{ borderColor: '#754C27' }} />
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td colSpan="8" style={{
-                                        textAlign: 'right',
-                                        padding: '12px 16px',
-                                        fontWeight: 'bold',
-                                        color: '#754C27'
-                                    }}>
-                                        Total:
-                                    </td>
-                                    <td style={{
-                                        padding: '12px 16px',
-                                        fontWeight: 'bold',
-                                        color: '#754C27',
-                                        textAlign: 'right'
-                                    }}>
-                                        {stockBalanceData.reduce((sum, item) => sum + Number(item.balance || 0), 0).toLocaleString()}
-                                    </td>
-                                    <td style={{
-                                        padding: '12px 16px',
-                                        fontWeight: 'bold',
-                                        color: '#754C27',
-                                        textAlign: 'right'
-                                    }}>
-                                        {stockBalanceData.reduce((sum, item) =>
-                                            sum + Number(item.balance_amount || 0), 0).toLocaleString()}
-                                    </td>
-                                </tr>
-                            </tfoot>
-                        )}
                     </table>
                 </Box>
             </Box>

@@ -51,7 +51,8 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
                     height: '38px',
                     width: '100%',
                     backgroundColor: '#fff',
-                    borderRadius: '10px'
+                    borderRadius: '10px',
+                    mt: '8px'
                 }
             }}
             InputProps={{
@@ -591,6 +592,13 @@ export default function EditGoodsReceiptWarehouse({ onBack, editRefno }) {
 
     return (
         <Box sx={{ padding: "10px", paddingBottom: "300px", fontFamily: "Arial, sans-serif" }}>
+            <style>
+                {`
+                .react-datepicker-popper {
+                    z-index: 9999 !important;
+                }
+            `}
+            </style>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                 <Button
                     startIcon={<ArrowBackIcon />}
@@ -614,89 +622,6 @@ export default function EditGoodsReceiptWarehouse({ onBack, editRefno }) {
 
             {/* Main content */}
             <Box display="flex" p={2} bgcolor="#F9F9F9">
-                {/* Left Panel - Product Selection */}
-                <Box flex={2} pr={2} display="flex" flexDirection="column">
-                    {/* Search Section */}
-                    <Box sx={{ marginBottom: "20px", paddingTop: '20px' }}>
-                        <TextField
-                            placeholder="Search products..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            sx={{
-                                width: '100%',
-                                '& .MuiOutlinedInput-root': {
-                                    borderRadius: '40px',
-                                }
-                            }}
-                            InputProps={{
-                                startAdornment: (
-                                    <InputAdornment position="start">
-                                        <SearchIcon sx={{ color: '#5A607F' }} />
-                                    </InputAdornment>
-                                ),
-                            }}
-                        />
-                    </Box>
-
-                    {/* Products Grid */}
-                    <Box display="flex" flexWrap="wrap" gap={2} justifyContent="center" sx={{ flex: 1, overflow: 'auto' }}>
-                        {paginatedProducts.map((product) => {
-                            if (!product || !product.product_code) return null;
-
-                            return (
-                                <Card
-                                    key={product.product_code}
-                                    sx={{
-                                        width: 160,
-                                        borderRadius: '16px',
-                                        boxShadow: 3,
-                                        position: 'relative',
-                                        cursor: 'pointer',
-                                        border: selectedProducts.includes(product.product_code) ? '2px solid #4caf50' : 'none',
-                                        bgcolor: selectedProducts.includes(product.product_code) ? '#f0fff0' : 'white'
-                                    }}
-                                    onClick={() => toggleSelectProduct(product)}
-                                >
-                                    {renderProductImage(product, 'small')}
-                                    <CardContent>
-                                        <Typography variant="body1" fontWeight={500} noWrap>
-                                            {product.product_name}
-                                        </Typography>
-                                        <Typography variant="body2" color="text.secondary" noWrap>
-                                            {product.product_code}
-                                        </Typography>
-                                    </CardContent>
-                                    {selectedProducts.includes(product.product_code) && (
-                                        <CheckCircleIcon
-                                            sx={{
-                                                color: '#4caf50',
-                                                position: 'absolute',
-                                                top: 8,
-                                                right: 8,
-                                                fontSize: 30,
-                                                backgroundColor: 'rgba(255,255,255,0.7)',
-                                                borderRadius: '50%'
-                                            }}
-                                        />
-                                    )}
-                                </Card>
-                            );
-                        })}
-                    </Box>
-
-                    {/* Pagination */}
-                    <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2, mb: 2 }}>
-                        <Pagination
-                            count={totalPages}
-                            page={page}
-                            onChange={(event, value) => setPage(value)}
-                            color="primary"
-                            showFirstButton
-                            showLastButton
-                            size="large"
-                        />
-                    </Box>
-                </Box>
 
                 {/* Right Panel - Receipt Details */}
                 <Box flex={2} pl={2} bgcolor="#FFF" p={1} borderRadius="12px" boxShadow={3}>

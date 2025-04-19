@@ -39,7 +39,8 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
                     height: '38px',
                     width: '100%',
                     backgroundColor: '#fff',
-                    borderRadius: '10px'
+                    borderRadius: '10px',
+                    mt: '8px'
                 }
             }}
             InputProps={{
@@ -565,7 +566,7 @@ export default function EditGoodsRequisition({ onBack, editRefno }) {
                 startIcon={<ArrowBackIcon />}
                 sx={{ mb: 2 }}
             >
-                Back to Goods Requisition
+                Back to Internal Requisition
             </Button>
 
             {/* Status Information */}

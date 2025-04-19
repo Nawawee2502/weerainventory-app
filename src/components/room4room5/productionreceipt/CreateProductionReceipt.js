@@ -27,6 +27,7 @@ const CustomDateInput = React.forwardRef(({ value, onClick, placeholder }, ref) 
                     height: '38px',
                     width: '100%',
                     backgroundColor: '#fff',
+                    mt: '8px'
                 },
                 '& .MuiOutlinedInput-input': {
                     cursor: 'pointer',
@@ -141,6 +142,247 @@ export default function CreateProductionReceipt({ onBack }) {
         }
     };
 
+    // Fixed handleProductSelect function
+    const handleProductSelect = (product) => {
+        // Check if product is already in the list
+        if (selectedProducts.includes(product.product_code)) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Duplicate Product',
+                text: `${product.product_name} is already in your production receipt. Please adjust the quantity instead.`,
+                confirmButtonColor: '#754C27'
+            });
+            setSearchTerm('');
+            setShowDropdown(false);
+            return;
+        }
+
+        // Set initial values
+        const initialQuantity = 1;
+        const initialUnitCode = product.productUnit1?.unit_code || '';
+        const initialUnitPrice = product.bulk_unit_price || 0;
+        const initialAmount = initialQuantity * initialUnitPrice;
+
+        // Calculate tax impact
+        const newTax = product.tax1 === 'Y' ? initialAmount * 0.07 : 0;
+
+        // Calculate new total with tax
+        const newTotal = total + initialAmount;
+        const newTotalWithTax = newTotal + calculateTax() + newTax;
+
+        // Add to selected products
+        setSelectedProducts(prev => [...prev, product.product_code]);
+        setProducts(prev => [...prev, product]);
+
+        // Initialize product data
+        setQuantities(prev => ({ ...prev, [product.product_code]: initialQuantity }));
+        setUnits(prev => ({ ...prev, [product.product_code]: initialUnitCode }));
+        setUnitPrices(prev => ({ ...prev, [product.product_code]: initialUnitPrice }));
+        setExpiryDates(prev => ({ ...prev, [product.product_code]: new Date() }));
+        setTemperatures(prev => ({ ...prev, [product.product_code]: "38" }));
+        setTotals(prev => ({ ...prev, [product.product_code]: initialAmount }));
+
+        // Update main total
+        setTotal(newTotal);
+
+        // Reset search
+        setSearchTerm('');
+        setShowDropdown(false);
+    };
+
+    // Fixed handleQuantityChange function
+    const handleQuantityChange = (productCode, newQuantity) => {
+        const qty = parseInt(newQuantity);
+        if (isNaN(qty) || qty < 1) return;
+
+        // Get current values before update
+        const currentQty = quantities[productCode] || 1;
+        const unitPrice = unitPrices[productCode] || 0;
+        const oldAmount = totals[productCode] || 0;
+
+        // Calculate new amount
+        const newAmount = qty * unitPrice;
+
+        // Calculate change in total
+        const difference = newAmount - oldAmount;
+        const newTotal = total + difference;
+
+        // Update state values
+        setQuantities(prev => ({
+            ...prev,
+            [productCode]: qty
+        }));
+
+        setTotals(prev => ({
+            ...prev,
+            [productCode]: newAmount
+        }));
+
+        // Update total directly
+        setTotal(newTotal);
+    };
+
+    // Fixed handleQuantityIncrease function
+    const handleQuantityIncrease = (productCode) => {
+        const currentQty = quantities[productCode] || 1;
+        const unitPrice = unitPrices[productCode] || 0;
+        const oldAmount = totals[productCode] || 0;
+        const newAmount = (currentQty + 1) * unitPrice;
+
+        // Calculate change in total
+        const difference = newAmount - oldAmount;
+        const newTotal = total + difference;
+
+        // Update state values
+        setQuantities(prev => ({
+            ...prev,
+            [productCode]: currentQty + 1
+        }));
+
+        setTotals(prev => ({
+            ...prev,
+            [productCode]: newAmount
+        }));
+
+        // Update total directly
+        setTotal(newTotal);
+    };
+
+    // Fixed handleQuantityDecrease function
+    const handleQuantityDecrease = (productCode) => {
+        const currentQty = quantities[productCode] || 1;
+        if (currentQty <= 1) return;
+
+        const unitPrice = unitPrices[productCode] || 0;
+        const oldAmount = totals[productCode] || 0;
+        const newAmount = (currentQty - 1) * unitPrice;
+
+        // Calculate change in total
+        const difference = newAmount - oldAmount;
+        const newTotal = total + difference;
+
+        // Update state values
+        setQuantities(prev => ({
+            ...prev,
+            [productCode]: currentQty - 1
+        }));
+
+        setTotals(prev => ({
+            ...prev,
+            [productCode]: newAmount
+        }));
+
+        // Update total directly
+        setTotal(newTotal);
+    };
+
+    // Fixed handleUnitChange function
+    const handleUnitChange = (productCode, newUnitCode) => {
+        // Update units state
+        setUnits(prev => ({
+            ...prev,
+            [productCode]: newUnitCode
+        }));
+
+        const product = products.find(p => p.product_code === productCode);
+        if (!product) return;
+
+        // Get current values
+        const currentQty = quantities[productCode] || 1;
+        const oldAmount = totals[productCode] || 0;
+
+        // Determine the appropriate unit price based on the unit
+        const newUnitPrice = newUnitCode === product.productUnit1?.unit_code
+            ? product.bulk_unit_price
+            : product.retail_unit_price;
+
+        // Calculate new amount
+        const newAmount = currentQty * newUnitPrice;
+
+        // Calculate change in total
+        const difference = newAmount - oldAmount;
+        const newTotal = total + difference;
+
+        // Update unit prices and totals state
+        setUnitPrices(prev => ({
+            ...prev,
+            [productCode]: newUnitPrice
+        }));
+
+        setTotals(prev => ({
+            ...prev,
+            [productCode]: newAmount
+        }));
+
+        // Update total directly
+        setTotal(newTotal);
+    };
+
+    // Fixed handleUnitPriceChange function
+    const handleUnitPriceChange = (productCode, value) => {
+        const newPrice = parseFloat(value);
+        if (isNaN(newPrice) || newPrice < 0) return;
+
+        // Get current values
+        const currentQty = quantities[productCode] || 1;
+        const oldAmount = totals[productCode] || 0;
+
+        // Calculate new amount
+        const newAmount = currentQty * newPrice;
+
+        // Calculate change in total
+        const difference = newAmount - oldAmount;
+        const newTotal = total + difference;
+
+        // Update unit prices and totals state
+        setUnitPrices(prev => ({
+            ...prev,
+            [productCode]: newPrice
+        }));
+
+        setTotals(prev => ({
+            ...prev,
+            [productCode]: newAmount
+        }));
+
+        // Update total directly
+        setTotal(newTotal);
+    };
+
+    // Fixed handleDeleteProduct function
+    const handleDeleteProduct = (productCode) => {
+        // Get the amount for this product before deletion
+        const productAmount = totals[productCode] || 0;
+
+        // Find the product to check tax status
+        const product = products.find(p => p.product_code === productCode);
+        if (!product) return;
+
+        // Remove product from arrays
+        setProducts(prev => prev.filter(p => p.product_code !== productCode));
+        setSelectedProducts(prev => prev.filter(id => id !== productCode));
+
+        // Remove from all state objects
+        const { [productCode]: _, ...newQuantities } = quantities;
+        const { [productCode]: __, ...newUnits } = units;
+        const { [productCode]: ___, ...newPrices } = unitPrices;
+        const { [productCode]: ____, ...newTotals } = totals;
+        const { [productCode]: _____, ...newExpiryDates } = expiryDates;
+        const { [productCode]: ______, ...newTemperatures } = temperatures;
+
+        // Update all state objects
+        setQuantities(newQuantities);
+        setUnits(newUnits);
+        setUnitPrices(newPrices);
+        setTotals(newTotals);
+        setExpiryDates(newExpiryDates);
+        setTemperatures(newTemperatures);
+
+        // Calculate and update the new total directly
+        const newTotal = total - productAmount;
+        setTotal(newTotal);
+    };
+
     // Handle kitchen change
     const handleKitchenChange = (e) => {
         const newKitchenCode = e.target.value;
@@ -213,38 +455,6 @@ export default function CreateProductionReceipt({ onBack }) {
         setTotal(newTotal);
     };
 
-    // Handle product selection
-    const handleProductSelect = (product) => {
-        // Check if product is already in the list
-        if (selectedProducts.includes(product.product_code)) {
-            Swal.fire({
-                icon: 'warning',
-                title: 'Duplicate Product',
-                text: `${product.product_name} is already in your production receipt. Please adjust the quantity instead.`,
-                confirmButtonColor: '#754C27'
-            });
-            setSearchTerm('');
-            setShowDropdown(false);
-            return;
-        }
-
-        // Add to selected products
-        setSelectedProducts(prev => [...prev, product.product_code]);
-        setProducts(prev => [...prev, product]);
-
-        // Initialize product data
-        setQuantities(prev => ({ ...prev, [product.product_code]: 1 }));
-        setUnits(prev => ({ ...prev, [product.product_code]: product.productUnit1?.unit_code || '' }));
-        setUnitPrices(prev => ({ ...prev, [product.product_code]: product.bulk_unit_price || 0 }));
-        setExpiryDates(prev => ({ ...prev, [product.product_code]: new Date() }));
-        setTemperatures(prev => ({ ...prev, [product.product_code]: "38" }));
-
-        // Reset search and calculate totals
-        setSearchTerm('');
-        setShowDropdown(false);
-        calculateOrderTotals([...products, product]);
-    };
-
     // Handle search input changes
     const handleSearchChange = (e) => {
         const value = e.target.value;
@@ -313,67 +523,6 @@ export default function CreateProductionReceipt({ onBack }) {
         }));
     };
 
-    // Handle unit change
-    const handleUnitChange = (productCode, newUnitCode) => {
-        setUnits(prev => ({
-            ...prev,
-            [productCode]: newUnitCode
-        }));
-
-        const product = products.find(p => p.product_code === productCode);
-        if (!product) return;
-
-        const defaultUnitPrice = newUnitCode === product.productUnit1?.unit_code
-            ? product.bulk_unit_price
-            : product.retail_unit_price;
-
-        setUnitPrices(prev => ({
-            ...prev,
-            [productCode]: defaultUnitPrice
-        }));
-
-        calculateOrderTotals();
-    };
-
-    // Handle quantity change
-    const handleQuantityChange = (productCode, newQuantity) => {
-        const qty = parseInt(newQuantity);
-        if (isNaN(qty) || qty < 1) return;
-
-        setQuantities(prev => ({
-            ...prev,
-            [productCode]: qty
-        }));
-
-        calculateOrderTotals();
-    };
-
-    // Add +/- button handlers
-    const handleQuantityIncrease = (productCode) => {
-        const currentQty = quantities[productCode] || 1;
-        handleQuantityChange(productCode, currentQty + 1);
-    };
-
-    const handleQuantityDecrease = (productCode) => {
-        const currentQty = quantities[productCode] || 1;
-        if (currentQty > 1) {
-            handleQuantityChange(productCode, currentQty - 1);
-        }
-    };
-
-    // Handle unit price change
-    const handleUnitPriceChange = (productCode, value) => {
-        const newPrice = parseFloat(value);
-        if (isNaN(newPrice) || newPrice < 0) return;
-
-        setUnitPrices(prev => ({
-            ...prev,
-            [productCode]: newPrice
-        }));
-
-        calculateOrderTotals();
-    };
-
     // Handle temperature change
     const handleTemperatureChange = (productCode, temperature) => {
         // Make sure temperature is never an empty string
@@ -382,29 +531,6 @@ export default function CreateProductionReceipt({ onBack }) {
             ...prev,
             [productCode]: value
         }));
-    };
-
-    // Handle product deletion
-    const handleDeleteProduct = (productCode) => {
-        setProducts(prev => prev.filter(p => p.product_code !== productCode));
-        setSelectedProducts(prev => prev.filter(id => id !== productCode));
-
-        // Clean up associated state
-        const { [productCode]: _, ...newQuantities } = quantities;
-        const { [productCode]: __, ...newUnits } = units;
-        const { [productCode]: ___, ...newPrices } = unitPrices;
-        const { [productCode]: ____, ...newTotals } = totals;
-        const { [productCode]: _____, ...newExpiryDates } = expiryDates;
-        const { [productCode]: ______, ...newTemperatures } = temperatures;
-
-        setQuantities(newQuantities);
-        setUnits(newUnits);
-        setUnitPrices(newPrices);
-        setTotals(newTotals);
-        setExpiryDates(newExpiryDates);
-        setTemperatures(newTemperatures);
-
-        calculateOrderTotals(products.filter(p => p.product_code !== productCode));
     };
 
     // Calculate tax

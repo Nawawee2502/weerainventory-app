@@ -80,6 +80,7 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
                     height: '38px',
                     width: '100%',
                     backgroundColor: '#fff',
+                    mt: '8px'
                 },
                 '& .MuiOutlinedInput-input': {
                     cursor: 'pointer',
@@ -122,12 +123,15 @@ const modalStyle = {
     overflowY: 'auto'
 };
 
-// Utility Functions
 const convertToLasVegasTime = (date) => {
-    if (!date) return null;
+    if (!date) return new Date();
+
+    // Create a new date object and set to midnight in local time
     const newDate = new Date(date);
     newDate.setHours(0, 0, 0, 0);
-    return new Date(newDate.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
+
+    // Return this date without timezone conversion
+    return newDate;
 };
 
 const formatDate = (date) => {

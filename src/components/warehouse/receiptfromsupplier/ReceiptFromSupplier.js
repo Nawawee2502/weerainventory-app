@@ -365,7 +365,6 @@ export default function ReceiptFromSupplier({ onCreate, onEdit }) {
                             <StyledTableCell align="center">Ref.no</StyledTableCell>
                             <StyledTableCell align="center">Date</StyledTableCell>
                             <StyledTableCell align="center">Supplier</StyledTableCell>
-                            <StyledTableCell align="center">Restaurant</StyledTableCell>
                             <StyledTableCell align="center">Total Due</StyledTableCell>
                             <StyledTableCell align="center">Username</StyledTableCell>
                             <StyledTableCell width='1%' align="center"></StyledTableCell>
@@ -386,7 +385,6 @@ export default function ReceiptFromSupplier({ onCreate, onEdit }) {
                                 <StyledTableCell align="center">{row.refno}</StyledTableCell>
                                 <StyledTableCell align="center">{row.rdate}</StyledTableCell>
                                 <StyledTableCell align="center">{row.tbl_supplier?.supplier_name}</StyledTableCell>
-                                <StyledTableCell align="center">{row.tbl_branch?.branch_name}</StyledTableCell>
                                 <StyledTableCell align="center">
                                     ${typeof row.total_due === 'number' ? row.total_due.toFixed(2) : row.total_due}
                                 </StyledTableCell>

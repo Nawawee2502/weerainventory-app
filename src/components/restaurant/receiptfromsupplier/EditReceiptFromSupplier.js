@@ -38,6 +38,7 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
                     height: '38px',
                     width: '100%',
                     backgroundColor: '#fff',
+                    mt: '8px'
                 },
                 '& .MuiOutlinedInput-input': {
                     cursor: 'pointer',
@@ -703,7 +704,7 @@ export default function EditGoodsReceiptSupplier({ onBack, editRefno }) {
                 startIcon={<ArrowBackIcon />}
                 sx={{ mb: 2 }}
             >
-                Back to Goods Receipt Supplier
+                Back to Goods Receipt From Supplier
             </Button>
 
             {/* Status Information */}

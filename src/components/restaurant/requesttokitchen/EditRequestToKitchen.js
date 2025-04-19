@@ -1,3 +1,4 @@
+// EditRequestToKitchen.jsx
 import React, { useState, useEffect } from 'react';
 import {
     Box,
@@ -19,8 +20,10 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { useDispatch } from "react-redux";
 import { searchProductName } from '../../../api/productrecordApi';
+import { kitchenAll } from '../../../api/kitchenApi';
 import { branchAll } from '../../../api/branchApi';
-import { addBr_grf, Br_grfrefno } from '../../../api/restaurant/br_grfApi';
+import { updateBr_rtk, getRtkByRefno } from '../../../api/restaurant/br_rtkApi';
+import { Br_rtkdtAlljoindt } from '../../../api/restaurant/br_rtkdtApi';
 import Swal from 'sweetalert2';
 import { format } from 'date-fns';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
@@ -54,16 +57,16 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
     </Box>
 ));
 
-export default function CreateGoodsRequisition({ onBack }) {
+export default function EditRequestToKitchen({ onBack, editRefno }) {
     const dispatch = useDispatch();
 
     // Loading state
-    const [isLoading, setIsLoading] = useState(false);
-    const [isLoadingRefNo, setIsLoadingRefNo] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
 
     // Form state
-    const [startDate, setStartDate] = useState(new Date());
-    const [lastRefNo, setLastRefNo] = useState('');
+    const [requisitionDate, setRequisitionDate] = useState(new Date());
+    const [kitchens, setKitchens] = useState([]);
+    const [saveKitchen, setSaveKitchen] = useState('');
     const [branches, setBranches] = useState([]);
     const [saveBranch, setSaveBranch] = useState('');
 
@@ -85,64 +88,208 @@ export default function CreateGoodsRequisition({ onBack }) {
     const userData2 = JSON.parse(userDataJson || '{}');
 
     useEffect(() => {
-        // Fetch branches
-        dispatch(branchAll({ offset: 0, limit: 100 }))
-            .unwrap()
-            .then((res) => {
-                setBranches(res.data);
-            })
-            .catch((err) => console.log(err.message));
-    }, [dispatch]);
+        const fetchData = async () => {
+            try {
+                setIsLoading(true);
+                console.log('Fetching data for refno:', editRefno);
 
-    const handleGetLastRefNo = async (selectedDate, selectedBranch) => {
+                // Load kitchens
+                const kitchenResponse = await dispatch(kitchenAll({ offset: 0, limit: 100 })).unwrap();
+                if (kitchenResponse && kitchenResponse.data) {
+                    setKitchens(kitchenResponse.data);
+                }
+
+                // Load branches
+                const branchResponse = await dispatch(branchAll({ offset: 0, limit: 100 })).unwrap();
+                if (branchResponse && branchResponse.data) {
+                    setBranches(branchResponse.data);
+                }
+
+                // Load product list for search
+                const productsResponse = await dispatch(searchProductName({ product_name: '' })).unwrap();
+                if (productsResponse && productsResponse.data) {
+                    setSearchResults(productsResponse.data);
+                }
+
+                if (editRefno) {
+                    // Fetch header data
+                    const requisitionResponse = await dispatch(getRtkByRefno(editRefno)).unwrap();
+
+                    if (requisitionResponse && requisitionResponse.result && requisitionResponse.data) {
+                        const headerData = requisitionResponse.data;
+                        console.log('Header data for edit:', headerData);
+
+                        setSaveKitchen(headerData.kitchen_code || '');
+                        setSaveBranch(headerData.branch_code || '');
+
+                        // Parse date from header data
+                        if (headerData.trdate && headerData.trdate.length === 8) {
+                            const year = parseInt(headerData.trdate.substring(0, 4));
+                            const month = parseInt(headerData.trdate.substring(4, 6)) - 1;
+                            const day = parseInt(headerData.trdate.substring(6, 8));
+                            setRequisitionDate(new Date(year, month, day));
+                        } else if (headerData.rdate) {
+                            const parsedDate = new Date(headerData.rdate);
+                            if (!isNaN(parsedDate.getTime())) {
+                                setRequisitionDate(parsedDate);
+                            } else {
+                                // Try alternative parsing
+                                const dateParts = headerData.rdate.split('/');
+                                if (dateParts.length === 3) {
+                                    const month = parseInt(dateParts[0]) - 1;
+                                    const day = parseInt(dateParts[1]);
+                                    const year = parseInt(dateParts[2]);
+                                    setRequisitionDate(new Date(year, month, day));
+                                }
+                            }
+                        }
+
+                        setTotal(parseFloat(headerData.total) || 0);
+
+                        // Fetch detail data
+                        const detailResponse = await dispatch(Br_rtkdtAlljoindt(editRefno)).unwrap();
+
+                        if (detailResponse && detailResponse.data && detailResponse.data.length > 0) {
+                            await processDetailData(detailResponse.data);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading data:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Failed to load kitchen request data'
+                });
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchData();
+    }, [dispatch, editRefno]);
+
+    const processDetailData = async (detailData) => {
         try {
-            if (!selectedBranch) {
-                setLastRefNo('');
-                return;
-            }
+            console.log('Processing detail data:', detailData);
 
-            setIsLoadingRefNo(true);
+            // Prepare products array from detail data
+            const productsArray = detailData.map(item => ({
+                product_code: item.product_code,
+                product_name: item.tbl_product?.product_name || item.product_name,
+                product_img: item.tbl_product?.product_img,
+                productUnit1: item.tbl_product?.productUnit1,
+                productUnit2: item.tbl_product?.productUnit2,
+                bulk_unit_price: item.tbl_product?.bulk_unit_price || parseFloat(item.uprice) || 0,
+                retail_unit_price: item.tbl_product?.retail_unit_price || 0,
+                tax1: item.tbl_product?.tax1 || item.tax1
+            }));
 
-            const res = await dispatch(Br_grfrefno({
-                branch_code: selectedBranch,
-                date: selectedDate
-            })).unwrap();
+            setProducts(productsArray);
 
-            if (res.result && res.data?.refno) {
-                setLastRefNo(res.data.refno);
-            } else {
-                throw new Error('Failed to generate reference number');
-            }
+            // Prepare state objects
+            const newQuantities = {};
+            const newUnits = {};
+            const newUnitPrices = {};
+            const newTotals = {};
+            const newExpiryDates = {};
+            let calculatedTotal = 0;
 
-        } catch (err) {
-            console.error("Error generating refno:", err);
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: 'Failed to generate reference number'
+            detailData.forEach((item) => {
+                const productCode = item.product_code;
+                if (!productCode) return;
+
+                const qty = parseFloat(item.qty) || 1;
+                const unitCode = item.unit_code || '';
+                const unitPrice = parseFloat(item.uprice) || 0;
+                const total = parseFloat(item.amt) || qty * unitPrice;
+
+                newQuantities[productCode] = qty;
+                newUnits[productCode] = unitCode;
+                newUnitPrices[productCode] = unitPrice;
+                newTotals[productCode] = total;
+                calculatedTotal += total;
+
+                // Parse expiry date
+                if (item.texpire_date && item.texpire_date.length === 8) {
+                    try {
+                        const year = parseInt(item.texpire_date.substring(0, 4));
+                        const month = parseInt(item.texpire_date.substring(4, 6)) - 1;
+                        const day = parseInt(item.texpire_date.substring(6, 8));
+                        newExpiryDates[productCode] = new Date(year, month, day);
+                    } catch (e) {
+                        console.error("Error parsing texpire_date:", e);
+                        newExpiryDates[productCode] = new Date();
+                    }
+                } else if (item.expire_date) {
+                    try {
+                        const parsedDate = new Date(item.expire_date);
+                        if (!isNaN(parsedDate.getTime())) {
+                            newExpiryDates[productCode] = parsedDate;
+                        } else {
+                            newExpiryDates[productCode] = new Date();
+                        }
+                    } catch (e) {
+                        console.error("Error parsing expire_date:", e);
+                        newExpiryDates[productCode] = new Date();
+                    }
+                } else {
+                    newExpiryDates[productCode] = new Date();
+                }
             });
-        } finally {
-            setIsLoadingRefNo(false);
+
+            // Update all states
+            setQuantities(newQuantities);
+            setUnits(newUnits);
+            setUnitPrices(newUnitPrices);
+            setTotals(newTotals);
+            setExpiryDates(newExpiryDates);
+            setTotal(calculatedTotal);
+
+            console.log('Detail data processed:', {
+                products: productsArray,
+                quantities: newQuantities,
+                units: newUnits,
+                unitPrices: newUnitPrices,
+                totals: newTotals,
+                total: calculatedTotal
+            });
+
+        } catch (error) {
+            console.error('Error processing detail data:', error);
+            throw error;
         }
     };
 
-    // Update branch selection handler
-    const handleBranchChange = (event) => {
-        const newBranchCode = event.target.value;
-        setSaveBranch(newBranchCode);
-        if (newBranchCode) {  // Only call if we have a branch code
-            handleGetLastRefNo(startDate, newBranchCode);
-        } else {
-            setLastRefNo('');
+    const handleProductSelect = (product) => {
+        if (products.some(p => p.product_code === product.product_code)) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Duplicate Product',
+                text: `${product.product_name} is already in your requisition. Please adjust the quantity instead.`,
+                confirmButtonColor: '#754C27'
+            });
+            setSearchTerm('');
+            setShowDropdown(false);
+            return;
         }
-    };
 
-    // Handle date change
-    const handleDateChange = (date) => {
-        setStartDate(date);
-        if (saveBranch) {
-            handleGetLastRefNo(date, saveBranch);
-        }
+        const productCode = product.product_code;
+        const initialQuantity = 1;
+        const initialUnitCode = product.productUnit1?.unit_code || '';
+        const initialUnitPrice = product.bulk_unit_price || 0;
+        const initialAmount = initialQuantity * initialUnitPrice;
+
+        setProducts(prev => [...prev, product]);
+        setQuantities(prev => ({ ...prev, [productCode]: initialQuantity }));
+        setUnits(prev => ({ ...prev, [productCode]: initialUnitCode }));
+        setUnitPrices(prev => ({ ...prev, [productCode]: initialUnitPrice }));
+        setTotals(prev => ({ ...prev, [productCode]: initialAmount }));
+        setExpiryDates(prev => ({ ...prev, [productCode]: new Date() }));
+        setTotal(prev => prev + initialAmount);
+
+        setSearchTerm('');
+        setShowDropdown(false);
     };
 
     // Search functionality
@@ -194,37 +341,6 @@ export default function CreateGoodsRequisition({ onBack }) {
         }
     };
 
-    const handleProductSelect = (product) => {
-        if (products.some(p => p.product_code === product.product_code)) {
-            Swal.fire({
-                icon: 'warning',
-                title: 'Duplicate Product',
-                text: `${product.product_name} is already in your requisition. Please adjust the quantity instead.`,
-                confirmButtonColor: '#754C27'
-            });
-            setSearchTerm('');
-            setShowDropdown(false);
-            return;
-        }
-
-        const productCode = product.product_code;
-        const initialQuantity = 1;
-        const initialUnitCode = product.productUnit1?.unit_code || '';
-        const initialUnitPrice = product.bulk_unit_price || 0;
-        const initialAmount = initialQuantity * initialUnitPrice;
-
-        setProducts(prev => [...prev, product]);
-        setQuantities(prev => ({ ...prev, [productCode]: initialQuantity }));
-        setUnits(prev => ({ ...prev, [productCode]: initialUnitCode }));
-        setUnitPrices(prev => ({ ...prev, [productCode]: initialUnitPrice }));
-        setTotals(prev => ({ ...prev, [productCode]: initialAmount }));
-        setExpiryDates(prev => ({ ...prev, [productCode]: new Date() }));
-        setTotal(prev => prev + initialAmount);
-
-        setSearchTerm('');
-        setShowDropdown(false);
-    };
-
     const handleQuantityChange = (productCode, delta) => {
         const currentQty = quantities[productCode] || 0;
         const newQty = Math.max(1, currentQty + delta);
@@ -272,6 +388,19 @@ export default function CreateGoodsRequisition({ onBack }) {
         setTotal(prev => prev - (currentQty * oldPrice) + newTotal);
     };
 
+    const handleUnitPriceChange = (productCode, value) => {
+        const newPrice = parseFloat(value);
+        if (!isNaN(newPrice) && newPrice >= 0) {
+            const qty = quantities[productCode] || 0;
+            const oldPrice = unitPrices[productCode] || 0;
+            const newTotal = qty * newPrice;
+
+            setUnitPrices(prev => ({ ...prev, [productCode]: newPrice }));
+            setTotals(prev => ({ ...prev, [productCode]: newTotal }));
+            setTotal(prev => prev - (qty * oldPrice) + newTotal);
+        }
+    };
+
     const handleExpiryDateChange = (productCode, date) => {
         setExpiryDates(prev => ({
             ...prev,
@@ -300,12 +429,12 @@ export default function CreateGoodsRequisition({ onBack }) {
         setTotal(prev => prev - amount);
     };
 
-    const handleSave = async () => {
-        if (!saveBranch || products.length === 0) {
+    const handleUpdate = async () => {
+        if (!saveBranch || !saveKitchen || products.length === 0) {
             Swal.fire({
                 icon: 'warning',
                 title: 'Missing Information',
-                text: 'Please select a branch and at least one product.',
+                text: 'Please select a restaurant and kitchen and add at least one product.',
                 timer: 1500
             });
             return;
@@ -313,64 +442,81 @@ export default function CreateGoodsRequisition({ onBack }) {
 
         try {
             setIsLoading(true);
-            Swal.fire({
-                title: 'Saving requisition...',
-                allowOutsideClick: false,
-                didOpen: () => {
-                    Swal.showLoading();
-                }
-            });
+            const tax = calculateTax();
 
-            const headerData = {
-                refno: lastRefNo,
-                rdate: format(startDate, 'MM/dd/yyyy'),
-                branch_code: saveBranch,
-                trdate: format(startDate, 'yyyyMMdd'),
-                monthh: format(startDate, 'MM'),
-                myear: startDate.getFullYear(),
-                user_code: userData2.user_code,
-            };
+            // แสดง log เพื่อตรวจสอบข้อมูลที่จะส่ง
+            console.log('Date to update:', requisitionDate, format(requisitionDate, 'MM/dd/yyyy'));
+            console.log('Kitchen code:', saveKitchen);
+            console.log('Branch code:', saveBranch);
+            console.log('Products to update:', products.length);
 
-            const productArrayData = products.map(product => ({
-                refno: headerData.refno,
-                product_code: product.product_code,
-                qty: quantities[product.product_code].toString(),
-                unit_code: units[product.product_code],
-                uprice: (unitPrices[product.product_code] || 0).toString(),
-                amt: (totals[product.product_code] || 0).toString(),
-                expire_date: format(expiryDates[product.product_code], 'MM/dd/yyyy'),
-                texpire_date: format(expiryDates[product.product_code], 'yyyyMMdd')
-            }));
-
-            // Include price information for the backend
-            const footerData = {
-                total: total.toString()
-            };
-
+            // สร้างข้อมูลสำหรับส่งไป API
             const orderData = {
-                headerData,
-                productArrayData,
-                footerData
+                // ข้อมูลหลักที่จำเป็นสำหรับ controller
+                refno: editRefno,
+                rdate: format(requisitionDate, 'MM/dd/yyyy'),
+                kitchen_code: saveKitchen,
+                branch_code: saveBranch,
+                trdate: format(requisitionDate, 'yyyyMMdd'),
+                monthh: format(requisitionDate, 'MM'),
+                myear: requisitionDate.getFullYear(),
+                user_code: userData2.user_code || '',
+                taxable: tax.toString(),
+                nontaxable: (total - tax).toString(),
+                total: total.toString(),
+
+                // รักษาโครงสร้างเดิมสำหรับความเข้ากันได้
+                headerData: {
+                    refno: editRefno,
+                    rdate: format(requisitionDate, 'MM/dd/yyyy'),
+                    kitchen_code: saveKitchen,
+                    branch_code: saveBranch,
+                    trdate: format(requisitionDate, 'yyyyMMdd'),
+                    monthh: format(requisitionDate, 'MM'),
+                    myear: requisitionDate.getFullYear(),
+                    user_code: userData2.user_code || '',
+                    taxable: tax.toString(),
+                    nontaxable: (total - tax).toString(),
+                    total: total.toString()
+                },
+                productArrayData: products.map(product => ({
+                    refno: editRefno,
+                    product_code: product.product_code,
+                    qty: (quantities[product.product_code] || 1).toString(),
+                    unit_code: units[product.product_code] || product.productUnit1?.unit_code || '',
+                    uprice: (unitPrices[product.product_code] || 0).toString(),
+                    amt: (totals[product.product_code] || 0).toString(),
+                    tax1: product.tax1 || 'N',
+                    expire_date: format(expiryDates[product.product_code] || new Date(), 'MM/dd/yyyy'),
+                    texpire_date: format(expiryDates[product.product_code] || new Date(), 'yyyyMMdd')
+                })),
+                footerData: {
+                    total: total.toString()
+                }
             };
 
-            await dispatch(addBr_grf(orderData)).unwrap();
+            // แสดง log ของข้อมูลก่อนส่ง
+            console.log('Sending update data:', orderData);
+
+            const result = await dispatch(updateBr_rtk(orderData)).unwrap();
+            console.log('Update result:', result);
 
             await Swal.fire({
                 icon: 'success',
-                title: 'Created requisition successfully',
-                text: `Reference No: ${lastRefNo}`,
+                title: 'Updated kitchen request successfully',
+                text: `Reference No: ${editRefno}`,
                 showConfirmButton: false,
                 timer: 1500
             });
 
-            resetForm();
             onBack();
 
         } catch (error) {
+            console.error('Update error:', error);
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
-                text: error.message || 'Error saving requisition',
+                text: error.message || 'Error updating kitchen request',
                 confirmButtonText: 'OK'
             });
         } finally {
@@ -378,17 +524,58 @@ export default function CreateGoodsRequisition({ onBack }) {
         }
     };
 
-    const resetForm = () => {
-        setProducts([]);
-        setQuantities({});
-        setUnits({});
-        setUnitPrices({});
-        setTotals({});
-        setTotal(0);
-        setExpiryDates({});
-        setSaveBranch('');
-        setSearchTerm('');
+    const calculateTax = () => {
+        let taxableAmount = 0;
+        products.forEach(product => {
+            if (product.tax1 === 'Y') {
+                const productCode = product.product_code;
+                const quantity = quantities[productCode] || 0;
+                const unitPrice = unitPrices[productCode] || 0;
+                taxableAmount += quantity * unitPrice;
+            }
+        });
+        return taxableAmount * 0.07;
     };
+
+    const handleBranchChange = (event) => {
+        setSaveBranch(event.target.value);
+    };
+
+    const handleKitchenChange = (event) => {
+        setSaveKitchen(event.target.value);
+    };
+
+    const resetForm = () => {
+        Swal.fire({
+            title: 'Reset Changes',
+            text: "Are you sure you want to reset all changes?",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Yes, reset!'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                onBack();
+            }
+        });
+    };
+
+    if (isLoading) {
+        return (
+            <Box sx={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                height: '100vh',
+                flexDirection: 'column',
+                gap: 2
+            }}>
+                <Typography variant="h6">Loading kitchen request data...</Typography>
+                <CircularProgress color="primary" />
+            </Box>
+        );
+    }
 
     return (
         <Box sx={{ width: '100%' }}>
@@ -397,8 +584,18 @@ export default function CreateGoodsRequisition({ onBack }) {
                 startIcon={<ArrowBackIcon />}
                 sx={{ mb: 2 }}
             >
-                Back to Internal Requisition
+                Back to Kitchen Requests
             </Button>
+
+            {/* Status Information */}
+            <Box sx={{ mb: 2, p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
+                <Typography variant="subtitle2">
+                    <strong>Status:</strong> Editing ref #{editRefno} |
+                    Products: {products.length} |
+                    Kitchen: {saveKitchen || 'None'} |
+                    Total: ${total.toFixed(2)}
+                </Typography>
+            </Box>
 
             <Box sx={{
                 width: '100%',
@@ -415,7 +612,7 @@ export default function CreateGoodsRequisition({ onBack }) {
                             Ref.no
                         </Typography>
                         <TextField
-                            value={isLoadingRefNo ? "Generating..." : (lastRefNo || "Please select restaurant first")}
+                            value={editRefno}
                             disabled
                             size="small"
                             fullWidth
@@ -424,16 +621,6 @@ export default function CreateGoodsRequisition({ onBack }) {
                                 '& .MuiOutlinedInput-root': {
                                     borderRadius: '10px',
                                 },
-                                '& .Mui-disabled': {
-                                    WebkitTextFillColor: !lastRefNo ? '#d32f2f' : 'rgba(0, 0, 0, 0.38)',
-                                }
-                            }}
-                            InputProps={{
-                                endAdornment: isLoadingRefNo ? (
-                                    <InputAdornment position="end">
-                                        <CircularProgress size={20} />
-                                    </InputAdornment>
-                                ) : null,
                             }}
                         />
                     </Grid>
@@ -443,8 +630,8 @@ export default function CreateGoodsRequisition({ onBack }) {
                             Date
                         </Typography>
                         <DatePicker
-                            selected={startDate}
-                            onChange={handleDateChange}
+                            selected={requisitionDate}
+                            onChange={(date) => setRequisitionDate(date)}
                             dateFormat="MM/dd/yyyy"
                             customInput={<CustomInput />}
                         />
@@ -476,6 +663,37 @@ export default function CreateGoodsRequisition({ onBack }) {
                             {branches.map((branch) => (
                                 <option key={branch.branch_code} value={branch.branch_code}>
                                     {branch.branch_name}
+                                </option>
+                            ))}
+                        </Box>
+                    </Grid>
+
+                    <Grid item xs={12} md={6}>
+                        <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
+                            Kitchen
+                        </Typography>
+                        <Box
+                            component="select"
+                            value={saveKitchen}
+                            onChange={(e) => handleKitchenChange(e)}
+                            sx={{
+                                mt: 1,
+                                width: '100%',
+                                height: '40px',
+                                borderRadius: '10px',
+                                padding: '0 14px',
+                                border: '1px solid rgba(0, 0, 0, 0.23)',
+                                fontSize: '16px',
+                                '&:focus': {
+                                    outline: 'none',
+                                    borderColor: '#754C27',
+                                },
+                            }}
+                        >
+                            <option value="">Select Kitchen</option>
+                            {kitchens.map((kitchen) => (
+                                <option key={kitchen.kitchen_code} value={kitchen.kitchen_code}>
+                                    {kitchen.kitchen_name}
                                 </option>
                             ))}
                         </Box>
@@ -557,7 +775,7 @@ export default function CreateGoodsRequisition({ onBack }) {
                         <tbody>
                             {products.length === 0 ? (
                                 <tr>
-                                    <td colSpan={7} style={{ padding: '20px', textAlign: 'center' }}>
+                                    <td colSpan={9} style={{ padding: '20px', textAlign: 'center' }}>
                                         No products added yet. Search and add products above.
                                     </td>
                                 </tr>
@@ -640,18 +858,7 @@ export default function CreateGoodsRequisition({ onBack }) {
                                                 min="0"
                                                 step="0.01"
                                                 value={unitPrices[product.product_code] || 0}
-                                                onChange={(e) => {
-                                                    const newPrice = parseFloat(e.target.value);
-                                                    if (!isNaN(newPrice) && newPrice >= 0) {
-                                                        const qty = quantities[product.product_code] || 0;
-                                                        const oldPrice = unitPrices[product.product_code] || 0;
-                                                        const newTotal = qty * newPrice;
-
-                                                        setUnitPrices(prev => ({ ...prev, [product.product_code]: newPrice }));
-                                                        setTotals(prev => ({ ...prev, [product.product_code]: newTotal }));
-                                                        setTotal(prev => prev - (qty * oldPrice) + newTotal);
-                                                    }
-                                                }}
+                                                onChange={(e) => handleUnitPriceChange(product.product_code, e.target.value)}
                                                 style={{
                                                     width: '100px',
                                                     padding: '4px',
@@ -701,23 +908,39 @@ export default function CreateGoodsRequisition({ onBack }) {
                     </Box>
                 </Box>
 
-                <Button
-                    onClick={handleSave}
-                    variant="contained"
-                    fullWidth
-                    disabled={isLoading || !lastRefNo || products.length === 0}
-                    sx={{
-                        mt: 2,
-                        bgcolor: '#754C27',
-                        color: 'white',
-                        '&:hover': {
-                            bgcolor: '#5A3D1E',
-                        },
-                        height: '48px'
-                    }}
-                >
-                    {isLoading ? 'Saving...' : 'Save'}
-                </Button>
+                <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
+                    <Button
+                        onClick={resetForm}
+                        variant="outlined"
+                        sx={{
+                            flex: 1,
+                            height: '48px',
+                            color: '#754C27',
+                            borderColor: '#754C27',
+                            '&:hover': {
+                                borderColor: '#5A3D1E',
+                            }
+                        }}
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        onClick={handleUpdate}
+                        variant="contained"
+                        disabled={isLoading}
+                        sx={{
+                            flex: 1,
+                            bgcolor: '#754C27',
+                            color: 'white',
+                            '&:hover': {
+                                bgcolor: '#5A3D1E',
+                            },
+                            height: '48px'
+                        }}
+                    >
+                        {isLoading ? 'Updating...' : 'Update'}
+                    </Button>
+                </Box>
             </Box>
         </Box>
     );

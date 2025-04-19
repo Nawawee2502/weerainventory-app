@@ -35,6 +35,7 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
                     height: '38px',
                     width: '100%',
                     backgroundColor: '#fff',
+                    mt: '8px'
                 },
                 '& .MuiOutlinedInput-input': {
                     cursor: 'pointer',

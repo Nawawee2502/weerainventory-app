@@ -43,6 +43,7 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
                     height: '38px',
                     width: '100%',
                     backgroundColor: '#fff',
+                    mt: '8px'
                 },
                 '& .MuiOutlinedInput-input': {
                     cursor: 'pointer',
@@ -61,13 +62,13 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
     </Box>
 ));
 
-function EditReceiptFromSupplier({ onBack, editRefno }) {
+export default function EditReceiptFromSupplier({ onBack, editRefno }) {
     const dispatch = useDispatch();
     const [editDate, setEditDate] = useState(new Date());
     const [supplier, setSupplier] = useState([]);
     const [branch, setBranch] = useState([]);
     const [saveSupplier, setSaveSupplier] = useState('');
-    const [saveBranch, setSaveBranch] = useState('');
+    const [saveBranch, setSaveBranch] = useState('-');
     const [products, setProducts] = useState([]);
     const [originalProducts, setOriginalProducts] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
@@ -79,11 +80,9 @@ function EditReceiptFromSupplier({ onBack, editRefno }) {
     const [taxableAmount, setTaxableAmount] = useState(0);
     const [nonTaxableAmount, setNonTaxableAmount] = useState(0);
     const [total, setTotal] = useState(0);
-    const [instantSaving, setInstantSaving] = useState(0);
     const [deliverySurcharge, setDeliverySurcharge] = useState(0);
     const [saleTax, setSaleTax] = useState(0);
     const [totalDue, setTotalDue] = useState(0);
-    const [expiryDates, setExpiryDates] = useState({});
     const [temperatures, setTemperatures] = useState({});
     const TAX_RATE = 0.07;
 
@@ -97,7 +96,7 @@ function EditReceiptFromSupplier({ onBack, editRefno }) {
 
                 // เซ็ตข้อมูล supplier และ branch
                 setSaveSupplier(res.data.supplier_code);
-                setSaveBranch(res.data.branch_code);
+                setSaveBranch('-');
 
                 // ตรวจสอบว่า wh_rfsdts มีข้อมูลหรือไม่
                 console.log("Details data:", res.data.wh_rfsdts);
@@ -116,10 +115,8 @@ function EditReceiptFromSupplier({ onBack, editRefno }) {
                         productUnit2: item.tbl_product?.productUnit2 || defaultUnit,
                         amount: item.qty,
                         unit_code: item.unit_code,
-                        expire_date: item.expire_date,
                         temperature1: item.temperature1 || '',
                         uprice: item.uprice,
-                        instant_saving1: item.instant_saving1 || 0,
                         isNewProduct: false
                     };
                 });
@@ -130,7 +127,6 @@ function EditReceiptFromSupplier({ onBack, editRefno }) {
                 // ตั้งค่าเริ่มต้นสำหรับแต่ละผลิตภัณฑ์
                 const initialQuantities = {};
                 const initialUnits = {};
-                const initialExpiryDates = {};
                 const initialTemperatures = {};
 
                 initialProducts.forEach(product => {
@@ -138,31 +134,11 @@ function EditReceiptFromSupplier({ onBack, editRefno }) {
                     initialQuantities[productCode] = parseInt(product.amount);
                     initialUnits[productCode] = product.unit_code;
                     initialTemperatures[productCode] = product.temperature1;
-
-                    // แปลงวันที่หมดอายุ
-                    try {
-                        if (product.expire_date) {
-                            const [month, day, year] = product.expire_date.split('/');
-                            const expiryDate = new Date(year, month - 1, day);
-                            if (!isNaN(expiryDate.getTime())) {
-                                initialExpiryDates[productCode] = expiryDate;
-                            } else {
-                                initialExpiryDates[productCode] = new Date();
-                            }
-                        } else {
-                            initialExpiryDates[productCode] = new Date();
-                        }
-                    } catch (error) {
-                        console.error("Error parsing expiry date for product", productCode, error);
-                        initialExpiryDates[productCode] = new Date();
-                    }
                 });
 
                 setQuantities(initialQuantities);
                 setUnits(initialUnits);
-                setExpiryDates(initialExpiryDates);
                 setTemperatures(initialTemperatures);
-                setInstantSaving(parseFloat(res.data.instant_saving) || 0);
                 setDeliverySurcharge(parseFloat(res.data.delivery_surcharge) || 0);
                 setSaleTax(parseFloat(res.data.sale_tax) || 0);
                 setTotalDue(parseFloat(res.data.total_due) || 0);
@@ -232,7 +208,6 @@ function EditReceiptFromSupplier({ onBack, editRefno }) {
             productUnit1: product.productUnit1 || defaultUnit,
             productUnit2: product.productUnit2 || defaultUnit,
             amount: 1,
-            instant_saving1: 0,
             temperature1: '38',
             isNewProduct: true
         };
@@ -240,7 +215,6 @@ function EditReceiptFromSupplier({ onBack, editRefno }) {
         setProducts(prev => [...prev, newProduct]);
         setQuantities(prev => ({ ...prev, [product.product_code]: 1 }));
         setUnits(prev => ({ ...prev, [product.product_code]: newProduct.productUnit1.unit_code }));
-        setExpiryDates(prev => ({ ...prev, [product.product_code]: new Date() }));
         setTemperatures(prev => ({ ...prev, [product.product_code]: '38' }));
 
         calculateOrderTotals();
@@ -250,7 +224,6 @@ function EditReceiptFromSupplier({ onBack, editRefno }) {
     const calculateOrderTotals = (currentProducts = products, currentQuantities = quantities, currentUnits = units) => {
         let newTaxable = 0;
         let newNonTaxable = 0;
-        let newInstantSaving = 0;
 
         currentProducts.forEach(product => {
             const amount = Number(product.amount || 0);
@@ -264,17 +237,14 @@ function EditReceiptFromSupplier({ onBack, editRefno }) {
             } else {
                 newNonTaxable += lineTotal;
             }
-
-            newInstantSaving += Number(product.instant_saving1 || 0);
         });
 
         const newSaleTax = newTaxable * TAX_RATE;
         const newTotal = newTaxable + newNonTaxable;
-        const newTotalDue = newTotal + newSaleTax + deliverySurcharge - newInstantSaving;
+        const newTotalDue = newTotal + newSaleTax + deliverySurcharge;
 
         setTaxableAmount(newTaxable);
         setNonTaxableAmount(newNonTaxable);
-        setInstantSaving(newInstantSaving);
         setSaleTax(newSaleTax);
         setTotal(newTotal);
         setTotalDue(newTotalDue);
@@ -286,24 +256,21 @@ function EditReceiptFromSupplier({ onBack, editRefno }) {
 
         const newQuantities = { ...quantities };
         const newUnits = { ...units };
-        const newExpiryDates = { ...expiryDates };
         const newTemperatures = { ...temperatures };
 
         delete newQuantities[productCode];
         delete newUnits[productCode];
-        delete newExpiryDates[productCode];
         delete newTemperatures[productCode];
 
         setQuantities(newQuantities);
         setUnits(newUnits);
-        setExpiryDates(newExpiryDates);
         setTemperatures(newTemperatures);
 
         calculateOrderTotals(updatedProducts, newQuantities, newUnits);
     };
 
     const handleUpdate = async () => {
-        if (!saveSupplier || !saveBranch || products.length === 0) {
+        if (!saveSupplier || products.length === 0) {
             Swal.fire({
                 icon: 'warning',
                 title: 'Missing Information',
@@ -331,7 +298,7 @@ function EditReceiptFromSupplier({ onBack, editRefno }) {
                 taxable: taxableAmount.toString(),
                 nontaxable: nonTaxableAmount.toString(),
                 total: total.toString(),
-                instant_saving: instantSaving.toString(),
+                instant_saving: "0",
                 delivery_surcharge: deliverySurcharge.toString(),
                 sale_tax: saleTax.toString(),
                 total_due: totalDue.toString()
@@ -361,9 +328,9 @@ function EditReceiptFromSupplier({ onBack, editRefno }) {
                     unit_code: units[product.product_code] || product.productUnit1?.unit_code || 'EA',
                     uprice: product.uprice?.toString() || '0',
                     tax1: product.tax1 || 'N',
-                    expire_date: formatDate(expiryDates[product.product_code] || new Date()),
-                    texpire_date: (expiryDates[product.product_code] || new Date()).toISOString().slice(0, 10).replace(/-/g, ''),
-                    instant_saving1: (product.instant_saving1 || 0).toString(),
+                    expire_date: '',
+                    texpire_date: '',
+                    instant_saving1: '0',
                     temperature1: temperatures[product.product_code] || '',
                     amt: (quantities[product.product_code] * product.uprice).toString() || '0'
                 };
@@ -488,39 +455,6 @@ function EditReceiptFromSupplier({ onBack, editRefno }) {
                                     ))}
                                 </Box>
                             </Grid2>
-                            <Grid2 item size={{ xs: 12, md: 6 }}>
-                                <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
-                                    Restaurant
-                                </Typography>
-                                <Box
-                                    component="select"
-                                    value={saveBranch}
-                                    onChange={(e) => setSaveBranch(e.target.value)}
-                                    sx={{
-                                        mt: '8px',
-                                        width: '100%',
-                                        height: '40px',
-                                        borderRadius: '10px',
-                                        padding: '0 14px',
-                                        border: '1px solid rgba(0, 0, 0, 0.23)',
-                                        fontSize: '16px',
-                                        '&:focus': {
-                                            outline: 'none',
-                                            borderColor: '#754C27',
-                                        },
-                                        '& option': {
-                                            fontSize: '16px',
-                                        },
-                                    }}
-                                >
-                                    <option value="">Select a Restaurant</option>
-                                    {branch.map((b) => (
-                                        <option key={b.branch_code} value={b.branch_code}>
-                                            {b.branch_name}
-                                        </option>
-                                    ))}
-                                </Box>
-                            </Grid2>
                         </Grid2>
 
                         <Divider sx={{ mt: '24px' }} />
@@ -603,9 +537,7 @@ function EditReceiptFromSupplier({ onBack, editRefno }) {
                                         <th style={{ padding: '4px', fontSize: '14px', width: '1%', color: '#754C27', fontWeight: '800' }}>No.</th>
                                         <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '10%', color: '#754C27', fontWeight: '800' }}>Product code</th>
                                         <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', width: '10%', color: '#754C27', fontWeight: '800' }}>Product name</th>
-                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Expiry date</th>
                                         <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Tax</th>
-                                        <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800', width: '10%' }}>Instance saving</th>
                                         <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Temperature</th>
                                         <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Amount</th>
                                         <th style={{ padding: '4px', fontSize: '14px', textAlign: 'center', color: '#754C27', fontWeight: '800' }}>Unit</th>
@@ -628,33 +560,7 @@ function EditReceiptFromSupplier({ onBack, editRefno }) {
                                                 <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>{productCode}</td>
                                                 <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>{product.product_name}</td>
                                                 <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
-                                                    <DatePicker
-                                                        selected={expiryDates[productCode]}
-                                                        onChange={(date) => {
-                                                            setExpiryDates(prev => ({
-                                                                ...prev,
-                                                                [productCode]: date
-                                                            }));
-                                                        }}
-                                                        dateFormat="MM/dd/yyyy"
-                                                        customInput={<TextField size="small" sx={{ width: '120px' }} />}
-                                                    />
-                                                </td>
-                                                <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
                                                     {product.tax1 === 'Y' ? 'Yes' : 'No'}
-                                                </td>
-                                                <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
-                                                    <TextField
-                                                        type="number"
-                                                        size="small"
-                                                        value={product.instant_saving1 || 0}
-                                                        onChange={(e) => {
-                                                            const newValue = Number(e.target.value);
-                                                            product.instant_saving1 = newValue;
-                                                            calculateOrderTotals();
-                                                        }}
-                                                        sx={{ width: '80px' }}
-                                                    />
                                                 </td>
                                                 <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
                                                     <TextField
@@ -762,12 +668,10 @@ function EditReceiptFromSupplier({ onBack, editRefno }) {
                                     justifyContent: 'space-between'
                                 }}>
                                     <Box>
-                                        <Typography sx={{ color: '#FFFFFF' }}>Instance Saving</Typography>
                                         <Typography sx={{ color: '#FFFFFF' }}>Delivery Surcharge</Typography>
                                         <Typography sx={{ color: '#FFFFFF' }}>Sale Tax</Typography>
                                     </Box>
                                     <Box>
-                                        <Typography sx={{ color: '#FFFFFF' }}>${instantSaving.toFixed(2)}</Typography>
                                         <Box sx={{ display: 'flex', alignItems: 'center' }}>
                                             <TextField
                                                 type="number"
@@ -778,7 +682,7 @@ function EditReceiptFromSupplier({ onBack, editRefno }) {
                                                     if (!isNaN(newValue)) {
                                                         setDeliverySurcharge(newValue);
                                                         setTimeout(() => {
-                                                            const newTotalDue = total + saleTax + newValue - instantSaving;
+                                                            const newTotalDue = total + saleTax + newValue;
                                                             setTotalDue(newTotalDue);
                                                         }, 0);
                                                     }
@@ -833,5 +737,3 @@ function EditReceiptFromSupplier({ onBack, editRefno }) {
         </Box>
     );
 }
-
-export default EditReceiptFromSupplier;

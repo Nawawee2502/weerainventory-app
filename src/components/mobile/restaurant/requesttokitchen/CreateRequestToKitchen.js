@@ -53,7 +53,8 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
                     height: '38px',
                     width: '100%',
                     backgroundColor: '#fff',
-                    borderRadius: '10px'
+                    borderRadius: '10px',
+                    mt: '8px'
                 }
             }}
             InputProps={{
@@ -478,6 +479,13 @@ export default function CreateRequestToKitchen({ onBack }) {
 
     return (
         <Box sx={{ padding: "20px", fontFamily: "Arial, sans-serif" }}>
+            <style>
+                {`
+                .react-datepicker-popper {
+                    z-index: 9999 !important;
+                }
+            `}
+            </style>
             <Button
                 startIcon={<ArrowBackIcon />}
                 onClick={onBack}

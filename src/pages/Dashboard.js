@@ -9,7 +9,6 @@ import {
     Toolbar,
     IconButton,
     Typography,
-    InputBase,
     Badge,
     MenuItem,
     Menu,
@@ -17,63 +16,34 @@ import {
     CircularProgress,
     Grid2,
     Switch,
-    FormControlLabel
+    FormControlLabel,
+    Paper,
+    Divider
 } from '@mui/material';
 import {
-    Search as SearchIcon,
     AccountCircle,
     Settings as SettingsIcon,
     Notifications as NotificationsIcon,
     MoreVert as MoreIcon,
     Logout as LogoutIcon,
     PhoneIphone as PhoneIcon,
-    Laptop as LaptopIcon
+    Laptop as LaptopIcon,
+    RestaurantMenu,
+    Inventory,
+    Kitchen,
+    StorefrontOutlined,
+    WarehouseOutlined
 } from '@mui/icons-material';
 import { logout } from '../store/reducers/authentication';
+import axios from 'axios';
 
-// Styled components remain the same...
-const SearchIconWrapper = styled('div')(({ theme }) => ({
-    padding: theme.spacing(0, 2),
-    height: '100%',
-    position: 'absolute',
-    pointerEvents: 'none',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-}));
-
-const Search = styled('div')(({ theme }) => ({
-    position: 'relative',
-    borderRadius: theme.shape.borderRadius,
-    backgroundColor: alpha(theme.palette.common.white, 0.15),
-    '&:hover': {
-        backgroundColor: alpha(theme.palette.common.white, 0.25),
-    },
-    marginRight: theme.spacing(2),
-    marginLeft: 0,
-    width: '100%',
-    [theme.breakpoints.up('md')]: {
-        marginLeft: theme.spacing(3),
-        width: '300px',
-    },
-    [theme.breakpoints.down('md')]: {
-        display: 'none',
-    },
-}));
-
-const StyledInputBase = styled(InputBase)(({ theme }) => ({
-    color: 'inherit',
-    width: '100%',
-    '& .MuiInputBase-input': {
-        padding: theme.spacing(1, 1, 1, 0),
-        paddingLeft: `calc(1em + ${theme.spacing(4)})`,
-        transition: theme.transitions.create('width'),
-        width: '100%',
-        [theme.breakpoints.up('md')]: {
-            width: '40ch',
-        },
-    },
-}));
+// Import APIs for stockcard data
+// import { countKt_stockcard } from '../store/api/kt_stockcardApi';
+// import { countBr_stockcard } from '../store/api/br_stockcardApi';
+// import { countWh_stockcard } from '../store/api/wh_stockcardApi';
+import { countKt_stockcard } from '../api/kitchen/kt_stockcardApi';
+import { countBr_stockcard } from '../api/restaurant/br_stockcardApi';
+import { countWh_stockcard } from '../api/warehouse/wh_stockcard';
 
 // Custom styled switch
 const ModeSwitch = styled(Switch)(({ theme }) => ({
@@ -123,12 +93,50 @@ const ModeSwitch = styled(Switch)(({ theme }) => ({
     },
 }));
 
+// Dashboard card with gradient background
+const DashboardCard = styled(Paper)(({ theme, color }) => ({
+    padding: theme.spacing(2),
+    borderRadius: '14px',
+    boxShadow: '0px 4px 4px 0px #00000040',
+    background: color || '#EDEDED',
+    color: color ? '#FFFFFF' : theme.palette.text.primary,
+    height: '141px',
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'space-between',
+    position: 'relative',
+    overflow: 'hidden',
+}));
+
+const StockCountCard = styled(Paper)(({ theme, color }) => ({
+    padding: theme.spacing(3),
+    borderRadius: '14px',
+    boxShadow: '0px 4px 4px 0px #00000040',
+    background: color || '#FFFFFF',
+    color: theme.palette.text.primary,
+    height: '220px',
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'space-between',
+    position: 'relative',
+    overflow: 'hidden',
+}));
+
 export default function Dashboard() {
     const [anchorEl, setAnchorEl] = useState(null);
     const [mobileMoreAnchorEl, setMobileMoreAnchorEl] = useState(null);
     const [user, setUser] = useState(null);
     const [permissions, setPermissions] = useState({});
     const [forceMobileMode, setForceMobileMode] = useState(false);
+
+    // State for storing stockcard count data
+    const [stockcardData, setStockcardData] = useState({
+        kitchen: 0,
+        restaurant: 0,
+        warehouse: 0,
+        loading: true
+    });
+
     const navigate = useNavigate();
     const dispatch = useDispatch();
 
@@ -138,6 +146,19 @@ export default function Dashboard() {
     // Determine if we should use mobile UI based on device OR user preference
     const isMobileOrTablet = forceMobileMode || systemIsMobileOrTablet;
     const isMobile = forceMobileMode || systemIsMobile;
+
+    // Function to format date to YYYY-MM-DD
+    // แก้ไขเป็น MM/DD/YYYY ตามรูปแบบในฐานข้อมูล
+    const formatDate = (date) => {
+        const d = new Date(date);
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const year = d.getFullYear();
+        return `${month}/${day}/${year}`;
+    };
+
+    // Get today's date in YYYY-MM-DD format
+    const today = formatDate(new Date());
 
     useEffect(() => {
         const storedUserData = localStorage.getItem('userData');
@@ -172,7 +193,39 @@ export default function Dashboard() {
         } else {
             window.location.replace('/');
         }
+
+        // Load stockcard data for today
+        fetchStockcardData();
     }, []);
+
+    const fetchStockcardData = async () => {
+        setStockcardData(prev => ({ ...prev, loading: true }));
+        try {
+            // Fetch kitchen stockcard count
+            const kitchenRes = await dispatch(countKt_stockcard({ rdate: today })).unwrap();
+
+            // Fetch restaurant stockcard count
+            const restaurantRes = await dispatch(countBr_stockcard({ rdate: today })).unwrap();
+
+            // Fetch warehouse stockcard count
+            const warehouseRes = await dispatch(countWh_stockcard({ rdate: today })).unwrap();
+
+            setStockcardData({
+                kitchen: kitchenRes.data || 0,
+                restaurant: restaurantRes.data || 0,
+                warehouse: warehouseRes.data || 0,
+                loading: false
+            });
+        } catch (error) {
+            console.error('Error fetching stockcard data:', error);
+            setStockcardData({
+                kitchen: 0,
+                restaurant: 0,
+                warehouse: 0,
+                loading: false
+            });
+        }
+    };
 
     const handleModeChange = (event) => {
         const newMode = event.target.checked;
@@ -548,23 +601,107 @@ export default function Dashboard() {
                         Dashboard {forceMobileMode && <Typography component="span" color="primary">(Mobile Mode)</Typography>}
                     </Typography>
 
-                    <Grid2 container spacing={3} sx={{
-                        display: 'flex',
-                        flexDirection: 'row',
-                        justifyContent: 'center'
-                    }}>
-                        {[1, 2, 3, 4].map((item) => (
-                            <Grid2 item key={item} xs={12} sm={6} md={3}>
-                                <Box sx={{
-                                    width: '100%',
-                                    height: '141px',
-                                    bgcolor: '#EDEDED',
-                                    borderRadius: '14px',
-                                    boxShadow: '0px 4px 4px 0px #00000040'
-                                }} />
+                    <Box sx={{ mb: 3 }}>
+                        <Typography variant="h6" sx={{ color: '#464255', mb: 1 }}>
+                            Today's Stockcard Entries ({today})
+                        </Typography>
+                        <Divider />
+                    </Box>
+
+                    {stockcardData.loading ? (
+                        <Box sx={{ display: 'flex', justifyContent: 'center', my: 5 }}>
+                            <CircularProgress />
+                        </Box>
+                    ) : (
+                        <Grid2 container spacing={3} sx={{
+                            display: 'flex',
+                            flexDirection: 'row',
+                            justifyContent: 'center'
+                        }}>
+                            {/* Kitchen Stockcard */}
+                            <Grid2 item xs={12} sm={6} md={4}>
+                                <StockCountCard>
+                                    <Box sx={{
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        textAlign: 'center'
+                                    }}>
+                                        <Kitchen sx={{ fontSize: 60, color: '#4CAF50', mb: 2 }} />
+                                        <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 1 }}>
+                                            Kitchen Stockcard
+                                        </Typography>
+                                        <Typography variant="h3" sx={{ fontWeight: 'bold', color: '#4CAF50' }}>
+                                            {stockcardData.kitchen}
+                                        </Typography>
+                                        <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1 }}>
+                                            Entries today
+                                        </Typography>
+                                    </Box>
+                                </StockCountCard>
                             </Grid2>
-                        ))}
-                    </Grid2>
+
+                            {/* Restaurant Stockcard */}
+                            <Grid2 item xs={12} sm={6} md={4}>
+                                <StockCountCard>
+                                    <Box sx={{
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        textAlign: 'center'
+                                    }}>
+                                        <StorefrontOutlined sx={{ fontSize: 60, color: '#2196F3', mb: 2 }} />
+                                        <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 1 }}>
+                                            Restaurant Stockcard
+                                        </Typography>
+                                        <Typography variant="h3" sx={{ fontWeight: 'bold', color: '#2196F3' }}>
+                                            {stockcardData.restaurant}
+                                        </Typography>
+                                        <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1 }}>
+                                            Entries today
+                                        </Typography>
+                                    </Box>
+                                </StockCountCard>
+                            </Grid2>
+
+                            {/* Warehouse Stockcard */}
+                            <Grid2 item xs={12} sm={6} md={4}>
+                                <StockCountCard>
+                                    <Box sx={{
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        textAlign: 'center'
+                                    }}>
+                                        <WarehouseOutlined sx={{ fontSize: 60, color: '#FF9800', mb: 2 }} />
+                                        <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 1 }}>
+                                            Warehouse Stockcard
+                                        </Typography>
+                                        <Typography variant="h3" sx={{ fontWeight: 'bold', color: '#FF9800' }}>
+                                            {stockcardData.warehouse}
+                                        </Typography>
+                                        <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1 }}>
+                                            Entries today
+                                        </Typography>
+                                    </Box>
+                                </StockCountCard>
+                            </Grid2>
+                        </Grid2>
+                    )}
+
+
+                    {/* Button to refresh data */}
+                    <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+                        <Button
+                            variant="contained"
+                            color="primary"
+                            onClick={fetchStockcardData}
+                            disabled={stockcardData.loading}
+                            startIcon={stockcardData.loading ? <CircularProgress size={20} /> : null}
+                        >
+                            {stockcardData.loading ? 'Refreshing...' : 'Refresh Data'}
+                        </Button>
+                    </Box>
                 </Box>
             </Box>
 

@@ -73,6 +73,7 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
                     height: '38px',
                     width: '100%',
                     backgroundColor: '#fff',
+                    mt: '8px'
                 },
                 '& .MuiOutlinedInput-input': {
                     cursor: 'pointer',
@@ -91,12 +92,15 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
     </Box>
 ));
 
-// Utility Functions
 const convertToLasVegasTime = (date) => {
     if (!date) return new Date();
+
+    // Create a new date object and set to midnight in local time
     const newDate = new Date(date);
     newDate.setHours(0, 0, 0, 0);
-    return new Date(newDate.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
+
+    // Return this date without timezone conversion
+    return newDate;
 };
 
 const formatDate = (date) => {
@@ -701,7 +705,7 @@ export default function BeginningInventory() {
                                 <StyledTableCell width='1%'>No.</StyledTableCell>
                                 <StyledTableCell align="center">Product Code</StyledTableCell>
                                 <StyledTableCell align="center">Product Name</StyledTableCell>
-                                <StyledTableCell align="center">Amount</StyledTableCell>
+                                <StyledTableCell align="center">Quantity</StyledTableCell>
                                 <StyledTableCell align="center">Unit Price</StyledTableCell>
                                 <StyledTableCell align="center">Total</StyledTableCell>
                                 <StyledTableCell width='1%' align="center">Edit</StyledTableCell>
@@ -949,7 +953,7 @@ export default function BeginningInventory() {
                                 </Box>
 
                                 <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27', mt: '18px' }}>
-                                    Amount
+                                    Quantity
                                 </Typography>
                                 <TextField
                                     size="small"

@@ -31,6 +31,7 @@ const CustomDateInput = React.forwardRef(({ value, onClick, placeholder }, ref) 
                     height: '38px',
                     width: '100%',
                     backgroundColor: '#fff',
+                    mt: '8px'
                 },
                 '& .MuiOutlinedInput-input': {
                     cursor: 'pointer',
@@ -184,6 +185,144 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
 
         fetchData();
     }, [dispatch, editRefno]);
+
+    // Fix for handleQuantityChange
+    const handleQuantityChange = (productCode, newQuantityValue) => {
+        const qty = parseInt(newQuantityValue);
+        if (isNaN(qty) || qty < 1) return;
+
+        // Update the quantities state
+        const newQuantities = {
+            ...quantities,
+            [productCode]: qty
+        };
+        setQuantities(newQuantities);
+
+        // Get the current product and calculate the new line total
+        const product = products.find(p => p.product_code === productCode);
+        if (!product) return;
+
+        const currentUnitPrice = unitPrices[productCode] || 0;
+        const newLineTotal = qty * currentUnitPrice;
+
+        // Update totals state with the new line total
+        const newTotals = {
+            ...totals,
+            [productCode]: newLineTotal
+        };
+        setTotals(newTotals);
+
+        // Calculate the new order total immediately
+        let newTotal = 0;
+        products.forEach(p => {
+            const pCode = p.product_code;
+            if (pCode === productCode) {
+                newTotal += newLineTotal;
+            } else {
+                newTotal += totals[pCode] || 0;
+            }
+        });
+
+        setTotal(newTotal);
+    };
+
+    // Fix for handleUnitChange
+    const handleUnitChange = (productCode, newUnitCode) => {
+        // Update units state
+        setUnits(prev => ({
+            ...prev,
+            [productCode]: newUnitCode
+        }));
+
+        const product = products.find(p => p.product_code === productCode);
+        if (!product) return;
+
+        // Determine the appropriate unit price based on the selected unit
+        const defaultUnitPrice = newUnitCode === product.productUnit1?.unit_code
+            ? product.bulk_unit_price
+            : product.retail_unit_price;
+
+        // Update unit prices state
+        const newUnitPrices = {
+            ...unitPrices,
+            [productCode]: defaultUnitPrice
+        };
+        setUnitPrices(newUnitPrices);
+
+        // Calculate the new line total
+        const currentQuantity = quantities[productCode] || 1;
+        const newLineTotal = currentQuantity * defaultUnitPrice;
+
+        // Update totals state
+        const newTotals = {
+            ...totals,
+            [productCode]: newLineTotal
+        };
+        setTotals(newTotals);
+
+        // Calculate the new order total immediately
+        let newTotal = 0;
+        products.forEach(p => {
+            const pCode = p.product_code;
+            if (pCode === productCode) {
+                newTotal += newLineTotal;
+            } else {
+                newTotal += totals[pCode] || 0;
+            }
+        });
+
+        setTotal(newTotal);
+    };
+
+    // Fix for handleUnitPriceChange
+    const handleUnitPriceChange = (productCode, value) => {
+        const newPrice = parseFloat(value);
+        if (isNaN(newPrice) || newPrice < 0) return;
+
+        // Update unit prices state
+        const newUnitPrices = {
+            ...unitPrices,
+            [productCode]: newPrice
+        };
+        setUnitPrices(newUnitPrices);
+
+        // Calculate the new line total
+        const currentQuantity = quantities[productCode] || 1;
+        const newLineTotal = currentQuantity * newPrice;
+
+        // Update totals state
+        const newTotals = {
+            ...totals,
+            [productCode]: newLineTotal
+        };
+        setTotals(newTotals);
+
+        // Calculate the new order total immediately
+        let newTotal = 0;
+        products.forEach(p => {
+            const pCode = p.product_code;
+            if (pCode === productCode) {
+                newTotal += newLineTotal;
+            } else {
+                newTotal += totals[pCode] || 0;
+            }
+        });
+
+        setTotal(newTotal);
+    };
+
+    // Also update the calculateTax function to be more immediate
+    const calculateTax = () => {
+        let taxableAmount = 0;
+        products.forEach(product => {
+            if (product.tax1 === 'Y') {
+                const productCode = product.product_code;
+                const amount = totals[productCode] || 0;
+                taxableAmount += amount;
+            }
+        });
+        return taxableAmount * 0.07;
+    };
 
     // Process detail data
     const processDetailData = async (detailData) => {
@@ -373,41 +512,6 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
         }
     };
 
-    // Handle unit change
-    const handleUnitChange = (productCode, newUnitCode) => {
-        setUnits(prev => ({
-            ...prev,
-            [productCode]: newUnitCode
-        }));
-
-        const product = products.find(p => p.product_code === productCode);
-        if (!product) return;
-
-        const defaultUnitPrice = newUnitCode === product.productUnit1?.unit_code
-            ? product.bulk_unit_price
-            : product.retail_unit_price;
-
-        setUnitPrices(prev => ({
-            ...prev,
-            [productCode]: defaultUnitPrice
-        }));
-
-        calculateOrderTotals();
-    };
-
-    // Handle quantity change
-    const handleQuantityChange = (productCode, newQuantity) => {
-        const qty = parseInt(newQuantity);
-        if (isNaN(qty) || qty < 1) return;
-
-        setQuantities(prev => ({
-            ...prev,
-            [productCode]: qty
-        }));
-
-        calculateOrderTotals();
-    };
-
     // Add +/- button handlers
     const handleQuantityIncrease = (productCode) => {
         const currentQty = quantities[productCode] || 1;
@@ -421,18 +525,6 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
         }
     };
 
-    // Handle unit price change
-    const handleUnitPriceChange = (productCode, value) => {
-        const newPrice = parseFloat(value);
-        if (isNaN(newPrice) || newPrice < 0) return;
-
-        setUnitPrices(prev => ({
-            ...prev,
-            [productCode]: newPrice
-        }));
-
-        calculateOrderTotals();
-    };
 
     // Handle product deletion
     const handleDeleteProduct = (productCode) => {
@@ -451,20 +543,6 @@ export default function EditPurchaseOrderWarehouse({ onBack, editRefno }) {
         setTotals(newTotals);
 
         calculateOrderTotals(products.filter(p => p.product_code !== productCode));
-    };
-
-    // Calculate tax based on products with tax1='Y'
-    const calculateTax = () => {
-        let taxableAmount = 0;
-        products.forEach(product => {
-            if (product.tax1 === 'Y') {
-                const productCode = product.product_code;
-                const quantity = quantities[productCode] || 0;
-                const unitPrice = unitPrices[productCode] || 0;
-                taxableAmount += quantity * unitPrice;
-            }
-        });
-        return taxableAmount * 0.07;
     };
 
     // Reset form

@@ -423,7 +423,7 @@ export default function CreateReceiptFromSupplier({ onBack }) {
     return (
         <Box sx={{ width: '100%' }}>
             <Button onClick={onBack} startIcon={<ArrowBackIcon />} sx={{ mb: 2 }}>
-                Back to Receipt From Supplier
+                Back to Goods Receipt From Supplier
             </Button>
 
             <Box sx={{

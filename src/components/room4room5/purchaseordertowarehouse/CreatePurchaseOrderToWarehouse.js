@@ -15,12 +15,15 @@ import { kitchenAll } from '../../../api/kitchenApi';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import Swal from 'sweetalert2';
 
-// Date Utility Functions
 const convertToLasVegasTime = (date) => {
     if (!date) return new Date();
+
+    // Create a new date object and set to midnight in local time
     const newDate = new Date(date);
     newDate.setHours(0, 0, 0, 0);
-    return new Date(newDate.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
+
+    // Return this date without timezone conversion
+    return newDate;
 };
 
 const formatDate = (date) => {
@@ -44,6 +47,7 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
                     height: '38px',
                     width: '100%',
                     backgroundColor: '#fff',
+                    mt: '8px'
                 },
                 '& .MuiOutlinedInput-input': {
                     cursor: 'pointer',
@@ -159,6 +163,162 @@ export default function CreatePurchaseOrderToWinery({ onBack }) {
             const newRefNo = `KPOW${year}${month}001`;
             setLastRefNo(newRefNo);
         }
+    };
+
+    // Fix for handleQuantityChange
+    const handleQuantityChange = (productCode, value) => {
+        const newValue = parseInt(value);
+        if (isNaN(newValue) || newValue < 1) return;
+
+        // Update the quantities state
+        const newQuantities = {
+            ...quantities,
+            [productCode]: newValue
+        };
+        setQuantities(newQuantities);
+
+        // Get the current product and other needed values
+        const product = products.find(p => p.product_code === productCode);
+        if (!product) return;
+
+        const unitPrice = unitPrices[productCode] || 0;
+
+        // Calculate the new line total
+        const newLineTotal = newValue * unitPrice;
+
+        // Update the totals state with all current values plus the new line total
+        const newTotals = {
+            ...totals,
+            [productCode]: newLineTotal
+        };
+        setTotals(newTotals);
+
+        // Calculate new order totals immediately with the updated values
+        let newTaxable = 0;
+        let newNonTaxable = 0;
+        let newTotal = 0;
+
+        products.forEach(p => {
+            const pCode = p.product_code;
+            const pQuantity = pCode === productCode ? newValue : (quantities[pCode] || 1);
+            const pUnitPrice = unitPrices[pCode] || 0;
+            const pAmount = pCode === productCode ? newLineTotal : (totals[pCode] || 0);
+
+            if (p.tax1 === 'Y') {
+                newTaxable += pAmount;
+            } else {
+                newNonTaxable += pAmount;
+            }
+
+            newTotal += pAmount;
+        });
+
+        setTaxableAmount(newTaxable);
+        setNonTaxableAmount(newNonTaxable);
+        setTotal(newTotal);
+    };
+
+    // Fix for handleUnitChange
+    const handleUnitChange = (productCode, newUnit) => {
+        // Update the units state
+        setUnits(prev => ({
+            ...prev,
+            [productCode]: newUnit
+        }));
+
+        const product = products.find(p => p.product_code === productCode);
+        if (!product) return;
+
+        // Update price based on the unit
+        const newPrice = newUnit === product.productUnit1?.unit_code
+            ? product.bulk_unit_price
+            : product.retail_unit_price;
+
+        // Update unit prices state
+        const newUnitPrices = {
+            ...unitPrices,
+            [productCode]: newPrice
+        };
+        setUnitPrices(newUnitPrices);
+
+        // Update total for this product
+        const quantity = quantities[productCode] || 1;
+        const newLineTotal = quantity * newPrice;
+
+        // Update totals state
+        const newTotals = {
+            ...totals,
+            [productCode]: newLineTotal
+        };
+        setTotals(newTotals);
+
+        // Calculate new order totals immediately
+        let newTaxable = 0;
+        let newNonTaxable = 0;
+        let newTotal = 0;
+
+        products.forEach(p => {
+            const pCode = p.product_code;
+            const pAmount = pCode === productCode ? newLineTotal : (totals[pCode] || 0);
+
+            if (p.tax1 === 'Y') {
+                newTaxable += pAmount;
+            } else {
+                newNonTaxable += pAmount;
+            }
+
+            newTotal += pAmount;
+        });
+
+        setTaxableAmount(newTaxable);
+        setNonTaxableAmount(newNonTaxable);
+        setTotal(newTotal);
+    };
+
+    // Fix for handleUnitPriceChange
+    const handleUnitPriceChange = (productCode, value) => {
+        const newPrice = parseFloat(value);
+        if (isNaN(newPrice) || newPrice < 0) return;
+
+        // Update unit prices state
+        const newUnitPrices = {
+            ...unitPrices,
+            [productCode]: newPrice
+        };
+        setUnitPrices(newUnitPrices);
+
+        // Update total for this product
+        const quantity = quantities[productCode] || 1;
+        const newLineTotal = quantity * newPrice;
+
+        // Update totals state
+        const newTotals = {
+            ...totals,
+            [productCode]: newLineTotal
+        };
+        setTotals(newTotals);
+
+        // Calculate new order totals immediately
+        let newTaxable = 0;
+        let newNonTaxable = 0;
+        let newTotal = 0;
+
+        products.forEach(p => {
+            const pCode = p.product_code;
+            const pAmount = pCode === productCode ? newLineTotal : (totals[pCode] || 0);
+
+            if (p.tax1 === 'Y') {
+                newTaxable += pAmount;
+            } else {
+                newNonTaxable += pAmount;
+            }
+
+            newTotal += pAmount;
+        });
+
+        setTaxableAmount(newTaxable);
+        setNonTaxableAmount(newNonTaxable);
+        setTotal(newTotal);
     };
 
     // Improved handleSearchChange with debounce
@@ -352,81 +512,6 @@ export default function CreatePurchaseOrderToWinery({ onBack }) {
         setUnits(newUnits);
         setUnitPrices(newUnitPrices);
         setTotals(newTotals);
-
-        calculateOrderTotals();
-    };
-
-    const handleQuantityChange = (productCode, value) => {
-        const newValue = parseInt(value);
-        if (isNaN(newValue) || newValue < 1) return;
-
-        setQuantities(prev => ({
-            ...prev,
-            [productCode]: newValue
-        }));
-
-        const product = products.find(p => p.product_code === productCode);
-        if (!product) return;
-
-        const unitPrice = unitPrices[productCode] || 0;
-        const newTotal = newValue * unitPrice;
-
-        setTotals(prev => ({
-            ...prev,
-            [productCode]: newTotal
-        }));
-
-        calculateOrderTotals();
-    };
-
-    const handleUnitChange = (productCode, newUnit) => {
-        setUnits(prev => ({
-            ...prev,
-            [productCode]: newUnit
-        }));
-
-        const product = products.find(p => p.product_code === productCode);
-        if (!product) return;
-
-        // Update price based on the unit
-        const newPrice = newUnit === product.productUnit1?.unit_code
-            ? product.bulk_unit_price
-            : product.retail_unit_price;
-
-        setUnitPrices(prev => ({
-            ...prev,
-            [productCode]: newPrice
-        }));
-
-        // Update total
-        const quantity = quantities[productCode] || 1;
-        const newTotal = quantity * newPrice;
-
-        setTotals(prev => ({
-            ...prev,
-            [productCode]: newTotal
-        }));
-
-        calculateOrderTotals();
-    };
-
-    const handleUnitPriceChange = (productCode, value) => {
-        const newPrice = parseFloat(value);
-        if (isNaN(newPrice) || newPrice < 0) return;
-
-        setUnitPrices(prev => ({
-            ...prev,
-            [productCode]: newPrice
-        }));
-
-        // Update total
-        const quantity = quantities[productCode] || 1;
-        const newTotal = quantity * newPrice;
-
-        setTotals(prev => ({
-            ...prev,
-            [productCode]: newTotal
-        }));
 
         calculateOrderTotals();
     };

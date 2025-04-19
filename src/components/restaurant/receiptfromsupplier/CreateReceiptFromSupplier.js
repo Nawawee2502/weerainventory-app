@@ -543,7 +543,7 @@ export default function CreateBranchReceiptFromSupplier({ onBack }) {
                 startIcon={<ArrowBackIcon />}
                 sx={{ mb: 2 }}
             >
-                Back to Goods Receipt Supplier
+                Back to Goods Receipt From Supplier
             </Button>
 
             <Box sx={{

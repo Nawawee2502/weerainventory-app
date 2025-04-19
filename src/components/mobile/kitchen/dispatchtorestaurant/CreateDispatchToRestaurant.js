@@ -1004,6 +1004,13 @@ export default function CreateDispatchToRestaurant({ onBack }) {
 
     return (
         <Box sx={{ padding: "20px", fontFamily: "Arial, sans-serif" }}>
+            <style>
+                {`
+                .react-datepicker-popper {
+                    z-index: 9999 !important;
+                }
+            `}
+            </style>
             {/* Back button */}
             <Button
                 startIcon={<ArrowBackIcon />}

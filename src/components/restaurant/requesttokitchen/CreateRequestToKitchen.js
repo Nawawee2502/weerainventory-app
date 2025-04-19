@@ -1,3 +1,4 @@
+// CreateRequestToKitchen.jsx
 import React, { useState, useEffect } from 'react';
 import {
     Box,
@@ -8,7 +9,8 @@ import {
     Divider,
     InputAdornment,
     CircularProgress,
-    Grid
+    Grid,
+    Paper
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SearchIcon from '@mui/icons-material/Search';
@@ -19,8 +21,9 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { useDispatch } from "react-redux";
 import { searchProductName } from '../../../api/productrecordApi';
+import { kitchenAll } from '../../../api/kitchenApi';
 import { branchAll } from '../../../api/branchApi';
-import { addBr_grf, Br_grfrefno } from '../../../api/restaurant/br_grfApi';
+import { addBr_rtk, Br_rtkrefno } from '../../../api/restaurant/br_rtkApi';
 import Swal from 'sweetalert2';
 import { format } from 'date-fns';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
@@ -54,7 +57,7 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
     </Box>
 ));
 
-export default function CreateGoodsRequisition({ onBack }) {
+export default function CreateRequestToKitchen({ onBack }) {
     const dispatch = useDispatch();
 
     // Loading state
@@ -64,6 +67,8 @@ export default function CreateGoodsRequisition({ onBack }) {
     // Form state
     const [startDate, setStartDate] = useState(new Date());
     const [lastRefNo, setLastRefNo] = useState('');
+    const [kitchens, setKitchens] = useState([]);
+    const [saveKitchen, setSaveKitchen] = useState('');
     const [branches, setBranches] = useState([]);
     const [saveBranch, setSaveBranch] = useState('');
 
@@ -85,13 +90,31 @@ export default function CreateGoodsRequisition({ onBack }) {
     const userData2 = JSON.parse(userDataJson || '{}');
 
     useEffect(() => {
-        // Fetch branches
-        dispatch(branchAll({ offset: 0, limit: 100 }))
-            .unwrap()
-            .then((res) => {
-                setBranches(res.data);
-            })
-            .catch((err) => console.log(err.message));
+        // Fetch branches and kitchens
+        const fetchInitialData = async () => {
+            try {
+                // Load kitchens
+                const kitchensResponse = await dispatch(kitchenAll({ offset: 0, limit: 100 })).unwrap();
+                if (kitchensResponse?.data) {
+                    setKitchens(kitchensResponse.data);
+                }
+
+                // Load branches
+                const branchesResponse = await dispatch(branchAll({ offset: 0, limit: 100 })).unwrap();
+                if (branchesResponse?.data) {
+                    setBranches(branchesResponse.data);
+                }
+            } catch (error) {
+                console.error('Error loading initial data:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Failed to load initial data'
+                });
+            }
+        };
+
+        fetchInitialData();
     }, [dispatch]);
 
     const handleGetLastRefNo = async (selectedDate, selectedBranch) => {
@@ -103,7 +126,7 @@ export default function CreateGoodsRequisition({ onBack }) {
 
             setIsLoadingRefNo(true);
 
-            const res = await dispatch(Br_grfrefno({
+            const res = await dispatch(Br_rtkrefno({
                 branch_code: selectedBranch,
                 date: selectedDate
             })).unwrap();
@@ -135,6 +158,11 @@ export default function CreateGoodsRequisition({ onBack }) {
         } else {
             setLastRefNo('');
         }
+    };
+
+    // Update kitchen selection handler
+    const handleKitchenChange = (event) => {
+        setSaveKitchen(event.target.value);
     };
 
     // Handle date change
@@ -301,11 +329,11 @@ export default function CreateGoodsRequisition({ onBack }) {
     };
 
     const handleSave = async () => {
-        if (!saveBranch || products.length === 0) {
+        if (!saveBranch || !saveKitchen || products.length === 0) {
             Swal.fire({
                 icon: 'warning',
                 title: 'Missing Information',
-                text: 'Please select a branch and at least one product.',
+                text: 'Please select a restaurant, kitchen and at least one product.',
                 timer: 1500
             });
             return;
@@ -314,7 +342,7 @@ export default function CreateGoodsRequisition({ onBack }) {
         try {
             setIsLoading(true);
             Swal.fire({
-                title: 'Saving requisition...',
+                title: 'Saving request...',
                 allowOutsideClick: false,
                 didOpen: () => {
                     Swal.showLoading();
@@ -324,6 +352,7 @@ export default function CreateGoodsRequisition({ onBack }) {
             const headerData = {
                 refno: lastRefNo,
                 rdate: format(startDate, 'MM/dd/yyyy'),
+                kitchen_code: saveKitchen,
                 branch_code: saveBranch,
                 trdate: format(startDate, 'yyyyMMdd'),
                 monthh: format(startDate, 'MM'),
@@ -353,11 +382,11 @@ export default function CreateGoodsRequisition({ onBack }) {
                 footerData
             };
 
-            await dispatch(addBr_grf(orderData)).unwrap();
+            await dispatch(addBr_rtk(orderData)).unwrap();
 
             await Swal.fire({
                 icon: 'success',
-                title: 'Created requisition successfully',
+                title: 'Created kitchen request successfully',
                 text: `Reference No: ${lastRefNo}`,
                 showConfirmButton: false,
                 timer: 1500
@@ -370,7 +399,7 @@ export default function CreateGoodsRequisition({ onBack }) {
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
-                text: error.message || 'Error saving requisition',
+                text: error.message || 'Error saving kitchen request',
                 confirmButtonText: 'OK'
             });
         } finally {
@@ -387,6 +416,7 @@ export default function CreateGoodsRequisition({ onBack }) {
         setTotal(0);
         setExpiryDates({});
         setSaveBranch('');
+        setSaveKitchen('');
         setSearchTerm('');
     };
 
@@ -397,7 +427,7 @@ export default function CreateGoodsRequisition({ onBack }) {
                 startIcon={<ArrowBackIcon />}
                 sx={{ mb: 2 }}
             >
-                Back to Internal Requisition
+                Back to Kitchen Requests
             </Button>
 
             <Box sx={{
@@ -480,6 +510,37 @@ export default function CreateGoodsRequisition({ onBack }) {
                             ))}
                         </Box>
                     </Grid>
+
+                    <Grid item xs={12} md={6}>
+                        <Typography sx={{ fontSize: '16px', fontWeight: '600', color: '#754C27' }}>
+                            Kitchen
+                        </Typography>
+                        <Box
+                            component="select"
+                            value={saveKitchen}
+                            onChange={(e) => handleKitchenChange(e)}
+                            sx={{
+                                mt: 1,
+                                width: '100%',
+                                height: '40px',
+                                borderRadius: '10px',
+                                padding: '0 14px',
+                                border: '1px solid rgba(0, 0, 0, 0.23)',
+                                fontSize: '16px',
+                                '&:focus': {
+                                    outline: 'none',
+                                    borderColor: '#754C27',
+                                },
+                            }}
+                        >
+                            <option value="">Select Kitchen</option>
+                            {kitchens.map((kitchen) => (
+                                <option key={kitchen.kitchen_code} value={kitchen.kitchen_code}>
+                                    {kitchen.kitchen_name}
+                                </option>
+                            ))}
+                        </Box>
+                    </Grid>
                 </Grid>
 
                 <Divider sx={{ my: 3 }} />
@@ -557,7 +618,7 @@ export default function CreateGoodsRequisition({ onBack }) {
                         <tbody>
                             {products.length === 0 ? (
                                 <tr>
-                                    <td colSpan={7} style={{ padding: '20px', textAlign: 'center' }}>
+                                    <td colSpan={9} style={{ padding: '20px', textAlign: 'center' }}>
                                         No products added yet. Search and add products above.
                                     </td>
                                 </tr>
@@ -705,7 +766,7 @@ export default function CreateGoodsRequisition({ onBack }) {
                     onClick={handleSave}
                     variant="contained"
                     fullWidth
-                    disabled={isLoading || !lastRefNo || products.length === 0}
+                    disabled={isLoading || !lastRefNo || !saveKitchen || products.length === 0}
                     sx={{
                         mt: 2,
                         bgcolor: '#754C27',

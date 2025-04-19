@@ -27,6 +27,7 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
                     height: '38px',
                     width: '100%',
                     backgroundColor: '#fff',
+                    mt: '8px'
                 },
                 '& .MuiOutlinedInput-input': {
                     cursor: 'pointer',
@@ -641,7 +642,7 @@ export default function EditGoodsRequisition({ onBack, editRefno }) {
                 startIcon={<ArrowBackIcon />}
                 sx={{ mb: 2 }}
             >
-                Back to Goods Requisition
+                Back to Internal Requisition
             </Button>
 
             <Box sx={{ width: '100%', mt: '10px', flexDirection: 'column' }}>

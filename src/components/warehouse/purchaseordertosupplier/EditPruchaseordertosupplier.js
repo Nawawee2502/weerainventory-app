@@ -43,6 +43,7 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
           height: '38px',
           width: '100%',
           backgroundColor: '#fff',
+          mt: '8px'
         },
         '& .MuiOutlinedInput-input': {
           cursor: 'pointer',
@@ -282,45 +283,37 @@ function EditPurchaseOrderToSupplier({ onBack, editRefno }) {
   };
 
   const handleUnitPriceChange = (productCode, value) => {
-    if (value >= 0) {
-      const newPrice = parseFloat(value);
-      const newUnitPrices = {
-        ...unitPrices,
-        [productCode]: newPrice
-      };
+    // ถ้าค่าว่าง ให้เก็บค่าเดิมไว้
+    if (value === '') {
+      setUnitPrices(prev => ({ ...prev, [productCode]: value }));
+      return;
+    }
 
-      // คำนวณค่าทั้งหมดใหม่
-      let newTaxable = 0;
-      let newNonTaxable = 0;
-      const newTotals = { ...totals };
+    // ตรวจสอบรูปแบบตัวเลขทศนิยม (อนุญาตให้ป้อนจุดได้แค่จุดเดียว)
+    if (!/^[0-9]*\.?[0-9]*$/.test(value)) {
+      return;
+    }
 
-      products.forEach(product => {
-        const currentCode = product.product_code;
-        const quantity = quantities[currentCode] || 1;
-        const unitCode = units[currentCode] || product.productUnit1.unit_code;
-        const currentPrice = currentCode === productCode ?
-          newPrice :
-          (newUnitPrices[currentCode] ??
-            (unitCode === product.productUnit1.unit_code ?
-              product.bulk_unit_price :
-              product.retail_unit_price));
+    // แปลงค่าเป็นตัวเลข
+    const numValue = parseFloat(value);
 
-        const amount = quantity * currentPrice;
-        newTotals[currentCode] = amount;
+    // ถ้าเป็นตัวเลขที่ถูกต้อง ให้อัปเดทค่า
+    if (!isNaN(numValue)) {
+      setUnitPrices(prev => ({ ...prev, [productCode]: numValue }));
 
-        if (product.tax1 === 'Y') {
-          newTaxable += amount * (1 + TAX_RATE);
-        } else {
-          newNonTaxable += amount;
-        }
-      });
+      // คำนวณค่าใหม่
+      const quantity = quantities[productCode] || 1;
+      const product = products.find(p => p.product_code === productCode);
+      const unitCode = units[productCode] || product.productUnit1.unit_code;
+      const total = calculateTotal(quantity, unitCode, product, numValue);
 
-      // อัพเดททุก state พร้อมกัน
-      setUnitPrices(newUnitPrices);
-      setTotals(newTotals);
-      setTaxableAmount(newTaxable);
-      setNonTaxableAmount(newNonTaxable);
-      setTotal(newTaxable + newNonTaxable);
+      setTotals(prev => ({ ...prev, [productCode]: total }));
+
+      // คำนวณยอดรวมใหม่
+      setTimeout(calculateOrderTotals, 0);
+    } else {
+      // ถ้ายังไม่ใช่ตัวเลขที่สมบูรณ์ (เช่น กำลังพิมพ์ ".") ให้เก็บค่าไว้ในสถานะชั่วคราว
+      setUnitPrices(prev => ({ ...prev, [productCode]: value }));
     }
   };
 
@@ -835,14 +828,47 @@ function EditPurchaseOrderToSupplier({ onBack, editRefno }) {
                         </td>
                         <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
                           <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={unitPrices[productCode] ?? currentUnitPrice}
-                            onChange={(e) => handleUnitPriceChange(productCode, parseFloat(e.target.value))}
+                            type="text"
+                            value={unitPrices[productCode] !== undefined ? unitPrices[productCode] : currentUnitPrice}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              // อนุญาตให้พิมพ์ตัวเลข จุดทศนิยม และค่าว่างได้
+                              if (value === '' || /^[0-9]*\.?[0-9]*$/.test(value)) {
+                                setUnitPrices(prev => ({ ...prev, [productCode]: value }));
+                              }
+                            }}
+                            onBlur={(e) => {
+                              let value = e.target.value;
+
+                              // ตรวจสอบค่าเมื่อออกจาก field
+                              if (value === '') {
+                                value = '1'; // ถ้าเป็นค่าว่าง ให้เป็น 1
+                              } else if (value === '.') {
+                                value = '0'; // ถ้าเป็นแค่จุด ให้เป็น 0
+                              } else if (parseFloat(value) < 1) {
+                                value = '1'; // ถ้าน้อยกว่า 1 ให้เป็น 1
+                              } else if (value.endsWith('.')) {
+                                value = value + '0'; // ถ้าลงท้ายด้วยจุด ให้เติม 0
+                              }
+
+                              // แปลงเป็นตัวเลขและอัปเดต
+                              const numValue = parseFloat(value);
+                              setUnitPrices(prev => ({ ...prev, [productCode]: numValue }));
+
+                              // คำนวณค่าใหม่
+                              const quantity = quantities[productCode] || 1;
+                              const product = products.find(p => p.product_code === productCode);
+                              const unitCode = units[productCode] || product.productUnit1.unit_code;
+                              const total = calculateTotal(quantity, unitCode, product, numValue);
+
+                              setTotals(prev => ({ ...prev, [productCode]: total }));
+
+                              // คำนวณยอดรวมใหม่
+                              setTimeout(calculateOrderTotals, 0);
+                            }}
                             style={{
                               width: '80px',
-                              textAlign: 'center',
+                              textAlign: 'right',
                               fontWeight: '600',
                               padding: '4px'
                             }}

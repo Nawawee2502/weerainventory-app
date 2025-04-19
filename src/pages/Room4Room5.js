@@ -115,7 +115,7 @@ function Room4Room5(props) {
         if (permissions.menu_setkt_receipt_from_supplier === 'Y') {
             menu.push({
                 segment: 'receipt-from-supplier',
-                title: 'Goods Receipt Supplier',
+                title: 'Goods Receipt From Supplier',
                 icon: <ReceiptOutlinedIcon />,
             });
         }
@@ -142,7 +142,7 @@ function Room4Room5(props) {
         if (permissions.menu_setkt_goods_requisition === 'Y') {
             menu.push({
                 segment: 'goods-requisition',
-                title: 'Goods Requisition',
+                title: 'Internal Requisition',
                 icon: <RequestQuoteIcon />,
             });
         }

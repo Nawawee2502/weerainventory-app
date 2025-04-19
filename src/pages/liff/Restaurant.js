@@ -81,7 +81,7 @@ const MRestaurant = () => {
       component: <HomeGoodsReceiptSupplier />
     },
     {
-      label: "Restaurant Goods Requisition",
+      label: "Restaurant Internal Requisition",
       icon: <ListAltIcon style={{ color: "#fff" }} />,
       component: <HomeGoodsRequisition />
     },

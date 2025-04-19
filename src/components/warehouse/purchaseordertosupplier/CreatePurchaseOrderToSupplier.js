@@ -50,6 +50,7 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
           height: '38px',
           width: '100%',
           backgroundColor: '#fff',
+          mt: '8px'
         },
         '& .MuiOutlinedInput-input': {
           cursor: 'pointer',
@@ -497,65 +498,39 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
   };
 
   const handleUnitPriceChange = (productCode, value) => {
-    // Remove commas from input value
-    const cleanValue = value.toString().replace(/,/g, '');
-    const newPrice = parseFloat(cleanValue);
+    // ถ้าค่าว่าง ให้เก็บค่าเดิมไว้
+    if (value === '') {
+      setUnitPrices(prev => ({ ...prev, [productCode]: value }));
+      return;
+    }
 
-    if (!isNaN(newPrice) && newPrice >= 0) {
-      // Update unit prices
-      const newUnitPrices = {
-        ...unitPrices,
-        [productCode]: newPrice
-      };
-      setUnitPrices(newUnitPrices);
+    // ตรวจสอบรูปแบบตัวเลขทศนิยม (อนุญาตให้ป้อนจุดได้แค่จุดเดียว)
+    if (!/^[0-9]*\.?[0-9]*$/.test(value)) {
+      return;
+    }
 
-      // Calculate new totals for this product
+    // แปลงค่าเป็นตัวเลข
+    const numValue = parseFloat(value);
+
+    // ถ้าเป็นตัวเลขที่ถูกต้อง ให้อัปเดทค่า
+    if (!isNaN(numValue)) {
+      setUnitPrices(prev => ({ ...prev, [productCode]: numValue }));
+
+      // คำนวณค่าใหม่
       const quantity = quantities[productCode] || 1;
-      const unitCode = units[productCode];
       const product = products.find(p => p.product_code === productCode);
-      const total = calculateTotal(quantity, unitCode, product, newPrice);
+      const unitCode = units[productCode] || product.productUnit1.unit_code;
+      const total = calculateTotal(quantity, unitCode, product, numValue);
 
-      // Update totals state
-      const newTotals = {
-        ...totals,
-        [productCode]: total
-      };
-      setTotals(newTotals);
+      setTotals(prev => ({ ...prev, [productCode]: total }));
 
-      // Calculate new taxable and non-taxable amounts
-      let newTaxable = 0;
-      let newNonTaxable = 0;
-
-      products.forEach(prod => {
-        const currentProductCode = prod.product_code;
-        const currentQuantity = quantities[currentProductCode] || 1;
-        const currentUnitCode = units[currentProductCode] || prod.productUnit1.unit_code;
-        const currentUnitPrice = currentProductCode === productCode ?
-          newPrice : // Use new price for current product
-          (unitPrices[currentProductCode] ??
-            (currentUnitCode === prod.productUnit1.unit_code ?
-              prod.bulk_unit_price :
-              prod.retail_unit_price));
-
-        const amount = currentQuantity * currentUnitPrice;
-
-        if (prod.tax1 === 'Y') {
-          newTaxable += amount * (1 + TAX_RATE);
-        } else {
-          newNonTaxable += amount;
-        }
-      });
-
-      // Update taxable and non-taxable amounts
-      setTaxableAmount(newTaxable);
-      setNonTaxableAmount(newNonTaxable);
-
-      // Update total
-      setTotal(newTaxable + newNonTaxable);
+      // คำนวณยอดรวมใหม่
+      setTimeout(calculateOrderTotals, 0);
+    } else {
+      // ถ้ายังไม่ใช่ตัวเลขที่สมบูรณ์ (เช่น กำลังพิมพ์ ".") ให้เก็บค่าไว้ในสถานะชั่วคราว
+      setUnitPrices(prev => ({ ...prev, [productCode]: value }));
     }
   };
-
-
 
   const calculateOrderTotals = () => {
     let taxable = 0;
@@ -623,7 +598,7 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
       })
       .catch((err) => console.log(err.message));
 
-      dispatch(supplierAll({ offset: 0, limit: 9999 }))
+    dispatch(supplierAll({ offset: 0, limit: 9999 }))
       .unwrap()
       .then((res) => {
         console.log("Supplier data", res.data);
@@ -1156,11 +1131,44 @@ function CreatePurchaseOrderToSupplier({ onBack }) {
                         </td>
                         <td style={{ padding: '4px', fontSize: '12px', textAlign: 'center', fontWeight: '800' }}>
                           <input
-                            type="number"
-                            min="1"
-                            step="1"
-                            value={unitPrices[productCode] ?? currentUnitPrice}
-                            onChange={(e) => handleUnitPriceChange(productCode, e.target.value)}
+                            type="text"
+                            value={unitPrices[productCode] !== undefined ? unitPrices[productCode] : currentUnitPrice}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              // อนุญาตให้พิมพ์ตัวเลข จุดทศนิยม และค่าว่างได้
+                              if (value === '' || /^[0-9]*\.?[0-9]*$/.test(value)) {
+                                setUnitPrices(prev => ({ ...prev, [productCode]: value }));
+                              }
+                            }}
+                            onBlur={(e) => {
+                              let value = e.target.value;
+
+                              // ตรวจสอบค่าเมื่อออกจาก field
+                              if (value === '') {
+                                value = '1'; // ถ้าเป็นค่าว่าง ให้เป็น 1
+                              } else if (value === '.') {
+                                value = '0'; // ถ้าเป็นแค่จุด ให้เป็น 0
+                              } else if (parseFloat(value) < 1) {
+                                value = '1'; // ถ้าน้อยกว่า 1 ให้เป็น 1
+                              } else if (value.endsWith('.')) {
+                                value = value + '0'; // ถ้าลงท้ายด้วยจุด ให้เติม 0
+                              }
+
+                              // แปลงเป็นตัวเลขและอัปเดต
+                              const numValue = parseFloat(value);
+                              setUnitPrices(prev => ({ ...prev, [productCode]: numValue }));
+
+                              // คำนวณค่าใหม่
+                              const quantity = quantities[productCode] || 1;
+                              const product = products.find(p => p.product_code === productCode);
+                              const unitCode = units[productCode] || product.productUnit1.unit_code;
+                              const total = calculateTotal(quantity, unitCode, product, numValue);
+
+                              setTotals(prev => ({ ...prev, [productCode]: total }));
+
+                              // คำนวณยอดรวมใหม่
+                              setTimeout(calculateOrderTotals, 0);
+                            }}
                             style={{
                               width: '80px',
                               textAlign: 'right',

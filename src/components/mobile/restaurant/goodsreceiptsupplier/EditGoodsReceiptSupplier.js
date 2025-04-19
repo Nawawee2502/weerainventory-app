@@ -53,7 +53,8 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
           height: '38px',
           width: '100%',
           backgroundColor: '#fff',
-          borderRadius: '10px'
+          borderRadius: '10px',
+          mt: '8px'
         }
       }}
       InputProps={{
@@ -632,12 +633,19 @@ export default function EditGoodsReceiptSupplier({ onBack, editRefno }) {
 
   return (
     <Box sx={{ padding: "10px", paddingBottom: "300px", fontFamily: "Arial, sans-serif" }}>
+      <style>
+        {`
+                .react-datepicker-popper {
+                    z-index: 9999 !important;
+                }
+            `}
+      </style>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Button
           startIcon={<ArrowBackIcon />}
           onClick={onBack}
         >
-          Back to Goods Receipt Supplier
+          Back to Goods Receipt From Supplier
         </Button>
       </Box>
 

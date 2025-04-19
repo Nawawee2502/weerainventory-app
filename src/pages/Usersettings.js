@@ -20,7 +20,7 @@ import { useNavigate } from "react-router-dom";
 
 
 const Search = styled('div')(({ theme }) => ({
-    position: 'relative',
+    position: 'relative', 
     borderRadius: theme.shape.borderRadius,
     backgroundColor: alpha(theme.palette.common.white, 0.15),
     '&:hover': {
@@ -142,6 +142,10 @@ export default function UserSettings() {
         navigate('/settings');
     };
 
+    const handleDashboard = () => {
+        navigate('/dashboard');
+    };
+
     const mobileMenuId = 'primary-search-account-menu-mobile';
     const renderMobileMenu = (
         <Menu
@@ -199,16 +203,20 @@ export default function UserSettings() {
             <AppBar position="fixed" sx={{ bgcolor: '#FFFFFF', margin: 0, padding: 0 }}>
                 <Toolbar>
                     <img
-                        src='/logo1.png'
+                        src="/logo1.png"
+                        alt="Logo 1"
+                        onClick={handleDashboard}
                         style={{
                             width: '52.78px',
-                            height: '36px',
+                            height: '36',
                         }}
                     />
                     <img
-                        src='/logo2.png'
+                        src="/logo2.png"
+                        alt="Logo 2"
+                        onClick={handleDashboard}
                         style={{
-                            width: '146.55px',
+                            width: '146.55',
                             height: '20px'
                         }}
                     />

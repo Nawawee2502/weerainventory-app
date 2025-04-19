@@ -83,7 +83,7 @@ const MKitchen = () => {
       component: <HomeDispatchToRestaurant />
     },
     {
-      label: "Kitchen Goods Requisition",
+      label: "Kitchen Internal Requisition",
       icon: <ListAltIcon style={{ color: "#fff" }} />,
       component: <HomeKitchenRequisition />
     },

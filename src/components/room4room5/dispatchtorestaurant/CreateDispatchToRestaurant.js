@@ -27,6 +27,7 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
                     height: '38px',
                     width: '100%',
                     backgroundColor: '#fff',
+                    mt: '8px'
                 },
                 '& .MuiOutlinedInput-input': {
                     cursor: 'pointer',
@@ -151,6 +152,371 @@ export default function CreateDispatchToRestaurant({ onBack }) {
         }
     };
 
+    // Fixed handleProductSelect function
+    const handleProductSelect = (product) => {
+        // Check if product is already selected
+        if (selectedProducts.includes(product.product_code)) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Duplicate Product',
+                text: `${product.product_name} is already in your dispatch. Please adjust the quantity instead.`,
+                confirmButtonColor: '#754C27'
+            });
+            setSearchTerm('');
+            setShowDropdown(false);
+            return;
+        }
+
+        // Set initial values
+        const initialQuantity = 1;
+        const initialUnitCode = product.productUnit1?.unit_code || '';
+        const initialUnitPrice = product.bulk_unit_price || 0;
+        const initialAmount = initialQuantity * initialUnitPrice;
+        const productTaxStatus = product.tax1 || "N";
+
+        // Calculate immediate changes to totals
+        const newTaxable = productTaxStatus === 'Y' ?
+            taxableAmount + initialAmount :
+            taxableAmount;
+
+        const newNonTaxable = productTaxStatus === 'Y' ?
+            nonTaxableAmount :
+            nonTaxableAmount + initialAmount;
+
+        const newTotal = total + initialAmount;
+        const newTotalDue = newTotal + (newTaxable * TAX_RATE);
+
+        // Add product to selected products
+        setSelectedProducts(prev => [...prev, product.product_code]);
+        setProducts(prev => [...prev, product]);
+
+        // Update all state objects with new values
+        setQuantities(prev => ({ ...prev, [product.product_code]: initialQuantity }));
+        setUnits(prev => ({ ...prev, [product.product_code]: initialUnitCode }));
+        setUnitPrices(prev => ({ ...prev, [product.product_code]: initialUnitPrice }));
+        setTotals(prev => ({ ...prev, [product.product_code]: initialAmount }));
+        setExpiryDates(prev => ({ ...prev, [product.product_code]: new Date() }));
+        setTemperatures(prev => ({ ...prev, [product.product_code]: "38" }));
+        setTaxStatus(prev => ({ ...prev, [product.product_code]: productTaxStatus }));
+
+        // Update summary totals
+        setTaxableAmount(newTaxable);
+        setNonTaxableAmount(newNonTaxable);
+        setTotal(newTotal);
+        setTotalDue(newTotalDue);
+
+        // Reset search
+        setSearchTerm('');
+        setShowDropdown(false);
+    };
+
+    // Fixed handleQuantityInputChange function
+    const handleQuantityInputChange = (productCode, value) => {
+        const newQty = parseInt(value);
+        if (isNaN(newQty) || newQty < 1) return;
+
+        // Update quantities state
+        const newQuantities = {
+            ...quantities,
+            [productCode]: newQty
+        };
+        setQuantities(newQuantities);
+
+        // Find the product and calculate new line total
+        const product = products.find(p => p.product_code === productCode);
+        if (!product) return;
+
+        const unitPrice = unitPrices[productCode] || 0;
+        const oldAmount = totals[productCode] || 0;
+        const newAmount = newQty * unitPrice;
+
+        // Update totals with new line total
+        const newTotals = {
+            ...totals,
+            [productCode]: newAmount
+        };
+        setTotals(newTotals);
+
+        // Calculate changes to summary totals
+        const amountDifference = newAmount - oldAmount;
+        const productTaxStatus = taxStatus[productCode] || product.tax1 || "N";
+
+        let newTaxable = taxableAmount;
+        let newNonTaxable = nonTaxableAmount;
+
+        if (productTaxStatus === 'Y') {
+            newTaxable += amountDifference;
+        } else {
+            newNonTaxable += amountDifference;
+        }
+
+        const newTotal = total + amountDifference;
+        const newTotalDue = newTotal + (newTaxable * TAX_RATE);
+
+        // Update all summary totals
+        setTaxableAmount(newTaxable);
+        setNonTaxableAmount(newNonTaxable);
+        setTotal(newTotal);
+        setTotalDue(newTotalDue);
+    };
+
+    // Fixed handleQuantityChange function
+    const handleQuantityChange = (productCode, delta) => {
+        const currentQty = quantities[productCode] || 1;
+        const newQty = Math.max(1, currentQty + delta);
+
+        // If quantity didn't change, exit early
+        if (newQty === currentQty) return;
+
+        // Update quantities state
+        const newQuantities = {
+            ...quantities,
+            [productCode]: newQty
+        };
+        setQuantities(newQuantities);
+
+        // Find the product and calculate new line total
+        const product = products.find(p => p.product_code === productCode);
+        if (!product) return;
+
+        const unitPrice = unitPrices[productCode] || 0;
+        const oldAmount = totals[productCode] || 0;
+        const newAmount = newQty * unitPrice;
+
+        // Update totals with new line total
+        const newTotals = {
+            ...totals,
+            [productCode]: newAmount
+        };
+        setTotals(newTotals);
+
+        // Calculate changes to summary totals
+        const amountDifference = newAmount - oldAmount;
+        const productTaxStatus = taxStatus[productCode] || product.tax1 || "N";
+
+        let newTaxable = taxableAmount;
+        let newNonTaxable = nonTaxableAmount;
+
+        if (productTaxStatus === 'Y') {
+            newTaxable += amountDifference;
+        } else {
+            newNonTaxable += amountDifference;
+        }
+
+        const newTotal = total + amountDifference;
+        const newTotalDue = newTotal + (newTaxable * TAX_RATE);
+
+        // Update all summary totals
+        setTaxableAmount(newTaxable);
+        setNonTaxableAmount(newNonTaxable);
+        setTotal(newTotal);
+        setTotalDue(newTotalDue);
+    };
+
+    // Fixed handleUnitChange function
+    const handleUnitChange = (productCode, newUnitCode) => {
+        // Update units state
+        const newUnits = {
+            ...units,
+            [productCode]: newUnitCode
+        };
+        setUnits(newUnits);
+
+        const product = products.find(p => p.product_code === productCode);
+        if (!product) return;
+
+        // Determine the appropriate unit price based on the unit
+        const defaultUnitPrice = newUnitCode === product.productUnit1?.unit_code
+            ? product.bulk_unit_price
+            : product.retail_unit_price;
+
+        // Update unit prices state
+        const newUnitPrices = {
+            ...unitPrices,
+            [productCode]: defaultUnitPrice
+        };
+        setUnitPrices(newUnitPrices);
+
+        // Calculate the new line total
+        const qty = quantities[productCode] || 1;
+        const oldAmount = totals[productCode] || 0;
+        const newAmount = qty * defaultUnitPrice;
+
+        // Update totals with new line total
+        const newTotals = {
+            ...totals,
+            [productCode]: newAmount
+        };
+        setTotals(newTotals);
+
+        // Calculate changes to summary totals
+        const amountDifference = newAmount - oldAmount;
+        const productTaxStatus = taxStatus[productCode] || product.tax1 || "N";
+
+        let newTaxable = taxableAmount;
+        let newNonTaxable = nonTaxableAmount;
+
+        if (productTaxStatus === 'Y') {
+            newTaxable += amountDifference;
+        } else {
+            newNonTaxable += amountDifference;
+        }
+
+        const newTotal = total + amountDifference;
+        const newTotalDue = newTotal + (newTaxable * TAX_RATE);
+
+        // Update all summary totals
+        setTaxableAmount(newTaxable);
+        setNonTaxableAmount(newNonTaxable);
+        setTotal(newTotal);
+        setTotalDue(newTotalDue);
+    };
+
+    // Fixed handleUnitPriceChange function
+    const handleUnitPriceChange = (productCode, value) => {
+        const newPrice = parseFloat(value);
+        if (isNaN(newPrice) || newPrice < 0) return;
+
+        // Update unit prices state
+        const newUnitPrices = {
+            ...unitPrices,
+            [productCode]: newPrice
+        };
+        setUnitPrices(newUnitPrices);
+
+        // Calculate the new line total
+        const qty = quantities[productCode] || 1;
+        const oldAmount = totals[productCode] || 0;
+        const newAmount = qty * newPrice;
+
+        // Update totals with new line total
+        const newTotals = {
+            ...totals,
+            [productCode]: newAmount
+        };
+        setTotals(newTotals);
+
+        // Calculate changes to summary totals
+        const amountDifference = newAmount - oldAmount;
+        const product = products.find(p => p.product_code === productCode);
+        if (!product) return;
+
+        const productTaxStatus = taxStatus[productCode] || product.tax1 || "N";
+
+        let newTaxable = taxableAmount;
+        let newNonTaxable = nonTaxableAmount;
+
+        if (productTaxStatus === 'Y') {
+            newTaxable += amountDifference;
+        } else {
+            newNonTaxable += amountDifference;
+        }
+
+        const newTotal = total + amountDifference;
+        const newTotalDue = newTotal + (newTaxable * TAX_RATE);
+
+        // Update all summary totals
+        setTaxableAmount(newTaxable);
+        setNonTaxableAmount(newNonTaxable);
+        setTotal(newTotal);
+        setTotalDue(newTotalDue);
+    };
+
+    // Fixed handleTaxStatusChange function
+    const handleTaxStatusChange = (productCode, newStatus) => {
+        // Get the current status before updating
+        const oldStatus = taxStatus[productCode] || "N";
+
+        // If status didn't change, exit early
+        if (oldStatus === newStatus) return;
+
+        // Update tax status state
+        setTaxStatus(prev => ({
+            ...prev,
+            [productCode]: newStatus
+        }));
+
+        // Find the product and get its line total
+        const product = products.find(p => p.product_code === productCode);
+        if (!product) return;
+
+        const amount = totals[productCode] || 0;
+
+        // Calculate changes to taxable/non-taxable amounts
+        let newTaxable = taxableAmount;
+        let newNonTaxable = nonTaxableAmount;
+
+        if (oldStatus === "Y" && newStatus === "N") {
+            // Moving from taxable to non-taxable
+            newTaxable -= amount;
+            newNonTaxable += amount;
+        } else if (oldStatus === "N" && newStatus === "Y") {
+            // Moving from non-taxable to taxable
+            newTaxable += amount;
+            newNonTaxable -= amount;
+        }
+
+        // Total stays the same, but tax amount changes
+        const newTotalDue = total + (newTaxable * TAX_RATE);
+
+        // Update taxable, non-taxable and total due
+        setTaxableAmount(newTaxable);
+        setNonTaxableAmount(newNonTaxable);
+        setTotalDue(newTotalDue);
+    };
+
+    // Fixed handleDeleteProduct function
+    const handleDeleteProduct = (productCode) => {
+        // Find the product to be deleted
+        const product = products.find(p => p.product_code === productCode);
+        if (!product) return;
+
+        // Get the amount for this product
+        const productAmount = totals[productCode] || 0;
+        const productTaxStatus = taxStatus[productCode] || product.tax1 || "N";
+
+        // Calculate changes to summary totals
+        let newTaxable = taxableAmount;
+        let newNonTaxable = nonTaxableAmount;
+
+        if (productTaxStatus === 'Y') {
+            newTaxable -= productAmount;
+        } else {
+            newNonTaxable -= productAmount;
+        }
+
+        const newTotal = total - productAmount;
+        const newTotalDue = newTotal + (newTaxable * TAX_RATE);
+
+        // Remove product from arrays
+        setProducts(prev => prev.filter(p => p.product_code !== productCode));
+        setSelectedProducts(prev => prev.filter(id => id !== productCode));
+
+        // Remove from all state objects
+        const { [productCode]: _, ...newQuantities } = quantities;
+        const { [productCode]: __, ...newUnits } = units;
+        const { [productCode]: ___, ...newPrices } = unitPrices;
+        const { [productCode]: ____, ...newTotals } = totals;
+        const { [productCode]: _____, ...newExpiryDates } = expiryDates;
+        const { [productCode]: ______, ...newTemperatures } = temperatures;
+        const { [productCode]: _______, ...newTaxStatus } = taxStatus;
+
+        // Update all state
+        setQuantities(newQuantities);
+        setUnits(newUnits);
+        setUnitPrices(newPrices);
+        setTotals(newTotals);
+        setExpiryDates(newExpiryDates);
+        setTemperatures(newTemperatures);
+        setTaxStatus(newTaxStatus);
+
+        // Update summary totals
+        setTaxableAmount(newTaxable);
+        setNonTaxableAmount(newNonTaxable);
+        setTotal(newTotal);
+        setTotalDue(newTotalDue);
+    };
+
     // Handle kitchen change
     const handleKitchenChange = (e) => {
         const newKitchenCode = e.target.value;
@@ -171,45 +537,6 @@ export default function CreateDispatchToRestaurant({ onBack }) {
         if (saveKitchen) {
             handleGetLastRefNo(saveKitchen, date);
         }
-    };
-
-    // Handle product selection
-    const handleProductSelect = (product) => {
-        // Check if product is already selected
-        if (selectedProducts.includes(product.product_code)) {
-            Swal.fire({
-                icon: 'warning',
-                title: 'Duplicate Product',
-                text: `${product.product_name} is already in your dispatch. Please adjust the quantity instead.`,
-                confirmButtonColor: '#754C27'
-            });
-            setSearchTerm('');
-            setShowDropdown(false);
-            return;
-        }
-
-        // Add product to selected products
-        setSelectedProducts(prev => [...prev, product.product_code]);
-        setProducts(prev => [...prev, product]);
-
-        // Initialize product data
-        setQuantities(prev => ({ ...prev, [product.product_code]: 1 }));
-        setUnits(prev => ({ ...prev, [product.product_code]: product.productUnit1?.unit_code || '' }));
-        setUnitPrices(prev => ({ ...prev, [product.product_code]: product.bulk_unit_price || 0 }));
-        setExpiryDates(prev => ({ ...prev, [product.product_code]: new Date() }));
-        setTemperatures(prev => ({ ...prev, [product.product_code]: "38" }));
-        setTaxStatus(prev => ({ ...prev, [product.product_code]: product.tax1 || "N" }));
-
-        // Calculate initial total
-        const initialTotal = (product.bulk_unit_price || 0) * 1;
-        setTotals(prev => ({ ...prev, [product.product_code]: initialTotal }));
-
-        // Reset search
-        setSearchTerm('');
-        setShowDropdown(false);
-
-        // Update order totals
-        calculateOrderTotals([...products, product]);
     };
 
     // Handle search input change
@@ -318,92 +645,6 @@ export default function CreateDispatchToRestaurant({ onBack }) {
         }));
     };
 
-    // Handle unit change
-    const handleUnitChange = (productCode, newUnitCode) => {
-        setUnits(prev => ({
-            ...prev,
-            [productCode]: newUnitCode
-        }));
-
-        const product = products.find(p => p.product_code === productCode);
-        if (!product) return;
-
-        const defaultUnitPrice = newUnitCode === product.productUnit1?.unit_code
-            ? product.bulk_unit_price
-            : product.retail_unit_price;
-
-        setUnitPrices(prev => ({
-            ...prev,
-            [productCode]: defaultUnitPrice
-        }));
-
-        calculateOrderTotals();
-    };
-
-    // Handle quantity change
-    const handleQuantityChange = (productCode, delta) => {
-        const currentQty = quantities[productCode] || 1;
-        const newQty = Math.max(1, currentQty + delta);
-
-        setQuantities(prev => ({
-            ...prev,
-            [productCode]: newQty
-        }));
-
-        calculateOrderTotals();
-    };
-
-    // Handle manual quantity change from input
-    const handleQuantityInputChange = (productCode, value) => {
-        const newQty = parseInt(value);
-        if (isNaN(newQty) || newQty < 1) return;
-
-        setQuantities(prev => ({
-            ...prev,
-            [productCode]: newQty
-        }));
-
-        calculateOrderTotals();
-    };
-
-    // Handle unit price change
-    const handleUnitPriceChange = (productCode, value) => {
-        const newPrice = parseFloat(value);
-        if (isNaN(newPrice) || newPrice < 0) return;
-
-        setUnitPrices(prev => ({
-            ...prev,
-            [productCode]: newPrice
-        }));
-
-        calculateOrderTotals();
-    };
-
-    // Handle product deletion
-    const handleDeleteProduct = (productCode) => {
-        setProducts(prev => prev.filter(p => p.product_code !== productCode));
-        setSelectedProducts(prev => prev.filter(id => id !== productCode));
-
-        // Clean up associated state
-        const { [productCode]: _, ...newQuantities } = quantities;
-        const { [productCode]: __, ...newUnits } = units;
-        const { [productCode]: ___, ...newPrices } = unitPrices;
-        const { [productCode]: ____, ...newTotals } = totals;
-        const { [productCode]: _____, ...newExpiryDates } = expiryDates;
-        const { [productCode]: ______, ...newTemperatures } = temperatures;
-        const { [productCode]: _______, ...newTaxStatus } = taxStatus;
-
-        setQuantities(newQuantities);
-        setUnits(newUnits);
-        setUnitPrices(newPrices);
-        setTotals(newTotals);
-        setExpiryDates(newExpiryDates);
-        setTemperatures(newTemperatures);
-        setTaxStatus(newTaxStatus);
-
-        calculateOrderTotals(products.filter(p => p.product_code !== productCode));
-    };
-
     // Handle temperature change
     const handleTemperatureChange = (productCode, temperature) => {
         // Make sure temperature is never an empty string
@@ -412,15 +653,6 @@ export default function CreateDispatchToRestaurant({ onBack }) {
             ...prev,
             [productCode]: value
         }));
-    };
-
-    // Handle tax status change
-    const handleTaxStatusChange = (productCode, newStatus) => {
-        setTaxStatus(prev => ({
-            ...prev,
-            [productCode]: newStatus
-        }));
-        calculateOrderTotals();
     };
 
     // Reset form

@@ -53,7 +53,8 @@ const CustomInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
                     height: '38px',
                     width: '100%',
                     backgroundColor: '#fff',
-                    borderRadius: '10px'
+                    borderRadius: '10px',
+                    mt: '8px'
                 }
             }}
             InputProps={{
@@ -284,21 +285,18 @@ export default function CreateGoodsReceiptSupplier({ onBack }) {
         }
     };
 
-    // Handle quantity change with +/- buttons
     const handleQuantityChange = (productCode, delta) => {
         const currentQty = quantities[productCode] || 0;
         const newQty = Math.max(1, currentQty + delta);
 
         setQuantities(prev => ({ ...prev, [productCode]: newQty }));
 
-        // Update total
         const price = unitPrices[productCode] || 0;
         const newTotal = newQty * price;
         setTotals(prev => ({ ...prev, [productCode]: newTotal }));
         setTotal(Object.values({ ...totals, [productCode]: newTotal }).reduce((a, b) => a + b, 0));
     };
 
-    // Handle unit change (which affects price)
     const handleUnitChange = (productCode, newUnit) => {
         setUnits(prev => ({ ...prev, [productCode]: newUnit }));
 
@@ -311,24 +309,20 @@ export default function CreateGoodsReceiptSupplier({ onBack }) {
 
         setUnitPrices(prev => ({ ...prev, [productCode]: newPrice }));
 
-        // Update total
         const qty = quantities[productCode] || 0;
         const newTotal = qty * newPrice;
         setTotals(prev => ({ ...prev, [productCode]: newTotal }));
         setTotal(Object.values({ ...totals, [productCode]: newTotal }).reduce((a, b) => a + b, 0));
     };
 
-    // Handle expiry date change
     const handleExpiryDateChange = (productCode, date) => {
         setExpiryDates(prev => ({ ...prev, [productCode]: date }));
     };
 
-    // Handle temperature change
     const handleTemperatureChange = (productCode, value) => {
         setTemperatures(prev => ({ ...prev, [productCode]: value }));
     };
 
-    // Calculate tax based on products with tax1='Y'
     const calculateTax = () => {
         let taxableAmount = 0;
         products.forEach(product => {
@@ -494,13 +488,20 @@ export default function CreateGoodsReceiptSupplier({ onBack }) {
 
     return (
         <Box sx={{ padding: "20px", fontFamily: "Arial, sans-serif" }}>
+            <style>
+                {`
+                .react-datepicker-popper {
+                    z-index: 9999 !important;
+                }
+            `}
+            </style>
             {/* Back button */}
             <Button
                 startIcon={<ArrowBackIcon />}
                 onClick={onBack}
                 sx={{ marginBottom: "20px" }}
             >
-                Back to Goods Receipt Supplier
+                Back to Goods Receipt From Supplier
             </Button>
 
             {/* Main content */}
